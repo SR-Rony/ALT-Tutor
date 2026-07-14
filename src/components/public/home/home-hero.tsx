@@ -73,8 +73,8 @@ export function HomeHero() {
               <Image
                 src={heroImage.src}
                 alt={heroImage.alt}
-                width={800}
-                height={876}
+                width={729}
+                height={1086}
                 priority
                 sizes="(max-width: 768px) 70vw, 45vw"
                 className="h-auto w-full object-contain object-bottom drop-shadow-[0_24px_48px_rgba(26,43,94,0.12)]"

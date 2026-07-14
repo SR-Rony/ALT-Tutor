@@ -11,7 +11,7 @@ export const heroSecondaryCta = "Watch Video";
 
 export const heroImage = {
   src: "/hero-student.png",
-  alt: "Smiling student learning on her phone",
+  alt: "Confident learner ready for digital education",
 } as const;
 
 export const homeStats = [
