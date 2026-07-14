@@ -16,7 +16,7 @@ import {
 import { siteConfig } from "@/config";
 import { roleHomeRoutes, ROUTES } from "@/constants";
 import { useAuthSessionReady } from "@/providers/auth-session-provider";
-import { useAuthStore } from "@/store";
+import { useAppSelector } from "@/store";
 
 const programLinks = [
   { label: "All Courses", href: ROUTES.courses },
@@ -61,8 +61,8 @@ function FooterLink({ href, label }: { href: string; label: string }) {
 
 function AccountLinks() {
   const ready = useAuthSessionReady();
-  const user = useAuthStore((s) => s.user);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAppSelector((s) => s.auth.user);
+  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
 
   if (!ready) {
     return (

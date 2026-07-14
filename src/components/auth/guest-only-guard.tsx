@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { roleHomeRoutes, ROUTES } from "@/constants";
 import { useAuthSessionReady } from "@/providers/auth-session-provider";
-import { useAuthStore } from "@/store";
+import { useAppSelector } from "@/store";
 
 const guestOnlyPaths: string[] = [
   ROUTES.auth.login,
@@ -17,8 +17,8 @@ export function GuestOnlyGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const ready = useAuthSessionReady();
-  const user = useAuthStore((s) => s.user);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const user = useAppSelector((s) => s.auth.user);
+  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
 
   useEffect(() => {
     if (!ready) return;

@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { authService, roleHomeRoutes } from "@/services/auth.service";
-import { useAuthStore } from "@/store";
+import { setUser, useAppDispatch } from "@/store";
 import { registerSchema, type RegisterFormValues } from "@/validations";
 import { cn } from "@/utils";
 import type { ApiError } from "@/types";
@@ -19,7 +19,7 @@ function FieldError({ message }: { message?: string }) {
 
 export function RegisterForm() {
   const router = useRouter();
-  const setUser = useAuthStore((state) => state.setUser);
+  const dispatch = useAppDispatch();
   const [error, setError] = useState<string | null>(null);
   const {
     register,
@@ -38,7 +38,7 @@ export function RegisterForm() {
         phone: values.phone,
         password: values.password,
       });
-      setUser(user);
+      dispatch(setUser(user));
       router.push(roleHomeRoutes[user.role]);
     } catch (err) {
       const apiError = err as ApiError;

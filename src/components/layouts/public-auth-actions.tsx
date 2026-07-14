@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { roleHomeRoutes, ROUTES } from "@/constants";
 import { useAuthSessionReady } from "@/providers/auth-session-provider";
 import { authService } from "@/services/auth.service";
-import { useAuthStore } from "@/store";
+import { logout, useAppDispatch, useAppSelector } from "@/store";
 import { cn, getInitials } from "@/utils";
 
 function settingsRouteForRole(role: string) {
@@ -25,10 +25,10 @@ interface PublicAuthActionsProps {
 
 export function PublicAuthActions({ mobile = false, onNavigate }: PublicAuthActionsProps) {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const ready = useAuthSessionReady();
-  const user = useAuthStore((s) => s.user);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const clearUser = useAuthStore((s) => s.logout);
+  const user = useAppSelector((s) => s.auth.user);
+  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -47,7 +47,7 @@ export function PublicAuthActions({ mobile = false, onNavigate }: PublicAuthActi
     try {
       await authService.logout();
     } finally {
-      clearUser();
+      dispatch(logout());
       router.replace(ROUTES.home);
       router.refresh();
     }

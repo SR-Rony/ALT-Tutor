@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ROUTES } from "@/constants";
 import { authService } from "@/services/auth.service";
-import { useAuthStore, useUIStore } from "@/store";
+import {
+  logout,
+  setMobileSidebarOpen,
+  toggleSidebar,
+  useAppDispatch,
+  useAppSelector,
+} from "@/store";
 import { getInitials } from "@/utils";
 
 interface DashboardHeaderProps {
@@ -15,27 +21,25 @@ interface DashboardHeaderProps {
 
 export function DashboardHeader({ title = "Dashboard" }: DashboardHeaderProps) {
   const router = useRouter();
-  const user = useAuthStore((state) => state.user);
-  const clearUser = useAuthStore((state) => state.logout);
-  const toggleSidebar = useUIStore((state) => state.toggleSidebar);
-  const setMobileSidebarOpen = useUIStore((state) => state.setMobileSidebarOpen);
-  const mobileSidebarOpen = useUIStore((state) => state.mobileSidebarOpen);
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.auth.user);
+  const mobileSidebarOpen = useAppSelector((state) => state.ui.mobileSidebarOpen);
 
   async function handleLogout() {
     try {
       await authService.logout();
     } finally {
-      clearUser();
+      dispatch(logout());
       router.replace(ROUTES.auth.login);
     }
   }
 
   function handleToggle() {
     if (typeof window !== "undefined" && window.innerWidth < 1024) {
-      setMobileSidebarOpen(!mobileSidebarOpen);
+      dispatch(setMobileSidebarOpen(!mobileSidebarOpen));
       return;
     }
-    toggleSidebar();
+    dispatch(toggleSidebar());
   }
 
   return (

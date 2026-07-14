@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { env } from "@/config";
 import { authService, roleHomeRoutes } from "@/services/auth.service";
-import { useAuthStore } from "@/store";
+import { setUser, useAppDispatch } from "@/store";
 import { loginSchema, type LoginFormValues } from "@/validations";
 import { cn } from "@/utils";
 import type { ApiError } from "@/types";
@@ -44,7 +44,7 @@ function FieldError({ message }: { message?: string }) {
 
 export function LoginForm() {
   const router = useRouter();
-  const setUser = useAuthStore((state) => state.setUser);
+  const dispatch = useAppDispatch();
   const [error, setError] = useState<string | null>(null);
   const [redirecting, setRedirecting] = useState(false);
   const {
@@ -67,7 +67,7 @@ export function LoginForm() {
     try {
       setError(null);
       const user = await authService.login(values);
-      setUser(user);
+      dispatch(setUser(user));
       setRedirecting(true);
       router.push(roleHomeRoutes[user.role]);
       router.refresh();

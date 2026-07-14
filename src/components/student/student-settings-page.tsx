@@ -5,14 +5,14 @@ import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useStudentProfile, useUpdateStudentProfile } from "@/hooks";
-import { useAuthStore } from "@/store";
+import { setUser, useAppDispatch, useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
 
 export function StudentSettingsPage() {
   const { data, isLoading, error, refetch } = useStudentProfile();
   const updateProfile = useUpdateStudentProfile();
-  const setUser = useAuthStore((s) => s.setUser);
-  const user = useAuthStore((s) => s.user);
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((s) => s.auth.user);
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -46,12 +46,14 @@ export function StudentSettingsPage() {
         email: email.trim() || undefined,
       });
       if (user) {
-        setUser({
-          ...user,
-          name: updated.name,
-          email: updated.email ?? undefined,
-          avatar: updated.avatar ?? undefined,
-        });
+        dispatch(
+          setUser({
+            ...user,
+            name: updated.name,
+            email: updated.email ?? undefined,
+            avatar: updated.avatar ?? undefined,
+          })
+        );
       }
       setMessage("Profile updated successfully.");
     } catch (err) {

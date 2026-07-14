@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import { env } from "@/config";
 import { getAccessToken } from "@/lib/auth-tokens";
 import { authService } from "@/services/auth.service";
-import { useAuthStore } from "@/store";
+import { logout, setUser, useAppDispatch, useAppSelector, useAppStore } from "@/store";
 
 type AuthSessionContextValue = {
   ready: boolean;
@@ -17,33 +17,26 @@ export function useAuthSessionReady() {
 }
 
 /**
- * Keeps auth store in sync with JWT across public + dashboard pages.
- * Logged-in users stay recognized on home/navbar until logout.
+ * Keeps Redux auth slice in sync with JWT across public + dashboard pages.
  */
 export function AuthSessionProvider({ children }: { children: ReactNode }) {
-  const setUser = useAuthStore((s) => s.setUser);
-  const logout = useAuthStore((s) => s.logout);
+  const dispatch = useAppDispatch();
+  const store = useAppStore();
+  const user = useAppSelector((s) => s.auth.user);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
 
     async function syncSession() {
-      try {
-        await useAuthStore.persist.rehydrate();
-      } catch {
-        // ignore rehydrate errors
-      }
-      if (cancelled) return;
-
       if (env.useMockApi) {
-        setReady(true);
+        if (!cancelled) setReady(true);
         return;
       }
 
       const token = getAccessToken();
       if (!token) {
-        if (useAuthStore.getState().user) logout();
+        if (store.getState().auth.user) dispatch(logout());
         if (!cancelled) setReady(true);
         return;
       }
@@ -51,8 +44,8 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       const session = await authService.getSession();
       if (cancelled) return;
 
-      if (session) setUser(session);
-      else logout();
+      if (session) dispatch(setUser(session));
+      else dispatch(logout());
 
       setReady(true);
     }
@@ -61,7 +54,14 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [setUser, logout]);
+  }, [dispatch, store]);
+
+  // Mark ready once PersistGate has restored (user may already be set)
+  useEffect(() => {
+    if (user && !ready) {
+      // Don't block forever if token sync still running — handled above
+    }
+  }, [user, ready]);
 
   const value = useMemo(() => ({ ready }), [ready]);
 

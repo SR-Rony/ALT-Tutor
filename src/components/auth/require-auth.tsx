@@ -8,13 +8,13 @@ import { ROUTES, roleHomeRoutes } from "@/constants";
 import { getAccessToken } from "@/lib/auth-tokens";
 import { canAccessRoute } from "@/permissions/role.permissions";
 import { authService } from "@/services/auth.service";
-import { useAuthStore } from "@/store";
+import { logout, setUser, useAppDispatch, useAppStore } from "@/store";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const setUser = useAuthStore((state) => state.setUser);
-  const clearSession = useAuthStore((state) => state.logout);
+  const dispatch = useAppDispatch();
+  const store = useAppStore();
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -24,7 +24,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
       setReady(false);
 
       if (env.useMockApi) {
-        const current = useAuthStore.getState().user;
+        const current = store.getState().auth.user;
         if (!current) {
           router.replace(ROUTES.auth.login);
           return;
@@ -39,7 +39,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
 
       const token = getAccessToken();
       if (!token) {
-        clearSession();
+        dispatch(logout());
         router.replace(ROUTES.auth.login);
         return;
       }
@@ -48,12 +48,12 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
       if (cancelled) return;
 
       if (!session) {
-        clearSession();
+        dispatch(logout());
         router.replace(ROUTES.auth.login);
         return;
       }
 
-      setUser(session);
+      dispatch(setUser(session));
 
       if (!canAccessRoute(session.role, pathname)) {
         router.replace(roleHomeRoutes[session.role]);
@@ -67,8 +67,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-    // Intentionally omit `user` — session is loaded from API / store getState
-  }, [pathname, router, setUser, clearSession]);
+  }, [pathname, router, dispatch, store]);
 
   if (!ready) {
     return <LoadingScreen label="Loading your account..." />;

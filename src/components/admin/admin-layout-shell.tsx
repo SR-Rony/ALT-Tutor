@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard";
 import { adminFooterNav, adminNav } from "@/config";
 import { ROUTES } from "@/constants";
-import { useUIStore } from "@/store";
+import { useAppSelector } from "@/store";
 
 const adminPageTitles: Record<string, string> = {
   [ROUTES.admin.root]: "Dashboard",
@@ -23,7 +23,7 @@ function getAdminPageTitle(pathname: string) {
 
 export function AdminLayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const headerTitleOverride = useUIStore((state) => state.headerTitleOverride);
+  const headerTitleOverride = useAppSelector((state) => state.ui.headerTitleOverride);
 
   return (
     <DashboardShell

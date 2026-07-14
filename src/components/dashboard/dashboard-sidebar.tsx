@@ -26,7 +26,13 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { siteConfig } from "@/config";
 import { ROUTES } from "@/constants";
 import { authService } from "@/services/auth.service";
-import { useAuthStore, useUIStore } from "@/store";
+import {
+  logout,
+  setMobileSidebarOpen,
+  toggleSidebar,
+  useAppDispatch,
+  useAppSelector,
+} from "@/store";
 import type { NavItem } from "@/types";
 import { cn } from "@/utils";
 
@@ -106,14 +112,14 @@ function LogoutButton({
   onNavigate?: () => void;
 }) {
   const router = useRouter();
-  const clearUser = useAuthStore((s) => s.logout);
+  const dispatch = useAppDispatch();
 
   async function handleLogout() {
     onNavigate?.();
     try {
       await authService.logout();
     } finally {
-      clearUser();
+      dispatch(logout());
       router.replace(ROUTES.auth.login);
     }
   }
@@ -241,8 +247,9 @@ function DesktopSidebar({
 }
 
 function MobileSidebar({ items, footerItems, roleLabel }: DashboardSidebarProps) {
-  const open = useUIStore((s) => s.mobileSidebarOpen);
-  const setOpen = useUIStore((s) => s.setMobileSidebarOpen);
+  const open = useAppSelector((s) => s.ui.mobileSidebarOpen);
+  const dispatch = useAppDispatch();
+  const setOpen = (value: boolean) => dispatch(setMobileSidebarOpen(value));
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
@@ -269,12 +276,16 @@ function MobileSidebar({ items, footerItems, roleLabel }: DashboardSidebarProps)
 }
 
 export function DashboardSidebar(props: DashboardSidebarProps) {
-  const collapsed = useUIStore((s) => s.sidebarCollapsed);
-  const toggleSidebar = useUIStore((s) => s.toggleSidebar);
+  const collapsed = useAppSelector((s) => s.ui.sidebarCollapsed);
+  const dispatch = useAppDispatch();
 
   return (
     <>
-      <DesktopSidebar {...props} collapsed={collapsed} onToggle={toggleSidebar} />
+      <DesktopSidebar
+        {...props}
+        collapsed={collapsed}
+        onToggle={() => dispatch(toggleSidebar())}
+      />
       <MobileSidebar {...props} />
     </>
   );
