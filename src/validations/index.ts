@@ -1,1 +1,1 @@
-export { loginSchema, type LoginFormValues } from "./auth.schema";
+export { loginSchema, registerSchema, type LoginFormValues, type RegisterFormValues } from "./auth.schema";

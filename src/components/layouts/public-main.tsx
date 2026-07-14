@@ -9,6 +9,6 @@ export function PublicMain({ children }: { children: React.ReactNode }) {
   const isHomePage = pathname === ROUTES.home;
 
   return (
-    <main className={cn("flex-1", !isHomePage && "pt-16 lg:pt-[4.25rem]")}>{children}</main>
+    <main className={cn("flex-1", !isHomePage && "pt-16 lg:pt-[4.5rem]")}>{children}</main>
   );
 }

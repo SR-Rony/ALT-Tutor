@@ -2,148 +2,191 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowRight,
   BookOpen,
+  ChevronDown,
   HelpCircle,
-  Home,
   Info,
-  LogIn,
-  Mail,
   Menu,
-  UserPlus,
+  Phone,
   Users,
   X,
   type LucideIcon,
 } from "lucide-react";
-import { publicNav } from "@/config";
+import { publicNav, siteConfig } from "@/config";
 import { ROUTES } from "@/constants";
 import type { NavItem } from "@/types/navigation.types";
 import { Logo } from "@/components/shared";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/utils";
 
 const navIcons: Record<string, LucideIcon> = {
-  home: Home,
   book: BookOpen,
   info: Info,
   users: Users,
-  mail: Mail,
   help: HelpCircle,
 };
 
-function isNavActive(pathname: string, href: string) {
-  if (href === ROUTES.home) return pathname === ROUTES.home;
-  return pathname === href || pathname.startsWith(`${href}/`);
+function isNavActive(pathname: string, item: NavItem): boolean {
+  if (item.href) {
+    if (item.href === ROUTES.home) return pathname === ROUTES.home;
+    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+  }
+  return item.children?.some((child) => child.href && isNavActive(pathname, child)) ?? false;
 }
 
-function NavLink({
-  item,
-  pathname,
-  onNavigate,
-  variant = "desktop",
-  transparent = false,
-}: {
-  item: NavItem;
-  pathname: string;
-  onNavigate?: () => void;
-  variant?: "desktop" | "mobile";
-  transparent?: boolean;
-}) {
-  if (!item.href) return null;
+function DesktopNavItem({ item, pathname }: { item: NavItem; pathname: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const active = isNavActive(pathname, item);
+  const hasChildren = Boolean(item.children?.length);
 
-  const active = isNavActive(pathname, item.href);
-  const Icon = item.iconName ? navIcons[item.iconName] : null;
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: MouseEvent) => {
+      if (ref.current && !ref.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => document.removeEventListener("mousedown", onPointerDown);
+  }, [open]);
 
-  if (variant === "mobile") {
+  if (hasChildren) {
     return (
-      <Link
-        href={item.href}
-        onClick={onNavigate}
-        className={cn(
-          "flex items-center gap-3 rounded-xl px-4 py-3.5 text-base font-medium transition-colors",
-          active
-            ? "bg-primary/10 text-primary"
-            : "text-foreground hover:bg-muted"
-        )}
-      >
-        {Icon ? <Icon className="h-5 w-5 shrink-0" aria-hidden /> : null}
-        {item.title}
-      </Link>
+      <div ref={ref} className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+        <button
+          type="button"
+          className={cn(
+            "inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+            active ? "text-foreground" : "text-foreground/75 hover:bg-primary-muted/60 hover:text-primary"
+          )}
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
+          {item.title}
+          <ChevronDown
+            className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-180")}
+            aria-hidden
+          />
+        </button>
+
+        <AnimatePresence>
+          {open ? (
+            <motion.div
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 6 }}
+              transition={{ duration: 0.15 }}
+              className="absolute left-0 top-full z-50 min-w-[11rem] pt-2"
+            >
+              <div className="overflow-hidden rounded-xl border border-border bg-card py-1.5 shadow-[0_16px_40px_-12px_rgba(24,119,242,0.18)]">
+                {item.children?.map((child) =>
+                  child.href ? (
+                    <Link
+                      key={child.title}
+                      href={child.href}
+                      className="block px-4 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-primary-muted hover:text-primary"
+                      onClick={() => setOpen(false)}
+                    >
+                      {child.title}
+                    </Link>
+                  ) : null
+                )}
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+      </div>
     );
   }
+
+  if (!item.href) return null;
 
   return (
     <Link
       href={item.href}
       className={cn(
-        "relative rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
-        transparent ? "hover:bg-foreground/5" : "hover:bg-muted"
+        "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+        active ? "text-foreground" : "text-foreground/75 hover:text-foreground"
       )}
     >
       {item.title}
-      <span
-        className={cn(
-          "absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-primary transition-transform duration-200",
-          active ? "scale-x-100" : "scale-x-0"
-        )}
-        aria-hidden
-      />
     </Link>
   );
 }
 
-function DesktopAuthButtons({ transparent }: { transparent: boolean }) {
-  return (
-    <div className="flex items-center gap-2.5">
-      <Link
-        href={ROUTES.auth.login}
-        className={cn(
-          "inline-flex h-10 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition-all",
-          transparent
-            ? "text-foreground hover:bg-foreground/5"
-            : "border border-border bg-card text-foreground hover:bg-muted"
-        )}
-      >
-        <LogIn className="h-4 w-4" aria-hidden />
-        Sign in
-      </Link>
-      <Link
-        href={ROUTES.auth.register}
-        className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-5 text-sm font-semibold text-primary-foreground shadow-brand transition-all duration-300 hover:from-primary-hover hover:to-accent hover:-translate-y-0.5 hover:shadow-[0_16px_36px_-10px_rgba(24,119,242,0.45)]"
-      >
-        Get started
-        <ArrowRight className="h-4 w-4" aria-hidden />
-      </Link>
-    </div>
-  );
-}
+function MobileNavItem({
+  item,
+  pathname,
+  onNavigate,
+}: {
+  item: NavItem;
+  pathname: string;
+  onNavigate: () => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const active = isNavActive(pathname, item);
+  const Icon = item.iconName ? navIcons[item.iconName] : null;
+  const hasChildren = Boolean(item.children?.length);
 
-function MobileDrawerAuthButtons({ onNavigate }: { onNavigate: () => void }) {
-  return (
-    <div className="space-y-3">
-      <p className="text-center text-xs font-medium text-muted-foreground">Start your learning journey today</p>
-      <div className="grid grid-cols-2 gap-2.5">
-        <Link
-          href={ROUTES.auth.login}
-          onClick={onNavigate}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 text-sm font-semibold text-foreground transition-colors hover:bg-muted active:scale-[0.98]"
+  if (hasChildren) {
+    return (
+      <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
+        <button
+          type="button"
+          className={cn(
+            "flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left text-base font-medium transition-colors",
+            active ? "text-primary" : "text-foreground"
+          )}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((value) => !value)}
         >
-          <LogIn className="h-4 w-4 shrink-0" aria-hidden />
-          Sign in
-        </Link>
-        <Link
-          href={ROUTES.auth.register}
-          onClick={onNavigate}
-          className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-primary to-accent px-3 text-sm font-semibold text-primary-foreground shadow-brand transition-all duration-300 hover:from-primary-hover hover:to-accent active:scale-[0.98]"
-        >
-          <UserPlus className="h-4 w-4 shrink-0" aria-hidden />
-          Get started
-        </Link>
+          <span className="flex items-center gap-3">
+            {Icon ? <Icon className="h-5 w-5 shrink-0" aria-hidden /> : null}
+            {item.title}
+          </span>
+          <ChevronDown
+            className={cn("h-4 w-4 shrink-0 transition-transform duration-200", expanded && "rotate-180")}
+            aria-hidden
+          />
+        </button>
+        {expanded ? (
+          <div className="border-t border-border/70 bg-muted/30 px-2 py-2">
+            {item.children?.map((child) =>
+              child.href ? (
+                <Link
+                  key={child.title}
+                  href={child.href}
+                  onClick={onNavigate}
+                  className="block rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-card hover:text-primary"
+                >
+                  {child.title}
+                </Link>
+              ) : null
+            )}
+          </div>
+        ) : null}
       </div>
-    </div>
+    );
+  }
+
+  if (!item.href) return null;
+
+  return (
+    <Link
+      href={item.href}
+      onClick={onNavigate}
+      className={cn(
+        "flex items-center gap-3 rounded-xl px-4 py-3.5 text-base font-medium transition-colors",
+        active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
+      )}
+    >
+      {Icon ? <Icon className="h-5 w-5 shrink-0" aria-hidden /> : null}
+      {item.title}
+    </Link>
   );
 }
 
@@ -151,24 +194,11 @@ export function PublicHeader() {
   const pathname = usePathname();
   const prefersReducedMotion = useReducedMotion();
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  const isHomePage = pathname === ROUTES.home;
-  const isTransparent = isHomePage && !scrolled && !mobileOpen;
-  const showSolidHeader = !isTransparent;
 
   const closeMobileMenu = () => setMobileOpen(false);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
     setMobileOpen(false);
-    setScrolled(window.scrollY > 20);
   }, [pathname]);
 
   useEffect(() => {
@@ -187,46 +217,44 @@ export function PublicHeader() {
   }, []);
 
   return (
-    <header
-      className={cn(
-        "fixed inset-x-0 top-0 z-50 transition-all duration-300",
-        showSolidHeader
-          ? "border-b border-border bg-card/95 shadow-[0_8px_30px_-12px_rgba(24,119,242,0.08)] backdrop-blur-md"
-          : "border-b border-transparent bg-transparent shadow-none"
-      )}
-    >
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 md:px-6 lg:h-[4.25rem]">
-        <Logo className="shrink-0" showTagline="lg" />
+    <header className="sticky top-0 z-50 border-b border-border/60 bg-card shadow-[0_4px_24px_-8px_rgba(24,119,242,0.08)]">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 md:px-6 lg:h-[4.5rem] lg:gap-6">
+        <Logo className="shrink-0" />
 
-        {/* Desktop: centered nav links */}
-        <nav
-          aria-label="Main navigation"
-          className="hidden flex-1 items-center justify-center gap-1 xl:gap-2 lg:flex"
-        >
+        <nav aria-label="Main navigation" className="hidden flex-1 items-center justify-center gap-0.5 xl:gap-1 lg:flex">
           {publicNav.map((item) => (
-            <NavLink key={item.title} item={item} pathname={pathname} transparent={isTransparent} />
+            <DesktopNavItem key={item.title} item={item} pathname={pathname} />
           ))}
         </nav>
 
-        {/* Desktop (lg+): Sign in + Get started */}
-        <div className="hidden shrink-0 lg:block">
-          <DesktopAuthButtons transparent={isTransparent} />
-        </div>
+        <div className="ml-auto flex items-center gap-2 sm:gap-3 lg:ml-0 lg:shrink-0">
+          <a
+            href={`tel:${siteConfig.phone}`}
+            className="hidden items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-foreground transition-colors hover:text-primary md:inline-flex"
+          >
+            <Phone className="h-4 w-4 text-primary" aria-hidden />
+            {siteConfig.phone}
+          </a>
 
-        {/* Mobile: logo + menu toggle only */}
-        <button
-          type="button"
-          className={cn(
-            "ml-auto inline-flex h-10 w-10 items-center justify-center rounded-xl text-foreground transition-colors lg:hidden",
-            isTransparent ? "hover:bg-foreground/5" : "border border-border bg-card hover:bg-muted"
-          )}
-          aria-expanded={mobileOpen}
-          aria-controls="mobile-navigation"
-          aria-label={mobileOpen ? "Close menu" : "Open menu"}
-          onClick={() => setMobileOpen((open) => !open)}
-        >
-          {mobileOpen ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
-        </button>
+          <Button asChild variant="secondary" size="pill" className="hidden sm:inline-flex lg:px-5">
+            <Link href={ROUTES.auth.login}>Log In / Sign Up</Link>
+          </Button>
+
+          <Button asChild variant="secondary" size="sm" className="rounded-full px-3 sm:hidden">
+            <Link href={ROUTES.auth.login}>Log In</Link>
+          </Button>
+
+          <button
+            type="button"
+            className="inline-flex h-10 w-10 cursor-pointer items-center justify-center rounded-xl border border-border bg-card text-foreground transition-all hover:border-primary/30 hover:bg-primary-muted hover:text-primary lg:hidden"
+            aria-expanded={mobileOpen}
+            aria-controls="mobile-navigation"
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
+            onClick={() => setMobileOpen((open) => !open)}
+          >
+            {mobileOpen ? <X className="h-5 w-5" aria-hidden /> : <Menu className="h-5 w-5" aria-hidden />}
+          </button>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -256,21 +284,26 @@ export function PublicHeader() {
             >
               <nav
                 aria-label="Mobile navigation"
-                className="mx-auto w-full max-w-7xl flex-1 space-y-1 overflow-y-auto p-4"
+                className="mx-auto w-full max-w-7xl flex-1 space-y-2 overflow-y-auto p-4"
               >
                 {publicNav.map((item) => (
-                  <NavLink
-                    key={item.title}
-                    item={item}
-                    pathname={pathname}
-                    variant="mobile"
-                    onNavigate={closeMobileMenu}
-                  />
+                  <MobileNavItem key={item.title} item={item} pathname={pathname} onNavigate={closeMobileMenu} />
                 ))}
               </nav>
 
-              <div className="sticky bottom-0 border-t border-border bg-gradient-to-t from-card via-card to-card/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] shadow-[0_-12px_32px_-20px_rgba(15,23,42,0.12)]">
-                <MobileDrawerAuthButtons onNavigate={closeMobileMenu} />
+              <div className="sticky bottom-0 space-y-3 border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+                <a
+                  href={`tel:${siteConfig.phone}`}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-border bg-muted/50 py-3 text-sm font-semibold text-foreground"
+                >
+                  <Phone className="h-4 w-4 text-primary" aria-hidden />
+                  Call {siteConfig.phone}
+                </a>
+                <Button asChild variant="default" size="pill" className="w-full">
+                  <Link href={ROUTES.auth.register} onClick={closeMobileMenu}>
+                    Log In / Sign Up
+                  </Link>
+                </Button>
               </div>
             </motion.div>
           </>

@@ -3,6 +3,7 @@ export const siteConfig = {
   tagline: "Learn. Teach. Grow.",
   description: "Alt Tutor — your learning platform for students, teachers, and institutions.",
   url: process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000",
+  phone: "16780",
   links: {
     support: "/help",
   },

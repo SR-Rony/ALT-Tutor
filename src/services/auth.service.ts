@@ -17,6 +17,27 @@ export const authService = {
     return response.data;
   },
 
+  async register(data: { name: string; email: string; password: string }): Promise<User> {
+    if (env.useMockApi) {
+      await sleep(500);
+      const existing = mockUsers.find((item) => item.email === data.email);
+      if (existing) {
+        throw new Error("An account with this email already exists.");
+      }
+
+      return {
+        id: `user-${Date.now()}`,
+        email: data.email,
+        name: data.name,
+        role: UserRole.STUDENT,
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    const response = await apiClient.post<User>("/auth/register", data);
+    return response.data;
+  },
+
   async logout(): Promise<void> {
     if (env.useMockApi) {
       await sleep(200);

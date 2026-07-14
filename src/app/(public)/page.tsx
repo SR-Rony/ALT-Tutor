@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { GraduationCap, LayoutDashboard, ShieldCheck } from "lucide-react";
 import { ROUTES } from "@/constants";
-import { HomeHero, HomeStatsSection } from "@/components/public/home";
+import { HomeHero } from "@/components/public/home";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -33,9 +33,8 @@ export default function HomePage() {
   return (
     <>
       <HomeHero />
-      <HomeStatsSection />
 
-      <section className="border-t border-border bg-section">
+      <section className="border-t border-border bg-section pt-14 md:pt-16 lg:pt-20">
         <div className="mx-auto max-w-7xl px-4 py-16 md:px-6 lg:py-20">
           <div className="mx-auto max-w-2xl text-center">
             <h2 className="text-2xl font-bold text-foreground sm:text-3xl">

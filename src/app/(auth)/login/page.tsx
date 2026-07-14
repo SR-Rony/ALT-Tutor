@@ -1,19 +1,19 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthPageShell } from "@/components/auth";
 import { LoginForm } from "@/components/forms/login-form";
+import { ROUTES } from "@/constants";
 
 export const metadata = { title: "Login" };
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-shell p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Sign in</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <LoginForm />
-        </CardContent>
-      </Card>
-    </div>
+    <AuthPageShell
+      title="Welcome back"
+      subtitle="Sign in to your Alt Tutor account and continue your learning journey."
+      footerPrompt="Don't have an account?"
+      footerLinkText="Register"
+      footerHref={ROUTES.auth.register}
+    >
+      <LoginForm />
+    </AuthPageShell>
   );
 }

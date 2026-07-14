@@ -9,6 +9,12 @@ import { Input } from "@/components/ui/input";
 import { authService, roleHomeRoutes } from "@/services/auth.service";
 import { useAuthStore } from "@/store";
 import { loginSchema, type LoginFormValues } from "@/validations";
+import { cn } from "@/utils";
+
+function FieldError({ message }: { message?: string }) {
+  if (!message) return null;
+  return <p className="mt-1.5 text-xs font-medium text-[#ef3239]">{message}</p>;
+}
 
 export function LoginForm() {
   const router = useRouter();
@@ -17,7 +23,7 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
-    formState: { isSubmitting },
+    formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: { email: "student@example.com", password: "password" },
@@ -30,22 +36,49 @@ export function LoginForm() {
       setUser(user);
       router.push(roleHomeRoutes[user.role]);
     } catch {
-      setError("Login failed. Please try again.");
+      setError("Login failed. Please check your email and password.");
     }
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div>
-        <label className="mb-2 block text-sm font-medium">Email</label>
-        <Input type="email" placeholder="you@example.com" {...register("email")} />
+        <label htmlFor="login-email" className="mb-2 block text-sm font-semibold text-[#1a2b5e]">
+          Email address
+        </label>
+        <Input
+          id="login-email"
+          type="email"
+          autoComplete="email"
+          placeholder="you@example.com"
+          className={cn("h-11", errors.email && "border-[#ef3239]/50 focus:border-[#ef3239] focus:ring-[#ef3239]/15")}
+          {...register("email")}
+        />
+        <FieldError message={errors.email?.message} />
       </div>
+
       <div>
-        <label className="mb-2 block text-sm font-medium">Password</label>
-        <Input type="password" placeholder="••••••••" {...register("password")} />
+        <label htmlFor="login-password" className="mb-2 block text-sm font-semibold text-[#1a2b5e]">
+          Password
+        </label>
+        <Input
+          id="login-password"
+          type="password"
+          autoComplete="current-password"
+          placeholder="Enter your password"
+          className={cn("h-11", errors.password && "border-[#ef3239]/50 focus:border-[#ef3239] focus:ring-[#ef3239]/15")}
+          {...register("password")}
+        />
+        <FieldError message={errors.password?.message} />
       </div>
-      {error ? <p className="text-sm text-primary">{error}</p> : null}
-      <Button type="submit" className="w-full" disabled={isSubmitting}>
+
+      {error ? (
+        <div className="rounded-xl border border-[#ef3239]/20 bg-[#ef3239]/5 px-4 py-3 text-sm font-medium text-[#ef3239]">
+          {error}
+        </div>
+      ) : null}
+
+      <Button type="submit" variant="default" size="pill" className="w-full text-base" disabled={isSubmitting}>
         {isSubmitting ? "Signing in..." : "Sign in"}
       </Button>
     </form>
