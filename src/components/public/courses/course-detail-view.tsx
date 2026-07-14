@@ -187,6 +187,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                       key={chapter.id}
                       index={index}
                       title={chapter.title}
+                      description={chapter.description}
                       lessons={chapter.lessons}
                       defaultOpen={index === 0}
                     />
@@ -278,11 +279,13 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
 function ChapterAccordion({
   index,
   title,
+  description,
   lessons,
   defaultOpen,
 }: {
   index: number;
   title: string;
+  description?: string | null;
   lessons: { id: string; title: string; type: string; duration?: number | null }[];
   defaultOpen?: boolean;
 }) {
@@ -301,6 +304,9 @@ function ChapterAccordion({
             Chapter {index + 1}
           </p>
           <p className="mt-0.5 text-sm font-bold text-[#1a2b5e] sm:text-base">{title}</p>
+          {description ? (
+            <p className="mt-1 text-xs leading-relaxed text-[#64748b] sm:text-sm">{description}</p>
+          ) : null}
         </div>
         <div className="flex shrink-0 items-center gap-2">
           <span className="hidden text-xs font-semibold text-[#64748b] sm:inline">

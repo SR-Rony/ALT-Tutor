@@ -20,6 +20,13 @@ export type {
   CoursesQuery,
 } from "./course.types";
 export type {
+  ChapterInput,
+  CurriculumChapter,
+  CurriculumLesson,
+  LessonInput,
+  LessonType,
+} from "./curriculum.types";
+export type {
   AdminExampleItem,
   AdminExampleItemStatus,
   AdminExampleManagementData,

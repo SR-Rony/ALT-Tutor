@@ -39,6 +39,7 @@ type BackendLesson = {
 type BackendChapter = {
   id: string;
   title: string;
+  description?: string | null;
   order: number;
   lessons?: BackendLesson[];
 };
@@ -101,6 +102,7 @@ function mapChapter(raw: BackendChapter): CourseChapter {
   return {
     id: raw.id,
     title: raw.title,
+    description: raw.description ?? null,
     order: raw.order,
     lessons: (raw.lessons ?? []).map(mapLesson).sort((a, b) => a.order - b.order),
   };

@@ -44,6 +44,7 @@ export interface CourseLesson {
 export interface CourseChapter {
   id: string;
   title: string;
+  description?: string | null;
   order: number;
   lessons: CourseLesson[];
 }

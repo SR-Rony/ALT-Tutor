@@ -20,6 +20,21 @@ export {
 } from "./use-admin-dashboard";
 export { useTeacherDashboard } from "./use-role-dashboard";
 export {
+  useTeacherCourses,
+  useTeacherCreateCourse,
+  useTeacherUpdateCourse,
+  useTeacherDeleteCourse,
+} from "./use-teacher-courses";
+export {
+  useCourseCurriculum,
+  useCreateChapter,
+  useUpdateChapter,
+  useDeleteChapter,
+  useCreateLesson,
+  useUpdateLesson,
+  useDeleteLesson,
+} from "./use-curriculum";
+export {
   useStudentDashboard,
   useStudentCourses,
   useStudentSubmissions,

@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Eye,
   FilePenLine,
+  ListTree,
   Pencil,
   Plus,
   RefreshCw,
@@ -370,6 +371,17 @@ export function AdminCoursesPage() {
                     <td className="px-5 py-4 text-muted-foreground">{formatShortDate(course.createdAt)}</td>
                     <td className="px-5 py-4">
                       <AdminActionsBar>
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10"
+                          title="Manage curriculum"
+                        >
+                          <Link href={ROUTES.admin.courseCurriculum(course.id)} aria-label="Manage curriculum">
+                            <ListTree className="h-4 w-4" aria-hidden />
+                          </Link>
+                        </Button>
                         <AdminIconAction
                           label="Edit course"
                           icon={Pencil}

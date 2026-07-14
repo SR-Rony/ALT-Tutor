@@ -21,6 +21,7 @@ export const ROUTES = {
   teacher: {
     root: "/teacher",
     courses: "/teacher/courses",
+    courseCurriculum: (id: string) => `/teacher/courses/${id}`,
     chat: "/teacher/chat",
     settings: "/teacher/settings",
   },
@@ -28,6 +29,7 @@ export const ROUTES = {
     root: "/admin",
     users: "/admin/users",
     courses: "/admin/courses",
+    courseCurriculum: (id: string) => `/admin/courses/${id}`,
     categories: "/admin/categories",
     support: "/admin/support",
     supportDetail: (ticketId: string) => `/admin/support/${ticketId}`,

@@ -11,6 +11,13 @@ export const queryKeys = {
     catalog: (filters: object = {}) => ["courses", "catalog", filters] as const,
     detail: (slug: string) => ["courses", "detail", slug] as const,
   },
+  curriculum: {
+    byCourse: (courseId: string) => ["curriculum", courseId] as const,
+  },
+  teacher: {
+    dashboard: ["teacher", "dashboard"] as const,
+    courses: ["teacher", "courses"] as const,
+  },
   admin: {
     example: ["admin", "example"] as const,
     dashboard: ["admin", "dashboard"] as const,
@@ -18,9 +25,6 @@ export const queryKeys = {
     courses: ["admin", "courses"] as const,
     categories: ["admin", "categories"] as const,
     payments: ["admin", "payments"] as const,
-  },
-  teacher: {
-    dashboard: ["teacher", "dashboard"] as const,
   },
   student: {
     dashboard: ["student", "dashboard"] as const,
