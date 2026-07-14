@@ -7,7 +7,10 @@ export {
   useAdminCourses,
   useAdminPayments,
   useUpdateUserStatus,
+  useUpdateUserRole,
+  useDeleteUser,
   useUpdateCourseStatus,
+  useDeleteCourse,
 } from "./use-admin-dashboard";
 export { useTeacherDashboard } from "./use-role-dashboard";
 export {

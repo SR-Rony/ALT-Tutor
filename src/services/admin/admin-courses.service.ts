@@ -27,4 +27,17 @@ export const adminCoursesService = {
     const response = await apiClient.patch<AdminCourse>(`/courses/${id}/status`, { status });
     return response.data;
   },
+
+  async remove(id: string): Promise<{ message: string }> {
+    if (env.useMockApi) {
+      await sleep(200);
+      const index = mockAdminCourses.findIndex((c) => c.id === id);
+      if (index < 0) throw { message: "Course not found", status: 404 };
+      mockAdminCourses.splice(index, 1);
+      return { message: "Course deleted successfully" };
+    }
+
+    const response = await apiClient.delete<{ message: string }>(`/courses/${id}`);
+    return response.data ?? { message: "Course deleted successfully" };
+  },
 };

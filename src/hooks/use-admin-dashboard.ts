@@ -8,7 +8,7 @@ import {
   adminUsersService,
   dashboardService,
 } from "@/services";
-import type { CourseStatus } from "@/types/admin-dashboard.types";
+import type { CourseStatus, BackendRole } from "@/types/admin-dashboard.types";
 
 export function useAdminStats() {
   return useQuery({
@@ -51,12 +51,49 @@ export function useUpdateUserStatus() {
   });
 }
 
+export function useUpdateUserRole() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, role }: { id: string; role: BackendRole }) =>
+      adminUsersService.updateRole(id, role),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.users });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+    },
+  });
+}
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => adminUsersService.remove(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.users });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+    },
+  });
+}
+
 export function useUpdateCourseStatus() {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: CourseStatus }) =>
       adminCoursesService.updateStatus(id, status),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+    },
+  });
+}
+
+export function useDeleteCourse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => adminCoursesService.remove(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
