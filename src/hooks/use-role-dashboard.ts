@@ -10,10 +10,3 @@ export function useTeacherDashboard() {
     queryFn: () => dashboardService.getTeacherStats(),
   });
 }
-
-export function useStudentDashboard() {
-  return useQuery({
-    queryKey: queryKeys.student.dashboard,
-    queryFn: () => dashboardService.getStudentStats(),
-  });
-}

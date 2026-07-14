@@ -18,5 +18,11 @@ export const queryKeys = {
   },
   student: {
     dashboard: ["student", "dashboard"] as const,
+    courses: ["student", "courses"] as const,
+    submissions: ["student", "submissions"] as const,
+    notifications: ["student", "notifications"] as const,
+    payments: ["student", "payments"] as const,
+    profile: ["student", "profile"] as const,
+    assignments: (courseId: string) => ["student", "assignments", courseId] as const,
   },
 } as const;

@@ -23,3 +23,13 @@ export type {
   CourseStatus,
   PaymentStatus,
 } from "./admin-dashboard.types";
+export type {
+  StudentAssignment,
+  StudentCourseSummary,
+  StudentDashboardStats,
+  StudentEnrollment,
+  StudentNotification,
+  StudentPayment,
+  StudentProfile,
+  StudentSubmission,
+} from "./student-dashboard.types";

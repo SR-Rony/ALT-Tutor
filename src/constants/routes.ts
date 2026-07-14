@@ -13,7 +13,9 @@ export const ROUTES = {
   student: {
     root: "/student",
     courses: "/student/courses",
-    chat: "/student/chat",
+    assignments: "/student/assignments",
+    notifications: "/student/notifications",
+    payments: "/student/payments",
     settings: "/student/settings",
   },
   teacher: {

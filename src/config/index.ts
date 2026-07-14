@@ -6,6 +6,7 @@ export { dashboardConfig } from "./dashboard.config";
 export {
   publicNav,
   studentNav,
+  studentFooterNav,
   teacherNav,
   teacherFooterNav,
   adminNav,

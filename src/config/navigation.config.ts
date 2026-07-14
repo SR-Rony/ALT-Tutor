@@ -39,7 +39,12 @@ export const publicNav: NavItem[] = [
 export const studentNav: NavItem[] = [
   { title: "Overview", href: ROUTES.student.root, iconName: "dashboard" },
   { title: "My Courses", href: ROUTES.student.courses, iconName: "book" },
-  { title: "Messages", href: ROUTES.student.chat, iconName: "messages" },
+  { title: "Assignments", href: ROUTES.student.assignments, iconName: "clipboard" },
+  { title: "Notifications", href: ROUTES.student.notifications, iconName: "bell" },
+  { title: "Payments", href: ROUTES.student.payments, iconName: "wallet" },
+];
+
+export const studentFooterNav: NavItem[] = [
   { title: "Settings", href: ROUTES.student.settings, iconName: "settings" },
 ];
 

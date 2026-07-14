@@ -4,9 +4,11 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Bell,
   BookOpen,
   ChevronLeft,
   ChevronRight,
+  ClipboardList,
   Grid3X3,
   Headphones,
   LayoutDashboard,
@@ -15,6 +17,7 @@ import {
   Settings,
   UserCog,
   Users,
+  Wallet,
   type LucideIcon,
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -36,6 +39,9 @@ const navIcons: Record<string, LucideIcon> = {
   settings: Settings,
   users: Users,
   messages: MessageSquare,
+  clipboard: ClipboardList,
+  bell: Bell,
+  wallet: Wallet,
 };
 
 interface DashboardSidebarProps {
