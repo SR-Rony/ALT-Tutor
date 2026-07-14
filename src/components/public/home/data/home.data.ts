@@ -186,6 +186,27 @@ export const aboutSection = {
   },
 } as const;
 
+export const helpSection = {
+  call: {
+    title: "Need help? Call us anytime",
+    description: "Our support team is ready to guide you with classes, courses, and account questions.",
+    hours: "9:00 AM – 10:00 PM",
+    note: "*Standard call rates apply from any number",
+    image: "/help-student.png",
+    imageAlt: "Student getting help on her phone",
+  },
+  videos: {
+    title: "Free Video Library",
+    cta: "Watch Videos",
+    href: "/courses",
+  },
+  facebook: {
+    title: "Alt Tutor Facebook Group",
+    cta: "Join the Group",
+    href: "https://facebook.com",
+  },
+} as const;
+
 /** @deprecated */
 export const heroBadge = "Trusted by 500+ institutions worldwide";
 

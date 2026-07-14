@@ -2,6 +2,7 @@ import {
   HomeAboutSection,
   HomeAcademicProgram,
   HomeAnimatedLessons,
+  HomeHelpSection,
   HomeHero,
 } from "@/components/public/home";
 
@@ -12,6 +13,7 @@ export default function HomePage() {
       <HomeAcademicProgram />
       <HomeAnimatedLessons />
       <HomeAboutSection />
+      <HomeHelpSection />
     </>
   );
 }
