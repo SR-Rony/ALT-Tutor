@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   BookOpen,
@@ -37,6 +37,34 @@ function isNavActive(pathname: string, item: NavItem): boolean {
   return item.children?.some((child) => child.href && isNavActive(pathname, child)) ?? false;
 }
 
+function NavLabel({
+  children,
+  active = false,
+  open = false,
+}: {
+  children: ReactNode;
+  active?: boolean;
+  open?: boolean;
+}) {
+  return (
+    <span
+      className={cn(
+        "relative inline-flex items-center gap-1 text-sm font-medium transition-colors duration-300",
+        active || open ? "text-[#ef3239]" : "text-[#1a2b5e]/75 group-hover:text-[#ef3239]"
+      )}
+    >
+      {children}
+      <span
+        aria-hidden
+        className={cn(
+          "absolute inset-x-0 -bottom-1 h-0.5 origin-left rounded-full bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239] transition-transform duration-300 ease-out",
+          active || open ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+        )}
+      />
+    </span>
+  );
+}
+
 function DesktopNavItem({ item, pathname }: { item: NavItem; pathname: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -56,21 +84,25 @@ function DesktopNavItem({ item, pathname }: { item: NavItem; pathname: string })
 
   if (hasChildren) {
     return (
-      <div ref={ref} className="relative" onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}>
+      <div
+        ref={ref}
+        className="group relative"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+      >
         <button
           type="button"
-          className={cn(
-            "inline-flex cursor-pointer items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-            active ? "text-foreground" : "text-foreground/75 hover:bg-primary-muted/60 hover:text-primary"
-          )}
+          className="inline-flex cursor-pointer items-center gap-1 px-3 py-2"
           aria-expanded={open}
           onClick={() => setOpen((value) => !value)}
         >
-          {item.title}
-          <ChevronDown
-            className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-180")}
-            aria-hidden
-          />
+          <NavLabel active={active} open={open}>
+            {item.title}
+            <ChevronDown
+              className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-180")}
+              aria-hidden
+            />
+          </NavLabel>
         </button>
 
         <AnimatePresence>
@@ -80,21 +112,37 @@ function DesktopNavItem({ item, pathname }: { item: NavItem; pathname: string })
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.15 }}
-              className="absolute left-0 top-full z-50 min-w-[11rem] pt-2"
+              className="absolute left-0 top-full z-50 min-w-[12rem] pt-2"
             >
-              <div className="overflow-hidden rounded-xl border border-border bg-card py-1.5 shadow-[0_16px_40px_-12px_rgba(24,119,242,0.18)]">
-                {item.children?.map((child) =>
-                  child.href ? (
+              <div className="overflow-hidden rounded-xl border border-[#e8edf5] bg-white py-2 shadow-[0_16px_40px_-12px_rgba(24,119,242,0.18)]">
+                {item.children?.map((child) => {
+                  if (!child.href) return null;
+                  const childActive = isNavActive(pathname, child);
+                  return (
                     <Link
                       key={child.title}
                       href={child.href}
-                      className="block px-4 py-2.5 text-sm text-foreground/80 transition-colors hover:bg-primary-muted hover:text-primary"
+                      className={cn(
+                        "group/item relative mx-1.5 flex items-center rounded-lg px-3 py-2.5 text-sm transition-colors duration-300",
+                        childActive
+                          ? "bg-[#fff1ee] font-semibold text-[#ef3239]"
+                          : "text-[#58688b] hover:bg-[#fff1ee] hover:text-[#ef3239]"
+                      )}
                       onClick={() => setOpen(false)}
                     >
-                      {child.title}
+                      <span className="relative">
+                        {child.title}
+                        <span
+                          aria-hidden
+                          className={cn(
+                            "absolute inset-x-0 -bottom-0.5 h-px origin-left bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239] transition-transform duration-300 ease-out",
+                            childActive ? "scale-x-100" : "scale-x-0 group-hover/item:scale-x-100"
+                          )}
+                        />
+                      </span>
                     </Link>
-                  ) : null
-                )}
+                  );
+                })}
               </div>
             </motion.div>
           ) : null}
@@ -106,14 +154,8 @@ function DesktopNavItem({ item, pathname }: { item: NavItem; pathname: string })
   if (!item.href) return null;
 
   return (
-    <Link
-      href={item.href}
-      className={cn(
-        "rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-        active ? "text-foreground" : "text-foreground/75 hover:text-foreground"
-      )}
-    >
-      {item.title}
+    <Link href={item.href} className="group inline-flex px-3 py-2">
+      <NavLabel active={active}>{item.title}</NavLabel>
     </Link>
   );
 }
@@ -138,8 +180,8 @@ function MobileNavItem({
         <button
           type="button"
           className={cn(
-            "flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left text-base font-medium transition-colors",
-            active ? "text-primary" : "text-foreground"
+            "flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3.5 text-left text-base font-medium transition-colors duration-300",
+            active ? "text-[#ef3239]" : "text-foreground hover:text-[#ef3239]"
           )}
           aria-expanded={expanded}
           onClick={() => setExpanded((value) => !value)}
@@ -155,18 +197,25 @@ function MobileNavItem({
         </button>
         {expanded ? (
           <div className="border-t border-border/70 bg-muted/30 px-2 py-2">
-            {item.children?.map((child) =>
-              child.href ? (
+            {item.children?.map((child) => {
+              if (!child.href) return null;
+              const childActive = isNavActive(pathname, child);
+              return (
                 <Link
                   key={child.title}
                   href={child.href}
                   onClick={onNavigate}
-                  className="block rounded-lg px-3 py-2.5 text-sm text-muted-foreground transition-colors hover:bg-card hover:text-primary"
+                  className={cn(
+                    "block rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-300",
+                    childActive
+                      ? "bg-[#fff1ee] text-[#ef3239]"
+                      : "text-muted-foreground hover:bg-[#fff1ee] hover:text-[#ef3239]"
+                  )}
                 >
                   {child.title}
                 </Link>
-              ) : null
-            )}
+              );
+            })}
           </div>
         ) : null}
       </div>
@@ -180,11 +229,16 @@ function MobileNavItem({
       href={item.href}
       onClick={onNavigate}
       className={cn(
-        "flex items-center gap-3 rounded-xl px-4 py-3.5 text-base font-medium transition-colors",
-        active ? "bg-primary/10 text-primary" : "text-foreground hover:bg-muted"
+        "flex items-center gap-3 rounded-xl px-4 py-3.5 text-base font-medium transition-colors duration-300",
+        active ? "bg-[#fff1ee] text-[#ef3239]" : "text-foreground hover:bg-[#fff1ee] hover:text-[#ef3239]"
       )}
     >
-      {Icon ? <Icon className="h-5 w-5 shrink-0" aria-hidden /> : null}
+      {Icon ? (
+        <Icon
+          className={cn("h-5 w-5 shrink-0", active ? "text-[#ef3239]" : "text-muted-foreground")}
+          aria-hidden
+        />
+      ) : null}
       {item.title}
     </Link>
   );
