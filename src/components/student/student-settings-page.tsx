@@ -44,14 +44,12 @@ export function StudentSettingsPage() {
       const updated = await updateProfile.mutateAsync({
         name: name.trim(),
         email: email.trim() || undefined,
-        phone: phone.trim(),
       });
       if (user) {
         setUser({
           ...user,
           name: updated.name,
           email: updated.email ?? undefined,
-          phone: updated.phone,
           avatar: updated.avatar ?? undefined,
         });
       }
@@ -66,7 +64,7 @@ export function StudentSettingsPage() {
       <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
         <PageHeader
           title="Profile settings"
-          description="Update your name, email, and phone used across the LMS."
+          description="Update your name and email. Phone number is fixed as your login ID."
           className="mb-0"
         />
         {error ? (
@@ -103,9 +101,18 @@ export function StudentSettingsPage() {
         </div>
         <div>
           <label htmlFor="student-phone" className="mb-2 block text-sm font-semibold text-foreground">
-            Phone
+            Phone number
           </label>
-          <Input id="student-phone" value={phone} onChange={(e) => setPhone(e.target.value)} required />
+          <Input
+            id="student-phone"
+            value={phone}
+            disabled
+            readOnly
+            className="cursor-not-allowed bg-muted text-muted-foreground"
+          />
+          <p className="mt-1.5 text-xs text-muted-foreground">
+            Phone cannot be changed — it is used for login.
+          </p>
         </div>
 
         {formError ? (

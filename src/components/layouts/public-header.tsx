@@ -19,7 +19,7 @@ import { publicNav, siteConfig } from "@/config";
 import { ROUTES } from "@/constants";
 import type { NavItem } from "@/types/navigation.types";
 import { Logo } from "@/components/shared";
-import { Button } from "@/components/ui/button";
+import { PublicAuthActions } from "@/components/layouts/public-auth-actions";
 import { cn } from "@/utils";
 
 const navIcons: Record<string, LucideIcon> = {
@@ -290,17 +290,7 @@ export function PublicHeader() {
             {siteConfig.phone}
           </a>
 
-          <Button asChild variant="secondary" size="pill" className="hidden sm:inline-flex lg:px-5">
-            <Link href={ROUTES.auth.login}>
-              <span>Log In / Sign Up</span>
-            </Link>
-          </Button>
-
-          <Button asChild variant="secondary" size="sm" className="rounded-full px-3 sm:hidden">
-            <Link href={ROUTES.auth.login}>
-              <span>Log In</span>
-            </Link>
-          </Button>
+          <PublicAuthActions />
 
           <button
             type="button"
@@ -357,11 +347,7 @@ export function PublicHeader() {
                   <Phone className="h-4 w-4 text-primary" aria-hidden />
                   Call {siteConfig.phone}
                 </a>
-                <Button asChild variant="default" size="pill" className="w-full">
-                  <Link href={ROUTES.auth.register} onClick={closeMobileMenu}>
-                    Log In / Sign Up
-                  </Link>
-                </Button>
+                <PublicAuthActions mobile onNavigate={closeMobileMenu} />
               </div>
             </motion.div>
           </>

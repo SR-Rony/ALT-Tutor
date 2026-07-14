@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -12,36 +14,22 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { siteConfig } from "@/config";
-import { ROUTES } from "@/constants";
+import { roleHomeRoutes, ROUTES } from "@/constants";
+import { useAuthSessionReady } from "@/providers/auth-session-provider";
+import { useAuthStore } from "@/store";
 
-const footerColumns = [
-  {
-    title: "Programs",
-    links: [
-      { label: "All Courses", href: ROUTES.courses },
-      { label: "Live Classes", href: ROUTES.courses },
-      { label: "Academic Prep", href: ROUTES.courses },
-      { label: "Admission", href: ROUTES.auth.register },
-    ],
-  },
-  {
-    title: "Company",
-    links: [
-      { label: "About Us", href: ROUTES.about },
-      { label: "Instructors", href: ROUTES.teacher.root },
-      { label: "Contact", href: ROUTES.contact },
-      { label: "Help Center", href: ROUTES.help },
-    ],
-  },
-  {
-    title: "Account",
-    links: [
-      { label: "Log In", href: ROUTES.auth.login },
-      { label: "Sign Up", href: ROUTES.auth.register },
-      { label: "Student Portal", href: ROUTES.student.root },
-      { label: "Teacher Portal", href: ROUTES.teacher.root },
-    ],
-  },
+const programLinks = [
+  { label: "All Courses", href: ROUTES.courses },
+  { label: "Live Classes", href: ROUTES.courses },
+  { label: "Academic Prep", href: ROUTES.courses },
+  { label: "Admission", href: ROUTES.auth.register },
+] as const;
+
+const companyLinks = [
+  { label: "About Us", href: ROUTES.about },
+  { label: "Instructors", href: ROUTES.teacher.root },
+  { label: "Contact", href: ROUTES.contact },
+  { label: "Help Center", href: ROUTES.help },
 ] as const;
 
 const socialLinks: { label: string; href: string; icon: LucideIcon }[] = [
@@ -71,12 +59,54 @@ function FooterLink({ href, label }: { href: string; label: string }) {
   );
 }
 
+function AccountLinks() {
+  const ready = useAuthSessionReady();
+  const user = useAuthStore((s) => s.user);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+
+  if (!ready) {
+    return (
+      <ul className="mt-4 space-y-3">
+        <li className="h-4 w-24 animate-pulse rounded bg-muted" />
+        <li className="h-4 w-20 animate-pulse rounded bg-muted" />
+      </ul>
+    );
+  }
+
+  if (isAuthenticated && user) {
+    return (
+      <ul className="mt-4 space-y-3">
+        <FooterLink href={roleHomeRoutes[user.role]} label="My Dashboard" />
+        <FooterLink
+          href={
+            user.role === "admin"
+              ? ROUTES.admin.settings
+              : user.role === "teacher"
+                ? ROUTES.teacher.settings
+                : ROUTES.student.settings
+          }
+          label="Settings"
+        />
+        <FooterLink href={ROUTES.courses} label="Browse Courses" />
+      </ul>
+    );
+  }
+
+  return (
+    <ul className="mt-4 space-y-3">
+      <FooterLink href={ROUTES.auth.login} label="Log In" />
+      <FooterLink href={ROUTES.auth.register} label="Sign Up" />
+      <FooterLink href={ROUTES.student.root} label="Student Portal" />
+      <FooterLink href={ROUTES.teacher.root} label="Teacher Portal" />
+    </ul>
+  );
+}
+
 export function PublicFooter() {
   const year = new Date().getFullYear();
 
   return (
     <footer className="relative w-full overflow-x-clip border-t border-[#e8edf5] bg-[linear-gradient(180deg,#ffffff_0%,#f7f9fc_48%,#eef4fb_100%)] text-[#1a2b5e]">
-      {/* Brand accent line */}
       <div
         aria-hidden
         className="h-1 w-full bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239]"
@@ -131,19 +161,30 @@ export function PublicFooter() {
             </div>
           </div>
 
-          {footerColumns.map((column) => (
-            <div key={column.title}>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-[#1a2b5e]">{column.title}</h3>
-              <ul className="mt-4 space-y-3">
-                {column.links.map((link) => (
-                  <FooterLink key={link.label} href={link.href} label={link.label} />
-                ))}
-              </ul>
-            </div>
-          ))}
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1a2b5e]">Programs</h3>
+            <ul className="mt-4 space-y-3">
+              {programLinks.map((link) => (
+                <FooterLink key={link.label} href={link.href} label={link.label} />
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1a2b5e]">Company</h3>
+            <ul className="mt-4 space-y-3">
+              {companyLinks.map((link) => (
+                <FooterLink key={link.label} href={link.href} label={link.label} />
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1a2b5e]">Account</h3>
+            <AccountLinks />
+          </div>
         </div>
 
-        {/* Copyright bar */}
         <div className="mt-12 border-t border-[#e2e8f4] py-6 sm:mt-14 sm:py-7">
           <div className="flex flex-col items-center justify-between gap-5 sm:flex-row">
             <div className="space-y-1 text-center sm:text-left">
