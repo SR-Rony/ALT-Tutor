@@ -8,3 +8,4 @@ export {
   useUpdateCourseStatus,
 } from "./use-admin-dashboard";
 export { useTeacherDashboard, useStudentDashboard } from "./use-role-dashboard";
+export { useIsMobile } from "./use-mobile";

@@ -33,7 +33,7 @@ export function AdminStatCard({
   const display = formatter ? formatter(value) : formatNumber(value);
 
   return (
-    <Card className="overflow-hidden">
+    <Card className="overflow-hidden transition-shadow hover:shadow-[0_12px_28px_rgba(15,23,42,0.08)]">
       <CardContent className="flex items-start gap-4 p-5">
         <div className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl", toneStyles[tone])}>
           <Icon className="h-5 w-5" aria-hidden />

@@ -18,6 +18,7 @@ import {
 } from "@/hooks";
 import { formatMoney } from "@/lib/format";
 import type { ApiError } from "@/types";
+import { AdminDashboardCharts } from "./admin-dashboard-charts";
 import { AdminQuickActions } from "./admin-quick-actions";
 import { AdminRecentCourses, AdminRecentPayments, AdminRecentUsers } from "./admin-recent-panels";
 import { AdminStatCard } from "./admin-stat-card";
@@ -45,16 +46,16 @@ export function AdminDashboardPage() {
     void paymentsQuery.refetch();
   };
 
-  const recentUsers = (usersQuery.data ?? []).slice(0, 5);
-  const recentCourses = (coursesQuery.data ?? []).slice(0, 5);
-  const recentPayments = (paymentsQuery.data ?? []).slice(0, 5);
+  const users = usersQuery.data ?? [];
+  const courses = coursesQuery.data ?? [];
+  const payments = paymentsQuery.data ?? [];
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div className="space-y-7">
+      <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card/80 p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title="Admin Dashboard"
-          description="Live platform overview — users, courses, enrollments, and revenue."
+          description="Production overview of users, courses, enrollments, and revenue."
           className="mb-0"
         />
         <Button
@@ -63,9 +64,10 @@ export function AdminDashboardPage() {
           size="sm"
           onClick={refetchAll}
           disabled={initialLoading || refreshing}
+          className="shrink-0"
         >
           <RefreshCw className={`h-4 w-4 ${initialLoading || refreshing ? "animate-spin" : ""}`} />
-          Refresh
+          Refresh data
         </Button>
       </div>
 
@@ -83,7 +85,7 @@ export function AdminDashboardPage() {
         <PageLoader label="Loading dashboard data..." />
       ) : (
         <>
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
             <AdminStatCard
               label="Total users"
               value={stats?.totalUsers ?? 0}
@@ -127,7 +129,14 @@ export function AdminDashboardPage() {
               loading={statsQuery.isLoading}
               formatter={formatMoney}
             />
-          </div>
+          </section>
+
+          <AdminDashboardCharts
+            stats={stats}
+            users={users}
+            courses={courses}
+            payments={payments}
+          />
 
           <section className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
@@ -136,10 +145,15 @@ export function AdminDashboardPage() {
             <AdminQuickActions />
           </section>
 
-          <section className="grid gap-4 lg:grid-cols-3">
-            <AdminRecentUsers users={recentUsers} loading={usersQuery.isLoading} />
-            <AdminRecentCourses courses={recentCourses} loading={coursesQuery.isLoading} />
-            <AdminRecentPayments payments={recentPayments} loading={paymentsQuery.isLoading} />
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Recent activity
+            </h2>
+            <div className="grid gap-4 lg:grid-cols-3">
+              <AdminRecentUsers users={users.slice(0, 5)} loading={usersQuery.isLoading} />
+              <AdminRecentCourses courses={courses.slice(0, 5)} loading={coursesQuery.isLoading} />
+              <AdminRecentPayments payments={payments.slice(0, 5)} loading={paymentsQuery.isLoading} />
+            </div>
           </section>
         </>
       )}
