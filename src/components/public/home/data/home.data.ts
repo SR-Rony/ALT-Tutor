@@ -207,6 +207,73 @@ export const helpSection = {
   },
 } as const;
 
+export const photoGallery = {
+  titleLead: "Take a look at our",
+  titleHighlight: "Photo Gallery",
+  images: [
+    {
+      id: "1",
+      src: "https://images.unsplash.com/photo-1523240795612-9a054b0db644?auto=format&fit=crop&w=600&q=80",
+      alt: "Students studying together",
+    },
+    {
+      id: "2",
+      src: "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80",
+      alt: "Collaborative learning session",
+    },
+    {
+      id: "3",
+      src: "https://images.unsplash.com/photo-1517486808906-6ca8b3f04846?auto=format&fit=crop&w=600&q=80",
+      alt: "Student with headphones learning online",
+    },
+    {
+      id: "4",
+      src: "https://images.unsplash.com/photo-1427504494785-3a9ca7044f45?auto=format&fit=crop&w=600&q=80",
+      alt: "Classroom group discussion",
+    },
+    {
+      id: "5",
+      src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?auto=format&fit=crop&w=600&q=80",
+      alt: "Teacher guiding students",
+    },
+    {
+      id: "6",
+      src: "https://images.unsplash.com/photo-1524178232363-1fb2b075b655?auto=format&fit=crop&w=600&q=80",
+      alt: "Students in lecture hall",
+    },
+    {
+      id: "7",
+      src: "https://images.unsplash.com/photo-1571260899304-425eee4c7efc?auto=format&fit=crop&w=600&q=80",
+      alt: "Young learner reading outdoors",
+    },
+    {
+      id: "8",
+      src: "https://images.unsplash.com/photo-1606761568499-6d2451b23c66?auto=format&fit=crop&w=600&q=80",
+      alt: "Campus study moment",
+    },
+    {
+      id: "9",
+      src: "https://images.unsplash.com/photo-1497633762265-9d179a990aa6?auto=format&fit=crop&w=600&q=80",
+      alt: "Stack of educational books",
+    },
+    {
+      id: "10",
+      src: "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=600&q=80",
+      alt: "Student planning study goals",
+    },
+    {
+      id: "11",
+      src: "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?auto=format&fit=crop&w=600&q=80",
+      alt: "Focused desk study session",
+    },
+    {
+      id: "12",
+      src: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=600&q=80",
+      alt: "Online class on laptop",
+    },
+  ],
+} as const;
+
 /** @deprecated */
 export const heroBadge = "Trusted by 500+ institutions worldwide";
 

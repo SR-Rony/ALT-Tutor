@@ -4,6 +4,7 @@ import {
   HomeAnimatedLessons,
   HomeHelpSection,
   HomeHero,
+  HomePhotoGallery,
 } from "@/components/public/home";
 
 export default function HomePage() {
@@ -13,6 +14,7 @@ export default function HomePage() {
       <HomeAcademicProgram />
       <HomeAnimatedLessons />
       <HomeAboutSection />
+      <HomePhotoGallery />
       <HomeHelpSection />
     </>
   );
