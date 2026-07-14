@@ -237,11 +237,15 @@ export function PublicHeader() {
           </a>
 
           <Button asChild variant="secondary" size="pill" className="hidden sm:inline-flex lg:px-5">
-            <Link href={ROUTES.auth.login}>Log In / Sign Up</Link>
+            <Link href={ROUTES.auth.login}>
+              <span>Log In / Sign Up</span>
+            </Link>
           </Button>
 
           <Button asChild variant="secondary" size="sm" className="rounded-full px-3 sm:hidden">
-            <Link href={ROUTES.auth.login}>Log In</Link>
+            <Link href={ROUTES.auth.login}>
+              <span>Log In</span>
+            </Link>
           </Button>
 
           <button

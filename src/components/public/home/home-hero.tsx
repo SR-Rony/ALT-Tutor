@@ -90,11 +90,11 @@ export function HomeHero() {
             <motion.h1
               variants={fadeUp}
               transition={{ duration: 0.5 }}
-              className="text-[1.85rem] font-extrabold leading-[1.12] tracking-tight text-[#1a2b5e] sm:text-5xl lg:text-[3.15rem] xl:text-[3.45rem]"
+              className="bg-gradient-to-r from-[#1a2b5e] via-[#ff6b35] to-[#ef3239] bg-clip-text text-[1.85rem] font-extrabold leading-[1.12] tracking-tight text-transparent sm:text-5xl lg:text-[3.15rem] xl:text-[3.45rem]"
             >
               {heroHeadline.lead}
               <br />
-              <span className="text-[#1a2b5e]">{heroHeadline.highlight}</span>
+              {heroHeadline.highlight}
             </motion.h1>
 
             <motion.p
@@ -115,10 +115,12 @@ export function HomeHero() {
               </Button>
               <Button asChild variant="secondary" size="pillLg" className="w-full sm:w-auto">
                 <Link href={ROUTES.courses}>
-                  <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                    <Play className="h-3.5 w-3.5 shrink-0 fill-current" aria-hidden />
+                  <span className="inline-flex items-center justify-center gap-2.5">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                      <Play className="h-3.5 w-3.5 shrink-0 fill-current" aria-hidden />
+                    </span>
+                    {heroSecondaryCta}
                   </span>
-                  {heroSecondaryCta}
                 </Link>
               </Button>
             </motion.div>
