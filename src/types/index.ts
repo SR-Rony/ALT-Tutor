@@ -24,6 +24,13 @@ export type {
   PaymentStatus,
 } from "./admin-dashboard.types";
 export type {
+  HomeBlog,
+  HomeCategory,
+  HomeCourse,
+  HomeData,
+  HomeStats,
+} from "./home.types";
+export type {
   StudentAssignment,
   StudentCourseSummary,
   StudentDashboardStats,

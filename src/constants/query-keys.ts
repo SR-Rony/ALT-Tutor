@@ -2,6 +2,10 @@ export const queryKeys = {
   auth: {
     session: ["auth", "session"] as const,
   },
+  home: {
+    all: ["home"] as const,
+    categories: ["home", "categories"] as const,
+  },
   courses: {
     all: ["courses"] as const,
     detail: (slug: string) => ["courses", slug] as const,

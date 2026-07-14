@@ -1,4 +1,5 @@
 export { useCourses } from "./use-courses";
+export { useHomeData, useCategories } from "./use-home";
 export {
   useAdminStats,
   useAdminUsers,

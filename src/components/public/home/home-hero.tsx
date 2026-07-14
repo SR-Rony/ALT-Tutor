@@ -2,17 +2,19 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useMemo } from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import { Play } from "lucide-react";
 import { ROUTES } from "@/constants";
 import { Button } from "@/components/ui/button";
+import { useHomeData } from "@/hooks";
 import {
   heroHeadline,
   heroImage,
   heroPrimaryCta,
   heroSecondaryCta,
   heroSubheadline,
-  homeStats,
+  homeStats as fallbackStats,
 } from "./data/home.data";
 
 const fadeUp = {
@@ -20,8 +22,28 @@ const fadeUp = {
   visible: { opacity: 1, y: 0 },
 };
 
+function formatStat(value: number) {
+  if (value >= 1000) return `${Math.round(value / 100) / 10}K+`;
+  return String(value);
+}
+
 export function HomeHero() {
   const prefersReducedMotion = useReducedMotion();
+  const { data } = useHomeData();
+
+  const stats = useMemo(() => {
+    if (!data) return fallbackStats;
+    return [
+      { label: "Students", value: formatStat(data.stats.totalStudents), color: "#ef3239" },
+      { label: "Live Courses", value: formatStat(data.stats.totalCourses), color: "#1877f2" },
+      { label: "Categories", value: formatStat(data.categories.length), color: "#22c55e" },
+      {
+        label: "Featured",
+        value: formatStat(data.featuredCourses.length),
+        color: "#f97316",
+      },
+    ];
+  }, [data]);
 
   const motionProps = prefersReducedMotion
     ? {}
@@ -140,7 +162,7 @@ export function HomeHero() {
         >
           <div className="overflow-hidden rounded-2xl border border-[#e8edf5]/80 bg-white shadow-[0_16px_48px_-12px_rgba(26,43,94,0.14)] sm:rounded-[1.75rem]">
             <div className="grid grid-cols-2 divide-x divide-y divide-[#e8edf5] sm:grid-cols-4 sm:divide-y-0">
-              {homeStats.map((stat) => (
+              {stats.map((stat) => (
                 <article
                   key={stat.label}
                   className="flex min-h-[5.75rem] flex-col items-center justify-center px-4 py-5 text-center sm:min-h-[6.5rem] sm:px-5 sm:py-6 lg:min-h-[7rem] lg:py-7"
