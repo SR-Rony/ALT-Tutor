@@ -7,3 +7,4 @@ export {
   useUpdateUserStatus,
   useUpdateCourseStatus,
 } from "./use-admin-dashboard";
+export { useTeacherDashboard, useStudentDashboard } from "./use-role-dashboard";

@@ -13,4 +13,10 @@ export const queryKeys = {
     courses: ["admin", "courses"] as const,
     payments: ["admin", "payments"] as const,
   },
+  teacher: {
+    dashboard: ["teacher", "dashboard"] as const,
+  },
+  student: {
+    dashboard: ["student", "dashboard"] as const,
+  },
 } as const;

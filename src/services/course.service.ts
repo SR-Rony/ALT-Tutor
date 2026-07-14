@@ -4,6 +4,12 @@ import { apiClient } from "./api-client";
 import type { Course } from "@/types";
 import { sleep } from "@/utils";
 
+type CoursesListResponse = Course[] | { items: Course[] };
+
+function unwrapCourses(data: CoursesListResponse): Course[] {
+  return Array.isArray(data) ? data : (data.items ?? []);
+}
+
 export const courseService = {
   async getAll(): Promise<Course[]> {
     if (env.useMockApi) {
@@ -11,8 +17,8 @@ export const courseService = {
       return mockCourses;
     }
 
-    const response = await apiClient.get<Course[]>("/courses");
-    return response.data;
+    const response = await apiClient.get<CoursesListResponse>("/courses");
+    return unwrapCourses(response.data);
   },
 
   async getBySlug(slug: string): Promise<Course | null> {
@@ -21,7 +27,7 @@ export const courseService = {
       return mockCourses.find((course) => course.slug === slug) ?? null;
     }
 
-    const response = await apiClient.get<Course>(`/courses/${slug}`);
+    const response = await apiClient.get<Course>(`/courses/slug/${slug}`);
     return response.data;
   },
 };

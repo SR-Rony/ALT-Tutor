@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PageHeader } from "@/components/shared";
+import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAdminUsers, useUpdateUserStatus } from "@/hooks";
@@ -46,6 +46,19 @@ export function AdminUsersPage() {
       setActionError(apiError?.message || "Failed to update user status");
     }
   };
+
+  if (isLoading && data.length === 0) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Users"
+          description="Manage platform accounts — activate, deactivate, and filter by role."
+          className="mb-0"
+        />
+        <PageLoader label="Loading users..." />
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
@@ -104,17 +117,7 @@ export function AdminUsersPage() {
             </tr>
           </thead>
           <tbody>
-            {isLoading
-              ? Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b border-border">
-                    <td colSpan={5} className="px-5 py-4">
-                      <div className="h-10 animate-pulse rounded-lg bg-muted" />
-                    </td>
-                  </tr>
-                ))
-              : null}
-
-            {!isLoading && visible.length === 0 ? (
+            {visible.length === 0 ? (
               <tr>
                 <td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">
                   No users match your filters.

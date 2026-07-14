@@ -8,7 +8,7 @@ import {
   UserCheck,
   Wallet,
 } from "lucide-react";
-import { PageHeader } from "@/components/shared";
+import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import {
   useAdminCourses,
@@ -28,9 +28,15 @@ export function AdminDashboardPage() {
   const coursesQuery = useAdminCourses();
   const paymentsQuery = useAdminPayments();
 
-  const loading = statsQuery.isLoading;
+  const initialLoading =
+    statsQuery.isLoading || usersQuery.isLoading || coursesQuery.isLoading || paymentsQuery.isLoading;
+  const refreshing =
+    !initialLoading &&
+    (statsQuery.isFetching || usersQuery.isFetching || coursesQuery.isFetching || paymentsQuery.isFetching);
   const stats = statsQuery.data;
-  const error = (statsQuery.error ?? usersQuery.error ?? coursesQuery.error) as ApiError | null;
+  const error = (statsQuery.error ?? usersQuery.error ?? coursesQuery.error ?? paymentsQuery.error) as
+    | ApiError
+    | null;
 
   const refetchAll = () => {
     void statsQuery.refetch();
@@ -51,8 +57,14 @@ export function AdminDashboardPage() {
           description="Live platform overview — users, courses, enrollments, and revenue."
           className="mb-0"
         />
-        <Button type="button" variant="outline" size="sm" onClick={refetchAll} disabled={loading}>
-          <RefreshCw className={`h-4 w-4 ${loading || statsQuery.isFetching ? "animate-spin" : ""}`} />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={refetchAll}
+          disabled={initialLoading || refreshing}
+        >
+          <RefreshCw className={`h-4 w-4 ${initialLoading || refreshing ? "animate-spin" : ""}`} />
           Refresh
         </Button>
       </div>
@@ -67,62 +79,70 @@ export function AdminDashboardPage() {
         </div>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        <AdminStatCard
-          label="Total users"
-          value={stats?.totalUsers ?? 0}
-          icon={Users}
-          tone="primary"
-          loading={loading}
-        />
-        <AdminStatCard
-          label="Students"
-          value={stats?.totalStudents ?? 0}
-          icon={GraduationCap}
-          tone="green"
-          loading={loading}
-        />
-        <AdminStatCard
-          label="Teachers"
-          value={stats?.totalTeachers ?? 0}
-          icon={UserCheck}
-          tone="primary"
-          loading={loading}
-        />
-        <AdminStatCard
-          label="Courses"
-          value={stats?.totalCourses ?? 0}
-          icon={BookOpen}
-          tone="accent"
-          loading={loading}
-        />
-        <AdminStatCard
-          label="Enrollments"
-          value={stats?.totalEnrollments ?? 0}
-          icon={GraduationCap}
-          tone="neutral"
-          loading={loading}
-        />
-        <AdminStatCard
-          label="Revenue"
-          value={stats?.totalRevenue ?? 0}
-          icon={Wallet}
-          tone="green"
-          loading={loading}
-          formatter={formatMoney}
-        />
-      </div>
+      {initialLoading && !stats ? (
+        <PageLoader label="Loading dashboard data..." />
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+            <AdminStatCard
+              label="Total users"
+              value={stats?.totalUsers ?? 0}
+              icon={Users}
+              tone="primary"
+              loading={statsQuery.isLoading}
+            />
+            <AdminStatCard
+              label="Students"
+              value={stats?.totalStudents ?? 0}
+              icon={GraduationCap}
+              tone="green"
+              loading={statsQuery.isLoading}
+            />
+            <AdminStatCard
+              label="Teachers"
+              value={stats?.totalTeachers ?? 0}
+              icon={UserCheck}
+              tone="primary"
+              loading={statsQuery.isLoading}
+            />
+            <AdminStatCard
+              label="Courses"
+              value={stats?.totalCourses ?? 0}
+              icon={BookOpen}
+              tone="accent"
+              loading={statsQuery.isLoading}
+            />
+            <AdminStatCard
+              label="Enrollments"
+              value={stats?.totalEnrollments ?? 0}
+              icon={GraduationCap}
+              tone="neutral"
+              loading={statsQuery.isLoading}
+            />
+            <AdminStatCard
+              label="Revenue"
+              value={stats?.totalRevenue ?? 0}
+              icon={Wallet}
+              tone="green"
+              loading={statsQuery.isLoading}
+              formatter={formatMoney}
+            />
+          </div>
 
-      <section className="space-y-3">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Quick actions</h2>
-        <AdminQuickActions />
-      </section>
+          <section className="space-y-3">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Quick actions
+            </h2>
+            <AdminQuickActions />
+          </section>
 
-      <section className="grid gap-4 lg:grid-cols-3">
-        <AdminRecentUsers users={recentUsers} loading={usersQuery.isLoading} />
-        <AdminRecentCourses courses={recentCourses} loading={coursesQuery.isLoading} />
-        <AdminRecentPayments payments={recentPayments} loading={paymentsQuery.isLoading} />
-      </section>
+          <section className="grid gap-4 lg:grid-cols-3">
+            <AdminRecentUsers users={recentUsers} loading={usersQuery.isLoading} />
+            <AdminRecentCourses courses={recentCourses} loading={coursesQuery.isLoading} />
+            <AdminRecentPayments payments={recentPayments} loading={paymentsQuery.isLoading} />
+          </section>
+        </>
+      )}
     </div>
   );
 }

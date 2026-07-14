@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
+import { LoadingScreen } from "@/components/shared";
 import { env } from "@/config";
-import { ROUTES } from "@/constants";
+import { ROUTES, roleHomeRoutes } from "@/constants";
 import { getAccessToken } from "@/lib/auth-tokens";
 import { canAccessRoute } from "@/permissions/role.permissions";
 import { authService } from "@/services/auth.service";
@@ -29,7 +30,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
           return;
         }
         if (!canAccessRoute(current.role, pathname)) {
-          router.replace(ROUTES.auth.login);
+          router.replace(roleHomeRoutes[current.role]);
           return;
         }
         if (!cancelled) setReady(true);
@@ -55,7 +56,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
       setUser(session);
 
       if (!canAccessRoute(session.role, pathname)) {
-        router.replace(ROUTES.auth.login);
+        router.replace(roleHomeRoutes[session.role]);
         return;
       }
 
@@ -70,11 +71,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   }, [pathname, router, setUser, clearSession]);
 
   if (!ready) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-shell text-sm text-muted-foreground">
-        Checking session...
-      </div>
-    );
+    return <LoadingScreen label="Loading your account..." />;
   }
 
   return <>{children}</>;

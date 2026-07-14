@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { PageHeader } from "@/components/shared";
+import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useAdminCourses, useUpdateCourseStatus } from "@/hooks";
@@ -50,6 +50,19 @@ export function AdminCoursesPage() {
       setActionError(apiError?.message || "Failed to update course status");
     }
   };
+
+  if (isLoading && data.length === 0) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Courses"
+          description="Review all courses and update publish status."
+          className="mb-0"
+        />
+        <PageLoader label="Loading courses..." />
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
@@ -110,16 +123,6 @@ export function AdminCoursesPage() {
             </tr>
           </thead>
           <tbody>
-            {isLoading
-              ? Array.from({ length: 5 }).map((_, i) => (
-                  <tr key={i} className="border-b border-border">
-                    <td colSpan={7} className="px-5 py-4">
-                      <div className="h-10 animate-pulse rounded-lg bg-muted" />
-                    </td>
-                  </tr>
-                ))
-              : null}
-
             {!isLoading && visible.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground">
