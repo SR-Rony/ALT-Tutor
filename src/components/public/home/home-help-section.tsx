@@ -12,7 +12,7 @@ export function HomeHelpSection() {
   const { call, videos, facebook } = helpSection;
 
   return (
-    <section className="relative w-full overflow-x-clip bg-[#0b1f4d]">
+    <section className="relative w-full overflow-x-clip bg-[#0c4558]">
       {/* Seam-to-seam icon watermark pattern */}
       <div
         aria-hidden
@@ -23,8 +23,8 @@ export function HomeHelpSection() {
         }}
       />
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-20 top-10 h-64 w-64 rounded-full bg-[#1877f2]/20 blur-3xl" />
-        <div className="absolute -right-16 bottom-6 h-72 w-72 rounded-full bg-[#ef3239]/15 blur-3xl" />
+        <div className="absolute -left-20 top-10 h-64 w-64 rounded-full bg-[#2dd4bf]/15 blur-3xl" />
+        <div className="absolute -right-16 bottom-6 h-72 w-72 rounded-full bg-[#f59e0b]/12 blur-3xl" />
       </div>
 
       <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-14 lg:py-16">

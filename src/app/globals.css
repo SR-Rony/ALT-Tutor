@@ -23,6 +23,7 @@
   --animate-float: gentle-float 6s ease-in-out infinite;
   --animate-gradient: gradient-shift 6s ease infinite;
   --animate-gallery-marquee: gallery-marquee 45s linear infinite;
+  --animate-gallery-marquee-reverse: gallery-marquee-reverse 45s linear infinite;
 }
 
 :root {
@@ -107,6 +108,15 @@
   }
   100% {
     transform: translateX(-50%);
+  }
+}
+
+@keyframes gallery-marquee-reverse {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0);
   }
 }
 
@@ -204,18 +214,31 @@
   }
 
   .animate-gallery-marquee {
-    animation: gallery-marquee 45s linear infinite;
+    animation: gallery-marquee 50s linear infinite;
+    animation-iteration-count: infinite;
+    will-change: transform;
+  }
+
+  .animate-gallery-marquee-reverse {
+    animation: gallery-marquee-reverse 55s linear infinite;
+    animation-iteration-count: infinite;
     will-change: transform;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *:not(.animate-gallery-marquee):not(.animate-gallery-marquee-reverse),
+  *:not(.animate-gallery-marquee):not(.animate-gallery-marquee-reverse)::before,
+  *:not(.animate-gallery-marquee):not(.animate-gallery-marquee-reverse)::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+
+  .animate-gallery-marquee,
+  .animate-gallery-marquee-reverse {
+    animation: none !important;
+    transform: none !important;
   }
 
   .card-interactive:hover {

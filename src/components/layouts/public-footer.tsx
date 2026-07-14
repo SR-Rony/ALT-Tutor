@@ -57,7 +57,7 @@ function FooterLink({ href, label }: { href: string; label: string }) {
     <li>
       <Link
         href={href}
-        className="group relative inline-flex text-sm text-[#b8c7e0] transition-colors duration-300 hover:text-white"
+        className="group relative inline-flex text-sm text-[#58688b] transition-colors duration-300 hover:text-[#ef3239]"
       >
         <span className="relative">
           {label}
@@ -75,15 +75,20 @@ export function PublicFooter() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="relative w-full overflow-x-clip bg-[#0b1f4d] text-white">
+    <footer className="relative w-full overflow-x-clip border-t border-[#e8edf5] bg-[linear-gradient(180deg,#ffffff_0%,#f7f9fc_48%,#eef4fb_100%)] text-[#1a2b5e]">
+      {/* Brand accent line */}
+      <div
+        aria-hidden
+        className="h-1 w-full bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239]"
+      />
+
       <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-20 top-0 h-56 w-56 rounded-full bg-[#1877f2]/20 blur-3xl" />
-        <div className="absolute -right-16 bottom-0 h-64 w-64 rounded-full bg-[#ef3239]/15 blur-3xl" />
+        <div className="absolute -left-16 top-10 h-48 w-48 rounded-full bg-[#1877f2]/8 blur-3xl" />
+        <div className="absolute -right-12 bottom-10 h-52 w-52 rounded-full bg-[#ef3239]/7 blur-3xl" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 pt-14 sm:px-6 sm:pt-16 lg:pt-20">
+      <div className="relative mx-auto max-w-7xl px-4 pt-14 sm:px-6 sm:pt-16 lg:pt-18">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_repeat(3,minmax(0,1fr))] lg:gap-8 xl:gap-12">
-          {/* Brand */}
           <div className="sm:col-span-2 lg:col-span-1">
             <Link href={ROUTES.home} className="inline-flex transition-opacity duration-300 hover:opacity-90">
               <Image
@@ -94,31 +99,31 @@ export function PublicFooter() {
                 className="h-10 w-auto rounded-lg object-contain sm:h-11"
               />
             </Link>
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-[#b8c7e0]">
+            <p className="mt-4 max-w-sm text-sm leading-relaxed text-[#58688b]">
               {siteConfig.description}
             </p>
 
             <div className="mt-6 space-y-3">
               <a
                 href={`tel:${siteConfig.phone}`}
-                className="group flex items-center gap-2.5 text-sm text-[#b8c7e0] transition-colors duration-300 hover:text-white"
+                className="group flex items-center gap-2.5 text-sm text-[#58688b] transition-colors duration-300 hover:text-[#1a2b5e]"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-[#ff6b35] transition-colors duration-300 group-hover:bg-gradient-to-br group-hover:from-[#3b8dee] group-hover:via-[#ff6b35] group-hover:to-[#ef3239] group-hover:text-white">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fff1ee] text-[#ef3239] transition-all duration-300 group-hover:bg-gradient-to-br group-hover:from-[#3b8dee] group-hover:via-[#ff6b35] group-hover:to-[#ef3239] group-hover:text-white">
                   <Phone className="h-4 w-4" aria-hidden />
                 </span>
                 {siteConfig.phone}
               </a>
               <a
                 href="mailto:support@alttutor.com"
-                className="group flex items-center gap-2.5 text-sm text-[#b8c7e0] transition-colors duration-300 hover:text-white"
+                className="group flex items-center gap-2.5 text-sm text-[#58688b] transition-colors duration-300 hover:text-[#1a2b5e]"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-[#3b8dee] transition-colors duration-300 group-hover:bg-gradient-to-br group-hover:from-[#3b8dee] group-hover:via-[#ff6b35] group-hover:to-[#ef3239] group-hover:text-white">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e8f2fe] text-[#1877f2] transition-all duration-300 group-hover:bg-gradient-to-br group-hover:from-[#3b8dee] group-hover:via-[#ff6b35] group-hover:to-[#ef3239] group-hover:text-white">
                   <Mail className="h-4 w-4" aria-hidden />
                 </span>
                 support@alttutor.com
               </a>
-              <p className="group flex items-start gap-2.5 text-sm text-[#b8c7e0]">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-[#22c55e]">
+              <p className="flex items-start gap-2.5 text-sm text-[#58688b]">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ecfdf5] text-[#22c55e]">
                   <MapPin className="h-4 w-4" aria-hidden />
                 </span>
                 Dhaka, Bangladesh
@@ -126,10 +131,9 @@ export function PublicFooter() {
             </div>
           </div>
 
-          {/* Link columns */}
           {footerColumns.map((column) => (
             <div key={column.title}>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-white">{column.title}</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-[#1a2b5e]">{column.title}</h3>
               <ul className="mt-4 space-y-3">
                 {column.links.map((link) => (
                   <FooterLink key={link.label} href={link.href} label={link.label} />
@@ -139,12 +143,25 @@ export function PublicFooter() {
           ))}
         </div>
 
-        {/* Social + bottom bar */}
-        <div className="mt-12 border-t border-white/10 py-6 sm:mt-14 sm:py-7">
+        {/* Copyright bar */}
+        <div className="mt-12 border-t border-[#e2e8f4] py-6 sm:mt-14 sm:py-7">
           <div className="flex flex-col items-center justify-between gap-5 sm:flex-row">
-            <p className="text-center text-xs text-[#8fa0c0] sm:text-left sm:text-sm">
-              © {year} {siteConfig.name}. All rights reserved.
-            </p>
+            <div className="space-y-1 text-center sm:text-left">
+              <p className="text-xs text-[#64748b] sm:text-sm">
+                © {year} {siteConfig.name}. All rights reserved.
+              </p>
+              <p className="text-xs text-[#94a3b8] sm:text-[0.8125rem]">
+                Designed & developed by{" "}
+                <a
+                  href="https://codezyne.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-[#1a2b5e] transition-colors duration-300 hover:text-[#ef3239]"
+                >
+                  {siteConfig.company}
+                </a>
+              </p>
+            </div>
 
             <div className="flex items-center gap-2.5">
               {socialLinks.map(({ label, href, icon: Icon }) => (
@@ -154,7 +171,7 @@ export function PublicFooter() {
                   target="_blank"
                   rel="noopener noreferrer"
                   aria-label={label}
-                  className="group inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/5 text-[#b8c7e0] transition-all duration-300 hover:-translate-y-0.5 hover:border-transparent hover:bg-gradient-to-br hover:from-[#3b8dee] hover:via-[#ff6b35] hover:to-[#ef3239] hover:text-white hover:shadow-[0_10px_24px_-10px_rgba(239,50,57,0.55)]"
+                  className="group inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#e2e8f4] bg-white text-[#64748b] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-transparent hover:bg-gradient-to-br hover:from-[#3b8dee] hover:via-[#ff6b35] hover:to-[#ef3239] hover:text-white hover:shadow-[0_10px_24px_-10px_rgba(239,50,57,0.45)]"
                 >
                   <Icon className="h-4 w-4 transition-transform duration-300 group-hover:scale-110" aria-hidden />
                 </a>
