@@ -10,6 +10,7 @@ import { authService, roleHomeRoutes } from "@/services/auth.service";
 import { useAuthStore } from "@/store";
 import { registerSchema, type RegisterFormValues } from "@/validations";
 import { cn } from "@/utils";
+import type { ApiError } from "@/types";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -26,7 +27,7 @@ export function RegisterForm() {
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
-    defaultValues: { name: "", email: "", password: "", confirmPassword: "" },
+    defaultValues: { name: "", phone: "", password: "", confirmPassword: "" },
   });
 
   async function onSubmit(values: RegisterFormValues) {
@@ -34,13 +35,14 @@ export function RegisterForm() {
       setError(null);
       const user = await authService.register({
         name: values.name,
-        email: values.email,
+        phone: values.phone,
         password: values.password,
       });
       setUser(user);
       router.push(roleHomeRoutes[user.role]);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Registration failed. Please try again.");
+      const apiError = err as ApiError;
+      setError(apiError?.message || (err instanceof Error ? err.message : "Registration failed. Please try again."));
     }
   }
 
@@ -62,18 +64,19 @@ export function RegisterForm() {
       </div>
 
       <div>
-        <label htmlFor="register-email" className="mb-2 block text-sm font-semibold text-[#1a2b5e]">
-          Email address
+        <label htmlFor="register-phone" className="mb-2 block text-sm font-semibold text-[#1a2b5e]">
+          Phone number
         </label>
         <Input
-          id="register-email"
-          type="email"
-          autoComplete="email"
-          placeholder="you@example.com"
-          className={cn("h-11", errors.email && "border-[#ef3239]/50 focus:border-[#ef3239] focus:ring-[#ef3239]/15")}
-          {...register("email")}
+          id="register-phone"
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel"
+          placeholder="01700000003"
+          className={cn("h-11", errors.phone && "border-[#ef3239]/50 focus:border-[#ef3239] focus:ring-[#ef3239]/15")}
+          {...register("phone")}
         />
-        <FieldError message={errors.email?.message} />
+        <FieldError message={errors.phone?.message} />
       </div>
 
       <div>

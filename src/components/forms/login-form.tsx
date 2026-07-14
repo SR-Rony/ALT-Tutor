@@ -6,10 +6,12 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { env } from "@/config";
 import { authService, roleHomeRoutes } from "@/services/auth.service";
 import { useAuthStore } from "@/store";
 import { loginSchema, type LoginFormValues } from "@/validations";
 import { cn } from "@/utils";
+import type { ApiError } from "@/types";
 
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
@@ -26,35 +28,39 @@ export function LoginForm() {
     formState: { errors, isSubmitting },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: "student@example.com", password: "password" },
+    defaultValues: env.useMockApi
+      ? { phone: "01700000003", password: "password" }
+      : { phone: "01700000003", password: "Password123!" },
   });
 
   async function onSubmit(values: LoginFormValues) {
     try {
       setError(null);
-      const user = await authService.login(values.email, values.password);
+      const user = await authService.login(values);
       setUser(user);
       router.push(roleHomeRoutes[user.role]);
-    } catch {
-      setError("Login failed. Please check your email and password.");
+    } catch (err) {
+      const apiError = err as ApiError;
+      setError(apiError?.message || "Login failed. Please check your phone and password.");
     }
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       <div>
-        <label htmlFor="login-email" className="mb-2 block text-sm font-semibold text-[#1a2b5e]">
-          Email address
+        <label htmlFor="login-phone" className="mb-2 block text-sm font-semibold text-[#1a2b5e]">
+          Phone number
         </label>
         <Input
-          id="login-email"
-          type="email"
-          autoComplete="email"
-          placeholder="you@example.com"
-          className={cn("h-11", errors.email && "border-[#ef3239]/50 focus:border-[#ef3239] focus:ring-[#ef3239]/15")}
-          {...register("email")}
+          id="login-phone"
+          type="tel"
+          inputMode="numeric"
+          autoComplete="tel"
+          placeholder="01700000003"
+          className={cn("h-11", errors.phone && "border-[#ef3239]/50 focus:border-[#ef3239] focus:ring-[#ef3239]/15")}
+          {...register("phone")}
         />
-        <FieldError message={errors.email?.message} />
+        <FieldError message={errors.phone?.message} />
       </div>
 
       <div>
@@ -81,6 +87,13 @@ export function LoginForm() {
       <Button type="submit" variant="default" size="pill" className="w-full text-base" disabled={isSubmitting}>
         {isSubmitting ? "Signing in..." : "Sign in"}
       </Button>
+
+      {!env.useMockApi ? (
+        <p className="text-center text-xs leading-relaxed text-muted-foreground">
+          Demo: <span className="font-medium text-[#1a2b5e]">01700000003</span> /{" "}
+          <span className="font-medium text-[#1a2b5e]">Password123!</span>
+        </p>
+      ) : null}
     </form>
   );
 }

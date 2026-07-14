@@ -1,50 +1,92 @@
 import { UserRole } from "@/enums";
 import { mockUsers } from "@/data/mock/users.mock";
 import { env } from "@/config";
-import { apiClient } from "./api-client";
-import type { User } from "@/types";
+import { clearAuthTokens, setAuthTokens } from "@/lib/auth-tokens";
+import { roleHomeRoutes } from "@/constants";
+import type { AuthPayload, BackendUser, User } from "@/types";
 import { sleep } from "@/utils";
+import { apiClient } from "./api-client";
+import { mapBackendUser } from "./auth.mapper";
+
+export type LoginInput = {
+  phone: string;
+  password: string;
+};
+
+export type RegisterInput = {
+  name: string;
+  phone: string;
+  password: string;
+  role?: "STUDENT" | "TEACHER";
+};
+
+function persistSession(user: User, accessToken: string, refreshToken: string) {
+  setAuthTokens({ accessToken, refreshToken }, user.role);
+}
 
 export const authService = {
-  async login(email: string, _password: string): Promise<User> {
+  async login({ phone, password }: LoginInput): Promise<User> {
     if (env.useMockApi) {
       await sleep(400);
-      const user = mockUsers.find((item) => item.email === email) ?? mockUsers[0];
+      const user = mockUsers.find((item) => item.phone === phone) ?? mockUsers[0];
+      persistSession(user, "mock-access-token", "mock-refresh-token");
       return user;
     }
 
-    const response = await apiClient.post<User>("/auth/login", { email, password: _password });
-    return response.data;
+    const response = await apiClient.post<AuthPayload>(
+      "/auth/login",
+      { phone, password },
+      { skipAuth: true }
+    );
+
+    const user = mapBackendUser(response.data.user);
+    persistSession(user, response.data.accessToken, response.data.refreshToken);
+    return user;
   },
 
-  async register(data: { name: string; email: string; password: string }): Promise<User> {
+  async register(data: RegisterInput): Promise<User> {
     if (env.useMockApi) {
       await sleep(500);
-      const existing = mockUsers.find((item) => item.email === data.email);
+      const existing = mockUsers.find((item) => item.phone === data.phone);
       if (existing) {
-        throw new Error("An account with this email already exists.");
+        throw new Error("An account with this phone number already exists.");
       }
 
-      return {
+      const user: User = {
         id: `user-${Date.now()}`,
-        email: data.email,
+        phone: data.phone,
         name: data.name,
         role: UserRole.STUDENT,
         createdAt: new Date().toISOString(),
       };
+      persistSession(user, "mock-access-token", "mock-refresh-token");
+      return user;
     }
 
-    const response = await apiClient.post<User>("/auth/register", data);
-    return response.data;
+    const response = await apiClient.post<AuthPayload>(
+      "/auth/register",
+      {
+        name: data.name,
+        phone: data.phone,
+        password: data.password,
+        ...(data.role ? { role: data.role } : {}),
+      },
+      { skipAuth: true }
+    );
+
+    const user = mapBackendUser(response.data.user);
+    persistSession(user, response.data.accessToken, response.data.refreshToken);
+    return user;
   },
 
   async logout(): Promise<void> {
-    if (env.useMockApi) {
-      await sleep(200);
-      return;
+    try {
+      if (!env.useMockApi) {
+        await apiClient.post("/auth/logout");
+      }
+    } finally {
+      clearAuthTokens();
     }
-
-    await apiClient.post("/auth/logout");
   },
 
   async getSession(): Promise<User | null> {
@@ -53,13 +95,14 @@ export const authService = {
       return null;
     }
 
-    const response = await apiClient.get<User>("/auth/session");
-    return response.data;
+    try {
+      const response = await apiClient.get<BackendUser>("/users/me");
+      return mapBackendUser(response.data);
+    } catch {
+      clearAuthTokens();
+      return null;
+    }
   },
 };
 
-export const roleHomeRoutes: Record<UserRole, string> = {
-  [UserRole.STUDENT]: "/student",
-  [UserRole.TEACHER]: "/teacher",
-  [UserRole.ADMIN]: "/admin",
-};
+export { roleHomeRoutes };

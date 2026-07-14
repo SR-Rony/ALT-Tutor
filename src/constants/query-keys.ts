@@ -8,5 +8,9 @@ export const queryKeys = {
   },
   admin: {
     example: ["admin", "example"] as const,
+    dashboard: ["admin", "dashboard"] as const,
+    users: ["admin", "users"] as const,
+    courses: ["admin", "courses"] as const,
+    payments: ["admin", "payments"] as const,
   },
 } as const;

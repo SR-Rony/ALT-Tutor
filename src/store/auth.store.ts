@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import type { User } from "@/types";
+import { clearAuthTokens } from "@/lib/auth-tokens";
 
 interface AuthState {
   user: User | null;
@@ -15,7 +16,10 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       isAuthenticated: false,
       setUser: (user) => set({ user, isAuthenticated: !!user }),
-      logout: () => set({ user: null, isAuthenticated: false }),
+      logout: () => {
+        clearAuthTokens();
+        set({ user: null, isAuthenticated: false });
+      },
     }),
     { name: "lms-auth" }
   )
