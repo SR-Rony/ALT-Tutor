@@ -8,7 +8,8 @@ export const queryKeys = {
   },
   courses: {
     all: ["courses"] as const,
-    detail: (slug: string) => ["courses", slug] as const,
+    catalog: (filters: object = {}) => ["courses", "catalog", filters] as const,
+    detail: (slug: string) => ["courses", "detail", slug] as const,
   },
   admin: {
     example: ["admin", "example"] as const,

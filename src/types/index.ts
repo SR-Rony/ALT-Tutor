@@ -7,7 +7,18 @@ export type {
 } from "./api.types";
 export type { User } from "./user.types";
 export type { NavItem } from "./navigation.types";
-export type { Course } from "./course.types";
+export type {
+  CatalogCourse,
+  Course,
+  CourseCategoryRef,
+  CourseChapter,
+  CourseDetail,
+  CourseLesson,
+  CourseReview,
+  CourseTeacher,
+  CoursesListResult,
+  CoursesQuery,
+} from "./course.types";
 export type {
   AdminExampleItem,
   AdminExampleItemStatus,
