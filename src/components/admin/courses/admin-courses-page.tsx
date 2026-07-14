@@ -1,26 +1,61 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Archive,
   CheckCircle2,
   Eye,
   FilePenLine,
+  Pencil,
+  Plus,
   RefreshCw,
   Trash2,
 } from "lucide-react";
 import { AdminActionsBar, AdminIconAction } from "@/components/admin/shared/admin-icon-action";
+import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants";
-import { useAdminCourses, useDeleteCourse, useUpdateCourseStatus } from "@/hooks";
+import {
+  useAdminCategories,
+  useAdminCourses,
+  useAdminUsers,
+  useCreateCourse,
+  useDeleteCourse,
+  useUpdateCourse,
+  useUpdateCourseStatus,
+} from "@/hooks";
 import { formatMoney, formatShortDate } from "@/lib/format";
-import type { ApiError, CourseStatus } from "@/types";
+import { slugify } from "@/lib/slugify";
+import type { ApiError, AdminCourse, CourseLevel, CourseStatus } from "@/types";
 import { cn } from "@/utils";
 
 const statuses: CourseStatus[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
+const levels: CourseLevel[] = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
+
+type CourseFormState = {
+  title: string;
+  slug: string;
+  description: string;
+  thumbnail: string;
+  price: string;
+  level: CourseLevel;
+  categoryId: string;
+  teacherId: string;
+};
+
+const emptyForm: CourseFormState = {
+  title: "",
+  slug: "",
+  description: "",
+  thumbnail: "",
+  price: "0",
+  level: "BEGINNER",
+  categoryId: "",
+  teacherId: "",
+};
 
 function statusBadgeClass(status: string) {
   const s = status.toUpperCase();
@@ -29,14 +64,28 @@ function statusBadgeClass(status: string) {
   return "bg-accent/10 text-accent";
 }
 
+function fieldClassName() {
+  return "flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/15";
+}
+
 export function AdminCoursesPage() {
   const { data = [], isLoading, error, refetch, isFetching } = useAdminCourses();
+  const { data: categories = [] } = useAdminCategories();
+  const { data: teachers = [] } = useAdminUsers("TEACHER");
+
+  const createCourse = useCreateCourse();
+  const updateCourse = useUpdateCourse();
   const updateStatus = useUpdateCourseStatus();
   const deleteCourse = useDeleteCourse();
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<AdminCourse | null>(null);
+  const [form, setForm] = useState<CourseFormState>(emptyForm);
+  const [autoSlug, setAutoSlug] = useState(true);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -54,7 +103,61 @@ export function AdminCoursesPage() {
     });
   }, [data, search, statusFilter]);
 
-  const busy = updateStatus.isPending || deleteCourse.isPending;
+  const busy =
+    createCourse.isPending ||
+    updateCourse.isPending ||
+    updateStatus.isPending ||
+    deleteCourse.isPending;
+
+  useEffect(() => {
+    if (!modalOpen) return;
+    if (editing) {
+      setForm({
+        title: editing.title,
+        slug: editing.slug,
+        description: editing.description,
+        thumbnail: editing.thumbnail ?? "",
+        price: String(Number(editing.price) || 0),
+        level: (String(editing.level).toUpperCase() as CourseLevel) || "BEGINNER",
+        categoryId: editing.categoryId || editing.category?.id || "",
+        teacherId: editing.teacherId || editing.teacher?.id || "",
+      });
+      setAutoSlug(false);
+    } else {
+      setForm({
+        ...emptyForm,
+        categoryId: categories[0]?.id ?? "",
+        teacherId: teachers[0]?.id ?? "",
+      });
+      setAutoSlug(true);
+    }
+  }, [modalOpen, editing, categories, teachers]);
+
+  const openCreate = () => {
+    setEditing(null);
+    setActionError(null);
+    setModalOpen(true);
+  };
+
+  const openEdit = (course: AdminCourse) => {
+    setEditing(course);
+    setActionError(null);
+    setModalOpen(true);
+  };
+
+  const closeModal = () => {
+    if (createCourse.isPending || updateCourse.isPending) return;
+    setModalOpen(false);
+    setEditing(null);
+  };
+
+  const onTitleChange = (title: string) => {
+    setForm((prev) => ({
+      ...prev,
+      title,
+      slug: autoSlug ? slugify(title) : prev.slug,
+    }));
+  };
 
   const onStatusChange = async (id: string, status: CourseStatus) => {
     setActionError(null);
@@ -85,12 +188,57 @@ export function AdminCoursesPage() {
     }
   };
 
+  const onSubmit = async () => {
+    const title = form.title.trim();
+    const slug = form.slug.trim();
+    const description = form.description.trim();
+    const categoryId = form.categoryId;
+    const teacherId = form.teacherId;
+
+    if (!title || !slug || !description || !categoryId) {
+      setActionError("Title, slug, description, and category are required");
+      return;
+    }
+    if (!teacherId) {
+      setActionError("Please select a teacher");
+      return;
+    }
+
+    const payload = {
+      title,
+      slug,
+      description,
+      thumbnail: form.thumbnail.trim() || undefined,
+      price: Number(form.price) || 0,
+      level: form.level,
+      categoryId,
+      teacherId,
+    };
+
+    setActionError(null);
+    try {
+      if (editing) {
+        setPendingId(editing.id);
+        await updateCourse.mutateAsync({ id: editing.id, payload });
+      } else {
+        await createCourse.mutateAsync(payload);
+      }
+      setModalOpen(false);
+      setEditing(null);
+    } catch (err) {
+      const apiError = err as ApiError;
+      setActionError(apiError?.message || "Failed to save course");
+    } finally {
+      setPendingId(null);
+    }
+  };
+
   if (isLoading && data.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader
           title="Courses"
-          description="Review courses — publish, archive, view, or delete."
+          description="Create, update, publish, and delete courses."
           className="mb-0"
         />
         <PageLoader label="Loading courses..." />
@@ -99,167 +247,330 @@ export function AdminCoursesPage() {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
-      <div className="border-b border-border px-5 py-6">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <PageHeader
-            title="Courses"
-            description="Review courses — publish, archive, view, or delete."
-            className="mb-0"
-          />
-          <AdminIconAction
-            label="Refresh"
-            icon={RefreshCw}
-            tone="primary"
-            disabled={isFetching}
-            onClick={() => void refetch()}
-            className={isFetching ? "animate-spin" : undefined}
-          />
-        </div>
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search title, teacher, or category..."
-            className="max-w-md"
-          />
-          <div className="flex flex-wrap gap-2">
-            {["ALL", ...statuses].map((status) => (
-              <button
-                key={status}
-                type="button"
-                onClick={() => setStatusFilter(status)}
-                className={cn(
-                  "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
-                  statusFilter === status
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-muted text-muted-foreground hover:text-foreground"
-                )}
-              >
-                {status === "ALL" ? "All" : status.charAt(0) + status.slice(1).toLowerCase()}
-              </button>
-            ))}
+    <>
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
+        <div className="border-b border-border px-5 py-6">
+          <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+            <PageHeader
+              title="Courses"
+              description="Full access — create, update, status change, and delete."
+              className="mb-0"
+            />
+            <div className="flex items-center gap-2">
+              <AdminIconAction
+                label="Refresh"
+                icon={RefreshCw}
+                tone="primary"
+                disabled={isFetching}
+                onClick={() => void refetch()}
+                className={isFetching ? "animate-spin" : undefined}
+              />
+              <Button type="button" size="sm" onClick={openCreate}>
+                <Plus className="h-4 w-4" aria-hidden />
+                Add course
+              </Button>
+            </div>
           </div>
+
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search title, teacher, or category..."
+              className="max-w-md"
+            />
+            <div className="flex flex-wrap gap-2">
+              {["ALL", ...statuses].map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setStatusFilter(status)}
+                  className={cn(
+                    "rounded-full px-3 py-1.5 text-xs font-semibold transition-colors",
+                    statusFilter === status
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {status === "ALL" ? "All" : status.charAt(0) + status.slice(1).toLowerCase()}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {actionError || error ? (
+            <p className="mt-3 text-sm text-accent">
+              {actionError || (error as unknown as ApiError)?.message || "Something went wrong"}
+              {!actionError && error ? (
+                <button type="button" className="ml-2 underline" onClick={() => void refetch()}>
+                  Retry
+                </button>
+              ) : null}
+            </p>
+          ) : null}
+
+          {categories.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">
+              No categories yet.{" "}
+              <Link href={ROUTES.admin.categories} className="font-semibold text-primary underline">
+                Create a category
+              </Link>{" "}
+              before adding courses.
+            </p>
+          ) : null}
         </div>
-        {actionError || error ? (
-          <p className="mt-3 text-sm text-accent">
-            {actionError || (error as unknown as ApiError)?.message || "Something went wrong"}
-            {!actionError && error ? (
-              <button type="button" className="ml-2 underline" onClick={() => void refetch()}>
-                Retry
-              </button>
-            ) : null}
-          </p>
-        ) : null}
-      </div>
 
-      <div className="overflow-x-auto">
-        <table className="w-full min-w-[900px] text-left text-sm">
-          <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-            <tr>
-              <th className="px-5 py-3 font-semibold">Course</th>
-              <th className="px-5 py-3 font-semibold">Teacher</th>
-              <th className="px-5 py-3 font-semibold">Price</th>
-              <th className="px-5 py-3 font-semibold">Enrolled</th>
-              <th className="px-5 py-3 font-semibold">Status</th>
-              <th className="px-5 py-3 font-semibold">Created</th>
-              <th className="px-5 py-3 font-semibold text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {!isLoading && visible.length === 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[980px] text-left text-sm">
+            <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground">
-                  No courses match your filters.
-                </td>
+                <th className="px-5 py-3 font-semibold">Course</th>
+                <th className="px-5 py-3 font-semibold">Teacher</th>
+                <th className="px-5 py-3 font-semibold">Price</th>
+                <th className="px-5 py-3 font-semibold">Enrolled</th>
+                <th className="px-5 py-3 font-semibold">Status</th>
+                <th className="px-5 py-3 font-semibold">Created</th>
+                <th className="px-5 py-3 font-semibold text-right">Actions</th>
               </tr>
-            ) : null}
-
-            {visible.map((course) => {
-              const current = String(course.status).toUpperCase() as CourseStatus;
-              const rowBusy = busy && pendingId === course.id;
-
-              return (
-                <tr key={course.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                  <td className="px-5 py-4">
-                    <p className="font-semibold text-foreground">{course.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {course.category.name} · {String(course.level).toLowerCase()}
-                    </p>
-                  </td>
-                  <td className="px-5 py-4 text-muted-foreground">{course.teacher.name}</td>
-                  <td className="px-5 py-4 font-medium text-foreground">{formatMoney(course.price)}</td>
-                  <td className="px-5 py-4 text-muted-foreground">{course._count.enrollments}</td>
-                  <td className="px-5 py-4">
-                    <span
-                      className={cn(
-                        "inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
-                        statusBadgeClass(String(course.status))
-                      )}
-                    >
-                      {String(course.status).toLowerCase()}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-muted-foreground">{formatShortDate(course.createdAt)}</td>
-                  <td className="px-5 py-4">
-                    <AdminActionsBar>
-                      <Button
-                        asChild
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10"
-                        title="View course"
-                      >
-                        <Link href={ROUTES.courseDetail(course.slug)} target="_blank" aria-label="View course">
-                          <Eye className="h-4 w-4" aria-hidden />
-                        </Link>
-                      </Button>
-
-                      {current !== "PUBLISHED" ? (
-                        <AdminIconAction
-                          label="Publish"
-                          icon={CheckCircle2}
-                          tone="success"
-                          disabled={rowBusy}
-                          onClick={() => void onStatusChange(course.id, "PUBLISHED")}
-                        />
-                      ) : null}
-
-                      {current !== "DRAFT" ? (
-                        <AdminIconAction
-                          label="Set draft"
-                          icon={FilePenLine}
-                          tone="warning"
-                          disabled={rowBusy}
-                          onClick={() => void onStatusChange(course.id, "DRAFT")}
-                        />
-                      ) : null}
-
-                      {current !== "ARCHIVED" ? (
-                        <AdminIconAction
-                          label="Archive"
-                          icon={Archive}
-                          tone="default"
-                          disabled={rowBusy}
-                          onClick={() => void onStatusChange(course.id, "ARCHIVED")}
-                        />
-                      ) : null}
-
-                      <AdminIconAction
-                        label="Delete course"
-                        icon={Trash2}
-                        tone="danger"
-                        disabled={rowBusy}
-                        onClick={() => void onDelete(course.id, course.title)}
-                      />
-                    </AdminActionsBar>
+            </thead>
+            <tbody>
+              {!isLoading && visible.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-5 py-10 text-center text-muted-foreground">
+                    No courses match your filters.
                   </td>
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              ) : null}
+
+              {visible.map((course) => {
+                const current = String(course.status).toUpperCase() as CourseStatus;
+                const rowBusy = busy && pendingId === course.id;
+
+                return (
+                  <tr key={course.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                    <td className="px-5 py-4">
+                      <p className="font-semibold text-foreground">{course.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {course.category?.name ?? "—"} · {String(course.level).toLowerCase()}
+                      </p>
+                    </td>
+                    <td className="px-5 py-4 text-muted-foreground">{course.teacher?.name ?? "—"}</td>
+                    <td className="px-5 py-4 font-medium text-foreground">{formatMoney(course.price)}</td>
+                    <td className="px-5 py-4 text-muted-foreground">{course._count?.enrollments ?? 0}</td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={cn(
+                          "inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide",
+                          statusBadgeClass(String(course.status))
+                        )}
+                      >
+                        {String(course.status).toLowerCase()}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4 text-muted-foreground">{formatShortDate(course.createdAt)}</td>
+                    <td className="px-5 py-4">
+                      <AdminActionsBar>
+                        <AdminIconAction
+                          label="Edit course"
+                          icon={Pencil}
+                          tone="primary"
+                          disabled={rowBusy}
+                          onClick={() => openEdit(course)}
+                        />
+                        <Button
+                          asChild
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg text-primary hover:bg-primary/10"
+                          title="View course"
+                        >
+                          <Link href={ROUTES.courseDetail(course.slug)} target="_blank" aria-label="View course">
+                            <Eye className="h-4 w-4" aria-hidden />
+                          </Link>
+                        </Button>
+
+                        {current !== "PUBLISHED" ? (
+                          <AdminIconAction
+                            label="Publish"
+                            icon={CheckCircle2}
+                            tone="success"
+                            disabled={rowBusy}
+                            onClick={() => void onStatusChange(course.id, "PUBLISHED")}
+                          />
+                        ) : null}
+
+                        {current !== "DRAFT" ? (
+                          <AdminIconAction
+                            label="Set draft"
+                            icon={FilePenLine}
+                            tone="warning"
+                            disabled={rowBusy}
+                            onClick={() => void onStatusChange(course.id, "DRAFT")}
+                          />
+                        ) : null}
+
+                        {current !== "ARCHIVED" ? (
+                          <AdminIconAction
+                            label="Archive"
+                            icon={Archive}
+                            tone="default"
+                            disabled={rowBusy}
+                            onClick={() => void onStatusChange(course.id, "ARCHIVED")}
+                          />
+                        ) : null}
+
+                        <AdminIconAction
+                          label="Delete course"
+                          icon={Trash2}
+                          tone="danger"
+                          disabled={rowBusy}
+                          onClick={() => void onDelete(course.id, course.title)}
+                        />
+                      </AdminActionsBar>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+
+      <AdminModal
+        open={modalOpen}
+        title={editing ? "Update course" : "Create course"}
+        description="Fill in course details. New courses start as Draft until published."
+        onClose={closeModal}
+        className="sm:max-w-2xl"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeModal}
+              disabled={createCourse.isPending || updateCourse.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void onSubmit()}
+              disabled={createCourse.isPending || updateCourse.isPending || categories.length === 0}
+            >
+              {createCourse.isPending || updateCourse.isPending
+                ? "Saving..."
+                : editing
+                  ? "Update course"
+                  : "Create course"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label className="block space-y-1.5 sm:col-span-2">
+            <span className="text-sm font-semibold text-foreground">Title</span>
+            <Input value={form.title} onChange={(e) => onTitleChange(e.target.value)} placeholder="Course title" />
+          </label>
+
+          <label className="block space-y-1.5 sm:col-span-2">
+            <span className="text-sm font-semibold text-foreground">Slug</span>
+            <Input
+              value={form.slug}
+              onChange={(e) => {
+                setAutoSlug(false);
+                setForm((prev) => ({ ...prev, slug: slugify(e.target.value) }));
+              }}
+              placeholder="course-slug"
+            />
+          </label>
+
+          <label className="block space-y-1.5 sm:col-span-2">
+            <span className="text-sm font-semibold text-foreground">Description</span>
+            <textarea
+              value={form.description}
+              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
+              rows={4}
+              placeholder="What students will learn..."
+              className={cn(fieldClassName(), "h-auto py-2.5")}
+            />
+          </label>
+
+          <label className="block space-y-1.5 sm:col-span-2">
+            <span className="text-sm font-semibold text-foreground">Thumbnail URL</span>
+            <Input
+              value={form.thumbnail}
+              onChange={(e) => setForm((prev) => ({ ...prev, thumbnail: e.target.value }))}
+              placeholder="https://images.unsplash.com/..."
+            />
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold text-foreground">Price</span>
+            <Input
+              type="number"
+              min={0}
+              step="0.01"
+              value={form.price}
+              onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
+            />
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold text-foreground">Level</span>
+            <select
+              value={form.level}
+              onChange={(e) => setForm((prev) => ({ ...prev, level: e.target.value as CourseLevel }))}
+              className={fieldClassName()}
+            >
+              {levels.map((level) => (
+                <option key={level} value={level}>
+                  {level.charAt(0) + level.slice(1).toLowerCase()}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold text-foreground">Category</span>
+            <select
+              value={form.categoryId}
+              onChange={(e) => setForm((prev) => ({ ...prev, categoryId: e.target.value }))}
+              className={fieldClassName()}
+            >
+              <option value="">Select category</option>
+              {categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold text-foreground">Teacher</span>
+            <select
+              value={form.teacherId}
+              onChange={(e) => setForm((prev) => ({ ...prev, teacherId: e.target.value }))}
+              className={fieldClassName()}
+            >
+              <option value="">Select teacher</option>
+              {teachers.map((teacher) => (
+                <option key={teacher.id} value={teacher.id}>
+                  {teacher.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {teachers.length === 0 ? (
+            <p className="sm:col-span-2 text-sm text-muted-foreground">
+              No teachers found. Promote a user to Teacher role first.
+            </p>
+          ) : null}
+
+          {actionError ? <p className="sm:col-span-2 text-sm text-accent">{actionError}</p> : null}
+        </div>
+      </AdminModal>
+    </>
   );
 }

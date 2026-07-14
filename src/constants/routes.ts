@@ -28,6 +28,7 @@ export const ROUTES = {
     root: "/admin",
     users: "/admin/users",
     courses: "/admin/courses",
+    categories: "/admin/categories",
     support: "/admin/support",
     supportDetail: (ticketId: string) => `/admin/support/${ticketId}`,
     example: "/admin/example",

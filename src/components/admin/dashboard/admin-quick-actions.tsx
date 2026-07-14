@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpen, Headphones, UserCog, type LucideIcon } from "lucide-react";
+import { BookOpen, Headphones, Tags, UserCog, type LucideIcon } from "lucide-react";
 import { ROUTES } from "@/constants";
 import { cn } from "@/utils";
 
@@ -21,10 +21,17 @@ const actions: {
   },
   {
     title: "Manage courses",
-    description: "Publish, draft, and enrollments",
+    description: "Create, publish, and enrollments",
     href: ROUTES.admin.courses,
     icon: BookOpen,
     tone: "bg-accent/10 text-accent",
+  },
+  {
+    title: "Categories",
+    description: "Organize the course catalog",
+    href: ROUTES.admin.categories,
+    icon: Tags,
+    tone: "bg-[#eff6ff] text-[#1877f2]",
   },
   {
     title: "Support inbox",
@@ -37,7 +44,7 @@ const actions: {
 
 export function AdminQuickActions() {
   return (
-    <div className="grid gap-3 sm:grid-cols-3">
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       {actions.map((action) => {
         const Icon = action.icon;
         return (

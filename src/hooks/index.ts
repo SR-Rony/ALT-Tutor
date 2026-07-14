@@ -5,12 +5,18 @@ export {
   useAdminStats,
   useAdminUsers,
   useAdminCourses,
+  useAdminCategories,
   useAdminPayments,
   useUpdateUserStatus,
   useUpdateUserRole,
   useDeleteUser,
+  useCreateCourse,
+  useUpdateCourse,
   useUpdateCourseStatus,
   useDeleteCourse,
+  useCreateCategory,
+  useUpdateCategory,
+  useDeleteCategory,
 } from "./use-admin-dashboard";
 export { useTeacherDashboard } from "./use-role-dashboard";
 export {

@@ -8,5 +8,6 @@ export {
   adminExampleManagementService,
   adminUsersService,
   adminCoursesService,
+  adminCategoriesService,
   adminPaymentsService,
 } from "./admin";

@@ -3,12 +3,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/constants";
 import {
+  adminCategoriesService,
   adminCoursesService,
   adminPaymentsService,
   adminUsersService,
   dashboardService,
 } from "@/services";
-import type { CourseStatus, BackendRole } from "@/types/admin-dashboard.types";
+import type { CategoryInput } from "@/services/admin/admin-categories.service";
+import type { CourseUpsertInput } from "@/services/admin/admin-courses.service";
+import type { BackendRole, CourseStatus } from "@/types/admin-dashboard.types";
 
 export function useAdminStats() {
   return useQuery({
@@ -17,10 +20,10 @@ export function useAdminStats() {
   });
 }
 
-export function useAdminUsers() {
+export function useAdminUsers(role?: BackendRole) {
   return useQuery({
-    queryKey: queryKeys.admin.users,
-    queryFn: () => adminUsersService.getUsers(),
+    queryKey: [...queryKeys.admin.users, role ?? "ALL"] as const,
+    queryFn: () => adminUsersService.getUsers(role),
   });
 }
 
@@ -28,6 +31,13 @@ export function useAdminCourses() {
   return useQuery({
     queryKey: queryKeys.admin.courses,
     queryFn: () => adminCoursesService.getAll(),
+  });
+}
+
+export function useAdminCategories() {
+  return useQuery({
+    queryKey: queryKeys.admin.categories,
+    queryFn: () => adminCategoriesService.getAll(),
   });
 }
 
@@ -76,6 +86,35 @@ export function useDeleteUser() {
   });
 }
 
+export function useCreateCourse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CourseUpsertInput) => adminCoursesService.create(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.courses.all });
+    },
+  });
+}
+
+export function useUpdateCourse() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<CourseUpsertInput> }) =>
+      adminCoursesService.update(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.courses.all });
+    },
+  });
+}
+
 export function useUpdateCourseStatus() {
   const queryClient = useQueryClient();
 
@@ -85,6 +124,7 @@ export function useUpdateCourseStatus() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
     },
   });
 }
@@ -97,6 +137,49 @@ export function useDeleteCourse() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.courses.all });
+    },
+  });
+}
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload: CategoryInput) => adminCategoriesService.create(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.categories });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home.categories });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
+    },
+  });
+}
+
+export function useUpdateCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<CategoryInput> }) =>
+      adminCategoriesService.update(id, payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.categories });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home.categories });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (id: string) => adminCategoriesService.remove(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.categories });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home.categories });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
     },
   });
 }
