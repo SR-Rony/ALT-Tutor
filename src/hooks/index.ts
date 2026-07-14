@@ -1,5 +1,6 @@
 export { useCourses, useCoursesCatalog, useCourseDetail } from "./use-courses";
 export { useHomeData, useCategories } from "./use-home";
+export { usePublicNav } from "./use-public-nav";
 export {
   useAdminStats,
   useAdminUsers,

@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { CoursesCatalogPage } from "@/components/public/courses";
 
 export const metadata = {
@@ -6,5 +7,15 @@ export const metadata = {
 };
 
 export default function CoursesPage() {
-  return <CoursesCatalogPage />;
+  return (
+    <Suspense
+      fallback={
+        <div className="mx-auto max-w-7xl px-4 py-16 text-center text-sm text-[#64748b]">
+          Loading courses…
+        </div>
+      }
+    >
+      <CoursesCatalogPage />
+    </Suspense>
+  );
 }

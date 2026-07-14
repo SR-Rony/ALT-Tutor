@@ -1,40 +1,33 @@
 import type { NavItem } from "@/types/navigation.types";
 import { ROUTES } from "@/constants";
 
+/** Static public navbar — category children are injected at runtime via usePublicNav */
 export const publicNav: NavItem[] = [
+  { title: "Home", href: ROUTES.home, iconName: "home" },
   {
-    title: "School",
+    title: "Courses",
     href: ROUTES.courses,
     iconName: "book",
-    children: [
-      { title: "All Courses", href: ROUTES.courses },
-      { title: "Live Classes", href: ROUTES.courses },
-      { title: "Recorded Lessons", href: ROUTES.courses },
-    ],
+    children: [{ title: "All Courses", href: ROUTES.courses }],
   },
-  {
-    title: "Academic",
-    href: ROUTES.courses,
-    iconName: "book",
-    children: [
-      { title: "Class 6–8", href: ROUTES.courses },
-      { title: "Class 9–10", href: ROUTES.courses },
-      { title: "Higher Secondary", href: ROUTES.courses },
-    ],
-  },
-  { title: "Programs", href: ROUTES.courses, iconName: "book" },
-  { title: "Admission", href: ROUTES.auth.register, iconName: "users" },
-  {
-    title: "More",
-    iconName: "help",
-    children: [
-      { title: "Help Center", href: ROUTES.help },
-      { title: "Contact", href: ROUTES.contact },
-      { title: "Instructors", href: ROUTES.teacher.root },
-    ],
-  },
-  { title: "About Us", href: ROUTES.about, iconName: "info" },
+  { title: "About", href: ROUTES.about, iconName: "info" },
+  { title: "Help", href: ROUTES.help, iconName: "help" },
+  { title: "Contact", href: ROUTES.contact, iconName: "phone" },
 ];
+
+export const publicFooterProgramLinks = [
+  { label: "All Courses", href: ROUTES.courses },
+  { label: "About Us", href: ROUTES.about },
+  { label: "Help Center", href: ROUTES.help },
+  { label: "Contact", href: ROUTES.contact },
+] as const;
+
+export const publicFooterCompanyLinks = [
+  { label: "About Us", href: ROUTES.about },
+  { label: "Help Center", href: ROUTES.help },
+  { label: "Contact", href: ROUTES.contact },
+  { label: "Get Started", href: ROUTES.auth.register },
+] as const;
 
 export const studentNav: NavItem[] = [
   { title: "Overview", href: ROUTES.student.root, iconName: "dashboard" },

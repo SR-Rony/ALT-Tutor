@@ -5,6 +5,8 @@ export { queryConfig } from "./query.config";
 export { dashboardConfig } from "./dashboard.config";
 export {
   publicNav,
+  publicFooterProgramLinks,
+  publicFooterCompanyLinks,
   studentNav,
   studentFooterNav,
   teacherNav,

@@ -13,24 +13,13 @@ import {
   Youtube,
   type LucideIcon,
 } from "lucide-react";
-import { siteConfig } from "@/config";
+import { publicFooterCompanyLinks, publicFooterProgramLinks, siteConfig } from "@/config";
 import { roleHomeRoutes, ROUTES } from "@/constants";
 import { useAuthSessionReady } from "@/providers/auth-session-provider";
 import { useAppSelector } from "@/store";
 
-const programLinks = [
-  { label: "All Courses", href: ROUTES.courses },
-  { label: "Live Classes", href: ROUTES.courses },
-  { label: "Academic Prep", href: ROUTES.courses },
-  { label: "Admission", href: ROUTES.auth.register },
-] as const;
-
-const companyLinks = [
-  { label: "About Us", href: ROUTES.about },
-  { label: "Instructors", href: ROUTES.teacher.root },
-  { label: "Contact", href: ROUTES.contact },
-  { label: "Help Center", href: ROUTES.help },
-] as const;
+const programLinks = publicFooterProgramLinks;
+const companyLinks = publicFooterCompanyLinks;
 
 const socialLinks: { label: string; href: string; icon: LucideIcon }[] = [
   { label: "Facebook", href: "https://facebook.com", icon: Facebook },

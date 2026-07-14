@@ -1,13 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   BookOpen,
   ChevronDown,
   HelpCircle,
+  Home,
   Info,
   Menu,
   Phone,
@@ -15,26 +16,46 @@ import {
   X,
   type LucideIcon,
 } from "lucide-react";
-import { publicNav, siteConfig } from "@/config";
+import { siteConfig } from "@/config";
 import { ROUTES } from "@/constants";
+import { usePublicNav } from "@/hooks/use-public-nav";
 import type { NavItem } from "@/types/navigation.types";
 import { Logo } from "@/components/shared";
 import { PublicAuthActions } from "@/components/layouts/public-auth-actions";
 import { cn } from "@/utils";
 
 const navIcons: Record<string, LucideIcon> = {
+  home: Home,
   book: BookOpen,
   info: Info,
   users: Users,
   help: HelpCircle,
+  phone: Phone,
 };
 
-function isNavActive(pathname: string, item: NavItem): boolean {
+function isNavActive(pathname: string, item: NavItem, search = ""): boolean {
   if (item.href) {
-    if (item.href === ROUTES.home) return pathname === ROUTES.home;
-    return pathname === item.href || pathname.startsWith(`${item.href}/`);
+    const [hrefPath, hrefQuery = ""] = item.href.split("?");
+    if (hrefPath === ROUTES.home) return pathname === ROUTES.home;
+
+    const pathMatches = pathname === hrefPath || pathname.startsWith(`${hrefPath}/`);
+    if (!pathMatches) return false;
+
+    if (!hrefQuery) {
+      if (item.children?.length) return pathMatches;
+      const current = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+      return pathMatches && ![...current.keys()].length;
+    }
+
+    const expected = new URLSearchParams(hrefQuery);
+    const current = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+    for (const [key, value] of expected.entries()) {
+      if (current.get(key) !== value) return false;
+    }
+    return true;
   }
-  return item.children?.some((child) => child.href && isNavActive(pathname, child)) ?? false;
+
+  return item.children?.some((child) => child.href && isNavActive(pathname, child, search)) ?? false;
 }
 
 function NavLabel({
@@ -65,10 +86,18 @@ function NavLabel({
   );
 }
 
-function DesktopNavItem({ item, pathname }: { item: NavItem; pathname: string }) {
+function DesktopNavItem({
+  item,
+  pathname,
+  search,
+}: {
+  item: NavItem;
+  pathname: string;
+  search: string;
+}) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const active = isNavActive(pathname, item);
+  const active = isNavActive(pathname, item, search);
   const hasChildren = Boolean(item.children?.length);
 
   useEffect(() => {
@@ -112,15 +141,15 @@ function DesktopNavItem({ item, pathname }: { item: NavItem; pathname: string })
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.15 }}
-              className="absolute left-0 top-full z-50 min-w-[12rem] pt-2"
+              className="absolute left-0 top-full z-50 min-w-[13.5rem] pt-2"
             >
-              <div className="overflow-hidden rounded-xl border border-[#e8edf5] bg-white py-2 shadow-[0_16px_40px_-12px_rgba(24,119,242,0.18)]">
+              <div className="max-h-[70vh] overflow-y-auto rounded-xl border border-[#e8edf5] bg-white py-2 shadow-[0_16px_40px_-12px_rgba(24,119,242,0.18)]">
                 {item.children?.map((child) => {
                   if (!child.href) return null;
-                  const childActive = isNavActive(pathname, child);
+                  const childActive = isNavActive(pathname, child, search);
                   return (
                     <Link
-                      key={child.title}
+                      key={`${child.title}-${child.href}`}
                       href={child.href}
                       className={cn(
                         "group/item relative mx-1.5 flex items-center rounded-lg px-3 py-2.5 text-sm transition-colors duration-300",
@@ -163,14 +192,16 @@ function DesktopNavItem({ item, pathname }: { item: NavItem; pathname: string })
 function MobileNavItem({
   item,
   pathname,
+  search,
   onNavigate,
 }: {
   item: NavItem;
   pathname: string;
+  search: string;
   onNavigate: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
-  const active = isNavActive(pathname, item);
+  const active = isNavActive(pathname, item, search);
   const Icon = item.iconName ? navIcons[item.iconName] : null;
   const hasChildren = Boolean(item.children?.length);
 
@@ -199,10 +230,10 @@ function MobileNavItem({
           <div className="border-t border-border/70 bg-muted/30 px-2 py-2">
             {item.children?.map((child) => {
               if (!child.href) return null;
-              const childActive = isNavActive(pathname, child);
+              const childActive = isNavActive(pathname, child, search);
               return (
                 <Link
-                  key={child.title}
+                  key={`${child.title}-${child.href}`}
                   href={child.href}
                   onClick={onNavigate}
                   className={cn(
@@ -244,8 +275,11 @@ function MobileNavItem({
   );
 }
 
-export function PublicHeader() {
+function PublicHeaderInner() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.toString();
+  const navItems = usePublicNav();
   const prefersReducedMotion = useReducedMotion();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -253,7 +287,7 @@ export function PublicHeader() {
 
   useEffect(() => {
     setMobileOpen(false);
-  }, [pathname]);
+  }, [pathname, search]);
 
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
@@ -275,9 +309,9 @@ export function PublicHeader() {
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 md:px-6 lg:h-[4.5rem] lg:gap-6">
         <Logo className="shrink-0" />
 
-        <nav aria-label="Main navigation" className="hidden flex-1 items-center justify-center gap-0.5 xl:gap-1 lg:flex">
-          {publicNav.map((item) => (
-            <DesktopNavItem key={item.title} item={item} pathname={pathname} />
+        <nav aria-label="Main navigation" className="hidden flex-1 items-center justify-center gap-0.5 lg:flex xl:gap-1">
+          {navItems.map((item) => (
+            <DesktopNavItem key={item.title} item={item} pathname={pathname} search={search} />
           ))}
         </nav>
 
@@ -334,8 +368,14 @@ export function PublicHeader() {
                 aria-label="Mobile navigation"
                 className="mx-auto w-full max-w-7xl flex-1 space-y-2 overflow-y-auto p-4"
               >
-                {publicNav.map((item) => (
-                  <MobileNavItem key={item.title} item={item} pathname={pathname} onNavigate={closeMobileMenu} />
+                {navItems.map((item) => (
+                  <MobileNavItem
+                    key={item.title}
+                    item={item}
+                    pathname={pathname}
+                    search={search}
+                    onNavigate={closeMobileMenu}
+                  />
                 ))}
               </nav>
 
@@ -354,5 +394,17 @@ export function PublicHeader() {
         ) : null}
       </AnimatePresence>
     </header>
+  );
+}
+
+export function PublicHeader() {
+  return (
+    <Suspense
+      fallback={
+        <header className="sticky top-0 z-50 h-16 border-b border-border/60 bg-card lg:h-[4.5rem]" />
+      }
+    >
+      <PublicHeaderInner />
+    </Suspense>
   );
 }

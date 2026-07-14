@@ -1,7 +1,8 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { useCategories, useCoursesCatalog } from "@/hooks";
 import { formatCourseLevel } from "@/lib/course-format";
@@ -16,21 +17,64 @@ const LEVELS = [
 ] as const;
 
 export function CoursesCatalogPage() {
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [level, setLevel] = useState("");
-  const [page, setPage] = useState(1);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  const categoryId = searchParams.get("categoryId") ?? "";
+  const level = searchParams.get("level") ?? "";
+  const urlSearch = searchParams.get("search") ?? "";
+  const page = Math.max(1, Number(searchParams.get("page") || "1") || 1);
+
+  const [searchInput, setSearchInput] = useState(urlSearch);
+  const [search, setSearch] = useState(urlSearch);
 
   const { data: categories = [] } = useCategories();
 
+  const syncUrl = useCallback(
+    (next: {
+      categoryId?: string;
+      level?: string;
+      search?: string;
+      page?: number;
+      clear?: boolean;
+    }) => {
+      if (next.clear) {
+        router.replace(pathname, { scroll: false });
+        return;
+      }
+
+      const params = new URLSearchParams();
+      const nextCategory = next.categoryId !== undefined ? next.categoryId : categoryId;
+      const nextLevel = next.level !== undefined ? next.level : level;
+      const nextSearch = next.search !== undefined ? next.search : search;
+      const nextPage = next.page !== undefined ? next.page : page;
+
+      if (nextCategory) params.set("categoryId", nextCategory);
+      if (nextLevel) params.set("level", nextLevel);
+      if (nextSearch.trim()) params.set("search", nextSearch.trim());
+      if (nextPage > 1) params.set("page", String(nextPage));
+
+      const qs = params.toString();
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [categoryId, level, search, page, pathname, router]
+  );
+
+  useEffect(() => {
+    setSearchInput(urlSearch);
+    setSearch(urlSearch);
+  }, [urlSearch]);
+
   useEffect(() => {
     const timer = window.setTimeout(() => {
-      setSearch(searchInput.trim());
-      setPage(1);
+      const next = searchInput.trim();
+      if (next === search) return;
+      setSearch(next);
+      syncUrl({ search: next, page: 1 });
     }, 350);
     return () => window.clearTimeout(timer);
-  }, [searchInput]);
+  }, [searchInput, search, syncUrl]);
 
   const query = useMemo(
     () => ({
@@ -51,9 +95,7 @@ export function CoursesCatalogPage() {
   function clearFilters() {
     setSearchInput("");
     setSearch("");
-    setCategoryId("");
-    setLevel("");
-    setPage(1);
+    syncUrl({ clear: true });
   }
 
   const hasFilters = Boolean(search || categoryId || level);
@@ -97,7 +139,11 @@ export function CoursesCatalogPage() {
               <button
                 type="button"
                 aria-label="Clear search"
-                onClick={() => setSearchInput("")}
+                onClick={() => {
+                  setSearchInput("");
+                  setSearch("");
+                  syncUrl({ search: "", page: 1 });
+                }}
                 className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#1a2b5e]"
               >
                 <X className="h-4 w-4" />
@@ -109,7 +155,6 @@ export function CoursesCatalogPage() {
 
       <section className="relative mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:pb-20">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-          {/* Filters */}
           <aside className="w-full shrink-0 rounded-2xl border border-[#e8edf5]/80 bg-white p-5 shadow-[0_12px_36px_-18px_rgba(26,43,94,0.14)] lg:sticky lg:top-24 lg:w-64">
             <div className="flex items-center justify-between gap-2">
               <h2 className="text-sm font-bold text-[#1a2b5e]">Filters</h2>
@@ -130,20 +175,14 @@ export function CoursesCatalogPage() {
                 <FilterChip
                   active={!categoryId}
                   label="All categories"
-                  onClick={() => {
-                    setCategoryId("");
-                    setPage(1);
-                  }}
+                  onClick={() => syncUrl({ categoryId: "", page: 1 })}
                 />
                 {categories.map((cat) => (
                   <FilterChip
                     key={cat.id}
                     active={categoryId === cat.id}
                     label={cat.name}
-                    onClick={() => {
-                      setCategoryId(cat.id);
-                      setPage(1);
-                    }}
+                    onClick={() => syncUrl({ categoryId: cat.id, page: 1 })}
                   />
                 ))}
               </div>
@@ -157,17 +196,13 @@ export function CoursesCatalogPage() {
                     key={item.id || "all"}
                     active={level === item.id}
                     label={item.label}
-                    onClick={() => {
-                      setLevel(item.id);
-                      setPage(1);
-                    }}
+                    onClick={() => syncUrl({ level: item.id, page: 1 })}
                   />
                 ))}
               </div>
             </div>
           </aside>
 
-          {/* Results */}
           <div className="min-w-0 flex-1">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-medium text-[#64748b]">
@@ -230,7 +265,7 @@ export function CoursesCatalogPage() {
               <div className="mt-10 flex items-center justify-center gap-2">
                 <PaginationButton
                   disabled={page <= 1}
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  onClick={() => syncUrl({ page: Math.max(1, page - 1) })}
                 >
                   Previous
                 </PaginationButton>
@@ -239,7 +274,7 @@ export function CoursesCatalogPage() {
                 </span>
                 <PaginationButton
                   disabled={page >= totalPages}
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  onClick={() => syncUrl({ page: Math.min(totalPages, page + 1) })}
                 >
                   Next
                 </PaginationButton>
