@@ -27,6 +27,14 @@ export function useAdminUsers(role?: BackendRole) {
   });
 }
 
+export function useAdminUser(id: string) {
+  return useQuery({
+    queryKey: queryKeys.admin.user(id),
+    queryFn: () => adminUsersService.getUser(id),
+    enabled: Boolean(id),
+  });
+}
+
 export function useAdminCourses() {
   return useQuery({
     queryKey: queryKeys.admin.courses,
@@ -54,8 +62,9 @@ export function useUpdateUserStatus() {
   return useMutation({
     mutationFn: ({ id, isActive }: { id: string; isActive: boolean }) =>
       adminUsersService.updateStatus(id, isActive),
-    onSuccess: () => {
+    onSuccess: (_data, { id }) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.users });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.user(id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
     },
   });
@@ -67,8 +76,9 @@ export function useUpdateUserRole() {
   return useMutation({
     mutationFn: ({ id, role }: { id: string; role: BackendRole }) =>
       adminUsersService.updateRole(id, role),
-    onSuccess: () => {
+    onSuccess: (_data, { id }) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.users });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.user(id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
     },
   });

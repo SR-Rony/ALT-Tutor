@@ -63,5 +63,5 @@ export function AdminIconAction({
 }
 
 export function AdminActionsBar({ children, className }: { children: ReactNode; className?: string }) {
-  return <div className={cn("inline-flex items-center justify-end gap-1", className)}>{children}</div>;
+  return <div className={cn("flex w-full items-center justify-end gap-1", className)}>{children}</div>;
 }

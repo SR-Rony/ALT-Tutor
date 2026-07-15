@@ -1,10 +1,12 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Ban, CheckCircle2, RefreshCw, Trash2, UserCog } from "lucide-react";
 import { AdminActionsBar, AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Input } from "@/components/ui/input";
+import { ROUTES } from "@/constants";
 import {
   useAdminUsers,
   useDeleteUser,
@@ -26,6 +28,7 @@ function roleSelectClass(role: string) {
 }
 
 export function AdminUsersPage() {
+  const router = useRouter();
   const currentUser = useAppSelector((s) => s.auth.user);
   const { data = [], isLoading, error, refetch, isFetching } = useAdminUsers();
   const updateStatus = useUpdateUserStatus();
@@ -198,9 +201,22 @@ export function AdminUsersPage() {
               const isAdmin = user.role.toUpperCase() === "ADMIN";
               const rowBusy = busy && pendingId === user.id;
               const currentRole = user.role.toUpperCase() as BackendRole;
+              const detailsHref = ROUTES.admin.userDetail(user.id);
 
               return (
-                <tr key={user.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                <tr
+                  key={user.id}
+                  role="link"
+                  tabIndex={0}
+                  className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/30"
+                  onClick={() => router.push(detailsHref)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      router.push(detailsHref);
+                    }
+                  }}
+                >
                   <td className="px-5 py-4">
                     <p className="font-semibold text-foreground">
                       {user.name}
@@ -213,7 +229,11 @@ export function AdminUsersPage() {
                       {user.email ? ` · ${user.email}` : ""}
                     </p>
                   </td>
-                  <td className="px-5 py-4">
+                  <td
+                    className="px-5 py-4"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
                     <div className="relative inline-flex items-center gap-2">
                       <UserCog className="pointer-events-none absolute left-2.5 h-3.5 w-3.5 text-current opacity-70" aria-hidden />
                       <select
@@ -248,7 +268,11 @@ export function AdminUsersPage() {
                     </span>
                   </td>
                   <td className="px-5 py-4 text-muted-foreground">{formatShortDate(user.createdAt)}</td>
-                  <td className="px-5 py-4 text-right">
+                  <td
+                    className="px-5 py-4 text-right"
+                    onClick={(e) => e.stopPropagation()}
+                    onKeyDown={(e) => e.stopPropagation()}
+                  >
                     <AdminActionsBar>
                       <AdminIconAction
                         label={user.isActive ? "Deactivate user" : "Activate user"}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   Archive,
@@ -70,6 +71,7 @@ function fieldClassName() {
 }
 
 export function AdminCoursesPage() {
+  const router = useRouter();
   const { data = [], isLoading, error, refetch, isFetching } = useAdminCourses();
   const { data: categories = [] } = useAdminCategories();
   const { data: teachers = [] } = useAdminUsers("TEACHER");
@@ -346,9 +348,22 @@ export function AdminCoursesPage() {
               {visible.map((course) => {
                 const current = String(course.status).toUpperCase() as CourseStatus;
                 const rowBusy = busy && pendingId === course.id;
+                const detailsHref = ROUTES.admin.courseCurriculum(course.id);
 
                 return (
-                  <tr key={course.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                  <tr
+                    key={course.id}
+                    role="link"
+                    tabIndex={0}
+                    className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/30"
+                    onClick={() => router.push(detailsHref)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        router.push(detailsHref);
+                      }
+                    }}
+                  >
                     <td className="px-5 py-4">
                       <p className="font-semibold text-foreground">{course.title}</p>
                       <p className="text-xs text-muted-foreground">
@@ -369,7 +384,11 @@ export function AdminCoursesPage() {
                       </span>
                     </td>
                     <td className="px-5 py-4 text-muted-foreground">{formatShortDate(course.createdAt)}</td>
-                    <td className="px-5 py-4">
+                    <td
+                      className="px-5 py-4 text-right"
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
                       <AdminActionsBar>
                         <Button
                           asChild

@@ -16,6 +16,18 @@ export const adminUsersService = {
     return response.data;
   },
 
+  async getUser(id: string): Promise<AdminUser> {
+    if (env.useMockApi) {
+      await sleep(200);
+      const user = mockAdminUsers.find((u) => u.id === id);
+      if (!user) throw { message: "User not found", status: 404 };
+      return { ...user };
+    }
+
+    const response = await apiClient.get<AdminUser>(`/users/${id}`);
+    return response.data;
+  },
+
   async updateStatus(id: string, isActive: boolean): Promise<AdminUser> {
     if (env.useMockApi) {
       await sleep(200);
