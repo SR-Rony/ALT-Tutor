@@ -79,3 +79,4 @@ export {
   useUpdateQbQuestion,
   useDeleteQbQuestion,
 } from "./use-questionbank";
+export { useAdminSettings, useUpdateAdminSettings } from "./use-admin-settings";

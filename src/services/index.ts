@@ -14,4 +14,5 @@ export {
   adminCoursesService,
   adminCategoriesService,
   adminPaymentsService,
+  adminSettingsService,
 } from "./admin";

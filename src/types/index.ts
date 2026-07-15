@@ -69,3 +69,4 @@ export type {
   StudentProfile,
   StudentSubmission,
 } from "./student-dashboard.types";
+export type { PlatformSettings, PlatformSettingsInput } from "./settings.types";
