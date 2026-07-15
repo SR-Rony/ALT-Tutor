@@ -1,5 +1,10 @@
+"use client";
+
 import { useMemo, useRef, useState } from "react";
 import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Download,
   FileSpreadsheet,
   ImageIcon,
@@ -29,7 +34,8 @@ import {
 import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type { QbImportResult } from "@/services/questionbank-admin.types";
-import type { QbDifficulty, QbPaper } from "@/types/qb.types";
+import type { QbDifficulty, QbPaper, QbQuestion } from "@/types/qb.types";
+import { cn } from "@/utils";
 
 const DIFFICULTIES: QbDifficulty[] = ["EASY", "MEDIUM", "HARD"];
 const PAPERS: QbPaper[] = ["PAPER_1", "PAPER_2", "PAPER_3"];
@@ -84,19 +90,238 @@ function csvEscape(value: string) {
   return value;
 }
 
+const OPTION_LABELS = ["A1", "A2", "A3", "A4"] as const;
+const LETTERS = ["A", "B", "C", "D"] as const;
+
+function AdminQuestionDropdown({
+  question,
+  onDelete,
+}: {
+  question: QbQuestion;
+  onDelete: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  /** -1 = problem view, 0+ = option A1/A2/... */
+  const [step, setStep] = useState(-1);
+  const maxStep = Math.max(question.options.length - 1, -1);
+  const optionLetter =
+    step >= 0 ? (LETTERS[step] ?? String(step + 1)) : null;
+  const isCorrect =
+    optionLetter !== null &&
+    optionLetter.toUpperCase() === question.correctAnswer.toUpperCase();
+
+  const goPrev = () => setStep((s) => Math.max(-1, s - 1));
+  const goNext = () => setStep((s) => Math.min(maxStep, s + 1));
+
+  return (
+    <li className="overflow-hidden rounded-xl border border-border/80 bg-card">
+      <div className="flex items-stretch gap-1">
+        <button
+          type="button"
+          onClick={() => {
+            setOpen((v) => !v);
+            setStep(-1);
+          }}
+          className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-muted/40"
+          aria-expanded={open}
+        >
+          <ChevronDown
+            className={cn(
+              "h-4 w-4 shrink-0 text-primary transition",
+              open ? "rotate-0" : "-rotate-90"
+            )}
+          />
+          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-muted-foreground">
+            <span className="font-semibold text-foreground">Q{question.number}</span>
+            <span className="text-xs uppercase">
+              {String(question.difficulty).toLowerCase()} ·{" "}
+              {String(question.paper).replace("_", " ")}
+            </span>
+            <span className="truncate text-muted-foreground">
+              — {question.prompt.slice(0, 72)}
+              {question.prompt.length > 72 ? "…" : ""}
+            </span>
+            {question.diagramUrl ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
+                <ImageIcon className="h-3 w-3" /> Img
+              </span>
+            ) : null}
+            {question.videoUrl ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
+                <Video className="h-3 w-3" /> Video
+              </span>
+            ) : null}
+            {question.markScheme ? (
+              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Scheme
+              </span>
+            ) : null}
+          </span>
+        </button>
+        <button
+          type="button"
+          className="shrink-0 px-3 text-xs text-accent hover:underline"
+          onClick={onDelete}
+        >
+          Del
+        </button>
+      </div>
+
+      {open ? (
+        <div className="border-t border-border bg-muted/20 px-3 py-3">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setStep(-1)}
+              className={cn(
+                "rounded-lg border px-2.5 py-1 text-xs font-semibold transition",
+                step === -1
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-border bg-card text-foreground hover:border-primary/40"
+              )}
+            >
+              Problem
+            </button>
+            {question.options.map((_, i) => (
+              <button
+                key={OPTION_LABELS[i] ?? i}
+                type="button"
+                onClick={() => setStep(i)}
+                className={cn(
+                  "rounded-lg border px-2.5 py-1 text-xs font-semibold transition",
+                  step === i
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-foreground hover:border-primary/40"
+                )}
+              >
+                {OPTION_LABELS[i] ?? `A${i + 1}`}
+              </button>
+            ))}
+            <div className="ml-auto flex items-center gap-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={step <= -1}
+                onClick={goPrev}
+                className="h-8 px-2"
+              >
+                <ChevronLeft className="h-4 w-4" />
+                Prev
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={step >= maxStep}
+                onClick={goNext}
+                className="h-8 px-2"
+              >
+                Next
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {step === -1 ? (
+            <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                Full problem
+              </p>
+              <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
+                {question.prompt}
+              </p>
+              {question.body ? (
+                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{question.body}</p>
+              ) : null}
+              {question.diagramUrl ? (
+                <div className="overflow-hidden rounded-lg border border-border bg-muted/30 p-2">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={question.diagramUrl}
+                    alt={`Q${question.number} stimulus`}
+                    className="mx-auto max-h-56 object-contain"
+                  />
+                </div>
+              ) : null}
+              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                <span>
+                  Answer:{" "}
+                  <strong className="text-foreground">{question.correctAnswer.toUpperCase()}</strong>
+                </span>
+                {question.markScheme ? <span>Mark scheme available</span> : null}
+                {question.videoUrl ? <span>Video solution available</span> : null}
+              </div>
+              <Button type="button" size="sm" onClick={() => setStep(0)} disabled={maxStep < 0}>
+                Next: A1
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3 rounded-xl border border-border bg-card p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                  Option {OPTION_LABELS[step] ?? `A${step + 1}`}{" "}
+                  <span className="text-muted-foreground">({optionLetter})</span>
+                </p>
+                {isCorrect ? (
+                  <span className="rounded-md bg-[#ecfdf3] px-2 py-0.5 text-[11px] font-bold uppercase text-accent-green">
+                    Correct answer
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-sm leading-relaxed text-foreground">
+                {question.options[step]}
+              </p>
+              {question.markScheme && isCorrect ? (
+                <div className="rounded-lg border border-primary/20 bg-primary-muted/40 p-3 text-sm text-foreground">
+                  <p className="mb-1 text-xs font-semibold uppercase text-primary">Mark scheme</p>
+                  <p className="whitespace-pre-wrap">{question.markScheme}</p>
+                </div>
+              ) : null}
+            </div>
+          )}
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
 export function AdminQuestionbankPage() {
   const { data: subjectsTree = [] } = useAdminSubjectsTree();
-  const programs = useMemo(
-    () =>
-      subjectsTree.flatMap((c) =>
-        c.subjects.flatMap((s) => s.programs.map((p) => ({ ...p, label: `${c.name} / ${s.name} / ${p.name}` })))
-      ),
-    [subjectsTree]
+
+  const [categoryId, setCategoryId] = useState("");
+  const [subjectId, setSubjectId] = useState("");
+  const [programId, setProgramId] = useState("");
+
+  const effectiveCategoryId = categoryId || subjectsTree[0]?.id || "";
+  const subjects = useMemo(() => {
+    const category = subjectsTree.find((c) => c.id === effectiveCategoryId);
+    return category?.subjects ?? [];
+  }, [subjectsTree, effectiveCategoryId]);
+
+  const effectiveSubjectId = subjectId || subjects[0]?.id || "";
+  const programs = useMemo(() => {
+    const subject = subjects.find((s) => s.id === effectiveSubjectId);
+    return subject?.programs ?? [];
+  }, [subjects, effectiveSubjectId]);
+
+  const effectiveProgramId = programId || programs[0]?.id || "";
+  const { data: topics = [], isLoading, error, refetch, isFetching } = useAdminQuestionbank(
+    effectiveProgramId || undefined
   );
 
-  const [programId, setProgramId] = useState<string>("");
-  const effectiveProgramId = programId || programs[0]?.id;
-  const { data: topics = [], isLoading, error, refetch, isFetching } = useAdminQuestionbank(effectiveProgramId);
+  /** ids marked true = collapsed (default is open) */
+  const [collapsedTopics, setCollapsedTopics] = useState<Record<string, boolean>>({});
+  const [collapsedSubtopics, setCollapsedSubtopics] = useState<Record<string, boolean>>({});
+
+  const toggleTopic = (id: string) => {
+    setCollapsedTopics((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleSubtopic = (id: string) => {
+    setCollapsedSubtopics((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const createTopic = useCreateQbTopic();
   const deleteTopic = useDeleteQbTopic();
@@ -282,23 +507,68 @@ export function AdminQuestionbankPage() {
             </div>
           </div>
 
-          <label className="block max-w-xl space-y-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Program
-            </span>
-            <select
-              value={effectiveProgramId ?? ""}
-              onChange={(e) => setProgramId(e.target.value)}
-              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-            >
-              {programs.length === 0 ? <option value="">No programs</option> : null}
-              {programs.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Category
+              </span>
+              <select
+                value={effectiveCategoryId}
+                onChange={(e) => {
+                  setCategoryId(e.target.value);
+                  setSubjectId("");
+                  setProgramId("");
+                }}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {subjectsTree.length === 0 ? <option value="">No categories</option> : null}
+                {subjectsTree.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Subject
+              </span>
+              <select
+                value={effectiveSubjectId}
+                onChange={(e) => {
+                  setSubjectId(e.target.value);
+                  setProgramId("");
+                }}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {subjects.length === 0 ? <option value="">No subjects</option> : null}
+                {subjects.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Program
+              </span>
+              <select
+                value={effectiveProgramId}
+                onChange={(e) => setProgramId(e.target.value)}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {programs.length === 0 ? <option value="">No programs</option> : null}
+                {programs.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           {error ? (
             <p className="mt-2 text-sm text-accent">{(error as unknown as ApiError)?.message}</p>
           ) : null}
@@ -309,141 +579,159 @@ export function AdminQuestionbankPage() {
             <p className="py-8 text-center text-muted-foreground">No topics yet. Add a theme to start.</p>
           ) : null}
 
-          {topics.map((topic) => (
-            <div key={topic.id} className="rounded-xl border border-border p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-xs font-semibold uppercase text-primary">Theme {topic.number}</p>
-                  <h3 className="font-semibold text-foreground">{topic.title}</h3>
-                </div>
-                <div className="flex gap-2">
-                  <Button
+          {topics.map((topic) => {
+            const isTopicOpen = !collapsedTopics[topic.id];
+            return (
+              <div key={topic.id} className="overflow-hidden rounded-xl border border-border">
+                <div className="flex flex-wrap items-center justify-between gap-2 bg-card px-4 py-3">
+                  <button
                     type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setModal({ kind: "subtopic", topicId: topic.id });
-                      setTitle("");
-                      setSlug("");
-                      setDescription("");
-                    }}
+                    onClick={() => toggleTopic(topic.id)}
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    aria-expanded={isTopicOpen}
                   >
-                    Add study set
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="ghost"
-                    className="text-accent"
-                    onClick={() => {
-                      if (window.confirm(`Delete theme "${topic.title}"?`)) {
-                        void deleteTopic.mutateAsync(topic.id);
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="mt-3 space-y-3">
-                {topic.subtopics.map((sub) => (
-                  <div key={sub.id} className="rounded-lg bg-muted/30 p-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <p className="text-sm font-semibold">{sub.title}</p>
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setImportResult(null);
-                            setActionError(null);
-                            setModal({ kind: "import", subtopicId: sub.id, title: sub.title });
-                          }}
-                        >
-                          <Upload className="h-4 w-4" />
-                          Upload Excel
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setModal({ kind: "question", subtopicId: sub.id });
-                            resetQuestionForm();
-                          }}
-                        >
-                          Add question
-                        </Button>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="text-accent"
-                          onClick={() => {
-                            if (window.confirm(`Delete "${sub.title}"?`)) {
-                              void deleteSubtopic.mutateAsync(sub.id);
-                            }
-                          }}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
+                    <ChevronDown
+                      className={cn(
+                        "h-4 w-4 shrink-0 text-primary transition",
+                        isTopicOpen ? "rotate-0" : "-rotate-90"
+                      )}
+                    />
+                    <div>
+                      <p className="text-xs font-semibold uppercase text-primary">
+                        Theme {topic.number}
+                      </p>
+                      <h3 className="font-semibold text-foreground">{topic.title}</h3>
                     </div>
-                    <ul className="mt-2 space-y-1">
-                      {(sub.questions ?? []).map((q) => (
-                        <li
-                          key={q.id}
-                          className="flex flex-wrap items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-card"
-                        >
-                          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-muted-foreground">
-                            <span className="truncate">
-                              Q{q.number} · {String(q.difficulty).toLowerCase()} ·{" "}
-                              {String(q.paper).replace("_", " ")} — {q.prompt.slice(0, 70)}
-                              {q.prompt.length > 70 ? "…" : ""}
-                            </span>
-                            {q.diagramUrl ? (
-                              <span
-                                className="inline-flex items-center gap-1 rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary"
-                                title="Has stimulus image"
-                              >
-                                <ImageIcon className="h-3 w-3" /> Img
-                              </span>
-                            ) : null}
-                            {q.videoUrl ? (
-                              <span
-                                className="inline-flex items-center gap-1 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white"
-                                title="Has video solution"
-                              >
-                                <Video className="h-3 w-3" /> Video
-                              </span>
-                            ) : null}
-                            {q.markScheme ? (
-                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                                Scheme
-                              </span>
-                            ) : null}
-                          </span>
-                          <button
-                            type="button"
-                            className="text-xs text-accent"
-                            onClick={() => {
-                              if (window.confirm("Delete question?")) {
-                                void deleteQuestion.mutateAsync(q.id);
-                              }
-                            }}
-                          >
-                            Del
-                          </button>
-                        </li>
-                      ))}
-                    </ul>
+                  </button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setModal({ kind: "subtopic", topicId: topic.id });
+                        setTitle("");
+                        setSlug("");
+                        setDescription("");
+                      }}
+                    >
+                      Add study set
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="text-accent"
+                      onClick={() => {
+                        if (window.confirm(`Delete theme "${topic.title}"?`)) {
+                          void deleteTopic.mutateAsync(topic.id);
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
-                ))}
+                </div>
+
+                {isTopicOpen ? (
+                  <div className="space-y-3 border-t border-border bg-muted/20 p-3">
+                    {topic.subtopics.map((sub) => {
+                      const isSubOpen = !collapsedSubtopics[sub.id];
+                      return (
+                        <div
+                          key={sub.id}
+                          className="overflow-hidden rounded-lg border border-border/70 bg-card"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+                            <button
+                              type="button"
+                              className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                              onClick={() => toggleSubtopic(sub.id)}
+                              aria-expanded={isSubOpen}
+                            >
+                              <ChevronDown
+                                className={cn(
+                                  "h-4 w-4 shrink-0 text-primary transition",
+                                  isSubOpen ? "rotate-0" : "-rotate-90"
+                                )}
+                              />
+                              <p className="text-sm font-semibold text-foreground">{sub.title}</p>
+                              <span className="text-xs text-muted-foreground">
+                                ({sub.questions?.length ?? 0})
+                              </span>
+                            </button>
+                            <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setImportResult(null);
+                                  setActionError(null);
+                                  setModal({
+                                    kind: "import",
+                                    subtopicId: sub.id,
+                                    title: sub.title,
+                                  });
+                                }}
+                              >
+                                <Upload className="h-4 w-4" />
+                                Upload Excel
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setModal({ kind: "question", subtopicId: sub.id });
+                                  resetQuestionForm();
+                                }}
+                              >
+                                Add question
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="ghost"
+                                className="text-accent"
+                                onClick={() => {
+                                  if (window.confirm(`Delete "${sub.title}"?`)) {
+                                    void deleteSubtopic.mutateAsync(sub.id);
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          {isSubOpen ? (
+                            <ul className="space-y-2 border-t border-border px-3 py-2">
+                              {(sub.questions ?? []).length === 0 ? (
+                                <li className="py-3 text-center text-sm text-muted-foreground">
+                                  No questions yet.
+                                </li>
+                              ) : null}
+                              {(sub.questions ?? []).map((q) => (
+                                <AdminQuestionDropdown
+                                  key={q.id}
+                                  question={q}
+                                  onDelete={() => {
+                                    if (window.confirm("Delete question?")) {
+                                      void deleteQuestion.mutateAsync(q.id);
+                                    }
+                                  }}
+                                />
+                              ))}
+                            </ul>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
