@@ -10,6 +10,8 @@ const adminPageTitles: Record<string, string> = {
   [ROUTES.admin.root]: "Dashboard",
   [ROUTES.admin.users]: "Users",
   [ROUTES.admin.courses]: "Courses",
+  [ROUTES.admin.subjects]: "Subjects",
+  [ROUTES.admin.categories]: "Categories",
   [ROUTES.admin.support]: "Support",
   [ROUTES.admin.example]: "Example Module",
   [ROUTES.admin.settings]: "Settings",

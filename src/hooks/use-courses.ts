@@ -18,10 +18,10 @@ export function useCoursesCatalog(query: CoursesQuery = {}) {
   });
 }
 
-export function useCourseDetail(slug: string) {
+export function useCourseDetail(slug: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.courses.detail(slug),
     queryFn: () => courseService.getBySlug(slug),
-    enabled: Boolean(slug),
+    enabled: Boolean(slug) && enabled,
   });
 }

@@ -17,6 +17,13 @@ export const queryKeys = {
   teacher: {
     dashboard: ["teacher", "dashboard"] as const,
     courses: ["teacher", "courses"] as const,
+    subjects: ["teacher", "subjects"] as const,
+  },
+  subjects: {
+    all: ["subjects"] as const,
+    menu: ["subjects", "menu"] as const,
+    adminTree: ["subjects", "admin-tree"] as const,
+    mine: ["subjects", "mine"] as const,
   },
   admin: {
     example: ["admin", "example"] as const,
@@ -25,6 +32,7 @@ export const queryKeys = {
     user: (id: string) => ["admin", "users", id] as const,
     courses: ["admin", "courses"] as const,
     categories: ["admin", "categories"] as const,
+    subjects: ["admin", "subjects"] as const,
     payments: ["admin", "payments"] as const,
   },
   student: {

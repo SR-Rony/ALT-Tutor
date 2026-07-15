@@ -48,3 +48,21 @@ export {
   useUpdateStudentProfile,
 } from "./use-student";
 export { useIsMobile } from "./use-mobile";
+export {
+  useSubjectsMenu,
+  useAdminSubjectsTree,
+  useTeacherSubjectsTree,
+  useCreateSubjectCategory,
+  useUpdateSubjectCategory,
+  useDeleteSubjectCategory,
+  useCreateSubject,
+  useUpdateSubject,
+  useDeleteSubject,
+  useAssignSubjectTeachers,
+  useCreateSubjectProgram,
+  useUpdateSubjectProgram,
+  useDeleteSubjectProgram,
+  useCreateSubjectResource,
+  useUpdateSubjectResource,
+  useDeleteSubjectResource,
+} from "./use-subjects";

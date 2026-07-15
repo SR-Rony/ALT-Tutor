@@ -49,6 +49,17 @@ export type {
   HomeStats,
 } from "./home.types";
 export type {
+  SubjectCategoryInput,
+  SubjectInput,
+  SubjectMenuCategory,
+  SubjectMenuProgram,
+  SubjectMenuResource,
+  SubjectMenuSubject,
+  SubjectProgramInput,
+  SubjectResourceInput,
+  SubjectResourceType,
+} from "./subjects.types";
+export type {
   StudentAssignment,
   StudentCourseSummary,
   StudentDashboardStats,

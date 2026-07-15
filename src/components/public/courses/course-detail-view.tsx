@@ -264,6 +264,9 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                 <Button asChild variant="default" size="pillLg" className="w-full">
                   <Link href={enrollHref}>{enrollLabel}</Link>
                 </Button>
+                <Button asChild variant="outline" size="pillLg" className="w-full">
+                  <Link href={ROUTES.questionbank(slug)}>Questionbank</Link>
+                </Button>
                 <Button asChild variant="secondary" size="pillLg" className="w-full">
                   <Link href={ROUTES.courses}>Browse more courses</Link>
                 </Button>

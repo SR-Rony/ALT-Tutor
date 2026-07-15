@@ -22,6 +22,7 @@ import { usePublicNav } from "@/hooks/use-public-nav";
 import type { NavItem } from "@/types/navigation.types";
 import { Logo } from "@/components/shared";
 import { PublicAuthActions } from "@/components/layouts/public-auth-actions";
+import { SubjectsMegaMenu, SubjectsMobileMenu } from "@/components/layouts/subjects-mega-menu";
 import { cn } from "@/utils";
 
 const navIcons: Record<string, LucideIcon> = {
@@ -310,9 +311,13 @@ function PublicHeaderInner() {
         <Logo className="shrink-0" />
 
         <nav aria-label="Main navigation" className="hidden flex-1 items-center justify-center gap-0.5 lg:flex xl:gap-1">
-          {navItems.map((item) => (
-            <DesktopNavItem key={item.title} item={item} pathname={pathname} search={search} />
-          ))}
+          {navItems.map((item) =>
+            item.title === "Subjects" ? (
+              <SubjectsMegaMenu key={item.title} pathname={pathname} search={search} />
+            ) : (
+              <DesktopNavItem key={item.title} item={item} pathname={pathname} search={search} />
+            )
+          )}
         </nav>
 
         <div className="ml-auto flex items-center gap-2 sm:gap-3 lg:ml-0 lg:shrink-0">
@@ -368,15 +373,24 @@ function PublicHeaderInner() {
                 aria-label="Mobile navigation"
                 className="mx-auto w-full max-w-7xl flex-1 space-y-2 overflow-y-auto p-4"
               >
-                {navItems.map((item) => (
-                  <MobileNavItem
-                    key={item.title}
-                    item={item}
-                    pathname={pathname}
-                    search={search}
-                    onNavigate={closeMobileMenu}
-                  />
-                ))}
+                {navItems.map((item) =>
+                  item.title === "Subjects" ? (
+                    <SubjectsMobileMenu
+                      key={item.title}
+                      pathname={pathname}
+                      search={search}
+                      onNavigate={closeMobileMenu}
+                    />
+                  ) : (
+                    <MobileNavItem
+                      key={item.title}
+                      item={item}
+                      pathname={pathname}
+                      search={search}
+                      onNavigate={closeMobileMenu}
+                    />
+                  )
+                )}
               </nav>
 
               <div className="sticky bottom-0 space-y-3 border-t border-border bg-card p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">

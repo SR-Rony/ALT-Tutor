@@ -1,14 +1,13 @@
 import type { NavItem } from "@/types/navigation.types";
 import { ROUTES } from "@/constants";
 
-/** Static public navbar — category children are injected at runtime via usePublicNav */
+/** Static public navbar — Subjects mega menu loads categories/courses itself */
 export const publicNav: NavItem[] = [
   { title: "Home", href: ROUTES.home, iconName: "home" },
   {
-    title: "Courses",
+    title: "Subjects",
     href: ROUTES.courses,
     iconName: "book",
-    children: [{ title: "All Courses", href: ROUTES.courses }],
   },
   { title: "About", href: ROUTES.about, iconName: "info" },
   { title: "Help", href: ROUTES.help, iconName: "help" },
@@ -44,6 +43,7 @@ export const studentFooterNav: NavItem[] = [
 export const teacherNav: NavItem[] = [
   { title: "Dashboard", href: ROUTES.teacher.root, iconName: "dashboard" },
   { title: "My Courses", href: ROUTES.teacher.courses, iconName: "book" },
+  { title: "My Subjects", href: ROUTES.teacher.subjects, iconName: "book" },
   { title: "Messages", href: ROUTES.teacher.chat, iconName: "messages" },
 ];
 
@@ -55,6 +55,7 @@ export const adminNav: NavItem[] = [
   { title: "Dashboard", href: ROUTES.admin.root, iconName: "dashboard" },
   { title: "Users", href: ROUTES.admin.users, iconName: "userCog" },
   { title: "Courses", href: ROUTES.admin.courses, iconName: "book" },
+  { title: "Subjects", href: ROUTES.admin.subjects, iconName: "book" },
   { title: "Categories", href: ROUTES.admin.categories, iconName: "tags" },
   { title: "Support", href: ROUTES.admin.support, iconName: "support" },
   { title: "Example Module", href: ROUTES.admin.example, iconName: "grid" },
