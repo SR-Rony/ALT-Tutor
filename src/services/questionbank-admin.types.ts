@@ -37,3 +37,14 @@ export type CreateQbQuestionInput = {
   order?: number;
   isActive?: boolean;
 };
+
+export type QbImportError = {
+  row: number;
+  message: string;
+};
+
+export type QbImportResult = {
+  imported: number;
+  skipped: number;
+  errors: QbImportError[];
+};

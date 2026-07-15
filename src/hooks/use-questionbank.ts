@@ -103,3 +103,12 @@ export function useDeleteQbQuestion() {
     onSuccess: invalidate,
   });
 }
+
+export function useImportQbQuestions() {
+  const invalidate = useInvalidateQb();
+  return useMutation({
+    mutationFn: ({ subtopicId, file }: { subtopicId: string; file: File }) =>
+      questionbankService.importQuestions(subtopicId, file),
+    onSuccess: invalidate,
+  });
+}

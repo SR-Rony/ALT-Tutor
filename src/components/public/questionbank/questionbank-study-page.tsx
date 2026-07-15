@@ -9,13 +9,16 @@ import {
   ChevronDown,
   Expand,
   ExternalLink,
+  FileText,
   Home,
   ListOrdered,
+  PlayCircle,
   SlidersHorizontal,
   ThumbsDown,
   ThumbsUp,
   XCircle,
 } from "lucide-react";
+import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/shared";
 import { ROUTES } from "@/constants";
@@ -87,14 +90,15 @@ function QuestionCard({
   onToggleComplete?: () => void;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
-  const [showScheme, setShowScheme] = useState(false);
+  const [modal, setModal] = useState<"scheme" | "video" | null>(null);
   const answered = selected !== null;
   const correct = selected?.toUpperCase() === question.correctAnswer.toUpperCase();
+  const qLabel = `Question ${question.number || index + 1}`;
 
   return (
     <section id={`q-${question.number}`} className="scroll-mt-28">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-foreground">Question {question.number || index + 1}</h2>
+        <h2 className="text-lg font-bold text-foreground">{qLabel}</h2>
         <div className="flex items-center gap-2 text-muted-foreground">
           <ThumbsUp className="h-4 w-4" />
           <ThumbsDown className="h-4 w-4" />
@@ -120,9 +124,20 @@ function QuestionCard({
             <p className="mt-2 text-sm text-muted-foreground">{question.body}</p>
           ) : null}
 
+          {question.diagramUrl ? (
+            <div className="mt-4 overflow-hidden rounded-xl border border-border bg-muted/20">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={question.diagramUrl}
+                alt={`Diagram for ${qLabel}`}
+                className="mx-auto max-h-[28rem] w-auto max-w-full object-contain p-3"
+              />
+            </div>
+          ) : null}
+
           <ul className="mt-4 space-y-1.5 text-sm text-foreground">
             {question.options.map((opt, i) => (
-              <li key={opt}>
+              <li key={`${i}-${opt}`}>
                 <span className="font-semibold">{LETTERS[i] ?? i + 1}.</span> {opt}
               </li>
             ))}
@@ -161,13 +176,6 @@ function QuestionCard({
               })}
             </div>
           </div>
-
-          {showScheme && question.markScheme ? (
-            <div className="mt-4 rounded-xl border border-primary/20 bg-primary-muted/40 p-4 text-sm text-foreground">
-              <p className="mb-1 font-semibold text-primary">Mark scheme</p>
-              {question.markScheme}
-            </div>
-          ) : null}
         </article>
 
         <aside className="flex flex-row gap-2 lg:flex-col">
@@ -195,15 +203,23 @@ function QuestionCard({
           <Button
             type="button"
             variant="outline"
-            className={cn("justify-start", showScheme && "border-primary bg-primary-muted text-primary")}
-            onClick={() => setShowScheme((v) => !v)}
+            className="justify-start border-primary/40 text-primary hover:bg-primary-muted hover:text-primary"
+            onClick={() => setModal("scheme")}
+            disabled={!question.markScheme}
           >
             Mark Scheme
           </Button>
-          <Button type="button" variant="outline" className="justify-start">
+          <Button
+            type="button"
+            className="justify-start bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => setModal("video")}
+            disabled={!question.videoUrl}
+          >
             Video Solutions
             {question.videoUrl ? (
-              <span className="ml-auto rounded-full bg-primary px-1.5 text-[10px] text-white">1</span>
+              <span className="ml-auto rounded-full bg-white/25 px-1.5 text-[10px] font-bold text-white">
+                1
+              </span>
             ) : null}
           </Button>
           <a
@@ -214,6 +230,70 @@ function QuestionCard({
           </a>
         </aside>
       </div>
+
+      <AdminModal
+        open={modal === "scheme"}
+        title="Mark Scheme"
+        description={`${qLabel} · Official solution guidance`}
+        onClose={() => setModal(null)}
+        className="sm:max-w-2xl"
+        footer={
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" onClick={() => setModal(null)}>
+              Close
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="inline-flex items-center gap-2 rounded-lg bg-primary-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+            <FileText className="h-3.5 w-3.5" />
+            Solution notes
+          </div>
+          <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed text-foreground md:text-[15px]">
+            <p className="whitespace-pre-wrap">{question.markScheme}</p>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Correct answer:{" "}
+            <span className="font-semibold text-foreground">{question.correctAnswer.toUpperCase()}</span>
+          </p>
+        </div>
+      </AdminModal>
+
+      <AdminModal
+        open={modal === "video"}
+        title="Video Solution"
+        description={`${qLabel} · Short worked explanation`}
+        onClose={() => setModal(null)}
+        className="sm:max-w-3xl"
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            {question.videoUrl ? (
+              <a
+                href={question.videoUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+              >
+                Open in new tab <ExternalLink className="h-3.5 w-3.5" />
+              </a>
+            ) : (
+              <span />
+            )}
+            <Button type="button" variant="outline" onClick={() => setModal(null)}>
+              Close
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-lg bg-primary-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+            <PlayCircle className="h-3.5 w-3.5" />
+            1 video available
+          </div>
+          {question.videoUrl ? <VideoEmbed key={question.videoUrl} url={question.videoUrl} /> : null}
+        </div>
+      </AdminModal>
     </section>
   );
 }
@@ -501,6 +581,71 @@ export function QuestionbankStudyPage({ programSlug, subtopicSlug }: Props) {
 
 function FilterDivider() {
   return <span aria-hidden className="hidden h-6 w-px shrink-0 bg-border sm:block" />;
+}
+
+function youtubeEmbedUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("youtu.be")) {
+      const id = u.pathname.replace("/", "");
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    if (u.hostname.includes("youtube.com")) {
+      const id = u.searchParams.get("v");
+      if (id) return `https://www.youtube.com/embed/${id}`;
+      const parts = u.pathname.split("/").filter(Boolean);
+      if (parts[0] === "embed" && parts[1]) return `https://www.youtube.com/embed/${parts[1]}`;
+      if (parts[0] === "shorts" && parts[1]) return `https://www.youtube.com/embed/${parts[1]}`;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function VideoEmbed({ url }: { url: string }) {
+  const yt = youtubeEmbedUrl(url);
+  if (yt) {
+    return (
+      <div className="aspect-video w-full overflow-hidden rounded-xl border border-border bg-black shadow-sm">
+        <iframe
+          src={yt}
+          title="Video solution"
+          className="h-full w-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  const lower = url.toLowerCase();
+  if (/\.(mp4|webm|ogg)(\?|$)/.test(lower)) {
+    return (
+      <video
+        controls
+        className="aspect-video w-full rounded-xl border border-border bg-black shadow-sm"
+        src={url}
+      >
+        Your browser does not support the video tag.
+      </video>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
+      <PlayCircle className="mx-auto mb-2 h-8 w-8 text-primary" />
+      <p className="text-sm text-muted-foreground">Inline preview is unavailable for this link.</p>
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+      >
+        Watch video <ExternalLink className="h-3.5 w-3.5" />
+      </a>
+    </div>
+  );
 }
 
 function FilterChecks({ label, children }: { label: string; children: ReactNode }) {

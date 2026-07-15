@@ -118,10 +118,11 @@ class ApiClient {
   }
 
   post<T>(endpoint: string, body?: unknown, options?: RequestOptions) {
+    const isFormData = typeof FormData !== "undefined" && body instanceof FormData;
     return this.request<T>(endpoint, {
       ...options,
       method: "POST",
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : isFormData ? body : JSON.stringify(body),
     });
   }
 

@@ -1,4 +1,5 @@
 export { questionbankService } from "./questionbank.service";
+export { uploadService } from "./upload.service";
 export { subjectsService } from "./subjects.service";
 export { apiClient } from "./api-client";
 export { authService, roleHomeRoutes } from "./auth.service";

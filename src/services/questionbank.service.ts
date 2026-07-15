@@ -3,6 +3,7 @@ import type {
   CreateQbQuestionInput,
   CreateQbSubtopicInput,
   CreateQbTopicInput,
+  QbImportResult,
 } from "./questionbank-admin.types";
 import type { QbFilters, QbProgramOverview, QbStudyPayload, QbTopic } from "@/types/qb.types";
 import { sleep } from "@/utils";
@@ -78,5 +79,13 @@ export const questionbankService = {
   },
   deleteQuestion(id: string) {
     return apiClient.delete(`/questionbank/questions/${id}`).then((r) => r.data);
+  },
+
+  importQuestions(subtopicId: string, file: File): Promise<QbImportResult> {
+    const form = new FormData();
+    form.append("file", file);
+    return apiClient
+      .post<QbImportResult>(`/questionbank/subtopics/${subtopicId}/import`, form)
+      .then((r) => r.data);
   },
 };
