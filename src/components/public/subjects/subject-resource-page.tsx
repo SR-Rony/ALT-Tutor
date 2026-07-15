@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useMemo } from "react";
 import { ArrowLeft, BookOpen } from "lucide-react";
+import { QuestionbankOverviewPage } from "@/components/public/questionbank/questionbank-overview-page";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { useSubjectsMenu } from "@/hooks";
-import { QuestionbankPage } from "@/components/public/questionbank";
 
 type Props = {
   programSlug: string;
@@ -32,6 +32,10 @@ export function SubjectResourcePage({ programSlug, resourceSlug }: Props) {
     return null;
   }, [menu, programSlug, resourceSlug]);
 
+  if (resourceSlug === "questionbank") {
+    return <QuestionbankOverviewPage programSlug={programSlug} />;
+  }
+
   if (isLoading && !match) {
     return <PageLoader label="Loading resource..." />;
   }
@@ -47,8 +51,8 @@ export function SubjectResourcePage({ programSlug, resourceSlug }: Props) {
     );
   }
 
-  if (resourceSlug === "questionbank" || match.resource.resourceType === "QUESTIONBANK") {
-    return <QuestionbankPage slug={programSlug} titleOverride={match.program.name} />;
+  if (match.resource.resourceType === "QUESTIONBANK") {
+    return <QuestionbankOverviewPage programSlug={programSlug} />;
   }
 
   return (
@@ -68,16 +72,12 @@ export function SubjectResourcePage({ programSlug, resourceSlug }: Props) {
         <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-muted text-primary">
           <BookOpen className="h-6 w-6" aria-hidden />
         </div>
-        <p className="text-sm leading-relaxed text-muted-foreground">
-          This is a demo landing page for <strong>{match.resource.title}</strong>. Content and study
-          tools can be connected to the curriculum and assignment systems next.
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Demo landing for <strong>{match.resource.title}</strong>.
         </p>
         <div className="mt-6 flex flex-wrap gap-2">
           <Button asChild>
             <Link href={ROUTES.subjectQuestionbank(programSlug)}>Open Questionbank</Link>
-          </Button>
-          <Button asChild variant="outline">
-            <Link href={ROUTES.courses}>Browse courses</Link>
           </Button>
         </div>
       </div>

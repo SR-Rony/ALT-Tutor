@@ -7,7 +7,7 @@ import type {
   SubjectResourceInput,
 } from "@/types/subjects.types";
 import { sleep } from "@/utils";
-import { apiClient } from "../api-client";
+import { apiClient } from "./api-client";
 import { mockSubjectMenu } from "@/data/mock/subjects.mock";
 
 export const subjectsService = {

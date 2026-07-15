@@ -6,6 +6,8 @@ export const ROUTES = {
   subjectResource: (programSlug: string, resourceSlug: string) =>
     `/subjects/${programSlug}/${resourceSlug}`,
   subjectQuestionbank: (programSlug: string) => `/subjects/${programSlug}/questionbank`,
+  subjectQuestionbankStudy: (programSlug: string, subtopicSlug: string) =>
+    `/subjects/${programSlug}/questionbank/${subtopicSlug}`,
   about: "/about",
   contact: "/contact",
   help: "/help",
@@ -38,6 +40,7 @@ export const ROUTES = {
     courseCurriculum: (id: string) => `/admin/courses/${id}`,
     categories: "/admin/categories",
     subjects: "/admin/subjects",
+    questionbank: "/admin/questionbank",
     support: "/admin/support",
     supportDetail: (ticketId: string) => `/admin/support/${ticketId}`,
     example: "/admin/example",

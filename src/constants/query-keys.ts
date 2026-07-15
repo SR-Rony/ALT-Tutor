@@ -25,6 +25,13 @@ export const queryKeys = {
     adminTree: ["subjects", "admin-tree"] as const,
     mine: ["subjects", "mine"] as const,
   },
+  questionbank: {
+    all: ["questionbank"] as const,
+    program: (slug: string) => ["questionbank", "program", slug] as const,
+    questions: (programSlug: string, subtopicSlug: string, filters: object) =>
+      ["questionbank", "questions", programSlug, subtopicSlug, filters] as const,
+    admin: (programId?: string) => ["questionbank", "admin", programId ?? "all"] as const,
+  },
   admin: {
     example: ["admin", "example"] as const,
     dashboard: ["admin", "dashboard"] as const,

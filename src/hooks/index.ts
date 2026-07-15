@@ -66,3 +66,16 @@ export {
   useUpdateSubjectResource,
   useDeleteSubjectResource,
 } from "./use-subjects";
+export {
+  useQbProgram,
+  useQbQuestions,
+  useAdminQuestionbank,
+  useCreateQbTopic,
+  useUpdateQbTopic,
+  useDeleteQbTopic,
+  useCreateQbSubtopic,
+  useDeleteQbSubtopic,
+  useCreateQbQuestion,
+  useUpdateQbQuestion,
+  useDeleteQbQuestion,
+} from "./use-questionbank";
