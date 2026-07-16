@@ -4,72 +4,76 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Atom,
   BookOpen,
   Briefcase,
-  Calculator,
   ChevronDown,
   ChevronRight,
-  FlaskConical,
-  Languages,
-  Leaf,
-  Sigma,
-  Users,
+  Code2,
+  GraduationCap,
+  Layers,
+  Palette,
+  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
-import { useSubjectsMenu } from "@/hooks/use-subjects";
-import type {
-  SubjectMenuCategory,
-  SubjectMenuProgram,
-  SubjectMenuSubject,
-} from "@/types/subjects.types";
+import { useCategories, useCourses } from "@/hooks";
+import { formatCourseLevel } from "@/lib/course-format";
+import type { CatalogCourse } from "@/types/course.types";
+import type { HomeCategory } from "@/types/home.types";
 import { cn } from "@/utils";
 
-const ICON_MAP: Record<string, LucideIcon> = {
-  calculator: Calculator,
-  flask: FlaskConical,
-  users: Users,
-  book: BookOpen,
-  languages: Languages,
-  function: Calculator,
-  sigma: Sigma,
-  leaf: Leaf,
-  atom: Atom,
-  briefcase: Briefcase,
-};
+const LEVELS = [
+  { id: "", label: "All" },
+  { id: "BEGINNER", label: "Beginner" },
+  { id: "INTERMEDIATE", label: "Intermediate" },
+  { id: "ADVANCED", label: "Advanced" },
+] as const;
 
-const TONE_CLASS: Record<string, string> = {
-  primary: "bg-primary text-primary-foreground",
-  "primary-hover": "bg-primary-hover text-primary-foreground",
-  accent: "bg-accent text-white",
-  "accent-purple": "bg-accent-purple text-white",
-  "accent-green": "bg-accent-green text-white",
-  orange: "bg-[#ff6b35] text-white",
-};
+const CATEGORY_ICONS: LucideIcon[] = [Code2, Palette, Briefcase, GraduationCap, BookOpen, Sparkles];
 
-function resolveIcon(name?: string | null): LucideIcon {
-  if (!name) return BookOpen;
-  return ICON_MAP[name] ?? BookOpen;
+const TONE_CLASSES = [
+  "bg-primary text-primary-foreground",
+  "bg-accent text-white",
+  "bg-accent-purple text-white",
+  "bg-accent-green text-white",
+  "bg-[#ff6b35] text-white",
+  "bg-primary-hover text-primary-foreground",
+];
+
+function categoryIcon(category: HomeCategory, index: number): LucideIcon {
+  const slug = category.slug.toLowerCase();
+  if (slug.includes("web") || slug.includes("dev")) return Code2;
+  if (slug.includes("design") || slug.includes("ui")) return Palette;
+  if (slug.includes("business")) return Briefcase;
+  return CATEGORY_ICONS[index % CATEGORY_ICONS.length];
 }
 
-function resolveTone(tone?: string | null, index = 0) {
-  if (tone && TONE_CLASS[tone]) return TONE_CLASS[tone];
-  const fallback = ["primary", "primary-hover", "accent", "accent-purple", "orange"];
-  return TONE_CLASS[fallback[index % fallback.length]];
+function categoryTone(index: number) {
+  return TONE_CLASSES[index % TONE_CLASSES.length];
 }
 
-function resourceHref(program: SubjectMenuProgram, resourceSlug: string, href?: string | null) {
-  if (href) return href;
-  return ROUTES.subjectResource(program.slug, resourceSlug);
+function catalogHref(categoryId: string | null, level: string) {
+  const params = new URLSearchParams();
+  if (categoryId) params.set("categoryId", categoryId);
+  if (level) params.set("level", level);
+  const qs = params.toString();
+  return qs ? `${ROUTES.courses}?${qs}` : ROUTES.courses;
+}
+
+function filterCourses(
+  courses: CatalogCourse[],
+  categoryId: string | null,
+  level: string
+): CatalogCourse[] {
+  return courses.filter((course) => {
+    if (categoryId && course.category?.id !== categoryId) return false;
+    if (level && String(course.level).toUpperCase() !== level) return false;
+    return true;
+  });
 }
 
 function isSubjectsPathActive(pathname: string) {
-  return (
-    pathname === ROUTES.courses ||
-    pathname.startsWith(`${ROUTES.courses}/`) ||
-    pathname.startsWith("/subjects/")
-  );
+  return pathname === ROUTES.courses || pathname.startsWith(`${ROUTES.courses}/`);
 }
 
 function MegaRow({
@@ -117,20 +121,15 @@ function MegaRow({
 
 function MegaPanel({
   categories,
+  courses,
   onNavigate,
 }: {
-  categories: SubjectMenuCategory[];
+  categories: HomeCategory[];
+  courses: CatalogCourse[];
   onNavigate: () => void;
 }) {
   const [categoryId, setCategoryId] = useState<string | null>(categories[0]?.id ?? null);
-  const [subjectId, setSubjectId] = useState<string | null>(null);
-
-  const selectedCategory = useMemo(
-    () => categories.find((c) => c.id === categoryId) ?? null,
-    [categories, categoryId]
-  );
-
-  const subjects = selectedCategory?.subjects ?? [];
+  const [level, setLevel] = useState("");
 
   useEffect(() => {
     if (!categories.length) {
@@ -142,19 +141,25 @@ function MegaPanel({
     }
   }, [categories, categoryId]);
 
-  useEffect(() => {
-    if (!subjects.length) {
-      setSubjectId(null);
-      return;
-    }
-    if (!subjectId || !subjects.some((s) => s.id === subjectId)) {
-      setSubjectId(subjects[0].id);
-    }
-  }, [subjects, subjectId]);
+  const selectedCategory = useMemo(
+    () => categories.find((c) => c.id === categoryId) ?? null,
+    [categories, categoryId]
+  );
 
-  const selectedSubject: SubjectMenuSubject | null =
-    subjects.find((s) => s.id === subjectId) ?? null;
-  const programs = selectedSubject?.programs ?? [];
+  const filtered = useMemo(
+    () => filterCourses(courses, categoryId, level),
+    [courses, categoryId, level]
+  );
+
+  const splitIndex = Math.ceil(filtered.length / 2);
+  const leftCourses = filtered.slice(0, splitIndex);
+  const rightCourses = filtered.slice(splitIndex);
+
+  const browseLabel = selectedCategory
+    ? level
+      ? `All ${formatCourseLevel(level)} in ${selectedCategory.name}`
+      : `All ${selectedCategory.name} courses`
+    : "Browse all courses";
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_20px_50px_-12px_rgba(24,119,242,0.2)]">
@@ -162,17 +167,17 @@ function MegaPanel({
         <div className="border-r border-border p-3">
           <div className="space-y-0.5">
             {categories.length === 0 ? (
-              <p className="px-3 py-6 text-sm text-muted-foreground">No subjects yet.</p>
+              <p className="px-3 py-6 text-sm text-muted-foreground">No categories yet.</p>
             ) : (
               categories.map((category, index) => {
-                const Icon = resolveIcon(category.iconName);
+                const Icon = categoryIcon(category, index);
                 return (
                   <MegaRow
                     key={category.id}
                     active={category.id === categoryId}
                     onSelect={() => setCategoryId(category.id)}
                     icon={<Icon className="h-4 w-4" aria-hidden />}
-                    iconClassName={resolveTone(category.iconTone, index)}
+                    iconClassName={categoryTone(index)}
                     label={category.name}
                   />
                 );
@@ -183,55 +188,118 @@ function MegaPanel({
 
         <div className="border-r border-border p-3">
           <div className="space-y-0.5">
-            {subjects.length === 0 ? (
-              <p className="px-3 py-6 text-sm text-muted-foreground">No subjects in this category.</p>
-            ) : (
-              subjects.map((subject) => {
-                const Icon = resolveIcon(subject.iconName);
-                return (
-                  <MegaRow
-                    key={subject.id}
-                    active={subject.id === subjectId}
-                    onSelect={() => setSubjectId(subject.id)}
-                    icon={<Icon className="h-4 w-4" aria-hidden />}
-                    iconClassName={
-                      subject.id === subjectId
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-primary-muted text-primary"
-                    }
-                    label={subject.name}
-                  />
-                );
-              })
-            )}
+            {LEVELS.map((item) => (
+              <MegaRow
+                key={item.id || "all"}
+                active={level === item.id}
+                onSelect={() => setLevel(item.id)}
+                icon={<Layers className="h-4 w-4" aria-hidden />}
+                iconClassName={
+                  level === item.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-primary-muted text-primary"
+                }
+                label={item.label}
+              />
+            ))}
           </div>
         </div>
 
         <div className="p-5">
-          {programs.length === 0 ? (
-            <p className="px-2 py-6 text-sm text-muted-foreground">
-              Select a subject to see SL/HL resources.
-            </p>
+          {filtered.length === 0 ? (
+            <div className="px-2 py-6">
+              <p className="text-sm text-muted-foreground">No courses match this selection.</p>
+              {categoryId ? (
+                <Link
+                  href={catalogHref(categoryId, level)}
+                  onClick={onNavigate}
+                  className="mt-3 inline-flex text-sm font-semibold text-primary hover:underline"
+                >
+                  Browse catalog
+                </Link>
+              ) : null}
+            </div>
           ) : (
             <div className="grid gap-8 sm:grid-cols-2">
-              {programs.map((program) => (
-                <div key={program.id}>
-                  <p className="mb-3 text-sm font-bold text-foreground">{program.name}</p>
+              <div>
+                <p className="mb-3 text-sm font-bold text-foreground">Browse</p>
+                <ul className="space-y-0.5">
+                  <li>
+                    <Link
+                      href={catalogHref(categoryId, level)}
+                      onClick={onNavigate}
+                      className="block rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      {browseLabel}
+                    </Link>
+                  </li>
+                  {selectedCategory && level ? (
+                    <li>
+                      <Link
+                        href={catalogHref(categoryId, "")}
+                        onClick={onNavigate}
+                        className="block rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      >
+                        All levels in {selectedCategory.name}
+                      </Link>
+                    </li>
+                  ) : null}
+                  {selectedCategory && !level ? (
+                    <>
+                      {LEVELS.filter((l) => l.id).map((item) => (
+                        <li key={item.id}>
+                          <Link
+                            href={catalogHref(categoryId, item.id)}
+                            onClick={onNavigate}
+                            className="block rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            {item.label} in {selectedCategory.name}
+                          </Link>
+                        </li>
+                      ))}
+                    </>
+                  ) : null}
+                </ul>
+              </div>
+
+              <div>
+                <p className="mb-3 text-sm font-bold text-foreground">Courses</p>
+                <div
+                  className={cn(
+                    "grid gap-x-6",
+                    rightCourses.length > 0 ? "grid-cols-2" : "grid-cols-1"
+                  )}
+                >
                   <ul className="space-y-0.5">
-                    {program.resources.map((resource) => (
-                      <li key={resource.id}>
+                    {leftCourses.map((course) => (
+                      <li key={course.id}>
                         <Link
-                          href={resourceHref(program, resource.slug, resource.href)}
+                          href={ROUTES.courseDetail(course.slug)}
                           onClick={onNavigate}
                           className="block rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                         >
-                          {resource.title}
+                          {course.title}
                         </Link>
                       </li>
                     ))}
                   </ul>
+                  {rightCourses.length ? (
+                    <ul className="space-y-0.5">
+                      {rightCourses.map((course) => (
+                        <li key={course.id}>
+                          <Link
+                            href={ROUTES.courseDetail(course.slug)}
+                            onClick={onNavigate}
+                            className="block rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                          >
+                            {course.title}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null}
                 </div>
-              ))}
+              </div>
             </div>
           )}
         </div>
@@ -244,7 +312,8 @@ export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: stri
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { data: categories = [] } = useSubjectsMenu();
+  const { data: categories = [] } = useCategories();
+  const { data: courses = [] } = useCourses();
   const active = isSubjectsPathActive(pathname);
 
   const clearCloseTimer = () => {
@@ -298,7 +367,7 @@ export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: stri
           "group inline-flex cursor-pointer items-center gap-1 rounded-full px-3 py-2 text-sm font-medium transition-colors",
           open || active
             ? "bg-primary-muted text-primary"
-            : "text-[#1a2b5e] hover:bg-muted hover:text-accent"
+            : "text-foreground/80 hover:bg-muted hover:text-accent"
         )}
         aria-expanded={open}
         aria-haspopup="true"
@@ -324,7 +393,11 @@ export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: stri
             onMouseEnter={openMenu}
             onMouseLeave={scheduleClose}
           >
-            <MegaPanel categories={categories} onNavigate={() => setOpen(false)} />
+            <MegaPanel
+              categories={categories}
+              courses={courses}
+              onNavigate={() => setOpen(false)}
+            />
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -342,27 +415,17 @@ export function SubjectsMobileMenu({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [subjectId, setSubjectId] = useState<string | null>(null);
-  const { data: categories = [] } = useSubjectsMenu();
+  const [level, setLevel] = useState("");
+  const { data: categories = [] } = useCategories();
+  const { data: courses = [] } = useCourses();
   const active = isSubjectsPathActive(pathname);
 
   useEffect(() => {
     if (categories.length && !categoryId) setCategoryId(categories[0].id);
   }, [categories, categoryId]);
 
-  const subjects = categories.find((c) => c.id === categoryId)?.subjects ?? [];
-
-  useEffect(() => {
-    if (!subjects.length) {
-      setSubjectId(null);
-      return;
-    }
-    if (!subjectId || !subjects.some((s) => s.id === subjectId)) {
-      setSubjectId(subjects[0].id);
-    }
-  }, [subjects, subjectId]);
-
-  const programs = subjects.find((s) => s.id === subjectId)?.programs ?? [];
+  const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
+  const filtered = filterCourses(courses, categoryId, level);
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
@@ -388,8 +451,11 @@ export function SubjectsMobileMenu({
       {expanded ? (
         <div className="space-y-3 border-t border-border/70 bg-muted/30 px-3 py-3">
           <div className="space-y-1">
+            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Category
+            </p>
             {categories.map((category, index) => {
-              const Icon = resolveIcon(category.iconName);
+              const Icon = categoryIcon(category, index);
               return (
                 <button
                   key={category.id}
@@ -405,7 +471,7 @@ export function SubjectsMobileMenu({
                   <span
                     className={cn(
                       "inline-flex h-7 w-7 items-center justify-center rounded-md",
-                      resolveTone(category.iconTone, index)
+                      categoryTone(index)
                     )}
                   >
                     <Icon className="h-3.5 w-3.5" aria-hidden />
@@ -416,43 +482,59 @@ export function SubjectsMobileMenu({
             })}
           </div>
 
-          {subjects.length ? (
+          <div className="space-y-1.5">
+            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Level
+            </p>
             <div className="flex flex-wrap gap-1.5">
-              {subjects.map((subject) => (
+              {LEVELS.map((item) => (
                 <button
-                  key={subject.id}
+                  key={item.id || "all"}
                   type="button"
-                  onClick={() => setSubjectId(subject.id)}
+                  onClick={() => setLevel(item.id)}
                   className={cn(
                     "rounded-full px-3 py-1.5 text-xs font-semibold",
-                    subject.id === subjectId
+                    level === item.id
                       ? "bg-primary text-primary-foreground"
                       : "bg-card text-muted-foreground"
                   )}
                 >
-                  {subject.name}
+                  {item.label}
                 </button>
               ))}
             </div>
-          ) : null}
+          </div>
 
-          {programs.map((program) => (
-            <div key={program.id} className="rounded-lg bg-card px-3 py-2">
-              <p className="text-sm font-semibold text-foreground">{program.name}</p>
-              <div className="mt-1 space-y-1">
-                {program.resources.map((resource) => (
-                  <Link
-                    key={resource.id}
-                    href={resourceHref(program, resource.slug, resource.href)}
-                    onClick={onNavigate}
-                    className="block text-sm text-primary"
-                  >
-                    {resource.title}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          ))}
+          <div className="space-y-1">
+            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Links
+            </p>
+            <Link
+              href={catalogHref(categoryId, level)}
+              onClick={onNavigate}
+              className="block rounded-lg bg-card px-3 py-2 text-sm font-medium text-primary"
+            >
+              {selectedCategory
+                ? level
+                  ? `Browse ${formatCourseLevel(level)} — ${selectedCategory.name}`
+                  : `Browse ${selectedCategory.name}`
+                : "Browse all courses"}
+            </Link>
+            {filtered.length === 0 ? (
+              <p className="px-3 py-2 text-sm text-muted-foreground">No courses in this selection.</p>
+            ) : (
+              filtered.map((course) => (
+                <Link
+                  key={course.id}
+                  href={ROUTES.courseDetail(course.slug)}
+                  onClick={onNavigate}
+                  className="block rounded-lg px-3 py-2 text-sm text-foreground hover:bg-card"
+                >
+                  {course.title}
+                </Link>
+              ))
+            )}
+          </div>
         </div>
       ) : null}
     </div>
