@@ -10,7 +10,7 @@ import {
   Expand,
   ExternalLink,
   FileText,
-  Home,
+  HelpCircle,
   ListOrdered,
   PlayCircle,
   SlidersHorizontal,
@@ -22,6 +22,11 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/shared";
 import { ROUTES } from "@/constants";
+import {
+  ResourceHero,
+  SubjectBreadcrumbNav,
+  useSubjectBreadcrumbs,
+} from "@/components/public/subjects";
 import { useQbQuestions } from "@/hooks/use-questionbank";
 import type { ApiError } from "@/types";
 import type { QbDifficulty, QbFilters, QbPaper, QbQuestion, QbQuestionType } from "@/types/qb.types";
@@ -310,6 +315,14 @@ export function QuestionbankStudyPage({ programSlug, subtopicSlug }: Props) {
   const program = data?.subtopic.topic.program;
   const topic = data?.subtopic.topic;
 
+  const breadcrumbs = useSubjectBreadcrumbs({
+    programSlug,
+    resourceSlug: "questionbank",
+    resourceLabel: "Questionbank",
+    resourceHref: ROUTES.subjectQuestionbank(programSlug),
+    topicLabel: data?.subtopic.title,
+  });
+
   useEffect(() => {
     if (!typeOpen) return;
     const onDown = (e: MouseEvent) => {
@@ -370,191 +383,160 @@ export function QuestionbankStudyPage({ programSlug, subtopicSlug }: Props) {
 
   return (
     <div className="bg-background pb-16">
-      {/* Hero — light primary wash */}
-      <div className="bg-primary-muted/80">
-        <div className="mx-auto max-w-7xl px-4 py-8 md:px-6 md:py-10">
-          <nav className="mb-5 flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-            <Link
-              href={ROUTES.home}
-              className="inline-flex items-center rounded-full bg-card/80 px-2 py-1 hover:text-primary"
-            >
-              <Home className="h-3.5 w-3.5" />
-            </Link>
-            <span className="text-border">/</span>
-            <span className="rounded-full bg-card/80 px-2.5 py-1">{program?.subject.category.name}</span>
-            <span className="text-border">/</span>
-            <span className="rounded-full bg-card/80 px-2.5 py-1">{program?.subject.name}</span>
-            <span className="text-border">/</span>
-            <Link
-              href={ROUTES.subjectQuestionbank(programSlug)}
-              className="rounded-full bg-card/80 px-2.5 py-1 hover:text-primary"
-            >
-              Questionbank
-            </Link>
-            <span className="text-border">/</span>
-            <span className="rounded-full bg-card px-2.5 py-1 font-medium text-foreground">
-              {data.subtopic.title}
-            </span>
-          </nav>
-          <h1 className="max-w-3xl text-2xl font-bold tracking-tight text-foreground md:text-3xl lg:text-4xl">
-            {program?.name} - Questionbank
-            <span className="mt-1 block text-xl font-bold md:text-2xl lg:text-3xl">
-              {data.subtopic.title}
-              {topic ? ` - ${topic.title}` : ""}
-            </span>
-          </h1>
-          {data.subtopic.description ? (
-            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-muted-foreground md:text-base">
-              {data.subtopic.description}
-            </p>
-          ) : null}
-        </div>
-      </div>
+      <ResourceHero
+        title={`${program?.name ?? ""} - Questionbank`}
+        subtitle={topic ? `${data.subtopic.title} — ${topic.title}` : data.subtopic.title}
+        description={data.subtopic.description ?? undefined}
+        icon={<HelpCircle className="h-7 w-7 text-primary" aria-hidden />}
+        breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
+      />
 
-      {/* Seamless filter seam — white bar bridging hero → content */}
-      <div className="sticky top-16 z-30 border-y border-border/60 bg-card shadow-[0_1px_0_rgba(24,119,242,0.06)] lg:top-[4.5rem]">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-x-4 gap-y-2.5 px-4 py-3 md:px-6">
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-semibold text-foreground shadow-sm transition hover:border-primary/30 hover:bg-primary-muted/50"
-            aria-expanded={filtersOpen}
-            onClick={() => setFiltersOpen((v) => !v)}
-          >
-            <SlidersHorizontal className="h-4 w-4 text-primary" aria-hidden />
-            Filters
-            <ChevronDown
-              className={cn(
-                "h-3.5 w-3.5 text-muted-foreground transition",
-                filtersOpen ? "rotate-180" : "rotate-0"
-              )}
-              aria-hidden
-            />
-          </button>
+      {/* Filter panel — PDF light-blue box */}
+      <div className="sticky top-16 z-30 border-b border-primary/10 bg-primary-muted/40 lg:top-[4.5rem]">
+        <div className="mx-auto max-w-7xl px-4 py-3 md:px-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-lg border border-primary/20 bg-card px-3 py-2 text-sm font-semibold text-foreground shadow-sm transition hover:border-primary/40 hover:bg-primary-muted/60"
+              aria-expanded={filtersOpen}
+              onClick={() => setFiltersOpen((v) => !v)}
+            >
+              <SlidersHorizontal className="h-4 w-4 text-primary" aria-hidden />
+              Filters
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 text-muted-foreground transition",
+                  filtersOpen ? "rotate-180" : "rotate-0"
+                )}
+                aria-hidden
+              />
+            </button>
+
+            {!filtersOpen ? (
+              <span className="flex-1 text-sm text-muted-foreground">
+                {isFetching
+                  ? "Updating…"
+                  : `${visibleQuestions.length} of ${data.questions.length} questions`}
+              </span>
+            ) : null}
+
+            <button
+              type="button"
+              className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+              onClick={goToQuestion}
+            >
+              <ListOrdered className="h-4 w-4" aria-hidden />
+              Go to Question
+            </button>
+          </div>
 
           {filtersOpen ? (
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2">
-              <div ref={typeRef} className="relative">
-                <span className="sr-only">Question Type</span>
-                <button
-                  type="button"
-                  className="inline-flex min-w-[6.5rem] items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-1.5 text-sm font-medium text-foreground shadow-sm transition hover:border-primary/30"
-                  onClick={() => setTypeOpen((v) => !v)}
-                >
-                  <span className="truncate">{typeLabel}</span>
-                  <ChevronDown
-                    className={cn(
-                      "h-3.5 w-3.5 shrink-0 text-muted-foreground transition",
-                      typeOpen && "rotate-180"
-                    )}
-                  />
-                </button>
-                {typeOpen ? (
-                  <div className="absolute left-0 top-full z-40 mt-1.5 min-w-[15rem] rounded-xl border border-border bg-card p-2 shadow-[0_16px_40px_-12px_rgba(24,119,242,0.3)]">
-                    {TYPE_OPTIONS.map((opt) => {
-                      const checked = filters.type?.includes(opt.value) ?? false;
-                      return (
-                        <label
-                          key={opt.value}
-                          className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-primary-muted"
-                        >
-                          <input
-                            type="checkbox"
-                            className="h-4 w-4 rounded border-border text-primary accent-primary focus:ring-primary/30"
-                            checked={checked}
-                            onChange={() =>
-                              setFilters((f) => ({
-                                ...f,
-                                type: toggleFilter(f.type, opt.value),
-                              }))
-                            }
-                          />
-                          {opt.label}
-                        </label>
-                      );
-                    })}
-                  </div>
+            <div className="mt-3 rounded-xl border border-primary/15 bg-primary-muted/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
+              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-5 gap-y-3">
+                <div ref={typeRef} className="relative">
+                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Question Type
+                  </span>
+                  <button
+                    type="button"
+                    className="inline-flex min-w-[8rem] items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition hover:border-primary/30"
+                    onClick={() => setTypeOpen((v) => !v)}
+                  >
+                    <span className="truncate">{typeLabel}</span>
+                    <ChevronDown
+                      className={cn(
+                        "h-3.5 w-3.5 shrink-0 text-muted-foreground transition",
+                        typeOpen && "rotate-180"
+                      )}
+                    />
+                  </button>
+                  {typeOpen ? (
+                    <div className="absolute left-0 top-full z-40 mt-1.5 min-w-[15rem] rounded-xl border border-border bg-card p-2 shadow-[0_16px_40px_-12px_rgba(24,119,242,0.3)]">
+                      {TYPE_OPTIONS.map((opt) => {
+                        const checked = filters.type?.includes(opt.value) ?? false;
+                        return (
+                          <label
+                            key={opt.value}
+                            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-primary-muted"
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 rounded border-border text-primary accent-primary focus:ring-primary/30"
+                              checked={checked}
+                              onChange={() =>
+                                setFilters((f) => ({
+                                  ...f,
+                                  type: toggleFilter(f.type, opt.value),
+                                }))
+                              }
+                            />
+                            {opt.label}
+                          </label>
+                        );
+                      })}
+                    </div>
+                  ) : null}
+                </div>
+
+                <FilterChecks label="Paper">
+                  {(["PAPER_1", "PAPER_2"] as QbPaper[]).map((p) => (
+                    <NativeCheck
+                      key={p}
+                      label={p === "PAPER_1" ? "Paper 1" : "Paper 2"}
+                      checked={filters.paper?.includes(p) ?? false}
+                      onChange={() =>
+                        setFilters((f) => ({ ...f, paper: toggleFilter(f.paper, p) }))
+                      }
+                    />
+                  ))}
+                </FilterChecks>
+
+                <FilterChecks label="Difficulty">
+                  {(["EASY", "MEDIUM", "HARD"] as QbDifficulty[]).map((d) => (
+                    <NativeCheck
+                      key={d}
+                      label={d.charAt(0) + d.slice(1).toLowerCase()}
+                      checked={filters.difficulty?.includes(d) ?? false}
+                      onChange={() =>
+                        setFilters((f) => ({
+                          ...f,
+                          difficulty: toggleFilter(f.difficulty, d),
+                        }))
+                      }
+                    />
+                  ))}
+                </FilterChecks>
+
+                <FilterChecks label="View">
+                  {(["ALL", "COMPLETE", "INCOMPLETE"] as ViewMode[]).map((mode) => (
+                    <label
+                      key={mode}
+                      className="inline-flex cursor-pointer items-center gap-1.5 text-sm text-foreground"
+                    >
+                      <input
+                        type="radio"
+                        name="qb-view"
+                        className="h-4 w-4 border-border text-primary accent-primary focus:ring-primary/30"
+                        checked={viewMode === mode}
+                        onChange={() => setViewMode(mode)}
+                      />
+                      {mode === "ALL" ? "All" : mode === "COMPLETE" ? "Complete" : "Incomplete"}
+                    </label>
+                  ))}
+                </FilterChecks>
+
+                {hasActiveFilters ? (
+                  <button
+                    type="button"
+                    className="text-sm font-medium text-primary hover:underline"
+                    onClick={() => setFilters({})}
+                  >
+                    Clear
+                  </button>
                 ) : null}
               </div>
-
-              <FilterDivider />
-
-              <FilterChecks label="Paper">
-                {(["PAPER_1", "PAPER_2"] as QbPaper[]).map((p) => (
-                  <NativeCheck
-                    key={p}
-                    label={p === "PAPER_1" ? "Paper 1" : "Paper 2"}
-                    checked={filters.paper?.includes(p) ?? false}
-                    onChange={() =>
-                      setFilters((f) => ({ ...f, paper: toggleFilter(f.paper, p) }))
-                    }
-                  />
-                ))}
-              </FilterChecks>
-
-              <FilterDivider />
-
-              <FilterChecks label="Difficulty">
-                {(["EASY", "MEDIUM", "HARD"] as QbDifficulty[]).map((d) => (
-                  <NativeCheck
-                    key={d}
-                    label={d.charAt(0) + d.slice(1).toLowerCase()}
-                    checked={filters.difficulty?.includes(d) ?? false}
-                    onChange={() =>
-                      setFilters((f) => ({
-                        ...f,
-                        difficulty: toggleFilter(f.difficulty, d),
-                      }))
-                    }
-                  />
-                ))}
-              </FilterChecks>
-
-              <FilterDivider />
-
-              <FilterChecks label="View">
-                {(["ALL", "COMPLETE", "INCOMPLETE"] as ViewMode[]).map((mode) => (
-                  <label
-                    key={mode}
-                    className="inline-flex cursor-pointer items-center gap-1.5 text-sm text-foreground"
-                  >
-                    <input
-                      type="radio"
-                      name="qb-view"
-                      className="h-4 w-4 border-border text-primary accent-primary focus:ring-primary/30"
-                      checked={viewMode === mode}
-                      onChange={() => setViewMode(mode)}
-                    />
-                    {mode === "ALL" ? "All" : mode === "COMPLETE" ? "Complete" : "Incomplete"}
-                  </label>
-                ))}
-              </FilterChecks>
-
-              {hasActiveFilters ? (
-                <button
-                  type="button"
-                  className="text-sm font-medium text-primary hover:underline"
-                  onClick={() => setFilters({})}
-                >
-                  Clear
-                </button>
-              ) : null}
             </div>
-          ) : (
-            <span className="flex-1 text-sm text-muted-foreground">
-              {isFetching
-                ? "Updating…"
-                : `${visibleQuestions.length} of ${data.questions.length} questions`}
-            </span>
-          )}
-
-          <button
-            type="button"
-            className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
-            onClick={goToQuestion}
-          >
-            <ListOrdered className="h-4 w-4" aria-hidden />
-            Go to Question
-          </button>
+          ) : null}
         </div>
       </div>
 
@@ -577,10 +559,6 @@ export function QuestionbankStudyPage({ programSlug, subtopicSlug }: Props) {
       </div>
     </div>
   );
-}
-
-function FilterDivider() {
-  return <span aria-hidden className="hidden h-6 w-px shrink-0 bg-border sm:block" />;
 }
 
 function youtubeEmbedUrl(url: string): string | null {

@@ -81,3 +81,14 @@ export {
   useImportQbQuestions,
 } from "./use-questionbank";
 export { useAdminSettings, useUpdateAdminSettings } from "./use-admin-settings";
+export {
+  useMyMcqExams,
+  useAdminMcqExams,
+  useAdminMcqResults,
+  useMcqStatus,
+  useCreateMcqExam,
+  useUpdateMcqExam,
+  useDeleteMcqExam,
+  useStartMcqExam,
+  useSubmitMcqExam,
+} from "./use-mcq";

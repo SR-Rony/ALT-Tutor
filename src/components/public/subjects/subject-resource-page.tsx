@@ -2,9 +2,12 @@
 
 import Link from "next/link";
 import { useMemo } from "react";
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { QuestionbankOverviewPage } from "@/components/public/questionbank/questionbank-overview-page";
-import { PageHeader, PageLoader } from "@/components/shared";
+import { MockExamsPage } from "@/components/public/subjects/mock-exams-page";
+import { PastPapersPage } from "@/components/public/subjects/past-papers-page";
+import { PracticeExamsPage } from "@/components/public/subjects/practice-exams-page";
+import { PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { useSubjectsMenu } from "@/hooks";
@@ -36,6 +39,14 @@ export function SubjectResourcePage({ programSlug, resourceSlug }: Props) {
     return <QuestionbankOverviewPage programSlug={programSlug} />;
   }
 
+  if (resourceSlug === "past-papers") {
+    return <PastPapersPage programSlug={programSlug} />;
+  }
+
+  if (resourceSlug === "practice-exams") {
+    return <PracticeExamsPage programSlug={programSlug} />;
+  }
+
   if (isLoading && !match) {
     return <PageLoader label="Loading resource..." />;
   }
@@ -55,6 +66,14 @@ export function SubjectResourcePage({ programSlug, resourceSlug }: Props) {
     return <QuestionbankOverviewPage programSlug={programSlug} />;
   }
 
+  if (match.resource.resourceType === "PAST_PAPERS") {
+    return <PastPapersPage programSlug={programSlug} />;
+  }
+
+  if (match.resource.resourceType === "PRACTICE_EXAMS") {
+    return <PracticeExamsPage programSlug={programSlug} />;
+  }
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-10 md:px-6 md:py-14">
       <Button asChild variant="ghost" size="sm" className="mb-4 -ml-2">
@@ -63,24 +82,16 @@ export function SubjectResourcePage({ programSlug, resourceSlug }: Props) {
           Home
         </Link>
       </Button>
-      <PageHeader
-        title={match.resource.title}
-        description={`${match.program.name} · ${match.subject.name} · ${match.category.name}`}
-        className="mb-6"
-      />
-      <div className="rounded-2xl border border-border bg-card p-6 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
-        <div className="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl bg-primary-muted text-primary">
-          <BookOpen className="h-6 w-6" aria-hidden />
-        </div>
-        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
-          Demo landing for <strong>{match.resource.title}</strong>.
-        </p>
-        <div className="mt-6 flex flex-wrap gap-2">
-          <Button asChild>
-            <Link href={ROUTES.subjectQuestionbank(programSlug)}>Open Questionbank</Link>
-          </Button>
-        </div>
-      </div>
+      <p className="text-sm text-muted-foreground">
+        {match.program.name} · {match.subject.name}
+      </p>
+      <h1 className="mt-2 text-2xl font-bold text-foreground">{match.resource.title}</h1>
+      <p className="mt-4 text-sm text-muted-foreground">This resource is coming soon.</p>
+      <Button asChild className="mt-6">
+        <Link href={ROUTES.subjectQuestionbank(programSlug)}>Open Questionbank</Link>
+      </Button>
     </div>
   );
 }
+
+export { MockExamsPage };

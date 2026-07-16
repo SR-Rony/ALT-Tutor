@@ -1,6 +1,6 @@
 "use client";
 
-import type { SupportManagementData } from "@/types/admin-support-management";
+import type { SupportManagementData } from "@/types/admin-support-management.types";
 
 export function AdminSupportManagementPage({ data }: { data: SupportManagementData }) {
   return (

@@ -32,6 +32,13 @@ export const queryKeys = {
       ["questionbank", "questions", programSlug, subtopicSlug, filters] as const,
     admin: (programId?: string) => ["questionbank", "admin", programId ?? "all"] as const,
   },
+  mcq: {
+    all: ["mcq"] as const,
+    admin: (courseId?: string) => ["mcq", "admin", courseId ?? "all"] as const,
+    results: (examId: string) => ["mcq", "results", examId] as const,
+    status: (id: string) => ["mcq", "status", id] as const,
+    mine: ["mcq", "mine"] as const,
+  },
   admin: {
     example: ["admin", "example"] as const,
     dashboard: ["admin", "dashboard"] as const,

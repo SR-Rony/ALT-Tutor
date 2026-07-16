@@ -8,6 +8,8 @@ export const ROUTES = {
   subjectQuestionbank: (programSlug: string) => `/subjects/${programSlug}/questionbank`,
   subjectQuestionbankStudy: (programSlug: string, subtopicSlug: string) =>
     `/subjects/${programSlug}/questionbank/${subtopicSlug}`,
+  subjectPracticeMockExams: (programSlug: string) =>
+    `/subjects/${programSlug}/practice-exams/mock-exams`,
   about: "/about",
   contact: "/contact",
   help: "/help",
@@ -20,6 +22,7 @@ export const ROUTES = {
     root: "/student",
     courses: "/student/courses",
     assignments: "/student/assignments",
+    mcqExam: (assignmentId: string) => `/student/mcq/${assignmentId}`,
     notifications: "/student/notifications",
     payments: "/student/payments",
     settings: "/student/settings",
@@ -41,6 +44,7 @@ export const ROUTES = {
     categories: "/admin/categories",
     subjects: "/admin/subjects",
     questionbank: "/admin/questionbank",
+    mcqExams: "/admin/mcq-exams",
     support: "/admin/support",
     supportDetail: (ticketId: string) => `/admin/support/${ticketId}`,
     example: "/admin/example",

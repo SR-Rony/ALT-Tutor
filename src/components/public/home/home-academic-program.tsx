@@ -34,7 +34,9 @@ const featureIcons: Record<(typeof academicProgram.features)[number]["icon"], Lu
 
 export function HomeAcademicProgram() {
   const prefersReducedMotion = useReducedMotion();
-  const [activeId, setActiveId] = useState(academicProgram.features[0].id);
+  const [activeId, setActiveId] = useState<(typeof academicProgram.features)[number]["id"]>(
+    academicProgram.features[0].id
+  );
   const { preview } = academicProgram;
 
   return (
