@@ -1,7 +1,7 @@
 import type { NavItem } from "@/types/navigation.types";
 import { ROUTES } from "@/constants";
 
-/** Static public navbar — Subjects mega menu loads categories/courses itself */
+/** Static public navbar — Subjects mega menu loads IB subjects from /subjects/menu */
 export const publicNav: NavItem[] = [
   { title: "Home", href: ROUTES.home, iconName: "home" },
   {

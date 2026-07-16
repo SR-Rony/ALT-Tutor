@@ -4,32 +4,31 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Atom,
   BookOpen,
-  Briefcase,
+  Calculator,
   ChevronDown,
   ChevronRight,
-  Code2,
+  ClipboardList,
+  FileText,
+  FlaskConical,
   GraduationCap,
+  Languages,
   Layers,
-  Palette,
-  Sparkles,
+  Leaf,
+  Lightbulb,
+  Loader2,
+  Users,
   type LucideIcon,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
-import { useCategories, useCourses } from "@/hooks";
-import { formatCourseLevel } from "@/lib/course-format";
-import type { CatalogCourse } from "@/types/course.types";
-import type { HomeCategory } from "@/types/home.types";
+import { useSubjectsMenu } from "@/hooks";
+import type {
+  SubjectMenuCategory,
+  SubjectMenuProgram,
+  SubjectMenuResource,
+} from "@/types/subjects.types";
 import { cn } from "@/utils";
-
-const LEVELS = [
-  { id: "", label: "All" },
-  { id: "BEGINNER", label: "Beginner" },
-  { id: "INTERMEDIATE", label: "Intermediate" },
-  { id: "ADVANCED", label: "Advanced" },
-] as const;
-
-const CATEGORY_ICONS: LucideIcon[] = [Code2, Palette, Briefcase, GraduationCap, BookOpen, Sparkles];
 
 const TONE_CLASSES = [
   "bg-primary text-primary-foreground",
@@ -40,40 +39,43 @@ const TONE_CLASSES = [
   "bg-primary-hover text-primary-foreground",
 ];
 
-function categoryIcon(category: HomeCategory, index: number): LucideIcon {
-  const slug = category.slug.toLowerCase();
-  if (slug.includes("web") || slug.includes("dev")) return Code2;
-  if (slug.includes("design") || slug.includes("ui")) return Palette;
-  if (slug.includes("business")) return Briefcase;
-  return CATEGORY_ICONS[index % CATEGORY_ICONS.length];
+function categoryIcon(category: SubjectMenuCategory, index: number): LucideIcon {
+  const slug = `${category.slug} ${category.iconName ?? ""}`.toLowerCase();
+  if (slug.includes("math") || slug.includes("calculator")) return Calculator;
+  if (slug.includes("science") || slug.includes("flask")) return FlaskConical;
+  if (slug.includes("individual") || slug.includes("users")) return Users;
+  if (slug.includes("english") || slug.includes("book")) return BookOpen;
+  if (slug.includes("language") || slug.includes("spanish") || slug.includes("french")) {
+    return Languages;
+  }
+  if (slug.includes("physics") || slug.includes("atom")) return Atom;
+  if (slug.includes("bio") || slug.includes("leaf")) return Leaf;
+  return [GraduationCap, BookOpen, Layers, Lightbulb][index % 4];
+}
+
+function resourceIcon(resource: SubjectMenuResource): LucideIcon {
+  const t = String(resource.resourceType).toUpperCase();
+  if (t === "QUESTIONBANK") return ClipboardList;
+  if (t === "KEY_CONCEPTS") return Lightbulb;
+  if (t === "PAST_PAPERS" || t === "PRACTICE_EXAMS" || t === "PAPER_3") return FileText;
+  return BookOpen;
 }
 
 function categoryTone(index: number) {
   return TONE_CLASSES[index % TONE_CLASSES.length];
 }
 
-function catalogHref(categoryId: string | null, level: string) {
-  const params = new URLSearchParams();
-  if (categoryId) params.set("categoryId", categoryId);
-  if (level) params.set("level", level);
-  const qs = params.toString();
-  return qs ? `${ROUTES.courses}?${qs}` : ROUTES.courses;
-}
-
-function filterCourses(
-  courses: CatalogCourse[],
-  categoryId: string | null,
-  level: string
-): CatalogCourse[] {
-  return courses.filter((course) => {
-    if (categoryId && course.category?.id !== categoryId) return false;
-    if (level && String(course.level).toUpperCase() !== level) return false;
-    return true;
-  });
+function resourceHref(program: SubjectMenuProgram, resource: SubjectMenuResource) {
+  if (resource.href) return resource.href;
+  return ROUTES.subjectResource(program.slug, resource.slug);
 }
 
 function isSubjectsPathActive(pathname: string) {
-  return pathname === ROUTES.courses || pathname.startsWith(`${ROUTES.courses}/`);
+  return (
+    pathname === ROUTES.courses ||
+    pathname.startsWith(`${ROUTES.courses}/`) ||
+    pathname.startsWith("/subjects/")
+  );
 }
 
 function MegaRow({
@@ -120,188 +122,239 @@ function MegaRow({
 }
 
 function MegaPanel({
-  categories,
-  courses,
+  menu,
+  isLoading,
   onNavigate,
 }: {
-  categories: HomeCategory[];
-  courses: CatalogCourse[];
+  menu: SubjectMenuCategory[];
+  isLoading: boolean;
   onNavigate: () => void;
 }) {
-  const [categoryId, setCategoryId] = useState<string | null>(categories[0]?.id ?? null);
-  const [level, setLevel] = useState("");
+  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [programId, setProgramId] = useState<string | null>(null);
+
+  const selectedCategory = useMemo(
+    () => menu.find((c) => c.id === categoryId) ?? menu[0] ?? null,
+    [menu, categoryId]
+  );
+
+  const subjects = selectedCategory?.subjects ?? [];
+
+  const selectedSubject = useMemo(
+    () => subjects.find((s) => s.id === subjectId) ?? subjects[0] ?? null,
+    [subjects, subjectId]
+  );
+
+  const programs = selectedSubject?.programs ?? [];
+
+  const selectedProgram = useMemo(
+    () => programs.find((p) => p.id === programId) ?? programs[0] ?? null,
+    [programs, programId]
+  );
+
+  const resources = useMemo(() => {
+    const list = (selectedProgram?.resources ?? []).filter((r) => r.isActive !== false);
+    return [...list].sort((a, b) => {
+      const aQb = String(a.resourceType).toUpperCase() === "QUESTIONBANK" ? 0 : 1;
+      const bQb = String(b.resourceType).toUpperCase() === "QUESTIONBANK" ? 0 : 1;
+      if (aQb !== bQb) return aQb - bQb;
+      return (a.order ?? 0) - (b.order ?? 0);
+    });
+  }, [selectedProgram]);
 
   useEffect(() => {
-    if (!categories.length) {
+    if (!menu.length) {
       setCategoryId(null);
       return;
     }
-    if (!categoryId || !categories.some((c) => c.id === categoryId)) {
-      setCategoryId(categories[0].id);
+    if (!categoryId || !menu.some((c) => c.id === categoryId)) {
+      setCategoryId(menu[0].id);
     }
-  }, [categories, categoryId]);
+  }, [menu, categoryId]);
 
-  const selectedCategory = useMemo(
-    () => categories.find((c) => c.id === categoryId) ?? null,
-    [categories, categoryId]
-  );
+  useEffect(() => {
+    if (!subjects.length) {
+      setSubjectId(null);
+      return;
+    }
+    if (!subjectId || !subjects.some((s) => s.id === subjectId)) {
+      setSubjectId(subjects[0].id);
+    }
+  }, [subjects, subjectId]);
 
-  const filtered = useMemo(
-    () => filterCourses(courses, categoryId, level),
-    [courses, categoryId, level]
-  );
+  useEffect(() => {
+    if (!programs.length) {
+      setProgramId(null);
+      return;
+    }
+    if (!programId || !programs.some((p) => p.id === programId)) {
+      setProgramId(programs[0].id);
+    }
+  }, [programs, programId]);
 
-  const splitIndex = Math.ceil(filtered.length / 2);
-  const leftCourses = filtered.slice(0, splitIndex);
-  const rightCourses = filtered.slice(splitIndex);
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[16rem] items-center justify-center rounded-2xl border border-border bg-card shadow-[0_20px_50px_-12px_rgba(24,119,242,0.2)]">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      </div>
+    );
+  }
 
-  const browseLabel = selectedCategory
-    ? level
-      ? `All ${formatCourseLevel(level)} in ${selectedCategory.name}`
-      : `All ${selectedCategory.name} courses`
-    : "Browse all courses";
+  if (!menu.length) {
+    return (
+      <div className="rounded-2xl border border-border bg-card px-6 py-12 text-center shadow-[0_20px_50px_-12px_rgba(24,119,242,0.2)]">
+        <p className="text-sm text-muted-foreground">No subjects available yet.</p>
+        <Link
+          href={ROUTES.courses}
+          onClick={onNavigate}
+          className="mt-3 inline-flex text-sm font-semibold text-primary hover:underline"
+        >
+          Browse courses
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_20px_50px_-12px_rgba(24,119,242,0.2)]">
-      <div className="grid min-h-[22rem] grid-cols-[minmax(14rem,0.95fr)_minmax(12rem,0.85fr)_minmax(22rem,1.6fr)]">
-        <div className="border-r border-border p-3">
+      <div className="grid min-h-[22rem] grid-cols-1 md:grid-cols-[minmax(12rem,0.9fr)_minmax(12rem,0.9fr)_minmax(11rem,0.85fr)_minmax(16rem,1.2fr)]">
+        {/* Categories */}
+        <div className="border-b border-border p-3 md:border-b-0 md:border-r">
+          <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Category
+          </p>
           <div className="space-y-0.5">
-            {categories.length === 0 ? (
-              <p className="px-3 py-6 text-sm text-muted-foreground">No categories yet.</p>
+            {menu.map((category, index) => {
+              const Icon = categoryIcon(category, index);
+              return (
+                <MegaRow
+                  key={category.id}
+                  active={category.id === selectedCategory?.id}
+                  onSelect={() => {
+                    setCategoryId(category.id);
+                    setSubjectId(null);
+                    setProgramId(null);
+                  }}
+                  icon={<Icon className="h-4 w-4" aria-hidden />}
+                  iconClassName={categoryTone(index)}
+                  label={category.name}
+                />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Subjects */}
+        <div className="border-b border-border p-3 md:border-b-0 md:border-r">
+          <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Subject
+          </p>
+          <div className="space-y-0.5">
+            {subjects.length === 0 ? (
+              <p className="px-3 py-6 text-sm text-muted-foreground">No subjects.</p>
             ) : (
-              categories.map((category, index) => {
-                const Icon = categoryIcon(category, index);
-                return (
-                  <MegaRow
-                    key={category.id}
-                    active={category.id === categoryId}
-                    onSelect={() => setCategoryId(category.id)}
-                    icon={<Icon className="h-4 w-4" aria-hidden />}
-                    iconClassName={categoryTone(index)}
-                    label={category.name}
-                  />
-                );
-              })
+              subjects.map((subject) => (
+                <MegaRow
+                  key={subject.id}
+                  active={subject.id === selectedSubject?.id}
+                  onSelect={() => {
+                    setSubjectId(subject.id);
+                    setProgramId(null);
+                  }}
+                  icon={<BookOpen className="h-4 w-4" aria-hidden />}
+                  iconClassName={
+                    subject.id === selectedSubject?.id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-primary-muted text-primary"
+                  }
+                  label={subject.name}
+                />
+              ))
             )}
           </div>
         </div>
 
-        <div className="border-r border-border p-3">
+        {/* Programs */}
+        <div className="border-b border-border p-3 md:border-b-0 md:border-r">
+          <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+            Program
+          </p>
           <div className="space-y-0.5">
-            {LEVELS.map((item) => (
-              <MegaRow
-                key={item.id || "all"}
-                active={level === item.id}
-                onSelect={() => setLevel(item.id)}
-                icon={<Layers className="h-4 w-4" aria-hidden />}
-                iconClassName={
-                  level === item.id
-                    ? "bg-primary text-primary-foreground"
-                    : "bg-primary-muted text-primary"
-                }
-                label={item.label}
-              />
-            ))}
+            {programs.length === 0 ? (
+              <p className="px-3 py-6 text-sm text-muted-foreground">No programs.</p>
+            ) : (
+              programs.map((program) => (
+                <MegaRow
+                  key={program.id}
+                  active={program.id === selectedProgram?.id}
+                  onSelect={() => setProgramId(program.id)}
+                  icon={<GraduationCap className="h-4 w-4" aria-hidden />}
+                  iconClassName={
+                    program.id === selectedProgram?.id
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-primary-muted text-primary"
+                  }
+                  label={program.name}
+                />
+              ))
+            )}
           </div>
         </div>
 
-        <div className="p-5">
-          {filtered.length === 0 ? (
-            <div className="px-2 py-6">
-              <p className="text-sm text-muted-foreground">No courses match this selection.</p>
-              {categoryId ? (
-                <Link
-                  href={catalogHref(categoryId, level)}
-                  onClick={onNavigate}
-                  className="mt-3 inline-flex text-sm font-semibold text-primary hover:underline"
-                >
-                  Browse catalog
-                </Link>
-              ) : null}
-            </div>
+        {/* Resources */}
+        <div className="p-4 sm:p-5">
+          <p className="mb-3 text-sm font-bold text-foreground">
+            {selectedProgram?.name ?? "Resources"}
+          </p>
+          {resources.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No resources for this program yet.</p>
           ) : (
-            <div className="grid gap-8 sm:grid-cols-2">
-              <div>
-                <p className="mb-3 text-sm font-bold text-foreground">Browse</p>
-                <ul className="space-y-0.5">
-                  <li>
+            <ul className="space-y-1">
+              {resources.map((resource) => {
+                const Icon = resourceIcon(resource);
+                const href = selectedProgram
+                  ? resourceHref(selectedProgram, resource)
+                  : "#";
+                const isQb = String(resource.resourceType).toUpperCase() === "QUESTIONBANK";
+                return (
+                  <li key={resource.id}>
                     <Link
-                      href={catalogHref(categoryId, level)}
+                      href={href}
                       onClick={onNavigate}
-                      className="block rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                      className={cn(
+                        "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition",
+                        isQb
+                          ? "bg-primary-muted font-semibold text-primary hover:bg-primary/15"
+                          : "text-foreground hover:bg-muted"
+                      )}
                     >
-                      {browseLabel}
+                      <span
+                        className={cn(
+                          "inline-flex h-8 w-8 items-center justify-center rounded-lg",
+                          isQb ? "bg-primary text-primary-foreground" : "bg-muted text-primary"
+                        )}
+                      >
+                        <Icon className="h-4 w-4" aria-hidden />
+                      </span>
+                      <span className="min-w-0 flex-1 truncate">{resource.title}</span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
                     </Link>
                   </li>
-                  {selectedCategory && level ? (
-                    <li>
-                      <Link
-                        href={catalogHref(categoryId, "")}
-                        onClick={onNavigate}
-                        className="block rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                      >
-                        All levels in {selectedCategory.name}
-                      </Link>
-                    </li>
-                  ) : null}
-                  {selectedCategory && !level ? (
-                    <>
-                      {LEVELS.filter((l) => l.id).map((item) => (
-                        <li key={item.id}>
-                          <Link
-                            href={catalogHref(categoryId, item.id)}
-                            onClick={onNavigate}
-                            className="block rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          >
-                            {item.label} in {selectedCategory.name}
-                          </Link>
-                        </li>
-                      ))}
-                    </>
-                  ) : null}
-                </ul>
-              </div>
-
-              <div>
-                <p className="mb-3 text-sm font-bold text-foreground">Courses</p>
-                <div
-                  className={cn(
-                    "grid gap-x-6",
-                    rightCourses.length > 0 ? "grid-cols-2" : "grid-cols-1"
-                  )}
-                >
-                  <ul className="space-y-0.5">
-                    {leftCourses.map((course) => (
-                      <li key={course.id}>
-                        <Link
-                          href={ROUTES.courseDetail(course.slug)}
-                          onClick={onNavigate}
-                          className="block rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                        >
-                          {course.title}
-                        </Link>
-                      </li>
-                    ))}
-                  </ul>
-                  {rightCourses.length ? (
-                    <ul className="space-y-0.5">
-                      {rightCourses.map((course) => (
-                        <li key={course.id}>
-                          <Link
-                            href={ROUTES.courseDetail(course.slug)}
-                            onClick={onNavigate}
-                            className="block rounded-lg px-2 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                          >
-                            {course.title}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              </div>
-            </div>
+                );
+              })}
+            </ul>
           )}
+
+          {selectedProgram ? (
+            <Link
+              href={ROUTES.subjectQuestionbank(selectedProgram.slug)}
+              onClick={onNavigate}
+              className="mt-4 inline-flex text-sm font-semibold text-primary hover:underline"
+            >
+              Open Questionbank →
+            </Link>
+          ) : null}
         </div>
       </div>
     </div>
@@ -312,8 +365,7 @@ export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: stri
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const { data: categories = [] } = useCategories();
-  const { data: courses = [] } = useCourses();
+  const { data: menu = [], isLoading } = useSubjectsMenu();
   const active = isSubjectsPathActive(pathname);
 
   const clearCloseTimer = () => {
@@ -363,23 +415,32 @@ export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: stri
     <div ref={ref} className="relative">
       <button
         type="button"
-        className={cn(
-          "group inline-flex cursor-pointer items-center gap-1 rounded-full px-3 py-2 text-sm font-medium transition-colors",
-          open || active
-            ? "bg-primary-muted text-primary"
-            : "text-foreground/80 hover:bg-muted hover:text-accent"
-        )}
+        className="group inline-flex cursor-pointer items-center gap-1 px-3 py-2"
         aria-expanded={open}
         aria-haspopup="true"
         onMouseEnter={openMenu}
         onMouseLeave={scheduleClose}
         onClick={() => setOpen((value) => !value)}
       >
-        Subjects
-        <ChevronDown
-          className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-180")}
-          aria-hidden
-        />
+        <span
+          className={cn(
+            "relative inline-flex items-center gap-1 text-sm font-medium transition-colors duration-300",
+            open || active ? "text-[#ef3239]" : "text-[#1a2b5e]/75 group-hover:text-[#ef3239]"
+          )}
+        >
+          Subjects
+          <ChevronDown
+            className={cn("h-3.5 w-3.5 transition-transform duration-200", open && "rotate-180")}
+            aria-hidden
+          />
+          <span
+            aria-hidden
+            className={cn(
+              "absolute inset-x-0 -bottom-1 h-0.5 origin-left rounded-full bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239] transition-transform duration-300 ease-out",
+              open || active ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+            )}
+          />
+        </span>
       </button>
 
       <AnimatePresence>
@@ -389,15 +450,11 @@ export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: stri
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.16 }}
-            className="fixed left-1/2 top-16 z-50 w-[min(58rem,calc(100vw-2rem))] -translate-x-1/2 pt-2 lg:top-[4.5rem] xl:w-[62rem]"
+            className="fixed left-1/2 top-16 z-50 w-[min(64rem,calc(100vw-2rem))] -translate-x-1/2 pt-2 lg:top-[4.5rem] xl:w-[68rem]"
             onMouseEnter={openMenu}
             onMouseLeave={scheduleClose}
           >
-            <MegaPanel
-              categories={categories}
-              courses={courses}
-              onNavigate={() => setOpen(false)}
-            />
+            <MegaPanel menu={menu} isLoading={isLoading} onNavigate={() => setOpen(false)} />
           </motion.div>
         ) : null}
       </AnimatePresence>
@@ -415,25 +472,31 @@ export function SubjectsMobileMenu({
 }) {
   const [expanded, setExpanded] = useState(false);
   const [categoryId, setCategoryId] = useState<string | null>(null);
-  const [level, setLevel] = useState("");
-  const { data: categories = [] } = useCategories();
-  const { data: courses = [] } = useCourses();
+  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const { data: menu = [], isLoading } = useSubjectsMenu();
   const active = isSubjectsPathActive(pathname);
 
-  useEffect(() => {
-    if (categories.length && !categoryId) setCategoryId(categories[0].id);
-  }, [categories, categoryId]);
+  const selectedCategory = menu.find((c) => c.id === categoryId) ?? menu[0] ?? null;
+  const subjects = selectedCategory?.subjects ?? [];
+  const selectedSubject = subjects.find((s) => s.id === subjectId) ?? subjects[0] ?? null;
 
-  const selectedCategory = categories.find((c) => c.id === categoryId) ?? null;
-  const filtered = filterCourses(courses, categoryId, level);
+  useEffect(() => {
+    if (menu.length && !categoryId) setCategoryId(menu[0].id);
+  }, [menu, categoryId]);
+
+  useEffect(() => {
+    if (subjects.length && (!subjectId || !subjects.some((s) => s.id === subjectId))) {
+      setSubjectId(subjects[0].id);
+    }
+  }, [subjects, subjectId]);
 
   return (
     <div className="overflow-hidden rounded-xl border border-border/70 bg-card">
       <button
         type="button"
         className={cn(
-          "flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3.5 text-left text-base font-medium transition-colors",
-          active ? "text-accent" : "text-foreground hover:text-accent"
+          "flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3.5 text-left text-base font-medium transition-colors duration-300",
+          active ? "text-[#ef3239]" : "text-foreground hover:text-[#ef3239]"
         )}
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}
@@ -450,91 +513,96 @@ export function SubjectsMobileMenu({
 
       {expanded ? (
         <div className="space-y-3 border-t border-border/70 bg-muted/30 px-3 py-3">
-          <div className="space-y-1">
-            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Category
-            </p>
-            {categories.map((category, index) => {
-              const Icon = categoryIcon(category, index);
-              return (
-                <button
-                  key={category.id}
-                  type="button"
-                  onClick={() => setCategoryId(category.id)}
-                  className={cn(
-                    "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm",
-                    category.id === categoryId
-                      ? "bg-card font-semibold text-foreground shadow-sm"
-                      : "text-muted-foreground"
-                  )}
-                >
-                  <span
+          {isLoading ? (
+            <div className="flex justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-primary" />
+            </div>
+          ) : menu.length === 0 ? (
+            <p className="px-2 py-4 text-sm text-muted-foreground">No subjects yet.</p>
+          ) : (
+            <>
+              <div className="space-y-1">
+                <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Category
+                </p>
+                {menu.map((category, index) => {
+                  const Icon = categoryIcon(category, index);
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => {
+                        setCategoryId(category.id);
+                        setSubjectId(null);
+                      }}
+                      className={cn(
+                        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm",
+                        category.id === selectedCategory?.id
+                          ? "bg-card font-semibold text-foreground shadow-sm"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      <span
+                        className={cn(
+                          "inline-flex h-7 w-7 items-center justify-center rounded-md",
+                          categoryTone(index)
+                        )}
+                      >
+                        <Icon className="h-3.5 w-3.5" />
+                      </span>
+                      {category.name}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <div className="space-y-1">
+                <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Subject
+                </p>
+                {subjects.map((subject) => (
+                  <button
+                    key={subject.id}
+                    type="button"
+                    onClick={() => setSubjectId(subject.id)}
                     className={cn(
-                      "inline-flex h-7 w-7 items-center justify-center rounded-md",
-                      categoryTone(index)
+                      "w-full rounded-lg px-3 py-2 text-left text-sm",
+                      subject.id === selectedSubject?.id
+                        ? "bg-card font-semibold text-foreground shadow-sm"
+                        : "text-muted-foreground"
                     )}
                   >
-                    <Icon className="h-3.5 w-3.5" aria-hidden />
-                  </span>
-                  {category.name}
-                </button>
-              );
-            })}
-          </div>
+                    {subject.name}
+                  </button>
+                ))}
+              </div>
 
-          <div className="space-y-1.5">
-            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Level
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {LEVELS.map((item) => (
-                <button
-                  key={item.id || "all"}
-                  type="button"
-                  onClick={() => setLevel(item.id)}
-                  className={cn(
-                    "rounded-full px-3 py-1.5 text-xs font-semibold",
-                    level === item.id
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-card text-muted-foreground"
-                  )}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Links
-            </p>
-            <Link
-              href={catalogHref(categoryId, level)}
-              onClick={onNavigate}
-              className="block rounded-lg bg-card px-3 py-2 text-sm font-medium text-primary"
-            >
-              {selectedCategory
-                ? level
-                  ? `Browse ${formatCourseLevel(level)} — ${selectedCategory.name}`
-                  : `Browse ${selectedCategory.name}`
-                : "Browse all courses"}
-            </Link>
-            {filtered.length === 0 ? (
-              <p className="px-3 py-2 text-sm text-muted-foreground">No courses in this selection.</p>
-            ) : (
-              filtered.map((course) => (
-                <Link
-                  key={course.id}
-                  href={ROUTES.courseDetail(course.slug)}
-                  onClick={onNavigate}
-                  className="block rounded-lg px-3 py-2 text-sm text-foreground hover:bg-card"
-                >
-                  {course.title}
-                </Link>
-              ))
-            )}
-          </div>
+              <div className="space-y-2">
+                <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Programs & resources
+                </p>
+                {(selectedSubject?.programs ?? []).map((program) => (
+                  <div key={program.id} className="rounded-xl border border-border bg-card p-3">
+                    <p className="mb-2 text-sm font-bold text-foreground">{program.name}</p>
+                    <div className="space-y-1">
+                      {program.resources
+                        .filter((r) => r.isActive !== false)
+                        .map((resource) => (
+                          <Link
+                            key={resource.id}
+                            href={resourceHref(program, resource)}
+                            onClick={onNavigate}
+                            className="block rounded-lg px-2 py-1.5 text-sm text-primary hover:bg-primary-muted"
+                          >
+                            {resource.title}
+                          </Link>
+                        ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
       ) : null}
     </div>

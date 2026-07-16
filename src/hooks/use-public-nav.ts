@@ -5,7 +5,7 @@ import type { NavItem } from "@/types/navigation.types";
 
 /**
  * Public navbar items.
- * Subjects mega menu loads its own categories/courses — not injected here.
+ * Subjects mega menu loads IB subjects/resources via useSubjectsMenu().
  */
 export function usePublicNav(): NavItem[] {
   return publicNav;
