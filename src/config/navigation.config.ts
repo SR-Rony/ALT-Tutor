@@ -60,7 +60,6 @@ export const adminNav: NavItem[] = [
   { title: "MCQ Exams", href: ROUTES.admin.mcqExams, iconName: "clipboard" },
   { title: "Categories", href: ROUTES.admin.categories, iconName: "tags" },
   { title: "Support", href: ROUTES.admin.support, iconName: "support" },
-  { title: "Example Module", href: ROUTES.admin.example, iconName: "grid" },
 ];
 
 export const adminFooterNav: NavItem[] = [

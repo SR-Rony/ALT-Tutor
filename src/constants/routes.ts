@@ -56,7 +56,6 @@ export const ROUTES = {
     mcqExams: "/admin/mcq-exams",
     support: "/admin/support",
     supportDetail: (ticketId: string) => `/admin/support/${ticketId}`,
-    example: "/admin/example",
     settings: "/admin/settings",
   },
 } as const;

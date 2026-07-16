@@ -40,7 +40,6 @@ export const queryKeys = {
     mine: ["mcq", "mine"] as const,
   },
   admin: {
-    example: ["admin", "example"] as const,
     dashboard: ["admin", "dashboard"] as const,
     users: ["admin", "users"] as const,
     user: (id: string) => ["admin", "users", id] as const,

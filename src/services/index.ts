@@ -11,7 +11,6 @@ export { studentService } from "./student.service";
 export { curriculumService } from "./curriculum.service";
 export { teacherCoursesService } from "./teacher-courses.service";
 export {
-  adminExampleManagementService,
   adminUsersService,
   adminCoursesService,
   adminCategoriesService,

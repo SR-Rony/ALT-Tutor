@@ -1,4 +1,3 @@
-export { adminExampleManagementService } from "./admin-example-management.service";
 export { adminUsersService } from "./admin-users.service";
 export { adminCoursesService } from "./admin-courses.service";
 export { adminCategoriesService } from "./admin-categories.service";

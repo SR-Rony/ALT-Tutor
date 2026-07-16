@@ -27,11 +27,6 @@ export type {
   LessonType,
 } from "./curriculum.types";
 export type {
-  AdminExampleItem,
-  AdminExampleItemStatus,
-  AdminExampleManagementData,
-} from "./admin-example-management.types";
-export type {
   AdminCourse,
   AdminDashboardStats,
   AdminPayment,

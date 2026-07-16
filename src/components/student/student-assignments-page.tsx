@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Clock, PlayCircle } from "lucide-react";
+import { Clock, HelpCircle, PlayCircle } from "lucide-react";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,7 +9,34 @@ import { ROUTES } from "@/constants";
 import { useMyMcqExams, useStudentSubmissions } from "@/hooks";
 import { formatShortDate } from "@/lib/format";
 import type { ApiError } from "@/types";
+import type { McqPhase } from "@/types/mcq.types";
 import { cn } from "@/utils";
+
+function phaseMeta(phase: McqPhase) {
+  switch (phase) {
+    case "IN_PROGRESS":
+      return { label: "In progress", className: "bg-[#fff7ed] text-[#ea580c]" };
+    case "CAN_RETAKE":
+      return { label: "Retake available", className: "bg-primary-muted text-primary" };
+    case "COMPLETED":
+      return { label: "Completed", className: "bg-muted text-muted-foreground" };
+    default:
+      return { label: "Not started", className: "bg-primary/10 text-primary" };
+  }
+}
+
+function actionLabel(phase: McqPhase) {
+  switch (phase) {
+    case "IN_PROGRESS":
+      return "Continue";
+    case "CAN_RETAKE":
+      return "Retake";
+    case "COMPLETED":
+      return "View result";
+    default:
+      return "Open exam";
+  }
+}
 
 export function StudentAssignmentsPage() {
   const { data: mcqExams = [], isLoading: mcqLoading, error: mcqError } = useMyMcqExams();
@@ -27,7 +54,7 @@ export function StudentAssignmentsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto w-full max-w-7xl space-y-8 px-0 sm:space-y-10">
       <PageHeader
         title="Assignments & MCQ Exams"
         description="Timed MCQ exams start when you click Start. Retakes available when configured."
@@ -41,8 +68,14 @@ export function StudentAssignmentsPage() {
         </p>
       )}
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-bold text-foreground">MCQ Exams</h2>
+      <section className="space-y-4">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <h2 className="text-lg font-bold text-foreground md:text-xl">MCQ Exams</h2>
+          {mcqExams.length > 0 ? (
+            <p className="text-sm text-muted-foreground">{mcqExams.length} exams available</p>
+          ) : null}
+        </div>
+
         {mcqExams.length === 0 ? (
           <Card>
             <CardContent className="py-10 text-center text-sm text-muted-foreground">
@@ -50,66 +83,58 @@ export function StudentAssignmentsPage() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 xl:grid-cols-3">
             {mcqExams.map((exam) => {
               const st = exam.mcqStatus;
               const phase = st?.phase ?? "NOT_STARTED";
+              const status = phaseMeta(phase);
+              const questionCount = exam._count?.questions ?? 0;
+
               return (
                 <article
                   key={exam.id}
-                  className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm"
+                  className="flex h-full min-h-[15.5rem] flex-col rounded-2xl border border-border bg-card p-4 shadow-[0_8px_24px_-16px_rgba(24,119,242,0.12)] transition hover:border-primary/25 hover:shadow-[0_12px_32px_-14px_rgba(24,119,242,0.18)] sm:p-5"
                 >
-                  <p className="text-xs font-semibold uppercase text-primary">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-primary sm:text-xs">
                     {exam.course?.title ?? "Course"}
                   </p>
-                  <h3 className="mt-1 font-bold text-foreground">{exam.title}</h3>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{exam.description}</p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                    <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
-                      <Clock className="h-3 w-3" />
+                  <h3 className="mt-1.5 line-clamp-2 text-base font-bold leading-snug text-foreground">
+                    {exam.title}
+                  </h3>
+                  <p className="mt-2 line-clamp-2 flex-1 text-sm leading-relaxed text-muted-foreground">
+                    {exam.description}
+                  </p>
+
+                  <div className="mt-4 flex flex-wrap items-center gap-1.5 sm:gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-foreground sm:text-xs">
+                      <Clock className="h-3 w-3 shrink-0 text-primary" aria-hidden />
                       {exam.durationMinutes} min
                     </span>
-                    <span className="rounded-md bg-muted px-2 py-0.5">
-                      {exam._count?.questions ?? 0} Q
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/50 px-2.5 py-1 text-[11px] font-medium text-foreground sm:text-xs">
+                      <HelpCircle className="h-3 w-3 shrink-0 text-primary" aria-hidden />
+                      {questionCount} Q
                     </span>
                     {st ? (
                       <span
                         className={cn(
-                          "rounded-md px-2 py-0.5 font-semibold",
-                          phase === "COMPLETED"
-                            ? "bg-muted text-muted-foreground"
-                            : phase === "CAN_RETAKE"
-                              ? "bg-primary-muted text-primary"
-                              : phase === "IN_PROGRESS"
-                                ? "bg-[#fff7ed] text-[#ea580c]"
-                                : "bg-primary/10 text-primary"
+                          "rounded-full px-2.5 py-1 text-[11px] font-semibold sm:text-xs",
+                          status.className
                         )}
                       >
-                        {phase === "NOT_STARTED"
-                          ? "Not started"
-                          : phase === "IN_PROGRESS"
-                            ? "In progress"
-                            : phase === "CAN_RETAKE"
-                              ? "Retake available"
-                              : "Completed"}
+                        {status.label}
                       </span>
                     ) : null}
                     {st?.latestResult ? (
-                      <span className="rounded-md bg-muted px-2 py-0.5">
+                      <span className="rounded-full bg-muted px-2.5 py-1 text-[11px] font-semibold text-foreground sm:text-xs">
                         Score: {st.latestResult.score}%
                       </span>
                     ) : null}
                   </div>
-                  <Button asChild size="sm" className="mt-4 w-full">
+
+                  <Button asChild size="pill" className="mt-4 w-full sm:mt-5">
                     <Link href={ROUTES.student.mcqExam(exam.id)}>
-                      <PlayCircle className="h-4 w-4" />
-                      {phase === "IN_PROGRESS"
-                        ? "Continue"
-                        : phase === "CAN_RETAKE"
-                          ? "Retake"
-                          : phase === "COMPLETED"
-                            ? "View result"
-                            : "Open exam"}
+                      <PlayCircle className="h-4 w-4" aria-hidden />
+                      {actionLabel(phase)}
                     </Link>
                   </Button>
                 </article>
@@ -119,13 +144,15 @@ export function StudentAssignmentsPage() {
         )}
       </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-bold text-foreground">File submissions</h2>
+      <section className="space-y-4">
+        <h2 className="text-lg font-bold text-foreground md:text-xl">File submissions</h2>
         {submissions.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No file submissions yet.</p>
+          <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center text-sm text-muted-foreground sm:px-6">
+            No file submissions yet.
+          </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <table className="w-full text-sm">
+          <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+            <table className="w-full min-w-[28rem] text-sm">
               <thead className="border-b bg-muted/50 text-xs uppercase text-muted-foreground">
                 <tr>
                   <th className="px-4 py-3 text-left">Assignment</th>

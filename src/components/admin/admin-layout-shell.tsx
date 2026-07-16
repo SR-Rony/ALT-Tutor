@@ -15,7 +15,6 @@ const adminPageTitles: Record<string, string> = {
   [ROUTES.admin.mcqExams]: "MCQ Exams",
   [ROUTES.admin.categories]: "Categories",
   [ROUTES.admin.support]: "Support",
-  [ROUTES.admin.example]: "Example Module",
   [ROUTES.admin.settings]: "Settings",
 };
 
