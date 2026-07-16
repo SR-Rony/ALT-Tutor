@@ -32,8 +32,14 @@ import { useQbQuestions } from "@/hooks/use-questionbank";
 import type { ApiError } from "@/types";
 import type { QbDifficulty, QbFilters, QbPaper, QbQuestion, QbQuestionType } from "@/types/qb.types";
 import { cn } from "@/utils";
+import { downloadQuestionPaperPdf } from "@/utils/qb-pdf-export";
 
-type Props = { programSlug: string; subtopicSlug: string; examMode?: boolean };
+type Props = {
+  programSlug: string;
+  subtopicSlug: string;
+  examMode?: boolean;
+  initialPaper?: QbPaper;
+};
 type ViewMode = "ALL" | "COMPLETE" | "INCOMPLETE";
 
 const LETTERS = ["A", "B", "C", "D"] as const;
@@ -41,7 +47,7 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 const TYPE_OPTIONS: { value: QbQuestionType; label: string }[] = [
   { value: "DATA_BASED", label: "Data-based Questions" },
   { value: "MULTIPLE_CHOICE", label: "Multiple Choice Questions" },
-  { value: "SHORT_ANSWER", label: "Short Answer Questions" },
+  { value: "SHORT_ANSWER", label: "Short Answer (P2 SQ)" },
 ];
 
 function difficultyMeta(d: string) {
@@ -84,7 +90,52 @@ function toggleFilter<T extends string>(list: T[] | undefined, value: T): T[] {
   return current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
 }
 
+function isStructuredType(type: string) {
+  const t = type.toUpperCase();
+  return t === "SHORT_ANSWER" || t === "DATA_BASED";
+}
+
 function QuestionCard({
+  question,
+  index,
+  completed,
+  onToggleComplete,
+  solutionsUnlocked = true,
+  examMode = false,
+}: {
+  question: QbQuestion;
+  index: number;
+  completed?: boolean;
+  onToggleComplete?: () => void;
+  solutionsUnlocked?: boolean;
+  examMode?: boolean;
+}) {
+  if (isStructuredType(String(question.questionType))) {
+    return (
+      <StructuredQuestionCard
+        question={question}
+        index={index}
+        completed={completed}
+        onToggleComplete={onToggleComplete}
+        solutionsUnlocked={solutionsUnlocked}
+        examMode={examMode}
+      />
+    );
+  }
+
+  return (
+    <McqQuestionCard
+      question={question}
+      index={index}
+      completed={completed}
+      onToggleComplete={onToggleComplete}
+      solutionsUnlocked={solutionsUnlocked}
+      examMode={examMode}
+    />
+  );
+}
+
+function McqQuestionCard({
   question,
   index,
   completed,
@@ -328,10 +379,196 @@ function QuestionCard({
   );
 }
 
-export function QuestionbankStudyPage({ programSlug, subtopicSlug, examMode = false }: Props) {
+/** P2 (SQ/CQ) — structured written question, PDF-style layout */
+function StructuredQuestionCard({
+  question,
+  index,
+  completed,
+  onToggleComplete,
+  solutionsUnlocked = true,
+  examMode = false,
+}: {
+  question: QbQuestion;
+  index: number;
+  completed?: boolean;
+  onToggleComplete?: () => void;
+  solutionsUnlocked?: boolean;
+  examMode?: boolean;
+}) {
+  const [modal, setModal] = useState<"scheme" | "video" | null>(null);
+  const qLabel = `Question ${question.number || index + 1}`;
+  const maxMarkMatch = question.body?.match(/\[Maximum mark:\s*(\d+)\]/i);
+  const maxMarks = maxMarkMatch?.[1];
+
+  return (
+    <section id={`q-${question.number}`} className="scroll-mt-28">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold text-foreground">{qLabel}</h2>
+        <div className="flex items-center gap-2 text-muted-foreground">
+          <ThumbsUp className="h-4 w-4" />
+          <ThumbsDown className="h-4 w-4" />
+        </div>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-[1fr_10rem]">
+        <article className="rounded-2xl border border-border bg-card p-5 shadow-[0_8px_28px_-16px_rgba(24,119,242,0.2)]">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {question.calculatorAllowed ? (
+                <span className="rounded-md bg-primary-muted px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary">
+                  Calculator
+                </span>
+              ) : null}
+              <DifficultyDots difficulty={String(question.difficulty)} />
+              <span className="rounded-md border border-primary/20 bg-primary-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+                Paper 2 · SQ
+              </span>
+            </div>
+            <Expand className="h-4 w-4 text-muted-foreground" />
+          </div>
+
+          {maxMarks ? (
+            <p className="mb-2 text-sm font-semibold text-foreground">[Maximum mark: {maxMarks}]</p>
+          ) : null}
+
+          <p className="text-sm leading-relaxed text-foreground md:text-base">{question.prompt}</p>
+          {question.body ? (
+            <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground md:text-[15px]">
+              {question.body}
+            </div>
+          ) : null}
+
+          {question.diagramUrl ? (
+            <div className="mt-4 overflow-hidden rounded-xl border border-border bg-muted/20">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={question.diagramUrl}
+                alt={`Diagram for ${qLabel}`}
+                className="mx-auto max-h-[28rem] w-auto max-w-full object-contain p-3"
+              />
+            </div>
+          ) : null}
+
+          <div className="mt-5 rounded-xl border border-dashed border-border bg-muted/20 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Your written response
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              {examMode && !solutionsUnlocked
+                ? "Complete your answer on paper or in your workbook. Mark scheme unlocks after submission."
+                : "Use the mark scheme and video solution on the right when you are ready to check your work."}
+            </p>
+          </div>
+        </article>
+
+        <aside className="flex flex-row gap-2 lg:flex-col">
+          <div className="flex gap-2 lg:justify-end">
+            <button
+              type="button"
+              className="rounded-lg border border-border p-2 text-muted-foreground hover:text-primary"
+            >
+              <Bookmark className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              onClick={onToggleComplete}
+              className={cn(
+                "rounded-lg border p-2 transition",
+                completed
+                  ? "border-accent-green bg-[#ecfdf3] text-accent-green"
+                  : "border-border text-muted-foreground hover:text-accent-green"
+              )}
+              aria-label={completed ? "Mark incomplete" : "Mark complete"}
+            >
+              <Check className="h-4 w-4" />
+            </button>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="justify-start border-primary/40 text-primary hover:bg-primary-muted hover:text-primary"
+            onClick={() => setModal("scheme")}
+            disabled={!question.markScheme || !solutionsUnlocked}
+          >
+            Mark Scheme
+          </Button>
+          <Button
+            type="button"
+            className="justify-start bg-primary text-primary-foreground hover:bg-primary/90"
+            onClick={() => setModal("video")}
+            disabled={!question.videoUrl || !solutionsUnlocked}
+          >
+            Video Solutions
+            {question.videoUrl ? (
+              <span className="ml-auto rounded-full bg-white/25 px-1.5 text-[10px] font-bold text-white">
+                1
+              </span>
+            ) : null}
+          </Button>
+          <a
+            href="#"
+            className="inline-flex items-center gap-1 px-1 text-sm text-muted-foreground hover:text-primary"
+          >
+            Formula Booklet <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+          {examMode && !solutionsUnlocked ? (
+            <p className="text-xs font-medium text-muted-foreground">
+              Locked until exam submission
+            </p>
+          ) : null}
+        </aside>
+      </div>
+
+      <AdminModal
+        open={modal === "scheme"}
+        title="Mark Scheme"
+        description={`${qLabel} · Structured question solution`}
+        onClose={() => setModal(null)}
+        className="sm:max-w-2xl"
+        footer={
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" onClick={() => setModal(null)}>
+              Close
+            </Button>
+          </div>
+        }
+      >
+        <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed text-foreground md:text-[15px]">
+          <p className="whitespace-pre-wrap">{question.markScheme}</p>
+        </div>
+      </AdminModal>
+
+      <AdminModal
+        open={modal === "video"}
+        title="Video Solution"
+        description={`${qLabel} · Worked solution`}
+        onClose={() => setModal(null)}
+        className="sm:max-w-3xl"
+        footer={
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" onClick={() => setModal(null)}>
+              Close
+            </Button>
+          </div>
+        }
+      >
+        {question.videoUrl ? <VideoEmbed key={question.videoUrl} url={question.videoUrl} /> : null}
+      </AdminModal>
+    </section>
+  );
+}
+
+export function QuestionbankStudyPage({
+  programSlug,
+  subtopicSlug,
+  examMode = false,
+  initialPaper,
+}: Props) {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [typeOpen, setTypeOpen] = useState(false);
-  const [filters, setFilters] = useState<QbFilters>({});
+  const [filters, setFilters] = useState<QbFilters>(() =>
+    initialPaper ? { paper: [initialPaper] } : {}
+  );
   const [viewMode, setViewMode] = useState<ViewMode>("ALL");
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [examSubmitted, setExamSubmitted] = useState(false);
@@ -586,10 +823,28 @@ export function QuestionbankStudyPage({ programSlug, subtopicSlug, examMode = fa
                 Exam submitted. Mark scheme and video solutions are now unlocked.
               </p>
             ) : (
-              <p className="inline-flex items-center gap-2 font-medium">
-                <Lock className="h-4 w-4 text-primary" />
-                Solutions are locked during exam mode.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <p className="inline-flex items-center gap-2 font-medium">
+                  <Lock className="h-4 w-4 text-primary" />
+                  Solutions are locked during exam mode.
+                </p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-primary/30"
+                  onClick={() =>
+                    downloadQuestionPaperPdf({
+                      title: `${program?.name ?? "Exam"} — ${data.subtopic.title}`,
+                      subtitle: topic?.title,
+                      questions: visibleQuestions,
+                    })
+                  }
+                >
+                  <FileText className="mr-1.5 h-4 w-4" />
+                  Download full question paper (PDF)
+                </Button>
+              </div>
             )}
           </div>
         ) : null}

@@ -153,7 +153,13 @@ export function MockExamsPage({ programSlug }: Props) {
               </p>
             </div>
             <Button asChild size="pill">
-              <Link href={ROUTES.student.assignments}>Start Exam</Link>
+              <Link
+                href={ROUTES.subjectQuestionbankStudyExam(programSlug, "a1-kinematics", {
+                  paper: "PAPER_2",
+                })}
+              >
+                Start Exam
+              </Link>
             </Button>
           </article>
         ))}

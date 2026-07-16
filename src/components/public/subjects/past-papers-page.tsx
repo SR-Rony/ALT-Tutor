@@ -76,7 +76,9 @@ export function PastPapersPage({ programSlug }: Props) {
                   href={
                     paper.kind === "MCQ"
                       ? ROUTES.student.assignments
-                      : ROUTES.subjectQuestionbank(programSlug)
+                      : ROUTES.subjectQuestionbankStudyExam(programSlug, "a1-kinematics", {
+                          paper: "PAPER_2",
+                        })
                   }
                 />
               ))}

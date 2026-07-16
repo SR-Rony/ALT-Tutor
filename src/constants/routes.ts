@@ -8,6 +8,15 @@ export const ROUTES = {
   subjectQuestionbank: (programSlug: string) => `/subjects/${programSlug}/questionbank`,
   subjectQuestionbankStudy: (programSlug: string, subtopicSlug: string) =>
     `/subjects/${programSlug}/questionbank/${subtopicSlug}`,
+  subjectQuestionbankStudyExam: (
+    programSlug: string,
+    subtopicSlug: string,
+    opts?: { paper?: "PAPER_1" | "PAPER_2" }
+  ) => {
+    const params = new URLSearchParams({ mode: "exam" });
+    if (opts?.paper) params.set("paper", opts.paper);
+    return `/subjects/${programSlug}/questionbank/${subtopicSlug}?${params.toString()}`;
+  },
   subjectPracticeMockExams: (programSlug: string) =>
     `/subjects/${programSlug}/practice-exams/mock-exams`,
   about: "/about",

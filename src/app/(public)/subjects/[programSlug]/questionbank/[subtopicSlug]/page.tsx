@@ -2,7 +2,7 @@ import { QuestionbankStudyPage } from "@/components/public/questionbank/question
 
 type PageProps = {
   params: Promise<{ programSlug: string; subtopicSlug: string }>;
-  searchParams: Promise<{ mode?: string }>;
+  searchParams: Promise<{ mode?: string; paper?: string }>;
 };
 
 export async function generateMetadata({ params }: PageProps) {
@@ -14,5 +14,14 @@ export default async function SubjectQuestionbankStudyRoute({ params, searchPara
   const search = await searchParams;
   const { programSlug, subtopicSlug } = await params;
   const examMode = search.mode === "exam";
-  return <QuestionbankStudyPage programSlug={programSlug} subtopicSlug={subtopicSlug} examMode={examMode} />;
+  const initialPaper =
+    search.paper === "PAPER_1" || search.paper === "PAPER_2" ? search.paper : undefined;
+  return (
+    <QuestionbankStudyPage
+      programSlug={programSlug}
+      subtopicSlug={subtopicSlug}
+      examMode={examMode}
+      initialPaper={initialPaper}
+    />
+  );
 }
