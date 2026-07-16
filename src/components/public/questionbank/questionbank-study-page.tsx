@@ -12,6 +12,7 @@ import {
   FileText,
   HelpCircle,
   ListOrdered,
+  Lock,
   PlayCircle,
   SlidersHorizontal,
   ThumbsDown,
@@ -32,7 +33,7 @@ import type { ApiError } from "@/types";
 import type { QbDifficulty, QbFilters, QbPaper, QbQuestion, QbQuestionType } from "@/types/qb.types";
 import { cn } from "@/utils";
 
-type Props = { programSlug: string; subtopicSlug: string };
+type Props = { programSlug: string; subtopicSlug: string; examMode?: boolean };
 type ViewMode = "ALL" | "COMPLETE" | "INCOMPLETE";
 
 const LETTERS = ["A", "B", "C", "D"] as const;
@@ -88,11 +89,15 @@ function QuestionCard({
   index,
   completed,
   onToggleComplete,
+  solutionsUnlocked = true,
+  examMode = false,
 }: {
   question: QbQuestion;
   index: number;
   completed?: boolean;
   onToggleComplete?: () => void;
+  solutionsUnlocked?: boolean;
+  examMode?: boolean;
 }) {
   const [selected, setSelected] = useState<string | null>(null);
   const [modal, setModal] = useState<"scheme" | "video" | null>(null);
@@ -164,16 +169,31 @@ function QuestionCard({
                     className={cn(
                       "relative flex h-12 items-center justify-center rounded-xl border text-sm font-bold transition",
                       !answered && "border-border bg-muted/40 hover:border-primary hover:bg-primary-muted",
-                      answered && isCorrectChoice && "border-accent-green bg-[#ecfdf3] text-accent-green",
-                      answered && isSelected && !correct && "border-accent bg-accent/10 text-accent",
-                      answered && !isSelected && !isCorrectChoice && "opacity-50"
+                      answered &&
+                        solutionsUnlocked &&
+                        isCorrectChoice &&
+                        "border-accent-green bg-[#ecfdf3] text-accent-green",
+                      answered &&
+                        solutionsUnlocked &&
+                        isSelected &&
+                        !correct &&
+                        "border-accent bg-accent/10 text-accent",
+                      answered &&
+                        solutionsUnlocked &&
+                        !isSelected &&
+                        !isCorrectChoice &&
+                        "opacity-50",
+                      answered &&
+                        !solutionsUnlocked &&
+                        isSelected &&
+                        "border-primary bg-primary-muted text-primary"
                     )}
                   >
                     {letter}
-                    {answered && isCorrectChoice ? (
+                    {answered && solutionsUnlocked && isCorrectChoice ? (
                       <CheckCircle2 className="absolute right-2 h-4 w-4" />
                     ) : null}
-                    {answered && isSelected && !correct ? (
+                    {answered && solutionsUnlocked && isSelected && !correct ? (
                       <XCircle className="absolute right-2 h-4 w-4" />
                     ) : null}
                   </button>
@@ -210,7 +230,7 @@ function QuestionCard({
             variant="outline"
             className="justify-start border-primary/40 text-primary hover:bg-primary-muted hover:text-primary"
             onClick={() => setModal("scheme")}
-            disabled={!question.markScheme}
+            disabled={!question.markScheme || !solutionsUnlocked}
           >
             Mark Scheme
           </Button>
@@ -218,7 +238,7 @@ function QuestionCard({
             type="button"
             className="justify-start bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => setModal("video")}
-            disabled={!question.videoUrl}
+            disabled={!question.videoUrl || !solutionsUnlocked}
           >
             Video Solutions
             {question.videoUrl ? (
@@ -233,6 +253,11 @@ function QuestionCard({
           >
             Formula Booklet <ExternalLink className="h-3.5 w-3.5" />
           </a>
+          {examMode && !solutionsUnlocked ? (
+            <p className="text-xs font-medium text-muted-foreground">
+              Locked until exam submission
+            </p>
+          ) : null}
         </aside>
       </div>
 
@@ -303,12 +328,13 @@ function QuestionCard({
   );
 }
 
-export function QuestionbankStudyPage({ programSlug, subtopicSlug }: Props) {
+export function QuestionbankStudyPage({ programSlug, subtopicSlug, examMode = false }: Props) {
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [typeOpen, setTypeOpen] = useState(false);
   const [filters, setFilters] = useState<QbFilters>({});
   const [viewMode, setViewMode] = useState<ViewMode>("ALL");
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const [examSubmitted, setExamSubmitted] = useState(false);
   const typeRef = useRef<HTMLDivElement>(null);
   const { data, isLoading, error, isFetching } = useQbQuestions(programSlug, subtopicSlug, filters);
 
@@ -380,13 +406,18 @@ export function QuestionbankStudyPage({ programSlug, subtopicSlug }: Props) {
   const hasActiveFilters = Boolean(
     filters.difficulty?.length || filters.paper?.length || filters.type?.length
   );
+  const solutionsUnlocked = !examMode || examSubmitted;
 
   return (
     <div className="bg-background pb-16">
       <ResourceHero
         title={`${program?.name ?? ""} - Questionbank`}
         subtitle={topic ? `${data.subtopic.title} — ${topic.title}` : data.subtopic.title}
-        description={data.subtopic.description ?? undefined}
+        description={
+          examMode
+            ? "Exam mode is active. Mark schemes and video solutions remain locked until you submit."
+            : (data.subtopic.description ?? undefined)
+        }
         icon={<HelpCircle className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
       />
@@ -541,6 +572,28 @@ export function QuestionbankStudyPage({ programSlug, subtopicSlug }: Props) {
       </div>
 
       <div className="mx-auto max-w-7xl space-y-10 px-4 py-8 md:px-6">
+        {examMode ? (
+          <div
+            className={cn(
+              "rounded-xl border px-4 py-3 text-sm",
+              examSubmitted
+                ? "border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 text-foreground"
+                : "border-primary/20 bg-primary-muted/60 text-foreground"
+            )}
+          >
+            {examSubmitted ? (
+              <p className="font-medium">
+                Exam submitted. Mark scheme and video solutions are now unlocked.
+              </p>
+            ) : (
+              <p className="inline-flex items-center gap-2 font-medium">
+                <Lock className="h-4 w-4 text-primary" />
+                Solutions are locked during exam mode.
+              </p>
+            )}
+          </div>
+        ) : null}
+
         {visibleQuestions.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-muted-foreground">
             No questions match these filters.
@@ -553,9 +606,25 @@ export function QuestionbankStudyPage({ programSlug, subtopicSlug }: Props) {
               index={index}
               completed={completedIds.has(question.id)}
               onToggleComplete={() => toggleComplete(question.id)}
+              solutionsUnlocked={solutionsUnlocked}
+              examMode={examMode}
             />
           ))
         )}
+
+        {examMode ? (
+          <div className="sticky bottom-4 z-20 flex justify-end">
+            {!examSubmitted ? (
+              <Button type="button" size="pill" onClick={() => setExamSubmitted(true)}>
+                Submit exam and unlock solutions
+              </Button>
+            ) : (
+              <Button type="button" variant="outline" size="pill" onClick={() => setExamSubmitted(false)}>
+                Reset exam mode
+              </Button>
+            )}
+          </div>
+        ) : null}
       </div>
     </div>
   );

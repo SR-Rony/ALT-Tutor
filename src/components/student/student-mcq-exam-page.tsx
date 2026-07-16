@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Clock, RotateCcw } from "lucide-react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  EyeOff,
+  RotateCcw,
+} from "lucide-react";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
@@ -38,6 +46,7 @@ export function StudentMcqExamPage() {
   const [session, setSession] = useState<McqSession | null>(null);
   const [result, setResult] = useState<McqResult | null>(null);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const [currentIndex, setCurrentIndex] = useState(0);
   const [remaining, setRemaining] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -49,6 +58,7 @@ export function StudentMcqExamPage() {
         if (isSession(data)) {
           setSession(data);
           setAnswers((data.savedAnswers as Record<string, string>) ?? {});
+          setCurrentIndex(0);
           setRemaining(data.remainingSeconds);
           setPhase("exam");
         }
@@ -60,7 +70,7 @@ export function StudentMcqExamPage() {
   }, [status, assignmentId]);
 
   useEffect(() => {
-    if (phase !== "exam" || remaining <= 0) return;
+    if (phase !== "exam") return;
     const t = window.setInterval(() => {
       setRemaining((s) => {
         if (s <= 1) {
@@ -86,6 +96,7 @@ export function StudentMcqExamPage() {
       const data = await startExam.mutateAsync(assignmentId);
       setSession(data);
       setAnswers((data.savedAnswers as Record<string, string>) ?? {});
+      setCurrentIndex(0);
       setRemaining(data.remainingSeconds);
       setPhase("exam");
     } catch (err) {
@@ -119,6 +130,7 @@ export function StudentMcqExamPage() {
     () => Object.values(answers).filter((v) => v && v.trim()).length,
     [answers]
   );
+  const currentQuestion = session?.questions[currentIndex] ?? null;
 
   if (isLoading && !status) {
     return <PageLoader label="Loading exam..." />;
@@ -171,6 +183,7 @@ export function StudentMcqExamPage() {
                 setPhase("intro");
                 setResult(null);
                 setSession(null);
+                setCurrentIndex(0);
                 void refetch();
               }}
             >
@@ -188,54 +201,121 @@ export function StudentMcqExamPage() {
 
   if (phase === "exam" && session) {
     return (
-      <div className="mx-auto max-w-3xl space-y-4 pb-12">
-        <div className="sticky top-16 z-20 flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
-          <div>
-            <p className="text-sm font-semibold text-foreground">{session.title}</p>
-            <p className="text-xs text-muted-foreground">
-              Attempt #{session.attemptNumber} · {answeredCount}/{session.totalQuestions} answered
-            </p>
-          </div>
-          <div
-            className={cn(
-              "flex items-center gap-2 rounded-lg px-3 py-1.5 font-mono text-lg font-bold",
-              remaining < 60 ? "bg-accent/10 text-accent" : "bg-primary-muted text-primary"
-            )}
-          >
-            <Clock className="h-4 w-4" />
-            {formatTime(remaining)}
+      <div className="mx-auto max-w-7xl space-y-4 pb-12">
+        <div className="sticky top-16 z-20 rounded-2xl border border-primary/15 bg-card px-4 py-3 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-foreground">{session.title}</p>
+              <p className="text-xs text-muted-foreground">
+                Attempt #{session.attemptNumber} · {answeredCount}/{session.totalQuestions} answered
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary-muted/60 px-3 py-1 text-xs font-semibold text-primary">
+                <EyeOff className="h-3.5 w-3.5" />
+                Solutions hidden during exam
+              </span>
+              <div
+                className={cn(
+                  "flex items-center gap-2 rounded-lg px-3 py-1.5 font-mono text-lg font-bold",
+                  remaining < 60 ? "bg-accent/10 text-accent" : "bg-primary-muted text-primary"
+                )}
+              >
+                <Clock className="h-4 w-4" />
+                {formatTime(remaining)}
+              </div>
+            </div>
           </div>
         </div>
 
-        {session.questions.map((q, i) => (
-          <article key={q.id} className="rounded-2xl border border-border bg-card p-5">
-            <p className="mb-3 text-sm font-semibold text-primary">Question {i + 1}</p>
-            <p className="mb-4 text-foreground">{q.text}</p>
-            <ul className="space-y-2">
-              {q.options.map((opt, oi) => {
-                const letter = LETTERS[oi] ?? String(oi + 1);
-                const selected = answers[q.id] === opt;
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_19rem]">
+          <article className="rounded-2xl border border-border bg-card p-5">
+            {currentQuestion ? (
+              <>
+                <p className="mb-3 text-sm font-semibold text-primary">
+                  Question {currentIndex + 1} of {session.totalQuestions}
+                </p>
+                <p className="mb-4 text-foreground">{currentQuestion.text}</p>
+                <ul className="space-y-2">
+                  {currentQuestion.options.map((opt, oi) => {
+                    const letter = LETTERS[oi] ?? String(oi + 1);
+                    const selected = answers[currentQuestion.id] === opt;
+                    return (
+                      <li key={opt}>
+                        <button
+                          type="button"
+                          onClick={() => selectAnswer(currentQuestion.id, opt)}
+                          className={cn(
+                            "flex w-full items-start gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition",
+                            selected
+                              ? "border-primary bg-primary-muted text-primary"
+                              : "border-border hover:border-primary/40"
+                          )}
+                        >
+                          <span className="font-bold">{letter}.</span>
+                          <span>{opt}</span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+
+                <div className="mt-6 flex flex-wrap justify-between gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={currentIndex === 0}
+                    onClick={() => setCurrentIndex((prev) => Math.max(0, prev - 1))}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={currentIndex >= session.totalQuestions - 1}
+                    onClick={() =>
+                      setCurrentIndex((prev) => Math.min(session.totalQuestions - 1, prev + 1))
+                    }
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
+              </>
+            ) : null}
+          </article>
+
+          <aside className="h-fit rounded-2xl border border-border bg-card p-4 lg:sticky lg:top-36">
+            <p className="text-sm font-semibold text-foreground">Question Navigator</p>
+            <div className="mt-3 grid grid-cols-5 gap-2">
+              {session.questions.map((q, idx) => {
+                const isActive = idx === currentIndex;
+                const isAnswered = Boolean(answers[q.id]);
                 return (
-                  <li key={opt}>
-                    <button
-                      type="button"
-                      onClick={() => selectAnswer(q.id, opt)}
-                      className={cn(
-                        "flex w-full items-start gap-2 rounded-xl border px-3 py-2.5 text-left text-sm transition",
-                        selected
-                          ? "border-primary bg-primary-muted text-primary"
-                          : "border-border hover:border-primary/40"
-                      )}
-                    >
-                      <span className="font-bold">{letter}.</span>
-                      <span>{opt}</span>
-                    </button>
-                  </li>
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => setCurrentIndex(idx)}
+                    className={cn(
+                      "h-9 rounded-lg border text-xs font-semibold transition",
+                      isActive
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : isAnswered
+                          ? "border-[var(--accent-green)] bg-[var(--accent-green)]/10 text-[var(--accent-green)]"
+                          : "border-border text-muted-foreground hover:border-primary/40"
+                    )}
+                  >
+                    {idx + 1}
+                  </button>
                 );
               })}
-            </ul>
-          </article>
-        ))}
+            </div>
+            <p className="mt-3 text-xs text-muted-foreground">
+              Green = answered, blue = current question.
+            </p>
+          </aside>
+        </div>
 
         <div className="flex justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => router.push(ROUTES.student.assignments)}>
