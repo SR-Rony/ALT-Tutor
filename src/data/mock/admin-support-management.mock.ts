@@ -1,8 +1,8 @@
-import type { SupportManagementData } from "@/types/admin-support-management.types";
+import type { SupportContactMessage } from "@/types/admin-support-management.types";
 
-export function getSupportManagement(): SupportManagementData {
+export function getSupportManagement() {
   return {
-    pageSize: 10,
-    items: [{ id: "item-1", title: "Sample SupportManagement item" }],
+    pageSize: 20,
+    items: [] as SupportContactMessage[],
   };
 }

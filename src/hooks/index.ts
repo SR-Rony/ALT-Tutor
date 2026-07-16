@@ -19,6 +19,7 @@ export {
   useUpdateCategory,
   useDeleteCategory,
 } from "./use-admin-dashboard";
+export { useAdminSupportContacts } from "./use-admin-support";
 export { useTeacherDashboard } from "./use-role-dashboard";
 export {
   useTeacherCourses,

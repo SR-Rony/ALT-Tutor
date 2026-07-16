@@ -1,9 +1,10 @@
-export interface SupportManagementItem {
+export interface SupportContactMessage {
   id: string;
-  title: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  message: string;
+  createdAt: string;
 }
 
-export interface SupportManagementData {
-  items: SupportManagementItem[];
-  pageSize: number;
-}
+export type SupportInboxFilter = "ALL" | "TODAY" | "WEEK" | "UNREAD";

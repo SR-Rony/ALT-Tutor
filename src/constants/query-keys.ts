@@ -48,6 +48,7 @@ export const queryKeys = {
     subjects: ["admin", "subjects"] as const,
     payments: ["admin", "payments"] as const,
     settings: ["admin", "settings"] as const,
+    support: ["admin", "support"] as const,
   },
   student: {
     dashboard: ["student", "dashboard"] as const,

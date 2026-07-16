@@ -1,9 +1,7 @@
 import { AdminSupportManagementPage } from "@/components/admin/support-management";
-import { supportManagementService } from "@/services/admin/admin-support-management.service";
 
-export const metadata = { title: "SupportManagement" };
+export const metadata = { title: "Support Inbox" };
 
-export default async function Page() {
-  const data = await supportManagementService.getItems();
-  return <AdminSupportManagementPage data={data} />;
+export default function AdminSupportPage() {
+  return <AdminSupportManagementPage />;
 }
