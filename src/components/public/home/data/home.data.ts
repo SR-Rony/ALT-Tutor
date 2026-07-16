@@ -127,6 +127,71 @@ export const academicProgram = {
   ],
 } as const;
 
+export const practiceExamQuestions = {
+  title: "Practice IB Exam Style Questions",
+  subtitle:
+    "Thousands of exam-style questions, filtered by topic and difficulty, with detailed mark schemes and video solutions for every question.",
+  tabs: [
+    { id: "mathematics", label: "Mathematics" },
+    { id: "sciences", label: "Sciences" },
+    { id: "individuals", label: "Individuals & Societies" },
+  ],
+  questions: {
+    mathematics: {
+      calculator: true,
+      difficulty: "Medium" as const,
+      stars: 3,
+      prompt:
+        "A bouncy ball is dropped from a height of 2 metres onto a hard floor. After each bounce the ball reaches 75% of the height of the previous bounce.",
+      figureLabel: null as string | null,
+      figureNote: null as string | null,
+      body: "Find the total distance travelled by the ball before it comes to rest.",
+      marks: 4,
+      options: [
+        { key: "A", text: "8 metres" },
+        { key: "B", text: "14 metres" },
+        { key: "C", text: "16 metres" },
+        { key: "D", text: "18 metres" },
+      ],
+      bookletLabel: "Formula Booklet",
+      videoCount: 1,
+    },
+    sciences: {
+      calculator: true,
+      difficulty: "Medium" as const,
+      stars: 3,
+      prompt:
+        "Which option represents the increase in the number of particles with sufficient energy to react when the temperature of the reaction mixture is increased?",
+      figureLabel: "Maxwell–Boltzmann distribution",
+      figureNote: "Energy on the x-axis, number of particles on the y-axis. Shaded regions X and Y show particles above activation energy.",
+      body: null as string | null,
+      marks: 1,
+      options: [
+        { key: "A", text: "X" },
+        { key: "B", text: "Y" },
+        { key: "C", text: "X + Y" },
+        { key: "D", text: "Y − X" },
+      ],
+      bookletLabel: "Data Booklet",
+      videoCount: 1,
+    },
+    individuals: {
+      calculator: false,
+      difficulty: "Medium" as const,
+      stars: 4,
+      prompt: "With reference to the Figure, outline the significance of South Africa's biodiversity for jobs.",
+      figureLabel: "Figure: Biodiversity-related jobs in South Africa",
+      figureNote:
+        "Infographic showing employment across conservation, tourism, agriculture, and research sectors linked to biodiversity.",
+      body: null as string | null,
+      marks: 2,
+      options: [] as { key: string; text: string }[],
+      bookletLabel: "Data Booklet",
+      videoCount: 1,
+    },
+  },
+} as const;
+
 export const animatedLessons = {
   title: "Learn faster with beautiful animated video lessons",
   subtitle:
