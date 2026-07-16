@@ -286,9 +286,9 @@ export function StudentMcqExamPage() {
             ) : null}
           </article>
 
-          <aside className="h-fit rounded-2xl border border-border bg-card p-4 lg:sticky lg:top-36">
+          <aside className="h-fit rounded-2xl border border-border bg-card p-3 sm:p-4 lg:sticky lg:top-36">
             <p className="text-sm font-semibold text-foreground">Question Navigator</p>
-            <div className="mt-3 grid grid-cols-5 gap-2">
+            <div className="mt-3 grid grid-cols-4 gap-1.5 sm:grid-cols-5 sm:gap-2">
               {session.questions.map((q, idx) => {
                 const isActive = idx === currentIndex;
                 const isAnswered = Boolean(answers[q.id]);

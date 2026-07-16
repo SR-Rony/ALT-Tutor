@@ -2,32 +2,32 @@
 
 import Link from "next/link";
 import { FileText, MonitorPlay } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { useAppSelector } from "@/store";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/shared";
-import { ROUTES } from "@/constants";
-import { getPastPapersDemo } from "@/data/demo/past-papers.demo";
-import { useSubjectsMenu } from "@/hooks";
+import { queryKeys, ROUTES } from "@/constants";
+import { useQbProgram } from "@/hooks/use-questionbank";
+import { mcqService } from "@/services/mcq.service";
+import { buildPastPaperSessions } from "@/utils/program-resource.utils";
 import { cn } from "@/utils";
 import { ResourceHero, SubjectBreadcrumbNav, useSubjectBreadcrumbs } from "./";
+import { useProgramContext } from "./use-program-context";
 
 type Props = { programSlug: string };
 
 export function PastPapersPage({ programSlug }: Props) {
-  const { data: menu = [], isLoading } = useSubjectsMenu();
-  const sessions = getPastPapersDemo(programSlug);
+  const { programName, isLoading: menuLoading } = useProgramContext(programSlug);
+  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
+  const { data: qbProgram, isLoading: qbLoading, isFetching } = useQbProgram(programSlug);
+  const { data: mcqExams = [] } = useQuery({
+    queryKey: queryKeys.mcq.mine,
+    queryFn: () => mcqService.listMyExams(),
+    enabled: isAuthenticated,
+    staleTime: 30_000,
+  });
 
-  const program = (() => {
-    for (const category of menu) {
-      for (const subject of category.subjects) {
-        for (const p of subject.programs) {
-          if (p.slug === programSlug) {
-            return { program: p, subject, category };
-          }
-        }
-      }
-    }
-    return null;
-  })();
+  const sessions = buildPastPaperSessions(programSlug, qbProgram, mcqExams, isAuthenticated);
 
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
@@ -36,17 +36,15 @@ export function PastPapersPage({ programSlug }: Props) {
     resourceHref: ROUTES.subjectResource(programSlug, "past-papers"),
   });
 
-  if (isLoading && !program) {
+  if (menuLoading && qbLoading) {
     return <PageLoader label="Loading past papers..." />;
   }
-
-  const programName = program?.program.name ?? programSlug;
 
   return (
     <div className="bg-background pb-16">
       <ResourceHero
         title={`${programName} Past Papers`}
-        description="Worked solutions and videos from experienced teachers. Select a session and paper to begin — MCQ papers are auto-marked; structured papers open in the questionbank-style viewer."
+        description="Worked solutions and videos from experienced teachers. MCQ papers open your enrolled exams; structured papers use the questionbank exam viewer."
         icon={<FileText className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
       >
@@ -63,32 +61,50 @@ export function PastPapersPage({ programSlug }: Props) {
       </ResourceHero>
 
       <div className="mx-auto max-w-7xl space-y-12 px-4 py-10 md:px-6 md:py-14">
-        {sessions.map((block) => (
-          <section key={`${block.year}-${block.session}`}>
-            <p className="text-4xl font-bold text-primary md:text-5xl">{block.year}</p>
-            <h2 className="mt-1 text-lg font-semibold text-primary/90">{block.session}</h2>
-            <div className="mt-5 flex flex-wrap gap-3">
-              {block.papers.map((paper) => (
-                <PaperButton
-                  key={paper.id}
-                  label={paper.label}
-                  kind={paper.kind}
-                  href={
-                    paper.kind === "MCQ"
-                      ? ROUTES.student.assignments
-                      : ROUTES.subjectQuestionbankStudyExam(programSlug, "a1-kinematics", {
-                          paper: "PAPER_2",
-                        })
-                  }
-                />
-              ))}
-            </div>
-          </section>
-        ))}
+        {isFetching ? (
+          <p className="text-sm text-muted-foreground" role="status">
+            Refreshing papers…
+          </p>
+        ) : null}
 
-        {!program ? (
+        {qbLoading ? (
+          <PageLoader label="Loading question sets..." className="min-h-[200px]" />
+        ) : sessions.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+            <p className="text-sm text-muted-foreground">
+              No past papers available for this program yet.
+            </p>
+            <Button asChild variant="outline" className="mt-4">
+              <Link href={ROUTES.subjectQuestionbank(programSlug)}>Open Questionbank</Link>
+            </Button>
+          </div>
+        ) : (
+          sessions.map((block) => (
+            <section key={`${block.year}-${block.session}`}>
+              <p className="text-3xl font-bold text-primary sm:text-4xl md:text-5xl">{block.year}</p>
+              <h2 className="mt-1 text-base font-semibold text-primary/90 sm:text-lg">
+                {block.session}
+              </h2>
+              <div className="mt-5 flex flex-wrap gap-2 sm:gap-3">
+                {block.papers.map((paper) => (
+                  <PaperButton
+                    key={`${block.year}-${paper.id}`}
+                    label={paper.label}
+                    kind={paper.kind}
+                    href={paper.href}
+                  />
+                ))}
+              </div>
+            </section>
+          ))
+        )}
+
+        {!isAuthenticated ? (
           <p className="text-center text-sm text-muted-foreground">
-            Demo papers shown. Enroll in a course to unlock full access.
+            <Link href={ROUTES.auth.login} className="font-semibold text-primary hover:underline">
+              Sign in
+            </Link>{" "}
+            to access MCQ past papers from your enrolled courses.
           </p>
         ) : null}
       </div>
@@ -110,7 +126,7 @@ function PaperButton({
       asChild
       variant="outline"
       className={cn(
-        "h-auto min-w-[9.5rem] rounded-xl border-2 px-5 py-3 text-sm font-semibold shadow-sm transition hover:bg-primary-muted/50",
+        "h-auto min-w-0 flex-1 rounded-xl border-2 px-3 py-2.5 text-xs font-semibold shadow-sm transition hover:bg-primary-muted/50 sm:min-w-[9.5rem] sm:flex-none sm:px-5 sm:py-3 sm:text-sm",
         kind === "MCQ"
           ? "border-[var(--accent-green)] text-foreground hover:border-[var(--accent-green)]"
           : "border-primary/40 text-foreground hover:border-primary"

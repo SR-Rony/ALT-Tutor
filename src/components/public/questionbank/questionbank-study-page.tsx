@@ -166,8 +166,8 @@ function McqQuestionCard({
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_10rem]">
-        <article className="rounded-2xl border border-border bg-card p-5 shadow-[0_8px_28px_-16px_rgba(24,119,242,0.2)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_10rem]">
+        <article className="rounded-2xl border border-border bg-card p-4 shadow-[0_8px_28px_-16px_rgba(24,119,242,0.2)] sm:p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               {question.calculatorAllowed ? (
@@ -208,7 +208,7 @@ function McqQuestionCard({
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Choose an answer
             </p>
-            <div className="grid grid-cols-4 gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {LETTERS.slice(0, question.options.length).map((letter) => {
                 const isSelected = selected === letter;
                 const isCorrectChoice = letter === question.correctAnswer.toUpperCase();
@@ -254,7 +254,7 @@ function McqQuestionCard({
           </div>
         </article>
 
-        <aside className="flex flex-row gap-2 lg:flex-col">
+        <aside className="flex flex-row flex-wrap gap-2 lg:flex-col lg:flex-nowrap">
           <div className="flex gap-2 lg:justify-end">
             <button
               type="button"
@@ -410,8 +410,8 @@ function StructuredQuestionCard({
         </div>
       </div>
 
-      <div className="grid gap-3 lg:grid-cols-[1fr_10rem]">
-        <article className="rounded-2xl border border-border bg-card p-5 shadow-[0_8px_28px_-16px_rgba(24,119,242,0.2)]">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_10rem]">
+        <article className="rounded-2xl border border-border bg-card p-4 shadow-[0_8px_28px_-16px_rgba(24,119,242,0.2)] sm:p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               {question.calculatorAllowed ? (
@@ -461,7 +461,7 @@ function StructuredQuestionCard({
           </div>
         </article>
 
-        <aside className="flex flex-row gap-2 lg:flex-col">
+        <aside className="flex flex-row flex-wrap gap-2 lg:flex-col lg:flex-nowrap">
           <div className="flex gap-2 lg:justify-end">
             <button
               type="button"
@@ -868,13 +868,19 @@ export function QuestionbankStudyPage({
         )}
 
         {examMode ? (
-          <div className="sticky bottom-4 z-20 flex justify-end">
+          <div className="sticky bottom-4 z-20 flex flex-col gap-2 sm:flex-row sm:justify-end">
             {!examSubmitted ? (
-              <Button type="button" size="pill" onClick={() => setExamSubmitted(true)}>
+              <Button type="button" size="pill" className="w-full sm:w-auto" onClick={() => setExamSubmitted(true)}>
                 Submit exam and unlock solutions
               </Button>
             ) : (
-              <Button type="button" variant="outline" size="pill" onClick={() => setExamSubmitted(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                size="pill"
+                className="w-full sm:w-auto"
+                onClick={() => setExamSubmitted(false)}
+              >
                 Reset exam mode
               </Button>
             )}

@@ -7,29 +7,21 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/shared";
 import { ROUTES } from "@/constants";
-import { getMockExamSets } from "@/data/demo/practice-exams.demo";
-import { useSubjectsMenu } from "@/hooks";
+import { useQbProgram } from "@/hooks/use-questionbank";
+import { buildMockExamSets, mockExamSummary } from "@/utils/program-resource.utils";
 import { ResourceHero, SubjectBreadcrumbNav, useSubjectBreadcrumbs } from "./";
+import { useProgramContext } from "./use-program-context";
 
 type Props = { programSlug: string };
 
 export function MockExamsPage({ programSlug }: Props) {
-  const { data: menu = [], isLoading } = useSubjectsMenu();
-  const sets = getMockExamSets(programSlug);
+  const { programName, isLoading: menuLoading } = useProgramContext(programSlug);
+  const { data: qbProgram, isLoading: qbLoading, isFetching } = useQbProgram(programSlug);
+  const sets = buildMockExamSets(programSlug, qbProgram);
+  const summary = mockExamSummary(qbProgram);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [difficulty, setDifficulty] = useState<Set<string>>(new Set(["MEDIUM"]));
   const [view, setView] = useState<"ALL" | "COMPLETE" | "INCOMPLETE">("ALL");
-
-  const program = (() => {
-    for (const category of menu) {
-      for (const subject of category.subjects) {
-        for (const p of subject.programs) {
-          if (p.slug === programSlug) return p;
-        }
-      }
-    }
-    return null;
-  })();
 
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
@@ -39,11 +31,9 @@ export function MockExamsPage({ programSlug }: Props) {
     topicLabel: "Mock Exams",
   });
 
-  if (isLoading && !program) {
+  if (menuLoading && qbLoading) {
     return <PageLoader label="Loading mock exams..." />;
   }
-
-  const programName = program?.name ?? programSlug;
 
   const toggleDifficulty = (d: string) => {
     setDifficulty((prev) => {
@@ -54,22 +44,24 @@ export function MockExamsPage({ programSlug }: Props) {
     });
   };
 
+  const firstSet = sets[0];
+
   return (
     <div className="bg-background pb-16">
       <ResourceHero
         title={`${programName} - Mock Exams`}
-        subtitle="Mock Exam Set 1 — Paper 2"
+        subtitle={firstSet ? `${firstSet.title} — ${firstSet.paper}` : "Trial examinations"}
         description="Trial examinations with a stopwatch, hidden mark schemes during the exam, and full solutions after submission."
         icon={<Clock className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
       >
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-primary px-4 py-1.5 text-sm font-semibold text-primary-foreground">
+          <span className="rounded-full bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground sm:px-4 sm:text-sm">
             Paper 2
           </span>
-          <Badge icon={<HelpCircle className="h-3.5 w-3.5" />} label="6 questions" />
-          <Badge icon={<Clock className="h-3.5 w-3.5" />} label="90 mins" />
-          <Badge icon={<CheckCircle2 className="h-3.5 w-3.5" />} label="51 marks" />
+          <Badge icon={<HelpCircle className="h-3.5 w-3.5" />} label={`${summary.questionCount} questions`} />
+          <Badge icon={<Clock className="h-3.5 w-3.5" />} label={`${summary.durationMins} mins`} />
+          <Badge icon={<CheckCircle2 className="h-3.5 w-3.5" />} label={`${summary.totalMarks} marks`} />
         </div>
       </ResourceHero>
 
@@ -84,6 +76,11 @@ export function MockExamsPage({ programSlug }: Props) {
               <SlidersHorizontal className="h-4 w-4 text-primary" />
               Filters
             </button>
+            {isFetching ? (
+              <span className="text-xs text-muted-foreground" role="status">
+                Updating…
+              </span>
+            ) : null}
             <button
               type="button"
               className="ml-auto inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
@@ -95,7 +92,7 @@ export function MockExamsPage({ programSlug }: Props) {
 
           {filtersOpen ? (
             <div className="mt-3 rounded-xl border border-primary/15 bg-primary-muted/70 p-4">
-              <div className="flex flex-wrap items-center gap-6">
+              <div className="flex flex-wrap items-center gap-4 sm:gap-6">
                 <div>
                   <span className="mb-2 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Difficulty
@@ -140,29 +137,31 @@ export function MockExamsPage({ programSlug }: Props) {
       </div>
 
       <div className="mx-auto max-w-7xl space-y-4 px-4 py-8 md:px-6">
-        {sets.map((set) => (
-          <article
-            key={set.id}
-            className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-border bg-card p-5 shadow-sm"
-          >
-            <div>
-              <h3 className="text-lg font-bold text-foreground">{set.title}</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {set.paper} · {set.questionCount} questions · {set.durationMins} mins · {set.totalMarks}{" "}
-                marks
-              </p>
-            </div>
-            <Button asChild size="pill">
-              <Link
-                href={ROUTES.subjectQuestionbankStudyExam(programSlug, "a1-kinematics", {
-                  paper: "PAPER_2",
-                })}
-              >
-                Start Exam
-              </Link>
-            </Button>
-          </article>
-        ))}
+        {qbLoading ? (
+          <PageLoader label="Loading mock exam sets..." className="min-h-[180px]" />
+        ) : sets.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center text-sm text-muted-foreground">
+            No mock exam sets available yet. Add questions to study sets in the questionbank.
+          </div>
+        ) : (
+          sets.map((set) => (
+            <article
+              key={set.id}
+              className="flex flex-col gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5"
+            >
+              <div className="min-w-0">
+                <h3 className="text-lg font-bold text-foreground">{set.title}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {set.paper} · {set.questionCount} questions · {set.durationMins} mins ·{" "}
+                  {set.totalMarks} marks
+                </p>
+              </div>
+              <Button asChild size="pill" className="w-full shrink-0 sm:w-auto">
+                <Link href={set.href}>Start Exam</Link>
+              </Button>
+            </article>
+          ))
+        )}
       </div>
     </div>
   );
@@ -170,7 +169,7 @@ export function MockExamsPage({ programSlug }: Props) {
 
 function Badge({ icon, label }: { icon: ReactNode; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-card px-3 py-1 text-xs font-semibold text-foreground">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground sm:px-3 sm:text-xs">
       {icon}
       {label}
     </span>

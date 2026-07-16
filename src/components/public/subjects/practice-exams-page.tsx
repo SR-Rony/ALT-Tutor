@@ -5,10 +5,12 @@ import Link from "next/link";
 import { ChevronDown, ClipboardList, Globe, Layers, Timer } from "lucide-react";
 import { PageLoader } from "@/components/shared";
 import { ROUTES } from "@/constants";
-import { getPracticeExamCards } from "@/data/demo/practice-exams.demo";
-import { useSubjectsMenu } from "@/hooks";
+import { useQbProgram } from "@/hooks/use-questionbank";
+import { buildPracticeExamCards } from "@/utils/program-resource.utils";
 import { cn } from "@/utils";
+import { ResourceGridSkeleton } from "./resource-grid-skeleton";
 import { ResourceHero, SubjectBreadcrumbNav, useSubjectBreadcrumbs } from "./";
+import { useProgramContext } from "./use-program-context";
 
 type Props = { programSlug: string };
 
@@ -20,19 +22,9 @@ const CARD_ICONS: Record<string, ReactNode> = {
 };
 
 export function PracticeExamsPage({ programSlug }: Props) {
-  const { data: menu = [], isLoading } = useSubjectsMenu();
-  const cards = getPracticeExamCards(programSlug);
-
-  const program = (() => {
-    for (const category of menu) {
-      for (const subject of category.subjects) {
-        for (const p of subject.programs) {
-          if (p.slug === programSlug) return p;
-        }
-      }
-    }
-    return null;
-  })();
+  const { programName, isLoading: menuLoading } = useProgramContext(programSlug);
+  const { data: qbProgram, isLoading: qbLoading, isFetching } = useQbProgram(programSlug);
+  const cards = buildPracticeExamCards(programSlug, qbProgram);
 
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
@@ -41,11 +33,9 @@ export function PracticeExamsPage({ programSlug }: Props) {
     resourceHref: ROUTES.subjectResource(programSlug, "practice-exams"),
   });
 
-  if (isLoading && !program) {
+  if (menuLoading && qbLoading) {
     return <PageLoader label="Loading practice exams..." />;
   }
-
-  const programName = program?.name ?? programSlug;
 
   return (
     <div className="bg-background pb-16">
@@ -58,51 +48,61 @@ export function PracticeExamsPage({ programSlug }: Props) {
 
       <div className="mx-auto max-w-7xl px-4 py-10 md:px-6 md:py-14">
         <h2 className="text-xl font-bold text-foreground md:text-2xl">Choose Revision Type</h2>
-        <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-          {cards.map((card) => {
-            const inner = (
-              <article
-                className={cn(
-                  "group relative flex h-full min-h-[11rem] flex-col rounded-2xl border border-border bg-card p-5 shadow-[0_8px_24px_-16px_rgba(24,119,242,0.12)] transition",
-                  card.disabled
-                    ? "cursor-not-allowed opacity-50"
-                    : "hover:border-primary/30 hover:shadow-[0_12px_32px_-14px_rgba(24,119,242,0.2)]"
-                )}
-              >
-                <div
+        {isFetching ? (
+          <p className="mt-2 text-sm text-muted-foreground" role="status">
+            Updating study sets…
+          </p>
+        ) : null}
+
+        {qbLoading ? (
+          <ResourceGridSkeleton className="mt-6" count={4} columns="4" />
+        ) : (
+          <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            {cards.map((card) => {
+              const inner = (
+                <article
                   className={cn(
-                    "mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl",
-                    card.iconBg
+                    "group relative flex h-full min-h-[11rem] flex-col rounded-2xl border border-border bg-card p-5 shadow-[0_8px_24px_-16px_rgba(24,119,242,0.12)] transition",
+                    card.disabled
+                      ? "cursor-not-allowed opacity-50"
+                      : "hover:border-primary/30 hover:shadow-[0_12px_32px_-14px_rgba(24,119,242,0.2)]"
                   )}
                 >
-                  {CARD_ICONS[card.id]}
-                </div>
-                <h3 className="text-base font-bold text-foreground group-hover:text-primary">
-                  {card.title}
-                </h3>
-                <p className="mt-1 flex-1 text-sm text-muted-foreground">{card.subtitle}</p>
-                {!card.disabled ? (
-                  <ChevronDown
-                    className="mt-3 h-5 w-5 text-muted-foreground transition group-hover:text-primary"
-                    aria-hidden
-                  />
-                ) : (
-                  <span className="mt-3 text-xs font-medium text-muted-foreground">Coming soon</span>
-                )}
-              </article>
-            );
+                  <div
+                    className={cn(
+                      "mb-4 inline-flex h-12 w-12 items-center justify-center rounded-xl",
+                      card.iconBg
+                    )}
+                  >
+                    {CARD_ICONS[card.id]}
+                  </div>
+                  <h3 className="text-base font-bold text-foreground group-hover:text-primary">
+                    {card.title}
+                  </h3>
+                  <p className="mt-1 flex-1 text-sm text-muted-foreground">{card.subtitle}</p>
+                  {!card.disabled ? (
+                    <ChevronDown
+                      className="mt-3 h-5 w-5 text-muted-foreground transition group-hover:text-primary"
+                      aria-hidden
+                    />
+                  ) : (
+                    <span className="mt-3 text-xs font-medium text-muted-foreground">Coming soon</span>
+                  )}
+                </article>
+              );
 
-            if (card.disabled || !card.href) {
-              return <div key={card.id}>{inner}</div>;
-            }
+              if (card.disabled || !card.href) {
+                return <div key={card.id}>{inner}</div>;
+              }
 
-            return (
-              <Link key={card.id} href={card.href} className="block h-full">
-                {inner}
-              </Link>
-            );
-          })}
-        </div>
+              return (
+                <Link key={card.id} href={card.href} className="block h-full">
+                  {inner}
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

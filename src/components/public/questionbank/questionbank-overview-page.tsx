@@ -18,7 +18,7 @@ import { cn } from "@/utils";
 type Props = { programSlug: string };
 
 export function QuestionbankOverviewPage({ programSlug }: Props) {
-  const { data, isLoading, error } = useQbProgram(programSlug);
+  const { data, isLoading, error, isFetching } = useQbProgram(programSlug);
   const [showTop, setShowTop] = useState(false);
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
@@ -83,6 +83,11 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
       </ResourceHero>
 
       <div className="mx-auto max-w-7xl space-y-14 px-4 py-12 md:px-6 md:py-16">
+        {isFetching ? (
+          <p className="text-sm text-muted-foreground" role="status">
+            Refreshing topics…
+          </p>
+        ) : null}
         {data.qbTopics.length === 0 ? (
           <p className="text-center text-muted-foreground">No topics yet for this questionbank.</p>
         ) : null}
