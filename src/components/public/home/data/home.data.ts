@@ -24,68 +24,107 @@ export const homeStats = [
 export const academicProgram = {
   title: "What's included in the Alt Tutor Academic Program",
   subtitle:
-    "Everything you need to stay ahead in class lessons and board exam preparation — all in one place.",
+    "Everything you need for IB exam success — questionbanks, past papers, practice exams, and more in one place.",
   features: [
     {
-      id: "live-recorded",
-      title: "Live & Recorded Classes",
-      icon: "video" as const,
-      iconColor: "#ef3239",
-    },
-    {
-      id: "animated",
-      title: "Animated Videos",
-      icon: "play" as const,
-      iconColor: "#1877f2",
-    },
-    {
-      id: "practice-mcq",
-      title: "Practice MCQ Tests",
+      id: "questionbank",
+      title: "Questionbank",
       icon: "clipboard" as const,
+      iconColor: "#ef3239",
+      description:
+        "All the questions you could need! Sorted by topic and arranged by difficulty, with mark schemes and video solutions for every question.",
+      previewCards: [
+        { code: "A1.1", title: "Number Systems", progress: 72 },
+        { code: "A2.1", title: "Functions & Graphs", progress: 45 },
+        { code: "A3.1", title: "Geometry & Trig", progress: 58 },
+        { code: "A4.1", title: "Statistics", progress: 33 },
+      ],
+    },
+    {
+      id: "past-papers",
+      title: "Past Papers",
+      icon: "file" as const,
+      iconColor: "#1877f2",
+      description:
+        "Official-style past papers with worked solutions so you can practise under exam conditions and learn from every mistake.",
+      previewCards: [
+        { code: "P1", title: "May 2024 Paper 1", progress: 80 },
+        { code: "P2", title: "May 2024 Paper 2", progress: 55 },
+        { code: "P1", title: "Nov 2023 Paper 1", progress: 90 },
+        { code: "P2", title: "Nov 2023 Paper 2", progress: 40 },
+      ],
+    },
+    {
+      id: "practice-exams",
+      title: "Practice Exams",
+      icon: "pen" as const,
       iconColor: "#a855f7",
+      description:
+        "Full-length practice exams designed to mirror the real IB papers — timed, scored, and ready when you are.",
+      previewCards: [
+        { code: "EX1", title: "SL Practice Set A", progress: 65 },
+        { code: "EX2", title: "SL Practice Set B", progress: 28 },
+        { code: "EX3", title: "HL Practice Set A", progress: 50 },
+        { code: "EX4", title: "HL Practice Set B", progress: 15 },
+      ],
     },
     {
-      id: "live-mcq",
-      title: "Live MCQ Tests",
-      icon: "radio" as const,
+      id: "key-concepts",
+      title: "Key Concepts",
+      icon: "lightbulb" as const,
       iconColor: "#22c55e",
+      description:
+        "Clear, concise concept notes that cut through the syllabus noise — perfect for quick revision before class or exams.",
+      previewCards: [
+        { code: "KC1", title: "Core Definitions", progress: 88 },
+        { code: "KC2", title: "Formula Sheets", progress: 70 },
+        { code: "KC3", title: "Worked Examples", progress: 52 },
+        { code: "KC4", title: "Common Pitfalls", progress: 41 },
+      ],
     },
     {
-      id: "class-notes",
-      title: "Class Notes",
-      icon: "book" as const,
+      id: "prediction-exams",
+      title: "Prediction Exams",
+      icon: "target" as const,
       iconColor: "#f59e0b",
+      description:
+        "Targeted prediction-style papers focused on high-yield topics so you can sharpen your final exam strategy.",
+      previewCards: [
+        { code: "PE1", title: "May Session Pack", progress: 60 },
+        { code: "PE2", title: "Nov Session Pack", progress: 35 },
+        { code: "PE3", title: "Topic Hotspots", progress: 75 },
+        { code: "PE4", title: "Final Sprint Set", progress: 20 },
+      ],
     },
     {
-      id: "smart-notes",
-      title: "Smart Notes",
-      icon: "sparkles" as const,
+      id: "flashcards",
+      title: "Flashcards",
+      icon: "layers" as const,
       iconColor: "#06b6d4",
+      description:
+        "Spaced-repetition flashcards for formulas, definitions, and key facts — so retention sticks when it matters.",
+      previewCards: [
+        { code: "FC1", title: "Formula Deck", progress: 92 },
+        { code: "FC2", title: "Definitions Deck", progress: 68 },
+        { code: "FC3", title: "Theorem Deck", progress: 44 },
+        { code: "FC4", title: "Exam Tips Deck", progress: 57 },
+      ],
     },
     {
-      id: "report-card",
-      title: "Report Card",
-      icon: "chart" as const,
+      id: "bootcamps",
+      title: "Bootcamps",
+      icon: "zap" as const,
       iconColor: "#ec4899",
+      description:
+        "Intensive bootcamp sessions and IA toolkit support to push your scores higher in a short, focused timeframe.",
+      previewCards: [
+        { code: "BC1", title: "Exam Crash Course", progress: 48 },
+        { code: "BC2", title: "IA Toolkit", progress: 62 },
+        { code: "BC3", title: "Paper 2 Sprint", progress: 30 },
+        { code: "BC4", title: "HL Extension Week", progress: 22 },
+      ],
     },
   ],
-  preview: {
-    teacherName: "Enamul Islam Rehan",
-    teacherImage: "/teacher.png",
-    joinedCount: "554 Joined",
-    chatCount: 123,
-    lectureCard: {
-      label: "Lecture starting",
-      title: "Biology 1st Paper — Chapter 1 Topics Covered",
-      time: "8:30pm – 9:30pm | 60 min",
-      cta: "Join Now",
-    },
-    sideCard: {
-      title: "Lecture Class",
-      date: "15-01-26 | 8:30pm",
-      cta: "Start",
-    },
-  },
 } as const;
 
 export const animatedLessons = {
