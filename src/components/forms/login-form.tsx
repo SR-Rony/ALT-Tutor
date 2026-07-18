@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { env } from "@/config";
+import { getSafeNextParam } from "@/lib/next-param";
 import { authService, roleHomeRoutes } from "@/services/auth.service";
 import { setUser, useAppDispatch } from "@/store";
 import { loginSchema, type LoginFormValues } from "@/validations";
@@ -69,7 +70,8 @@ export function LoginForm() {
       const user = await authService.login(values);
       dispatch(setUser(user));
       setRedirecting(true);
-      router.push(roleHomeRoutes[user.role]);
+      const next = getSafeNextParam(window.location.search);
+      router.push(next ?? roleHomeRoutes[user.role]);
       router.refresh();
     } catch (err) {
       setRedirecting(false);

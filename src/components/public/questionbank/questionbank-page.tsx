@@ -18,6 +18,7 @@ import { PageLoader } from "@/components/shared";
 import { ROUTES } from "@/constants";
 import { getQuestionbankBySlug } from "@/data/mock/questionbank.mock";
 import { useCourseDetail } from "@/hooks";
+import { useAppSelector } from "@/store";
 import type { QuestionbankBadge, QuestionbankTopic } from "@/types/questionbank.types";
 import { cn } from "@/utils";
 
@@ -64,7 +65,15 @@ function TopicCard({
   );
 }
 
-function TopicSection({ topic, slug }: { topic: QuestionbankTopic; slug: string }) {
+function TopicSection({
+  topic,
+  slug,
+  isAuthenticated,
+}: {
+  topic: QuestionbankTopic;
+  slug: string;
+  isAuthenticated: boolean;
+}) {
   return (
     <section id={`topic-${topic.number}`} className="scroll-mt-28">
       <p className="text-sm font-medium text-primary">Topic {topic.number}</p>
@@ -72,15 +81,22 @@ function TopicSection({ topic, slug }: { topic: QuestionbankTopic; slug: string 
         {topic.title}
       </h2>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {topic.subtopics.map((sub) => (
-          <TopicCard
-            key={sub.id}
-            title={sub.title}
-            description={sub.description}
-            badge={sub.badge}
-            href={`${ROUTES.auth.login}?next=${encodeURIComponent(`${ROUTES.questionbank(slug)}#${sub.id}`)}`}
-          />
-        ))}
+        {topic.subtopics.map((sub) => {
+          const target = ROUTES.questionbankStudy(slug, sub.id);
+          return (
+            <TopicCard
+              key={sub.id}
+              title={sub.title}
+              description={sub.description}
+              badge={sub.badge}
+              href={
+                isAuthenticated
+                  ? target
+                  : `${ROUTES.auth.login}?next=${encodeURIComponent(target)}`
+              }
+            />
+          );
+        })}
       </div>
     </section>
   );
@@ -88,6 +104,7 @@ function TopicSection({ topic, slug }: { topic: QuestionbankTopic; slug: string 
 
 export function QuestionbankPage({ slug, titleOverride }: Props) {
   const { data: course, isLoading } = useCourseDetail(slug, !titleOverride);
+  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const [openFaq, setOpenFaq] = useState<string | null>(null);
   const [showTop, setShowTop] = useState(false);
 
@@ -186,7 +203,12 @@ export function QuestionbankPage({ slug, titleOverride }: Props) {
       {/* Topics */}
       <div className="mx-auto max-w-7xl space-y-14 px-4 py-12 md:px-6 md:py-16">
         {bank.topics.map((topic) => (
-          <TopicSection key={topic.id} topic={topic} slug={slug} />
+          <TopicSection
+            key={topic.id}
+            topic={topic}
+            slug={slug}
+            isAuthenticated={isAuthenticated}
+          />
         ))}
       </div>
 

@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getSafeNextParam } from "@/lib/next-param";
 import { authService, roleHomeRoutes } from "@/services/auth.service";
 import { setUser, useAppDispatch } from "@/store";
 import { registerSchema, type RegisterFormValues } from "@/validations";
@@ -39,7 +40,8 @@ export function RegisterForm() {
         password: values.password,
       });
       dispatch(setUser(user));
-      router.push(roleHomeRoutes[user.role]);
+      const next = getSafeNextParam(window.location.search);
+      router.push(next ?? roleHomeRoutes[user.role]);
     } catch (err) {
       const apiError = err as ApiError;
       setError(apiError?.message || (err instanceof Error ? err.message : "Registration failed. Please try again."));

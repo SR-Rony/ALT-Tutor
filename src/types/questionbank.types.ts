@@ -27,6 +27,23 @@ export interface QuestionbankFaq {
   answer: string;
 }
 
+export interface QuestionbankStudyQuestion {
+  id: string;
+  number: number;
+  difficulty: "easy" | "medium" | "hard";
+  prompt: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
+}
+
+export interface QuestionbankStudySet {
+  bank: QuestionbankData;
+  topic: QuestionbankTopic;
+  subtopic: QuestionbankSubtopic;
+  questions: QuestionbankStudyQuestion[];
+}
+
 export interface QuestionbankData {
   courseSlug: string;
   courseTitle: string;

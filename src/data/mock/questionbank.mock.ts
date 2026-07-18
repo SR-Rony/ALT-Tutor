@@ -1,4 +1,8 @@
-import type { QuestionbankData } from "@/types/questionbank.types";
+import type {
+  QuestionbankData,
+  QuestionbankStudyQuestion,
+  QuestionbankStudySet,
+} from "@/types/questionbank.types";
 
 const defaultResources = (courseTitle: string): QuestionbankData["resources"] => [
   {
@@ -343,4 +347,127 @@ export function getQuestionbankBySlug(slug: string, courseTitle?: string): Quest
       .join(" ");
 
   return fallbackForSlug(slug, pretty);
+}
+
+const DIFFICULTY_CYCLE: QuestionbankStudyQuestion["difficulty"][] = [
+  "easy",
+  "easy",
+  "medium",
+  "medium",
+  "hard",
+  "medium",
+  "easy",
+  "hard",
+];
+
+const QUESTION_TEMPLATES: Array<{
+  prompt: (area: string, course: string) => string;
+  options: (area: string) => string[];
+  correctIndex: number;
+  explanation: (area: string) => string;
+}> = [
+  {
+    prompt: (area) => `Which statement best describes the core purpose of ${area}?`,
+    options: (area) => [
+      `It provides the fundamental building blocks used throughout ${area}.`,
+      `It is only relevant for advanced, production-scale systems.`,
+      `It replaces the need to understand any related concepts.`,
+      `It is a deprecated approach that modern teams avoid.`,
+    ],
+    correctIndex: 0,
+    explanation: (area) =>
+      `${area} introduces the foundational ideas that later topics build on, so understanding its core purpose is essential before moving to applied work.`,
+  },
+  {
+    prompt: (area) => `When starting to work with ${area}, what is the recommended first step?`,
+    options: () => [
+      "Skip the basics and copy a finished example.",
+      "Understand the key concepts, then practice with small focused exercises.",
+      "Memorize every edge case before writing anything.",
+      "Only read documentation without hands-on practice.",
+    ],
+    correctIndex: 1,
+    explanation: () =>
+      "Learning works best when you grasp the key concepts first and reinforce them with small, focused practice — exactly how this study set is designed.",
+  },
+  {
+    prompt: (area) => `Which of the following is a common mistake beginners make with ${area}?`,
+    options: (area) => [
+      `Practicing ${area} with small, incremental exercises.`,
+      `Reviewing explanations after attempting each question.`,
+      `Jumping into complex scenarios before mastering the fundamentals.`,
+      `Asking questions when a concept in ${area} is unclear.`,
+    ],
+    correctIndex: 2,
+    explanation: (area) =>
+      `Rushing into complex scenarios before the fundamentals of ${area} are solid usually leads to gaps that slow you down later.`,
+  },
+  {
+    prompt: (area, course) => `In the context of ${course}, why does ${area} matter?`,
+    options: () => [
+      "It is only included to make the course longer.",
+      "It has no connection to the other topics.",
+      "It is optional trivia that never appears in real projects.",
+      "It underpins the practical skills the rest of the course develops.",
+    ],
+    correctIndex: 3,
+    explanation: (area) =>
+      `${area} connects directly to the applied skills covered later in the course, so it is worth mastering early.`,
+  },
+  {
+    prompt: (area) => `What is the best way to check your understanding of ${area}?`,
+    options: () => [
+      "Attempt practice questions, then compare your reasoning with the explanation.",
+      "Assume you understand it if the material felt easy to read.",
+      "Avoid testing yourself until the final exam.",
+      "Only re-read the notes multiple times.",
+    ],
+    correctIndex: 0,
+    explanation: () =>
+      "Active recall — answering questions and reviewing the explanation — is far more effective than passive re-reading.",
+  },
+  {
+    prompt: (area) => `A learner gets stuck on a hard question about ${area}. What should they do first?`,
+    options: () => [
+      "Give up and move to a different course.",
+      "Re-read the related concept, then re-attempt the question before checking the answer.",
+      "Immediately look at the answer without attempting it.",
+      "Skip all remaining questions in the set.",
+    ],
+    correctIndex: 1,
+    explanation: () =>
+      "Reviewing the concept and re-attempting builds problem-solving skills; checking the answer immediately skips the learning step.",
+  },
+];
+
+/** Deterministic mock study questions for a course questionbank subtopic. */
+export function getQuestionbankStudySet(
+  slug: string,
+  subtopicId: string,
+  courseTitle?: string
+): QuestionbankStudySet | null {
+  const bank = getQuestionbankBySlug(slug, courseTitle);
+
+  for (const topic of bank.topics) {
+    const subtopic = topic.subtopics.find((s) => s.id === subtopicId);
+    if (!subtopic) continue;
+
+    const area = subtopic.title.toLowerCase().startsWith("topic")
+      ? topic.title
+      : subtopic.title;
+
+    const questions: QuestionbankStudyQuestion[] = QUESTION_TEMPLATES.map((tpl, i) => ({
+      id: `${subtopicId}-q${i + 1}`,
+      number: i + 1,
+      difficulty: DIFFICULTY_CYCLE[i % DIFFICULTY_CYCLE.length],
+      prompt: tpl.prompt(area, bank.courseTitle),
+      options: tpl.options(area),
+      correctIndex: tpl.correctIndex,
+      explanation: tpl.explanation(area),
+    }));
+
+    return { bank, topic, subtopic, questions };
+  }
+
+  return null;
 }

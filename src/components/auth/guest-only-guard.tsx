@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { roleHomeRoutes, ROUTES } from "@/constants";
+import { getSafeNextParam } from "@/lib/next-param";
 import { useAuthSessionReady } from "@/providers/auth-session-provider";
 import { useAppSelector } from "@/store";
 
@@ -24,7 +25,8 @@ export function GuestOnlyGuard({ children }: { children: React.ReactNode }) {
     if (!ready) return;
     if (!guestOnlyPaths.includes(pathname)) return;
     if (isAuthenticated && user) {
-      router.replace(roleHomeRoutes[user.role]);
+      const next = getSafeNextParam(window.location.search);
+      router.replace(next ?? roleHomeRoutes[user.role]);
     }
   }, [ready, pathname, isAuthenticated, user, router]);
 

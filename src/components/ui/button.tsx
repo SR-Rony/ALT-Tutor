@@ -11,7 +11,7 @@ export const buttonVariants = cva(
         default:
           "border-0 bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239] text-primary-foreground shadow-[0_10px_28px_-10px_rgba(239,50,57,0.45)] hover:-translate-y-0.5 hover:shadow-[0_14px_32px_-10px_rgba(239,50,57,0.55)]",
         secondary:
-          "border-0 bg-white text-[#ef3239] shadow-[inset_0_0_0_2px_#ef3239] before:pointer-events-none before:absolute before:inset-0 before:z-0 before:rounded-[inherit] before:bg-gradient-to-r before:from-[#3b8dee] before:via-[#ff6b35] before:to-[#ef3239] before:opacity-0 before:transition-opacity before:duration-300 before:ease-out hover:-translate-y-0.5 hover:text-white hover:shadow-[0_12px_28px_-10px_rgba(239,50,57,0.4)] hover:before:opacity-100 [&>span]:relative [&>span]:z-10",
+          "border-0 bg-white text-[#ef3239] shadow-[inset_0_0_0_2px_#ef3239] hover:-translate-y-0.5 hover:bg-gradient-to-r hover:from-[#3b8dee] hover:via-[#ff6b35] hover:to-[#ef3239] hover:text-white hover:shadow-[0_12px_28px_-10px_rgba(239,50,57,0.4)]",
         outline:
           "border border-border bg-card text-foreground hover:-translate-y-0.5 hover:border-[#ef3239]/30 hover:bg-[#fff5f2] hover:text-[#ef3239] hover:shadow-[0_8px_20px_-10px_rgba(239,50,57,0.2)]",
         ghost: "border-0 text-foreground hover:bg-[#fff5f2] hover:text-[#ef3239]",
@@ -41,16 +41,10 @@ export interface ButtonProps
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant, size, asChild = false, children, ...props }, ref) => {
     const Comp = asChild ? Slot : "button";
-    const content =
-      asChild || variant !== "secondary" ? (
-        children
-      ) : (
-        <span className="relative z-10 inline-flex items-center justify-center gap-2">{children}</span>
-      );
 
     return (
       <Comp className={cn(buttonVariants({ variant, size, className }))} ref={ref} {...props}>
-        {content}
+        {children}
       </Comp>
     );
   }

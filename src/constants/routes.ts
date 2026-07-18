@@ -3,6 +3,8 @@ export const ROUTES = {
   courses: "/courses",
   courseDetail: (slug: string) => `/courses/${slug}`,
   questionbank: (slug: string) => `/courses/${slug}/questionbank`,
+  questionbankStudy: (slug: string, subtopicId: string) =>
+    `/courses/${slug}/questionbank/${subtopicId}`,
   subjectResource: (programSlug: string, resourceSlug: string) =>
     `/subjects/${programSlug}/${resourceSlug}`,
   subjectQuestionbank: (programSlug: string) => `/subjects/${programSlug}/questionbank`,
