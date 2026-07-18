@@ -71,6 +71,17 @@ export const studentService = {
     return response.data;
   },
 
+  async enrollCourse(courseId: string): Promise<StudentEnrollment> {
+    if (env.useMockApi) {
+      await sleep(200);
+      const existing = mockStudentStats.enrollments.find((e) => e.courseId === courseId);
+      if (existing) return { ...existing };
+      throw { message: "Enrollment is unavailable in mock mode", status: 400 };
+    }
+    const response = await apiClient.post<StudentEnrollment>("/enrollments", { courseId });
+    return response.data;
+  },
+
   async cancelEnrollment(courseId: string): Promise<StudentEnrollment> {
     if (env.useMockApi) {
       await sleep(200);

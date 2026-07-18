@@ -11,10 +11,11 @@ export function useStudentDashboard() {
   });
 }
 
-export function useStudentCourses() {
+export function useStudentCourses(enabled = true) {
   return useQuery({
     queryKey: queryKeys.student.courses,
     queryFn: () => studentService.getMyCourses(),
+    enabled,
   });
 }
 
@@ -43,6 +44,17 @@ export function useStudentProfile() {
   return useQuery({
     queryKey: queryKeys.student.profile,
     queryFn: () => studentService.getProfile(),
+  });
+}
+
+export function useEnrollCourse() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (courseId: string) => studentService.enrollCourse(courseId),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.student.courses });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.student.dashboard });
+    },
   });
 }
 

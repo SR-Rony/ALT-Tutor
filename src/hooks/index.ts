@@ -43,6 +43,7 @@ export {
   useStudentNotifications,
   useStudentPayments,
   useStudentProfile,
+  useEnrollCourse,
   useCancelEnrollment,
   useMarkNotificationRead,
   useMarkAllNotificationsRead,
