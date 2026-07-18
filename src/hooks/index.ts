@@ -75,6 +75,7 @@ export {
   useUpdateQbTopic,
   useDeleteQbTopic,
   useCreateQbSubtopic,
+  useUpdateQbSubtopic,
   useDeleteQbSubtopic,
   useCreateQbQuestion,
   useUpdateQbQuestion,

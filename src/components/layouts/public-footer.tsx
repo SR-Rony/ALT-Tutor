@@ -125,18 +125,18 @@ export function PublicFooter() {
             <div className="mt-6 space-y-3">
               <a
                 href={`tel:${siteConfig.phone}`}
-                className="group flex items-center gap-2.5 text-sm text-[#58688b] transition-colors duration-300 hover:text-[#1a2b5e]"
+                className="flex items-center gap-2.5 text-sm text-[#58688b] transition-colors duration-300 hover:text-[#1a2b5e]"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fff1ee] text-[#ef3239] transition-all duration-300 group-hover:bg-gradient-to-br group-hover:from-[#3b8dee] group-hover:via-[#ff6b35] group-hover:to-[#ef3239] group-hover:text-white">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fff1ee] text-[#ef3239]">
                   <Phone className="h-4 w-4" aria-hidden />
                 </span>
                 {siteConfig.phone}
               </a>
               <a
                 href="mailto:support@alttutor.com"
-                className="group flex items-center gap-2.5 text-sm text-[#58688b] transition-colors duration-300 hover:text-[#1a2b5e]"
+                className="flex items-center gap-2.5 text-sm text-[#58688b] transition-colors duration-300 hover:text-[#1a2b5e]"
               >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e8f2fe] text-[#1877f2] transition-all duration-300 group-hover:bg-gradient-to-br group-hover:from-[#3b8dee] group-hover:via-[#ff6b35] group-hover:to-[#ef3239] group-hover:text-white">
+                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e8f2fe] text-[#1877f2]">
                   <Mail className="h-4 w-4" aria-hidden />
                 </span>
                 support@alttutor.com
@@ -183,7 +183,7 @@ export function PublicFooter() {
               <p className="text-xs text-[#94a3b8] sm:text-[0.8125rem]">
                 Designed & developed by{" "}
                 <a
-                  href="https://codezyne.com"
+                  href="https://codezyne.com.bd/"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-semibold text-[#1a2b5e] transition-colors duration-300 hover:text-[#ef3239]"

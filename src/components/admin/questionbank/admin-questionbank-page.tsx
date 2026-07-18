@@ -6,8 +6,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Eye,
+  EyeOff,
   FileSpreadsheet,
   ImageIcon,
+  Pencil,
   Plus,
   RefreshCw,
   Trash2,
@@ -30,11 +33,14 @@ import {
   useDeleteQbSubtopic,
   useDeleteQbTopic,
   useImportQbQuestions,
+  useUpdateQbQuestion,
+  useUpdateQbSubtopic,
+  useUpdateQbTopic,
 } from "@/hooks";
 import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type { QbImportResult } from "@/services/questionbank-admin.types";
-import type { QbDifficulty, QbPaper, QbQuestion } from "@/types/qb.types";
+import type { QbDifficulty, QbPaper, QbQuestion, QbTopic } from "@/types/qb.types";
 import { cn } from "@/utils";
 
 const DIFFICULTIES: QbDifficulty[] = ["EASY", "MEDIUM", "HARD"];
@@ -43,6 +49,7 @@ const PAPERS: QbPaper[] = ["PAPER_1", "PAPER_2", "PAPER_3"];
 const EXCEL_TEMPLATE_HEADERS = [
   "number",
   "prompt",
+  "body",
   "diagramUrl",
   "optionA",
   "optionB",
@@ -51,6 +58,7 @@ const EXCEL_TEMPLATE_HEADERS = [
   "correctAnswer",
   "difficulty",
   "paper",
+  "questionType",
   "markScheme",
   "videoUrl",
   "calculatorAllowed",
@@ -59,6 +67,7 @@ const EXCEL_TEMPLATE_HEADERS = [
 const EXCEL_TEMPLATE_SAMPLE = [
   "1",
   "The diagram below shows a car of mass m descending a slope. The magnitude of the acceleration is given by",
+  "Choose the correct acceleration.",
   "https://example.com/car-slope-diagram.png",
   "3.0 m s^-2",
   "6.0 m s^-2",
@@ -67,27 +76,103 @@ const EXCEL_TEMPLATE_SAMPLE = [
   "B",
   "EASY",
   "PAPER_1",
+  "MULTIPLE_CHOICE",
   "Correct answer B. Use s = ut + 1/2 at^2 with u=0.",
   "https://www.youtube.com/watch?v=example",
   "TRUE",
 ];
 
 function downloadExcelTemplate() {
-  const csv = [EXCEL_TEMPLATE_HEADERS.join(","), EXCEL_TEMPLATE_SAMPLE.map(csvEscape).join(",")].join(
-    "\n"
+  downloadExcelFile(
+    "questionbank-import-template.xls",
+    [...EXCEL_TEMPLATE_HEADERS],
+    [[...EXCEL_TEMPLATE_SAMPLE]]
   );
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+}
+
+function downloadExcelFile(filename: string, headers: string[], dataRows: string[][]) {
+  const rows = [headers, ...dataRows];
+  const sheetRows = rows
+    .map(
+      (row) =>
+        `<Row>${row
+          .map((value) => `<Cell><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`)
+          .join("")}</Row>`
+    )
+    .join("");
+  const workbook = `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
+ <Worksheet ss:Name="Questions"><Table>${sheetRows}</Table></Worksheet>
+</Workbook>`;
+  const blob = new Blob([workbook], { type: "application/vnd.ms-excel;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "questionbank-import-template.csv";
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-function csvEscape(value: string) {
-  if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
-  return value;
+function questionToExcelRow(question: QbQuestion, serial: number): string[] {
+  return [
+    String(serial),
+    question.prompt,
+    question.body ?? "",
+    question.diagramUrl ?? "",
+    question.options[0] ?? "",
+    question.options[1] ?? "",
+    question.options[2] ?? "",
+    question.options[3] ?? "",
+    question.correctAnswer,
+    String(question.difficulty),
+    String(question.paper),
+    String(question.questionType),
+    question.markScheme ?? "",
+    question.videoUrl ?? "",
+    question.calculatorAllowed ? "TRUE" : "FALSE",
+  ];
+}
+
+function safeExcelFilename(value: string) {
+  const safe = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
+  return safe || "questionbank";
+}
+
+function downloadStudySetQuestions(title: string, questions: QbQuestion[]) {
+  downloadExcelFile(
+    `${safeExcelFilename(title)}-questions.xls`,
+    [...EXCEL_TEMPLATE_HEADERS],
+    questions.map((question, index) => questionToExcelRow(question, index + 1))
+  );
+}
+
+function downloadProgramQuestions(programName: string, topics: QbTopic[]) {
+  const headers = ["theme", "studySet", ...EXCEL_TEMPLATE_HEADERS];
+  const rows = topics.flatMap((topic) =>
+    topic.subtopics.flatMap((subtopic) =>
+      (subtopic.questions ?? []).map((question, index) => [
+        topic.title,
+        subtopic.title,
+        ...questionToExcelRow(question, index + 1),
+      ])
+    )
+  );
+  downloadExcelFile(`${safeExcelFilename(programName)}-all-questions.xls`, headers, rows);
+}
+
+function xmlEscape(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;");
 }
 
 const OPTION_LABELS = ["A1", "A2", "A3", "A4"] as const;
@@ -95,10 +180,18 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 
 function AdminQuestionDropdown({
   question,
+  displayNumber,
   onDelete,
+  onEdit,
+  onToggleHide,
+  togglePending,
 }: {
   question: QbQuestion;
+  displayNumber: number;
   onDelete: () => void;
+  onEdit: () => void;
+  onToggleHide: () => void;
+  togglePending: boolean;
 }) {
   const [open, setOpen] = useState(false);
   /** -1 = problem view, 0+ = option A1/A2/... */
@@ -114,7 +207,12 @@ function AdminQuestionDropdown({
   const goNext = () => setStep((s) => Math.min(maxStep, s + 1));
 
   return (
-    <li className="overflow-hidden rounded-xl border border-border/80 bg-card">
+    <li
+      className={cn(
+        "overflow-hidden rounded-xl border border-border/80 bg-card",
+        !question.isActive && "border-dashed opacity-70"
+      )}
+    >
       <div className="flex items-stretch gap-1">
         <button
           type="button"
@@ -132,7 +230,7 @@ function AdminQuestionDropdown({
             )}
           />
           <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-muted-foreground">
-            <span className="font-semibold text-foreground">Q{question.number}</span>
+            <span className="font-semibold text-foreground">Q{displayNumber}</span>
             <span className="text-xs uppercase">
               {String(question.difficulty).toLowerCase()} ·{" "}
               {String(question.paper).replace("_", " ")}
@@ -156,15 +254,47 @@ function AdminQuestionDropdown({
                 Scheme
               </span>
             ) : null}
+            {!question.isActive ? (
+              <span className="inline-flex items-center gap-1 rounded-md bg-[#fff1ee] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
+                <EyeOff className="h-3 w-3" /> Hidden
+              </span>
+            ) : null}
           </span>
         </button>
-        <button
-          type="button"
-          className="shrink-0 px-3 text-xs text-accent hover:underline"
-          onClick={onDelete}
-        >
-          Del
-        </button>
+        <div className="flex shrink-0 items-center gap-0.5 pr-2">
+          <button
+            type="button"
+            className="rounded-md p-1.5 text-muted-foreground transition hover:bg-primary-muted hover:text-primary"
+            title="Edit question"
+            aria-label="Edit question"
+            onClick={onEdit}
+          >
+            <Pencil className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+            title={question.isActive ? "Hide from students" : "Show to students"}
+            aria-label={question.isActive ? "Hide question" : "Show question"}
+            disabled={togglePending}
+            onClick={onToggleHide}
+          >
+            {question.isActive ? (
+              <Eye className="h-3.5 w-3.5" />
+            ) : (
+              <EyeOff className="h-3.5 w-3.5 text-accent" />
+            )}
+          </button>
+          <button
+            type="button"
+            className="rounded-md p-1.5 text-accent transition hover:bg-[#fff1ee]"
+            title="Delete question"
+            aria-label="Delete question"
+            onClick={onDelete}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       </div>
 
       {open ? (
@@ -239,7 +369,7 @@ function AdminQuestionDropdown({
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={question.diagramUrl}
-                    alt={`Q${question.number} stimulus`}
+                    alt={`Q${displayNumber} stimulus`}
                     className="mx-auto max-h-56 object-contain"
                   />
                 </div>
@@ -324,10 +454,13 @@ export function AdminQuestionbankPage() {
   };
 
   const createTopic = useCreateQbTopic();
+  const updateTopic = useUpdateQbTopic();
   const deleteTopic = useDeleteQbTopic();
   const createSubtopic = useCreateQbSubtopic();
+  const updateSubtopic = useUpdateQbSubtopic();
   const deleteSubtopic = useDeleteQbSubtopic();
   const createQuestion = useCreateQbQuestion();
+  const updateQuestion = useUpdateQbQuestion();
   const deleteQuestion = useDeleteQbQuestion();
   const importQuestions = useImportQbQuestions();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -336,9 +469,9 @@ export function AdminQuestionbankPage() {
 
   const [modal, setModal] = useState<
     | null
-    | { kind: "topic" }
-    | { kind: "subtopic"; topicId: string }
-    | { kind: "question"; subtopicId: string }
+    | { kind: "topic"; editId?: string }
+    | { kind: "subtopic"; topicId: string; editId?: string }
+    | { kind: "question"; subtopicId: string; editId?: string }
     | { kind: "import"; subtopicId: string; title: string }
   >(null);
   const [importResult, setImportResult] = useState<QbImportResult | null>(null);
@@ -358,10 +491,13 @@ export function AdminQuestionbankPage() {
 
   const busy =
     createTopic.isPending ||
+    updateTopic.isPending ||
     deleteTopic.isPending ||
     createSubtopic.isPending ||
+    updateSubtopic.isPending ||
     deleteSubtopic.isPending ||
     createQuestion.isPending ||
+    updateQuestion.isPending ||
     deleteQuestion.isPending ||
     importQuestions.isPending ||
     uploadingField !== null;
@@ -375,6 +511,56 @@ export function AdminQuestionbankPage() {
     setMarkScheme("");
     setDiagramUrl("");
     setVideoUrl("");
+  };
+
+  const openEditTopic = (topic: QbTopic) => {
+    setActionError(null);
+    setModal({ kind: "topic", editId: topic.id });
+    setTitle(topic.title);
+    setSlug(topic.slug);
+    setDescription(topic.description ?? "");
+  };
+
+  const openEditSubtopic = (topicId: string, subtopic: QbTopic["subtopics"][number]) => {
+    setActionError(null);
+    setModal({ kind: "subtopic", topicId, editId: subtopic.id });
+    setTitle(subtopic.title);
+    setSlug(subtopic.slug);
+    setDescription(subtopic.description ?? "");
+  };
+
+  const openEditQuestion = (question: QbQuestion) => {
+    setActionError(null);
+    setModal({ kind: "question", subtopicId: question.subtopicId, editId: question.id });
+    setPrompt(question.prompt);
+    setOptionsText(question.options.join("\n"));
+    setCorrectAnswer(question.correctAnswer.toUpperCase());
+    setDifficulty((question.difficulty as QbDifficulty) || "EASY");
+    setPaper((question.paper as QbPaper) || "PAPER_1");
+    setMarkScheme(question.markScheme ?? "");
+    setDiagramUrl(question.diagramUrl ?? "");
+    setVideoUrl(question.videoUrl ?? "");
+  };
+
+  const toggleQuestionVisibility = (question: QbQuestion) => {
+    void updateQuestion.mutateAsync({
+      id: question.id,
+      payload: { isActive: !question.isActive },
+    });
+  };
+
+  const toggleTopicVisibility = (topic: QbTopic) => {
+    void updateTopic.mutateAsync({
+      id: topic.id,
+      payload: { isActive: !topic.isActive },
+    });
+  };
+
+  const toggleSubtopicVisibility = (subtopic: QbTopic["subtopics"][number]) => {
+    void updateSubtopic.mutateAsync({
+      id: subtopic.id,
+      payload: { isActive: !subtopic.isActive },
+    });
   };
 
   const onUploadMedia = async (field: "diagram" | "video", file: File | undefined) => {
@@ -416,31 +602,43 @@ export function AdminQuestionbankPage() {
     setActionError(null);
     try {
       if (modal.kind === "topic") {
-        await createTopic.mutateAsync({
-          programId: effectiveProgramId,
+        const payload = {
           title: title.trim(),
           slug: slug.trim() || slugify(title),
           description: description.trim() || undefined,
-          number: (topics.length || 0) + 1,
-          order: topics.length,
-        });
+        };
+        if (modal.editId) {
+          await updateTopic.mutateAsync({ id: modal.editId, payload });
+        } else {
+          await createTopic.mutateAsync({
+            programId: effectiveProgramId,
+            ...payload,
+            number: (topics.length || 0) + 1,
+            order: topics.length,
+          });
+        }
       }
       if (modal.kind === "subtopic") {
-        await createSubtopic.mutateAsync({
-          topicId: modal.topicId,
+        const payload = {
           title: title.trim(),
           slug: slug.trim() || slugify(title),
           description: description.trim() || undefined,
-        });
+        };
+        if (modal.editId) {
+          await updateSubtopic.mutateAsync({ id: modal.editId, payload });
+        } else {
+          await createSubtopic.mutateAsync({
+            topicId: modal.topicId,
+            ...payload,
+          });
+        }
       }
       if (modal.kind === "question") {
         const options = optionsText
           .split("\n")
           .map((l) => l.trim())
           .filter(Boolean);
-        await createQuestion.mutateAsync({
-          subtopicId: modal.subtopicId,
-          number: Date.now() % 1000,
+        const questionPayload = {
           prompt: prompt.trim(),
           options,
           correctAnswer: correctAnswer.trim().toUpperCase(),
@@ -449,8 +647,17 @@ export function AdminQuestionbankPage() {
           markScheme: markScheme.trim() || undefined,
           diagramUrl: diagramUrl.trim() || undefined,
           videoUrl: videoUrl.trim() || undefined,
-          calculatorAllowed: true,
-        });
+        };
+        if (modal.editId) {
+          await updateQuestion.mutateAsync({ id: modal.editId, payload: questionPayload });
+        } else {
+          await createQuestion.mutateAsync({
+            subtopicId: modal.subtopicId,
+            number: Date.now() % 1000,
+            ...questionPayload,
+            calculatorAllowed: true,
+          });
+        }
       }
       setModal(null);
     } catch (err) {
@@ -486,9 +693,32 @@ export function AdminQuestionbankPage() {
                 onClick={() => void refetch()}
                 className={isFetching ? "animate-spin" : undefined}
               />
-              <Button type="button" size="sm" variant="outline" onClick={downloadExcelTemplate}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={downloadExcelTemplate}
+              >
+                <FileSpreadsheet className="h-4 w-4" />
+                Download Template
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={topics.every((topic) =>
+                  topic.subtopics.every((subtopic) => !(subtopic.questions?.length ?? 0))
+                )}
+                onClick={() =>
+                  downloadProgramQuestions(
+                    programs.find((program) => program.id === effectiveProgramId)?.name ??
+                      "questionbank",
+                    topics
+                  )
+                }
+              >
                 <Download className="h-4 w-4" />
-                Excel template
+                Download All Questions
               </Button>
               <Button
                 type="button"
@@ -582,7 +812,13 @@ export function AdminQuestionbankPage() {
           {topics.map((topic) => {
             const isTopicOpen = !collapsedTopics[topic.id];
             return (
-              <div key={topic.id} className="overflow-hidden rounded-xl border border-border">
+              <div
+                key={topic.id}
+                className={cn(
+                  "overflow-hidden rounded-xl border border-border",
+                  !topic.isActive && "border-dashed opacity-70"
+                )}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-2 bg-card px-4 py-3">
                   <button
                     type="button"
@@ -600,10 +836,17 @@ export function AdminQuestionbankPage() {
                       <p className="text-xs font-semibold uppercase text-primary">
                         Theme {topic.number}
                       </p>
-                      <h3 className="font-semibold text-foreground">{topic.title}</h3>
+                      <h3 className="flex items-center gap-2 font-semibold text-foreground">
+                        {topic.title}
+                        {!topic.isActive ? (
+                          <span className="rounded-md bg-[#fff1ee] px-1.5 py-0.5 text-[10px] font-bold uppercase text-accent">
+                            Hidden
+                          </span>
+                        ) : null}
+                      </h3>
                     </div>
                   </button>
-                  <div className="flex gap-2">
+                  <div className="flex items-center gap-1">
                     <Button
                       type="button"
                       size="sm"
@@ -617,6 +860,29 @@ export function AdminQuestionbankPage() {
                     >
                       Add study set
                     </Button>
+                    <button
+                      type="button"
+                      className="rounded-md p-2 text-muted-foreground transition hover:bg-primary-muted hover:text-primary"
+                      title="Edit theme"
+                      aria-label="Edit theme"
+                      onClick={() => openEditTopic(topic)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      className="rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+                      title={topic.isActive ? "Hide theme" : "Show theme"}
+                      aria-label={topic.isActive ? "Hide theme" : "Show theme"}
+                      disabled={updateTopic.isPending}
+                      onClick={() => toggleTopicVisibility(topic)}
+                    >
+                      {topic.isActive ? (
+                        <Eye className="h-4 w-4" />
+                      ) : (
+                        <EyeOff className="h-4 w-4 text-accent" />
+                      )}
+                    </button>
                     <Button
                       type="button"
                       size="sm"
@@ -640,7 +906,10 @@ export function AdminQuestionbankPage() {
                       return (
                         <div
                           key={sub.id}
-                          className="overflow-hidden rounded-lg border border-border/70 bg-card"
+                          className={cn(
+                            "overflow-hidden rounded-lg border border-border/70 bg-card",
+                            !sub.isActive && "border-dashed opacity-70"
+                          )}
                         >
                           <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
                             <button
@@ -659,8 +928,25 @@ export function AdminQuestionbankPage() {
                               <span className="text-xs text-muted-foreground">
                                 ({sub.questions?.length ?? 0})
                               </span>
+                              {!sub.isActive ? (
+                                <span className="rounded-md bg-[#fff1ee] px-1.5 py-0.5 text-[10px] font-bold uppercase text-accent">
+                                  Hidden
+                                </span>
+                              ) : null}
                             </button>
                             <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                disabled={!(sub.questions?.length ?? 0)}
+                                onClick={() =>
+                                  downloadStudySetQuestions(sub.title, sub.questions ?? [])
+                                }
+                              >
+                                <Download className="h-4 w-4" />
+                                Download Questions
+                              </Button>
                               <Button
                                 type="button"
                                 size="sm"
@@ -689,6 +975,29 @@ export function AdminQuestionbankPage() {
                               >
                                 Add question
                               </Button>
+                              <button
+                                type="button"
+                                className="rounded-md p-2 text-muted-foreground transition hover:bg-primary-muted hover:text-primary"
+                                title="Edit study set"
+                                aria-label="Edit study set"
+                                onClick={() => openEditSubtopic(topic.id, sub)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+                                title={sub.isActive ? "Hide study set" : "Show study set"}
+                                aria-label={sub.isActive ? "Hide study set" : "Show study set"}
+                                disabled={updateSubtopic.isPending}
+                                onClick={() => toggleSubtopicVisibility(sub)}
+                              >
+                                {sub.isActive ? (
+                                  <Eye className="h-4 w-4" />
+                                ) : (
+                                  <EyeOff className="h-4 w-4 text-accent" />
+                                )}
+                              </button>
                               <Button
                                 type="button"
                                 size="sm"
@@ -711,10 +1020,14 @@ export function AdminQuestionbankPage() {
                                   No questions yet.
                                 </li>
                               ) : null}
-                              {(sub.questions ?? []).map((q) => (
+                              {(sub.questions ?? []).map((q, questionIndex) => (
                                 <AdminQuestionDropdown
                                   key={q.id}
                                   question={q}
+                                  displayNumber={questionIndex + 1}
+                                  onEdit={() => openEditQuestion(q)}
+                                  onToggleHide={() => toggleQuestionVisibility(q)}
+                                  togglePending={updateQuestion.isPending}
                                   onDelete={() => {
                                     if (window.confirm("Delete question?")) {
                                       void deleteQuestion.mutateAsync(q.id);
@@ -739,12 +1052,18 @@ export function AdminQuestionbankPage() {
         open={Boolean(modal)}
         title={
           modal?.kind === "topic"
-            ? "Add theme"
+            ? modal.editId
+              ? "Edit theme"
+              : "Add theme"
             : modal?.kind === "subtopic"
-              ? "Add study set"
+              ? modal.editId
+                ? "Edit study set"
+                : "Add study set"
               : modal?.kind === "import"
                 ? "Upload Excel"
-                : "Add question"
+                : modal?.kind === "question" && modal.editId
+                  ? "Edit question"
+                  : "Add question"
         }
         description={
           modal?.kind === "import"
@@ -786,8 +1105,9 @@ export function AdminQuestionbankPage() {
                 markScheme, videoUrl (solution video link), difficulty, paper.
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
-                Tip: upload images/videos when adding a single question, or paste https links in Excel
-                for bulk import.
+                Question numbers are assigned automatically in row order (Q1, Q2, Q3...). A later
+                upload continues from the last question number. Paste public https links for bulk
+                image/video import.
               </p>
             </div>
             <input
@@ -808,7 +1128,7 @@ export function AdminQuestionbankPage() {
             </Button>
             <Button type="button" variant="outline" className="w-full" onClick={downloadExcelTemplate}>
               <Download className="h-4 w-4" />
-              Download sample template
+              Download Excel template
             </Button>
             {importResult ? (
               <div className="rounded-xl border border-accent-green/30 bg-[#ecfdf3] p-3 text-sm text-foreground">

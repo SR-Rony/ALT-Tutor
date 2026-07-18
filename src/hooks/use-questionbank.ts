@@ -71,6 +71,15 @@ export function useCreateQbSubtopic() {
   });
 }
 
+export function useUpdateQbSubtopic() {
+  const invalidate = useInvalidateQb();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: Partial<CreateQbSubtopicInput> }) =>
+      questionbankService.updateSubtopic(id, payload),
+    onSuccess: invalidate,
+  });
+}
+
 export function useDeleteQbSubtopic() {
   const invalidate = useInvalidateQb();
   return useMutation({
