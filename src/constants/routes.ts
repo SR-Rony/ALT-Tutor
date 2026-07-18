@@ -32,6 +32,7 @@ export const ROUTES = {
   student: {
     root: "/student",
     courses: "/student/courses",
+    courseLearn: (slug: string) => `/student/courses/${slug}`,
     assignments: "/student/assignments",
     mcqExam: (assignmentId: string) => `/student/mcq/${assignmentId}`,
     notifications: "/student/notifications",

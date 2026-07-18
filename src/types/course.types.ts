@@ -37,6 +37,7 @@ export interface CourseLesson {
   id: string;
   title: string;
   type: string;
+  contentUrl?: string | null;
   duration?: number | null;
   order: number;
 }

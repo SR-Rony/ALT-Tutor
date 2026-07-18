@@ -32,6 +32,7 @@ type BackendLesson = {
   id: string;
   title: string;
   type: string;
+  contentUrl?: string | null;
   duration?: number | null;
   order: number;
 };
@@ -93,6 +94,7 @@ function mapLesson(raw: BackendLesson): CourseLesson {
     id: raw.id,
     title: raw.title,
     type: raw.type,
+    contentUrl: raw.contentUrl ?? null,
     duration: raw.duration ?? null,
     order: raw.order,
   };
