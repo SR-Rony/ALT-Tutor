@@ -5,6 +5,8 @@ export {
   useAdminStats,
   useAdminUsers,
   useAdminUser,
+  useCreateTeacher,
+  useUpdateTeacher,
   useAdminCourses,
   useAdminCourse,
   useAdminCategories,

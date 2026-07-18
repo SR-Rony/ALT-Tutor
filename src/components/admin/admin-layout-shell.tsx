@@ -9,6 +9,7 @@ import { useAppSelector } from "@/store";
 const adminPageTitles: Record<string, string> = {
   [ROUTES.admin.root]: "Dashboard",
   [ROUTES.admin.users]: "Users",
+  [ROUTES.admin.teachers]: "Teachers",
   [ROUTES.admin.courses]: "Courses",
   [ROUTES.admin.subjects]: "Subjects",
   [ROUTES.admin.questionbank]: "Questionbank",

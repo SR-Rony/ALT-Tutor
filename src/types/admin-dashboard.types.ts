@@ -14,11 +14,13 @@ export interface AdminUser {
   name: string;
   email?: string | null;
   phone: string;
+  address?: string | null;
   role: BackendRole | string;
   avatar?: string | null;
   isVerified: boolean;
   isActive: boolean;
   createdAt: string;
+  _count?: { coursesTaught?: number };
 }
 
 export type CourseStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";

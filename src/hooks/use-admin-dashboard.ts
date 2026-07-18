@@ -11,6 +11,7 @@ import {
 } from "@/services";
 import type { CategoryInput } from "@/services/admin/admin-categories.service";
 import type { CourseUpsertInput } from "@/services/admin/admin-courses.service";
+import type { TeacherInput } from "@/services/admin/admin-users.service";
 import type { BackendRole, CourseStatus } from "@/types/admin-dashboard.types";
 
 export function useAdminStats() {
@@ -32,6 +33,38 @@ export function useAdminUser(id: string) {
     queryKey: queryKeys.admin.user(id),
     queryFn: () => adminUsersService.getUser(id),
     enabled: Boolean(id),
+  });
+}
+
+export function useCreateTeacher() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (
+      payload: TeacherInput & {
+        name: string;
+        phone: string;
+        address: string;
+        password: string;
+      }
+    ) =>
+      adminUsersService.createTeacher(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.users });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+    },
+  });
+}
+
+export function useUpdateTeacher() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: TeacherInput }) =>
+      adminUsersService.updateTeacher(id, payload),
+    onSuccess: (_data, { id }) => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.users });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.user(id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+    },
   });
 }
 

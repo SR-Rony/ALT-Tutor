@@ -54,6 +54,7 @@ export const teacherFooterNav: NavItem[] = [
 export const adminNav: NavItem[] = [
   { title: "Dashboard", href: ROUTES.admin.root, iconName: "dashboard" },
   { title: "Users", href: ROUTES.admin.users, iconName: "userCog" },
+  { title: "Teachers", href: ROUTES.admin.teachers, iconName: "userCog" },
   { title: "Courses", href: ROUTES.admin.courses, iconName: "book" },
   { title: "Subjects", href: ROUTES.admin.subjects, iconName: "book" },
   { title: "Questionbank", href: ROUTES.admin.questionbank, iconName: "clipboard" },

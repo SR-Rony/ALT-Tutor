@@ -51,6 +51,7 @@ export const ROUTES = {
     root: "/admin",
     users: "/admin/users",
     userDetail: (id: string) => `/admin/users/${id}`,
+    teachers: "/admin/teachers",
     courses: "/admin/courses",
     courseCurriculum: (id: string) => `/admin/courses/${id}`,
     categories: "/admin/categories",

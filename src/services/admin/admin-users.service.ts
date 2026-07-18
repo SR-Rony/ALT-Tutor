@@ -4,6 +4,16 @@ import type { AdminUser, BackendRole } from "@/types/admin-dashboard.types";
 import { sleep } from "@/utils";
 import { apiClient } from "../api-client";
 
+export type TeacherInput = {
+  name?: string;
+  phone?: string;
+  address?: string;
+  email?: string | null;
+  password?: string;
+  avatar?: string | null;
+  isActive?: boolean;
+};
+
 export const adminUsersService = {
   async getUsers(role?: BackendRole): Promise<AdminUser[]> {
     if (env.useMockApi) {
@@ -25,6 +35,18 @@ export const adminUsersService = {
     }
 
     const response = await apiClient.get<AdminUser>(`/users/${id}`);
+    return response.data;
+  },
+
+  async createTeacher(
+    payload: TeacherInput & { name: string; phone: string; address: string; password: string }
+  ): Promise<AdminUser> {
+    const response = await apiClient.post<AdminUser>("/users/teachers", payload);
+    return response.data;
+  },
+
+  async updateTeacher(id: string, payload: TeacherInput): Promise<AdminUser> {
+    const response = await apiClient.patch<AdminUser>(`/users/teachers/${id}`, payload);
     return response.data;
   },
 
