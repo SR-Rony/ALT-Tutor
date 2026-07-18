@@ -19,6 +19,7 @@ export type CourseUpsertInput = {
   promoVideoUrl?: string;
   promoVideoPublicId?: string;
   price?: number;
+  regularPrice?: number | null;
   level?: CourseLevel;
   language?: string;
   outcomes?: string[];

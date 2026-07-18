@@ -43,6 +43,7 @@ const statuses: CourseStatus[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 const levels: CourseLevel[] = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
 
 type ThumbnailMode = "upload" | "url";
+type PricingMode = "free" | "paid";
 
 type CourseFormState = {
   title: string;
@@ -50,7 +51,9 @@ type CourseFormState = {
   description: string;
   thumbnail: string;
   thumbnailPublicId: string;
-  price: string;
+  pricing: PricingMode;
+  salePrice: string;
+  regularPrice: string;
   level: CourseLevel;
   categoryId: string;
   teacherId: string;
@@ -62,7 +65,9 @@ const emptyForm: CourseFormState = {
   description: "",
   thumbnail: "",
   thumbnailPublicId: "",
-  price: "0",
+  pricing: "free",
+  salePrice: "",
+  regularPrice: "",
   level: "BEGINNER",
   categoryId: "",
   teacherId: "",
@@ -127,13 +132,17 @@ export function AdminCoursesPage() {
     if (!modalOpen) return;
     if (editing) {
       const publicId = editing.thumbnailPublicId ?? "";
+      const price = Number(editing.price) || 0;
+      const regularPrice = Number(editing.regularPrice) || 0;
       setForm({
         title: editing.title,
         slug: editing.slug,
         description: editing.description,
         thumbnail: editing.thumbnail ?? "",
         thumbnailPublicId: publicId,
-        price: String(Number(editing.price) || 0),
+        pricing: price > 0 ? "paid" : "free",
+        salePrice: price > 0 ? String(price) : "",
+        regularPrice: regularPrice > 0 ? String(regularPrice) : "",
         level: (String(editing.level).toUpperCase() as CourseLevel) || "BEGINNER",
         categoryId: editing.categoryId || editing.category?.id || "",
         teacherId: editing.teacherId || editing.teacher?.id || "",
@@ -242,13 +251,27 @@ export function AdminCoursesPage() {
       return;
     }
 
+    const isPaid = form.pricing === "paid";
+    const salePrice = Number(form.salePrice) || 0;
+    const regularPrice = Number(form.regularPrice) || 0;
+
+    if (isPaid && salePrice <= 0) {
+      setActionError("Paid course needs a sale price greater than 0");
+      return;
+    }
+    if (isPaid && regularPrice > 0 && regularPrice < salePrice) {
+      setActionError("Regular price should be greater than or equal to the sale price");
+      return;
+    }
+
     const payload = {
       title,
       slug,
       description,
       thumbnail: form.thumbnail.trim() || undefined,
       thumbnailPublicId: form.thumbnailPublicId.trim() || undefined,
-      price: Number(form.price) || 0,
+      price: isPaid ? salePrice : 0,
+      regularPrice: isPaid && regularPrice > 0 ? regularPrice : null,
       level: form.level,
       categoryId,
       teacherId,
@@ -656,16 +679,71 @@ export function AdminCoursesPage() {
             ) : null}
           </div>
 
-          <label className="block space-y-1.5">
+          <div className="space-y-2 sm:col-span-2">
             <span className="text-sm font-semibold text-foreground">Price</span>
-            <Input
-              type="number"
-              min={0}
-              step="0.01"
-              value={form.price}
-              onChange={(e) => setForm((prev) => ({ ...prev, price: e.target.value }))}
-            />
-          </label>
+            <div className="flex flex-wrap gap-4 rounded-xl border border-border bg-muted/20 px-4 py-3">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.pricing === "free"}
+                  onChange={() =>
+                    setForm((prev) => ({
+                      ...prev,
+                      pricing: "free",
+                      salePrice: "",
+                      regularPrice: "",
+                    }))
+                  }
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+                Free
+              </label>
+              <label className="inline-flex cursor-pointer items-center gap-2 text-sm font-medium text-foreground">
+                <input
+                  type="checkbox"
+                  checked={form.pricing === "paid"}
+                  onChange={() => setForm((prev) => ({ ...prev, pricing: "paid" }))}
+                  className="h-4 w-4 rounded border-border accent-primary"
+                />
+                Paid
+              </label>
+            </div>
+
+            {form.pricing === "paid" ? (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    Sale price (students pay this)
+                  </span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.salePrice}
+                    onChange={(e) => setForm((prev) => ({ ...prev, salePrice: e.target.value }))}
+                    placeholder="e.g. 499"
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    Regular price (optional, shown struck-through)
+                  </span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step="0.01"
+                    value={form.regularPrice}
+                    onChange={(e) => setForm((prev) => ({ ...prev, regularPrice: e.target.value }))}
+                    placeholder="e.g. 999"
+                  />
+                </label>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Students can start this course without any payment.
+              </p>
+            )}
+          </div>
 
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold text-foreground">Level</span>

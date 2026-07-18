@@ -40,7 +40,12 @@ export function CourseCard({ course, className }: CourseCardProps) {
         <span className="absolute left-3 top-3 rounded-md bg-white/95 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-[#1877f2] shadow-sm">
           {formatCourseLevel(course.level)}
         </span>
-        <span className="absolute bottom-3 right-3 rounded-md bg-[#ef3239] px-2.5 py-1 text-xs font-bold text-white shadow-sm">
+        <span className="absolute bottom-3 right-3 inline-flex items-baseline gap-1.5 rounded-md bg-[#ef3239] px-2.5 py-1 text-xs font-bold text-white shadow-sm">
+          {course.regularPrice && course.regularPrice > course.price ? (
+            <span className="text-[10px] font-medium text-white/75 line-through">
+              {formatCoursePrice(course.regularPrice)}
+            </span>
+          ) : null}
           {formatCoursePrice(course.price)}
         </span>
       </div>

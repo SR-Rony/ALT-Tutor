@@ -35,6 +35,7 @@ export interface AdminCourse {
   summary?: string | null;
   thumbnail?: string | null;
   thumbnailPublicId?: string | null;
+  regularPrice?: number | string | null;
   promoVideoUrl?: string | null;
   promoVideoPublicId?: string | null;
   price: number | string;

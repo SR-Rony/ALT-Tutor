@@ -24,6 +24,7 @@ type BackendCatalogCourse = {
   summary?: string | null;
   thumbnail?: string | null;
   price: number | string;
+  regularPrice?: number | string | null;
   level?: string;
   language?: string;
   teacher?: BackendTeacher | null;
@@ -102,6 +103,7 @@ function mapCatalogCourse(raw: BackendCatalogCourse): CatalogCourse {
     summary: raw.summary ?? null,
     thumbnail: raw.thumbnail ?? null,
     price: Number(raw.price) || 0,
+    regularPrice: Number(raw.regularPrice) > 0 ? Number(raw.regularPrice) : null,
     level: raw.level ?? "BEGINNER",
     language: raw.language ?? "English",
     teacher: {

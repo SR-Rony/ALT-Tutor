@@ -489,8 +489,23 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
             <div className="overflow-hidden rounded-2xl border border-[#e8edf5]/80 bg-white shadow-[0_16px_40px_-18px_rgba(26,43,94,0.18)]">
               <div className="bg-[linear-gradient(135deg,#1a2b5e_0%,#1877f2_55%,#ef3239_100%)] px-6 py-5 text-white">
                 <p className="text-sm font-medium text-white/80">Course price</p>
-                <p className="mt-1 text-3xl font-extrabold tracking-tight">
-                  {formatCoursePrice(course.price)}
+                <p className="mt-1 flex items-baseline gap-2.5">
+                  <span className="text-3xl font-extrabold tracking-tight">
+                    {formatCoursePrice(course.price)}
+                  </span>
+                  {course.regularPrice && course.regularPrice > course.price ? (
+                    <>
+                      <span className="text-lg font-semibold text-white/60 line-through">
+                        {formatCoursePrice(course.regularPrice)}
+                      </span>
+                      <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-bold">
+                        {Math.round(
+                          ((course.regularPrice - course.price) / course.regularPrice) * 100
+                        )}
+                        % off
+                      </span>
+                    </>
+                  ) : null}
                 </p>
               </div>
               <div className="space-y-4 p-6">

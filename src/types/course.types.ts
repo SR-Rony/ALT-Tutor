@@ -20,6 +20,8 @@ export interface CatalogCourse {
   summary?: string | null;
   thumbnail: string | null;
   price: number;
+  /** Original price shown struck-through when the course is on sale. */
+  regularPrice?: number | null;
   level: CourseLevel | string;
   language?: string;
   teacher: CourseTeacher;
