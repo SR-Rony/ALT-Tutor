@@ -15,6 +15,7 @@ import {
   GraduationCap,
   Layers,
   Loader2,
+  Lock,
   Phone,
   Play,
   PlayCircle,
@@ -127,15 +128,34 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
   const avgRating = averageReviewRating(course.reviews.map((r) => r.rating));
   const learnHref = ROUTES.student.courseLearn(slug);
   const loginNextHref = `${ROUTES.auth.login}?next=${encodeURIComponent(ROUTES.courseDetail(slug))}`;
+  const isFree = Number(course.price) <= 0;
 
-  const onEnroll = async () => {
+  const lessonHref = (lessonId: string) =>
+    `${learnHref}?lesson=${encodeURIComponent(lessonId)}`;
+
+  const onEnroll = async (lessonId?: string) => {
     setEnrollError(null);
     try {
       await enrollCourse.mutateAsync(course.id);
-      router.push(learnHref);
+      router.push(lessonId ? lessonHref(lessonId) : learnHref);
     } catch (err) {
       setEnrollError((err as ApiError)?.message || "Enrollment failed. Please try again.");
     }
+  };
+
+  const onOpenLesson = (lessonId: string) => {
+    if (isEnrolled || (isStudent && isFree)) {
+      // Free courses are watchable without purchase; optional enroll still available from sidebar.
+      router.push(lessonHref(lessonId));
+      return;
+    }
+    if (!isAuthenticated) {
+      router.push(
+        `${ROUTES.auth.login}?next=${encodeURIComponent(lessonHref(lessonId))}`
+      );
+      return;
+    }
+    document.getElementById("enroll")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   const tabs: { id: DetailTab; label: string }[] = [
@@ -441,6 +461,10 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                       description={chapter.description}
                       lessons={chapter.lessons}
                       defaultOpen={index === 0}
+                      canAccess={isEnrolled || isFree}
+                      isFree={isFree}
+                      isPending={enrollCourse.isPending}
+                      onOpenLesson={onOpenLesson}
                     />
                   ))}
                 </div>
@@ -484,19 +508,32 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                     </Button>
                   </>
                 ) : isStudent ? (
-                  <Button
-                    type="button"
-                    variant="default"
-                    size="pillLg"
-                    className="w-full"
-                    disabled={enrollCourse.isPending}
-                    onClick={() => void onEnroll()}
-                  >
-                    {enrollCourse.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
-                    ) : null}
-                    Enroll now
-                  </Button>
+                  isFree ? (
+                    <Button
+                      type="button"
+                      variant="default"
+                      size="pillLg"
+                      className="w-full"
+                      disabled={enrollCourse.isPending}
+                      onClick={() => void onEnroll()}
+                    >
+                      {enrollCourse.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                      ) : (
+                        <Play className="h-4 w-4" aria-hidden />
+                      )}
+                      Start Course — Free
+                    </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      <Button type="button" variant="default" size="pillLg" className="w-full" disabled>
+                        Payment required
+                      </Button>
+                      <p className="text-center text-xs leading-relaxed text-[#64748b]">
+                        This is a paid course. Enroll after checkout to watch lessons.
+                      </p>
+                    </div>
+                  )
                 ) : isAuthenticated ? (
                   <Button asChild variant="default" size="pillLg" className="w-full">
                     <Link
@@ -511,7 +548,9 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                   </Button>
                 ) : (
                   <Button asChild variant="default" size="pillLg" className="w-full">
-                    <Link href={loginNextHref}>Enroll now</Link>
+                    <Link href={loginNextHref}>
+                      {isFree ? "Start Course — Free" : "Log in to enroll"}
+                    </Link>
                   </Button>
                 )}
                 {enrollError ? (
@@ -646,39 +685,54 @@ function ChapterAccordion({
   description,
   lessons,
   defaultOpen,
+  canAccess,
+  isFree,
+  isPending,
+  onOpenLesson,
 }: {
   index: number;
   title: string;
   description?: string | null;
   lessons: { id: string; title: string; type: string; duration?: number | null }[];
   defaultOpen?: boolean;
+  canAccess: boolean;
+  isFree: boolean;
+  isPending: boolean;
+  onOpenLesson: (lessonId: string) => void;
 }) {
   const [open, setOpen] = useState(Boolean(defaultOpen));
+  const chapterDuration = lessons.reduce(
+    (sum, lesson) => sum + (Number(lesson.duration) || 0),
+    0
+  );
 
   return (
-    <div className="overflow-hidden rounded-xl border border-[#eef2f8] bg-[#fafbfd]">
+    <div className="overflow-hidden rounded-xl border border-[#d8c8f1] bg-white">
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center justify-between gap-3 px-4 py-4 text-left sm:px-5"
+        className="flex w-full items-center justify-between gap-3 px-4 py-3.5 text-left transition-colors hover:bg-[#fbf9ff] sm:px-5"
         aria-expanded={open}
       >
-        <div>
-          <p className="text-xs font-bold uppercase tracking-wide text-[#94a3b8]">
-            Chapter {index + 1}
-          </p>
-          <p className="mt-0.5 text-sm font-bold text-[#1a2b5e] sm:text-base">{title}</p>
-          {description ? (
-            <p className="mt-1 text-xs leading-relaxed text-[#64748b] sm:text-sm">{description}</p>
-          ) : null}
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#9b51e0] text-xs font-bold text-white">
+            {index + 1}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-bold text-[#4b3a78] sm:text-base">{title}</p>
+            {description ? (
+              <p className="mt-0.5 line-clamp-1 text-xs text-[#7b7192]">{description}</p>
+            ) : null}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          <span className="hidden text-xs font-semibold text-[#64748b] sm:inline">
-            {lessons.length} lessons
+          <span className="hidden text-xs font-medium text-[#7b7192] sm:inline">
+            {lessons.length} lesson{lessons.length === 1 ? "" : "s"}
+            {chapterDuration > 0 ? ` · ${formatLessonDuration(chapterDuration)}` : ""}
           </span>
           <ChevronDown
             className={cn(
-              "h-5 w-5 text-[#64748b] transition-transform duration-300",
+              "h-4 w-4 text-[#7b7192] transition-transform duration-300",
               open && "rotate-180"
             )}
             aria-hidden
@@ -687,24 +741,52 @@ function ChapterAccordion({
       </button>
 
       {open ? (
-        <ul className="border-t border-[#eef2f8] px-2 pb-2 sm:px-3">
-          {lessons.map((lesson) => {
+        <ul className="space-y-2 border-t border-[#eee7f8] bg-[#fdfcff] p-2.5 sm:p-3">
+          {lessons.map((lesson, lessonIndex) => {
             const duration = formatLessonDuration(lesson.duration);
             const isVideo = lesson.type === "VIDEO";
             return (
-              <li
-                key={lesson.id}
-                className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm text-[#475569]"
-              >
-                {isVideo ? (
-                  <PlayCircle className="h-4 w-4 shrink-0 text-[#ef3239]" aria-hidden />
-                ) : (
-                  <FileText className="h-4 w-4 shrink-0 text-[#1877f2]" aria-hidden />
-                )}
-                <span className="min-w-0 flex-1 font-medium text-[#1a2b5e]">{lesson.title}</span>
-                {duration ? (
-                  <span className="shrink-0 text-xs font-semibold text-[#94a3b8]">{duration}</span>
-                ) : null}
+              <li key={lesson.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenLesson(lesson.id)}
+                  disabled={isPending}
+                  className="group flex w-full items-center gap-3 rounded-lg border border-[#ddd3ea] bg-white px-3 py-3 text-left text-sm transition-all hover:border-[#9b51e0] hover:shadow-sm disabled:cursor-wait disabled:opacity-60"
+                  aria-label={`${canAccess ? "Open" : "Unlock"} lesson ${lesson.title}`}
+                >
+                  <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eef5ff] text-[#1877f2] transition-colors group-hover:bg-[#e5efff]">
+                    {isVideo ? (
+                      <Play className="ml-0.5 h-3.5 w-3.5 fill-current" aria-hidden />
+                    ) : (
+                      <FileText className="h-3.5 w-3.5" aria-hidden />
+                    )}
+                  </span>
+                  <span className="shrink-0 text-xs font-semibold text-[#6b6480]">
+                    {index + 1}.{lessonIndex + 1}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium text-[#3f3654]">
+                    {lesson.title}
+                  </span>
+                  {duration ? (
+                    <span className="hidden shrink-0 text-xs text-[#8a829b] sm:inline">
+                      {duration}
+                    </span>
+                  ) : null}
+                  {canAccess ? (
+                    isFree ? (
+                      <span className="shrink-0 rounded-full bg-[#e9fbf2] px-2 py-0.5 text-[10px] font-bold text-[#16a36a]">
+                        Free
+                      </span>
+                    ) : (
+                      <PlayCircle className="h-4 w-4 shrink-0 text-[#9b51e0]" aria-hidden />
+                    )
+                  ) : (
+                    <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold text-[#8a829b]">
+                      <Lock className="h-3.5 w-3.5" aria-hidden />
+                      Enroll
+                    </span>
+                  )}
+                </button>
               </li>
             );
           })}

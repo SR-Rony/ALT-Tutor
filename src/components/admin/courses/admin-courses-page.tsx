@@ -8,11 +8,15 @@ import {
   CheckCircle2,
   Eye,
   FilePenLine,
+  ImageIcon,
+  Link2,
   ListTree,
+  Loader2,
   Pencil,
   Plus,
   RefreshCw,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { AdminActionsBar, AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
@@ -31,17 +35,21 @@ import {
 } from "@/hooks";
 import { formatMoney, formatShortDate } from "@/lib/format";
 import { slugify } from "@/lib/slugify";
+import { uploadService } from "@/services/upload.service";
 import type { ApiError, AdminCourse, CourseLevel, CourseStatus } from "@/types";
 import { cn } from "@/utils";
 
 const statuses: CourseStatus[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
 const levels: CourseLevel[] = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
 
+type ThumbnailMode = "upload" | "url";
+
 type CourseFormState = {
   title: string;
   slug: string;
   description: string;
   thumbnail: string;
+  thumbnailPublicId: string;
   price: string;
   level: CourseLevel;
   categoryId: string;
@@ -53,6 +61,7 @@ const emptyForm: CourseFormState = {
   slug: "",
   description: "",
   thumbnail: "",
+  thumbnailPublicId: "",
   price: "0",
   level: "BEGINNER",
   categoryId: "",
@@ -89,6 +98,8 @@ export function AdminCoursesPage() {
   const [editing, setEditing] = useState<AdminCourse | null>(null);
   const [form, setForm] = useState<CourseFormState>(emptyForm);
   const [autoSlug, setAutoSlug] = useState(true);
+  const [thumbnailMode, setThumbnailMode] = useState<ThumbnailMode>("upload");
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
 
   const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -115,16 +126,19 @@ export function AdminCoursesPage() {
   useEffect(() => {
     if (!modalOpen) return;
     if (editing) {
+      const publicId = editing.thumbnailPublicId ?? "";
       setForm({
         title: editing.title,
         slug: editing.slug,
         description: editing.description,
         thumbnail: editing.thumbnail ?? "",
+        thumbnailPublicId: publicId,
         price: String(Number(editing.price) || 0),
         level: (String(editing.level).toUpperCase() as CourseLevel) || "BEGINNER",
         categoryId: editing.categoryId || editing.category?.id || "",
         teacherId: editing.teacherId || editing.teacher?.id || "",
       });
+      setThumbnailMode(publicId ? "upload" : "url");
       setAutoSlug(false);
     } else {
       setForm({
@@ -132,8 +146,10 @@ export function AdminCoursesPage() {
         categoryId: categories[0]?.id ?? "",
         teacherId: teachers[0]?.id ?? "",
       });
+      setThumbnailMode("upload");
       setAutoSlug(true);
     }
+    setUploadProgress(null);
   }, [modalOpen, editing, categories, teachers]);
 
   const openCreate = () => {
@@ -149,9 +165,28 @@ export function AdminCoursesPage() {
   };
 
   const closeModal = () => {
-    if (createCourse.isPending || updateCourse.isPending) return;
+    if (createCourse.isPending || updateCourse.isPending || uploadProgress != null) return;
     setModalOpen(false);
     setEditing(null);
+    setUploadProgress(null);
+  };
+
+  const onThumbnailUpload = async (file: File) => {
+    setActionError(null);
+    setUploadProgress(0);
+    try {
+      const result = await uploadService.upload(file, "courses", setUploadProgress);
+      setForm((prev) => ({
+        ...prev,
+        thumbnail: result.url,
+        thumbnailPublicId: result.publicId,
+      }));
+      setThumbnailMode("upload");
+    } catch (err) {
+      setActionError((err as ApiError)?.message || "Thumbnail upload failed");
+    } finally {
+      setUploadProgress(null);
+    }
   };
 
   const onTitleChange = (title: string) => {
@@ -212,6 +247,7 @@ export function AdminCoursesPage() {
       slug,
       description,
       thumbnail: form.thumbnail.trim() || undefined,
+      thumbnailPublicId: form.thumbnailPublicId.trim() || undefined,
       price: Number(form.price) || 0,
       level: form.level,
       categoryId,
@@ -479,14 +515,19 @@ export function AdminCoursesPage() {
               type="button"
               variant="outline"
               onClick={closeModal}
-              disabled={createCourse.isPending || updateCourse.isPending}
+              disabled={createCourse.isPending || updateCourse.isPending || uploadProgress != null}
             >
               Cancel
             </Button>
             <Button
               type="button"
               onClick={() => void onSubmit()}
-              disabled={createCourse.isPending || updateCourse.isPending || categories.length === 0}
+              disabled={
+                createCourse.isPending ||
+                updateCourse.isPending ||
+                uploadProgress != null ||
+                categories.length === 0
+              }
             >
               {createCourse.isPending || updateCourse.isPending
                 ? "Saving..."
@@ -526,14 +567,94 @@ export function AdminCoursesPage() {
             />
           </label>
 
-          <label className="block space-y-1.5 sm:col-span-2">
-            <span className="text-sm font-semibold text-foreground">Thumbnail URL</span>
-            <Input
-              value={form.thumbnail}
-              onChange={(e) => setForm((prev) => ({ ...prev, thumbnail: e.target.value }))}
-              placeholder="https://images.unsplash.com/..."
-            />
-          </label>
+          <div className="space-y-2 sm:col-span-2">
+            <span className="text-sm font-semibold text-foreground">Thumbnail</span>
+            <div className="flex gap-1 rounded-xl border border-border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setThumbnailMode("upload")}
+                className={cn(
+                  "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
+                  thumbnailMode === "upload"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Upload className="h-3.5 w-3.5" aria-hidden />
+                Upload image
+              </button>
+              <button
+                type="button"
+                onClick={() => setThumbnailMode("url")}
+                className={cn(
+                  "inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold transition-colors",
+                  thumbnailMode === "url"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Link2 className="h-3.5 w-3.5" aria-hidden />
+                Image URL
+              </button>
+            </div>
+
+            {thumbnailMode === "upload" ? (
+              <div className="space-y-2">
+                <label
+                  className={cn(
+                    "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-border bg-muted/20 px-4 py-6 text-center transition-colors hover:border-primary/40 hover:bg-primary/5",
+                    uploadProgress != null && "pointer-events-none opacity-70"
+                  )}
+                >
+                  {uploadProgress != null ? (
+                    <Loader2 className="h-5 w-5 animate-spin text-primary" aria-hidden />
+                  ) : (
+                    <ImageIcon className="h-5 w-5 text-muted-foreground" aria-hidden />
+                  )}
+                  <span className="text-sm font-medium text-foreground">
+                    {uploadProgress != null
+                      ? `Uploading… ${uploadProgress}%`
+                      : form.thumbnail
+                        ? "Replace image"
+                        : "Click to upload thumbnail"}
+                  </span>
+                  <span className="text-xs text-muted-foreground">PNG, JPG, WEBP</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={uploadProgress != null}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void onThumbnailUpload(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+            ) : (
+              <Input
+                value={form.thumbnail}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    thumbnail: e.target.value,
+                    thumbnailPublicId: "",
+                  }))
+                }
+                placeholder="https://images.unsplash.com/..."
+              />
+            )}
+
+            {form.thumbnail ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={form.thumbnail}
+                alt="Thumbnail preview"
+                className="h-28 w-full rounded-xl border border-border object-cover"
+              />
+            ) : null}
+          </div>
 
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold text-foreground">Price</span>

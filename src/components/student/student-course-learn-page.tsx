@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
   ArrowRight,
@@ -111,6 +112,8 @@ function LessonPlayer({ lesson }: { lesson: CourseLesson }) {
 }
 
 export function StudentCourseLearnPage({ slug }: Props) {
+  const searchParams = useSearchParams();
+  const requestedLessonId = searchParams.get("lesson");
   const { data: course, isLoading } = useCourseDetail(slug);
   const { data: enrollments = [], isLoading: enrollmentsLoading } = useStudentCourses();
   const [lessonIndex, setLessonIndex] = useState(0);
@@ -125,10 +128,26 @@ export function StudentCourseLearnPage({ slug }: Props) {
       ) ?? null,
     [enrollments, slug]
   );
+  const isFree = Number(course?.price ?? 0) <= 0;
+  const canAccess = Boolean(enrollment) || isFree;
 
   useEffect(() => {
-    if (!course || !enrollment) {
+    if (!course || !canAccess) {
       setContentLessons(null);
+      return;
+    }
+
+    // Free published courses already include watchable content in the public detail payload.
+    if (isFree) {
+      setContentError(null);
+      setContentLessons(
+        course.chapters.flatMap((chapter) =>
+          chapter.lessons.map((lesson) => ({
+            ...lesson,
+            attachments: lesson.attachments ?? [],
+          }))
+        )
+      );
       return;
     }
 
@@ -162,7 +181,7 @@ export function StudentCourseLearnPage({ slug }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [course, enrollment]);
+  }, [canAccess, course, isFree]);
 
   const lessons = useMemo(() => {
     if (!course) return [];
@@ -174,6 +193,12 @@ export function StudentCourseLearnPage({ slug }: Props) {
       }))
     );
   }, [course, contentLessons]);
+
+  useEffect(() => {
+    if (!requestedLessonId || lessons.length === 0) return;
+    const requestedIndex = lessons.findIndex(({ lesson }) => lesson.id === requestedLessonId);
+    if (requestedIndex >= 0) setLessonIndex(requestedIndex);
+  }, [lessons, requestedLessonId]);
 
   if ((isLoading || enrollmentsLoading) && !course) {
     return <PageLoader label="Loading course..." />;
@@ -190,7 +215,7 @@ export function StudentCourseLearnPage({ slug }: Props) {
     );
   }
 
-  if (!enrollment) {
+  if (!canAccess) {
     return (
       <div className="rounded-2xl border border-border bg-card px-6 py-14 text-center">
         <span className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
@@ -198,7 +223,7 @@ export function StudentCourseLearnPage({ slug }: Props) {
         </span>
         <h1 className="text-xl font-bold text-foreground">Enrollment required</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Enroll in this course to access lessons, videos, and downloadable files.
+          This is a paid course. Enroll to access lessons, videos, and downloadable files.
         </p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <Button asChild size="sm">
@@ -217,8 +242,8 @@ export function StudentCourseLearnPage({ slug }: Props) {
     (sum, { lesson }) => sum + (Number(lesson.duration) || 0),
     0
   );
-  const progress = enrollment.progress ?? 0;
-  const isCompleted = String(enrollment.status).toUpperCase() === "COMPLETED";
+  const progress = enrollment?.progress ?? 0;
+  const isCompleted = String(enrollment?.status ?? "").toUpperCase() === "COMPLETED";
 
   return (
     <div className="space-y-6">
