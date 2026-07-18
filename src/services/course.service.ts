@@ -5,6 +5,7 @@ import type {
   CourseChapter,
   CourseDetail,
   CourseLesson,
+  CourseLessonAttachment,
   CourseReview,
   CoursesListResult,
   CoursesQuery,
@@ -20,21 +21,37 @@ type BackendCatalogCourse = {
   title: string;
   slug: string;
   description: string;
+  summary?: string | null;
   thumbnail?: string | null;
   price: number | string;
   level?: string;
+  language?: string;
   teacher?: BackendTeacher | null;
   category?: BackendCategory | null;
   _count?: { enrollments?: number; reviews?: number };
 };
 
+type BackendAttachment = {
+  id: string;
+  filename: string;
+  url: string;
+  mimeType?: string | null;
+  size?: number | null;
+  order: number;
+};
+
 type BackendLesson = {
   id: string;
   title: string;
+  description?: string | null;
+  body?: string | null;
   type: string;
   contentUrl?: string | null;
   duration?: number | null;
   order: number;
+  isPublished?: boolean;
+  isPreview?: boolean;
+  attachments?: BackendAttachment[];
 };
 
 type BackendChapter = {
@@ -54,9 +71,18 @@ type BackendReview = {
 };
 
 type BackendCourseDetail = BackendCatalogCourse & {
+  promoVideoUrl?: string | null;
+  outcomes?: string[];
+  requirements?: string[];
+  targetAudience?: string | null;
+  hasCertificate?: boolean;
+  lifetimeAccess?: boolean;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   chapters?: BackendChapter[];
   reviews?: BackendReview[];
   createdAt?: string;
+  updatedAt?: string;
 };
 
 type BackendListResponse = {
@@ -73,9 +99,11 @@ function mapCatalogCourse(raw: BackendCatalogCourse): CatalogCourse {
     title: raw.title,
     slug: raw.slug,
     description: raw.description,
+    summary: raw.summary ?? null,
     thumbnail: raw.thumbnail ?? null,
     price: Number(raw.price) || 0,
     level: raw.level ?? "BEGINNER",
+    language: raw.language ?? "English",
     teacher: {
       id: raw.teacher?.id ?? "",
       name: raw.teacher?.name ?? "Instructor",
@@ -89,14 +117,30 @@ function mapCatalogCourse(raw: BackendCatalogCourse): CatalogCourse {
   };
 }
 
+function mapAttachment(raw: BackendAttachment): CourseLessonAttachment {
+  return {
+    id: raw.id,
+    filename: raw.filename,
+    url: raw.url,
+    mimeType: raw.mimeType ?? null,
+    size: raw.size ?? null,
+    order: raw.order,
+  };
+}
+
 function mapLesson(raw: BackendLesson): CourseLesson {
   return {
     id: raw.id,
     title: raw.title,
+    description: raw.description ?? null,
+    body: raw.body ?? null,
     type: raw.type,
     contentUrl: raw.contentUrl ?? null,
     duration: raw.duration ?? null,
     order: raw.order,
+    isPublished: raw.isPublished ?? true,
+    isPreview: raw.isPreview ?? false,
+    attachments: (raw.attachments ?? []).map(mapAttachment).sort((a, b) => a.order - b.order),
   };
 }
 
@@ -129,10 +173,19 @@ function mapDetail(raw: BackendCourseDetail): CourseDetail {
   const reviews = (raw.reviews ?? []).map(mapReview);
   return {
     ...base,
+    promoVideoUrl: raw.promoVideoUrl ?? null,
+    outcomes: raw.outcomes ?? [],
+    requirements: raw.requirements ?? [],
+    targetAudience: raw.targetAudience ?? null,
+    hasCertificate: raw.hasCertificate ?? true,
+    lifetimeAccess: raw.lifetimeAccess ?? true,
+    seoTitle: raw.seoTitle ?? null,
+    seoDescription: raw.seoDescription ?? null,
     chapters: (raw.chapters ?? []).map(mapChapter).sort((a, b) => a.order - b.order),
     reviews,
     reviewsCount: reviews.length || base.reviewsCount,
     createdAt: raw.createdAt,
+    updatedAt: raw.updatedAt,
   };
 }
 

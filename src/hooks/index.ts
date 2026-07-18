@@ -6,6 +6,7 @@ export {
   useAdminUsers,
   useAdminUser,
   useAdminCourses,
+  useAdminCourse,
   useAdminCategories,
   useAdminPayments,
   useUpdateUserStatus,
@@ -32,9 +33,14 @@ export {
   useCreateChapter,
   useUpdateChapter,
   useDeleteChapter,
+  useReorderChapters,
   useCreateLesson,
   useUpdateLesson,
   useDeleteLesson,
+  useReorderLessons,
+  useAddLessonAttachment,
+  useUpdateLessonAttachment,
+  useDeleteLessonAttachment,
 } from "./use-curriculum";
 export {
   useStudentDashboard,

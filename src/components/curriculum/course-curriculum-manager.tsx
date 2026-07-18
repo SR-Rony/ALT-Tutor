@@ -1,13 +1,18 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  ArrowDown,
+  ArrowUp,
   ChevronDown,
   FileText,
+  Loader2,
+  Paperclip,
   Pencil,
   PlayCircle,
   Plus,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
@@ -15,15 +20,20 @@ import { PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
+  useAddLessonAttachment,
   useCourseCurriculum,
   useCreateChapter,
   useCreateLesson,
   useDeleteChapter,
   useDeleteLesson,
+  useDeleteLessonAttachment,
+  useReorderChapters,
+  useReorderLessons,
   useUpdateChapter,
   useUpdateLesson,
 } from "@/hooks/use-curriculum";
 import { formatLessonDuration } from "@/lib/course-format";
+import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type {
   CurriculumChapter,
@@ -34,85 +44,104 @@ import { cn } from "@/utils";
 
 const LESSON_TYPES: LessonType[] = ["VIDEO", "PDF", "TEXT"];
 
-type CourseCurriculumManagerProps = {
-  courseId: string;
-  courseTitle?: string;
-};
+type Props = { courseId: string; courseTitle?: string };
 
 type ChapterForm = {
   title: string;
   description: string;
-  order: string;
   isPublished: boolean;
 };
+
 type LessonForm = {
   title: string;
+  description: string;
+  body: string;
   type: LessonType;
   contentUrl: string;
+  contentPublicId: string;
   duration: string;
-  order: string;
+  isPublished: boolean;
+  isPreview: boolean;
 };
 
-const emptyChapter: ChapterForm = {
-  title: "",
-  description: "",
-  order: "0",
-  isPublished: true,
-};
+const emptyChapter: ChapterForm = { title: "", description: "", isPublished: true };
 const emptyLesson: LessonForm = {
   title: "",
+  description: "",
+  body: "",
   type: "VIDEO",
   contentUrl: "",
+  contentPublicId: "",
   duration: "",
-  order: "0",
+  isPublished: true,
+  isPreview: false,
 };
 
 function fieldClass() {
   return "flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm outline-none transition focus:border-primary/40 focus:ring-2 focus:ring-primary/15";
 }
 
-export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurriculumManagerProps) {
+export function CourseCurriculumManager({ courseId, courseTitle }: Props) {
   const { data: chapters = [], isLoading, error, refetch } = useCourseCurriculum(courseId);
   const createChapter = useCreateChapter(courseId);
   const updateChapter = useUpdateChapter(courseId);
   const deleteChapter = useDeleteChapter(courseId);
+  const reorderChapters = useReorderChapters(courseId);
   const createLesson = useCreateLesson(courseId);
   const updateLesson = useUpdateLesson(courseId);
   const deleteLesson = useDeleteLesson(courseId);
+  const reorderLessons = useReorderLessons(courseId);
+  const addAttachment = useAddLessonAttachment(courseId);
+  const deleteAttachment = useDeleteLessonAttachment(courseId);
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [actionError, setActionError] = useState<string | null>(null);
+  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
 
   const [chapterModal, setChapterModal] = useState(false);
   const [editingChapter, setEditingChapter] = useState<CurriculumChapter | null>(null);
   const [chapterForm, setChapterForm] = useState<ChapterForm>(emptyChapter);
+  const [confirmDeleteChapter, setConfirmDeleteChapter] = useState<CurriculumChapter | null>(null);
 
   const [lessonModal, setLessonModal] = useState(false);
   const [lessonChapterId, setLessonChapterId] = useState<string | null>(null);
   const [editingLesson, setEditingLesson] = useState<CurriculumLesson | null>(null);
   const [lessonForm, setLessonForm] = useState<LessonForm>(emptyLesson);
+  const [confirmDeleteLesson, setConfirmDeleteLesson] = useState<CurriculumLesson | null>(null);
 
   const busy =
     createChapter.isPending ||
     updateChapter.isPending ||
     deleteChapter.isPending ||
+    reorderChapters.isPending ||
     createLesson.isPending ||
     updateLesson.isPending ||
-    deleteLesson.isPending;
+    deleteLesson.isPending ||
+    reorderLessons.isPending ||
+    addAttachment.isPending ||
+    deleteAttachment.isPending ||
+    uploading;
 
-  const nextChapterOrder = useMemo(
-    () => (chapters.length ? Math.max(...chapters.map((c) => c.order || 0)) + 1 : 1),
+  const sortedChapters = useMemo(
+    () => [...chapters].sort((a, b) => a.order - b.order),
     [chapters]
   );
 
+  useEffect(() => {
+    if (!editingLesson) return;
+    for (const chapter of chapters) {
+      const found = chapter.lessons.find((l) => l.id === editingLesson.id);
+      if (found) {
+        setEditingLesson(found);
+        break;
+      }
+    }
+  }, [chapters, editingLesson?.id]);
+
   const openCreateChapter = () => {
     setEditingChapter(null);
-    setChapterForm({
-      title: "",
-      description: "",
-      order: String(nextChapterOrder),
-      isPublished: true,
-    });
+    setChapterForm(emptyChapter);
     setActionError(null);
     setChapterModal(true);
   };
@@ -122,7 +151,6 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
     setChapterForm({
       title: chapter.title,
       description: chapter.description ?? "",
-      order: String(chapter.order ?? 0),
       isPublished: chapter.isPublished ?? true,
     });
     setActionError(null);
@@ -130,12 +158,9 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
   };
 
   const openCreateLesson = (chapter: CurriculumChapter) => {
-    const nextOrder = chapter.lessons.length
-      ? Math.max(...chapter.lessons.map((l) => l.order || 0)) + 1
-      : 1;
     setLessonChapterId(chapter.id);
     setEditingLesson(null);
-    setLessonForm({ ...emptyLesson, order: String(nextOrder) });
+    setLessonForm(emptyLesson);
     setActionError(null);
     setLessonModal(true);
     setExpanded((prev) => ({ ...prev, [chapter.id]: true }));
@@ -146,10 +171,14 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
     setEditingLesson(lesson);
     setLessonForm({
       title: lesson.title,
+      description: lesson.description ?? "",
+      body: lesson.body ?? "",
       type: (String(lesson.type).toUpperCase() as LessonType) || "VIDEO",
       contentUrl: lesson.contentUrl ?? "",
-      duration: lesson.duration != null ? String(lesson.duration) : "",
-      order: String(lesson.order ?? 0),
+      contentPublicId: lesson.contentPublicId ?? "",
+      duration: lesson.duration != null ? String(Math.round((lesson.duration || 0) / 60) || "") : "",
+      isPublished: lesson.isPublished ?? true,
+      isPreview: lesson.isPreview ?? false,
     });
     setActionError(null);
     setLessonModal(true);
@@ -161,16 +190,12 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
       setActionError("Chapter title is required");
       return;
     }
-    const description = chapterForm.description.trim();
-    const order = Number(chapterForm.order) || 0;
-    const isPublished = chapterForm.isPublished;
     setActionError(null);
     try {
       const payload = {
         title,
-        description: description || undefined,
-        order,
-        isPublished,
+        description: chapterForm.description.trim() || undefined,
+        isPublished: chapterForm.isPublished,
       };
       if (editingChapter) {
         await updateChapter.mutateAsync({ id: editingChapter.id, payload });
@@ -184,16 +209,91 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
     }
   };
 
-  const onDeleteChapter = async (chapter: CurriculumChapter) => {
-    const confirmed = window.confirm(
-      `Delete chapter "${chapter.title}" and all its lessons? This cannot be undone.`
-    );
-    if (!confirmed) return;
+  const onDeleteChapter = async () => {
+    if (!confirmDeleteChapter) return;
     setActionError(null);
     try {
-      await deleteChapter.mutateAsync(chapter.id);
+      await deleteChapter.mutateAsync(confirmDeleteChapter.id);
+      setConfirmDeleteChapter(null);
     } catch (err) {
       setActionError((err as ApiError)?.message || "Failed to delete chapter");
+    }
+  };
+
+  const moveChapter = async (index: number, direction: -1 | 1) => {
+    const next = index + direction;
+    if (next < 0 || next >= sortedChapters.length) return;
+    const ids = sortedChapters.map((c) => c.id);
+    [ids[index], ids[next]] = [ids[next], ids[index]];
+    try {
+      await reorderChapters.mutateAsync(ids);
+    } catch (err) {
+      setActionError((err as ApiError)?.message || "Failed to reorder chapters");
+    }
+  };
+
+  const moveLesson = async (chapter: CurriculumChapter, index: number, direction: -1 | 1) => {
+    const lessons = [...chapter.lessons].sort((a, b) => a.order - b.order);
+    const next = index + direction;
+    if (next < 0 || next >= lessons.length) return;
+    const ids = lessons.map((l) => l.id);
+    [ids[index], ids[next]] = [ids[next], ids[index]];
+    try {
+      await reorderLessons.mutateAsync({ chapterId: chapter.id, lessonIds: ids });
+    } catch (err) {
+      setActionError((err as ApiError)?.message || "Failed to reorder lessons");
+    }
+  };
+
+  const onUploadContent = async (file: File) => {
+    setUploading(true);
+    setUploadProgress(0);
+    setActionError(null);
+    try {
+      const result = await uploadService.upload(file, "lessons", setUploadProgress);
+      setLessonForm((prev) => ({
+        ...prev,
+        contentUrl: result.url,
+        contentPublicId: result.publicId,
+        type: file.type.startsWith("video/")
+          ? "VIDEO"
+          : file.type === "application/pdf"
+            ? "PDF"
+            : prev.type,
+      }));
+    } catch (err) {
+      setActionError((err as ApiError)?.message || "Upload failed");
+    } finally {
+      setUploading(false);
+      setUploadProgress(null);
+    }
+  };
+
+  const onUploadAttachment = async (file: File) => {
+    if (!editingLesson) {
+      setActionError("Save the lesson first, then add attachments.");
+      return;
+    }
+    setUploading(true);
+    setUploadProgress(0);
+    setActionError(null);
+    try {
+      const result = await uploadService.upload(file, "lessons", setUploadProgress);
+      await addAttachment.mutateAsync({
+        lessonId: editingLesson.id,
+        payload: {
+          filename: result.filename || file.name,
+          url: result.url,
+          publicId: result.publicId,
+          mimeType: result.mimeType || file.type,
+          size: result.size ?? file.size,
+        },
+      });
+    } catch (err) {
+      setActionError((err as ApiError)?.message || "Attachment upload failed");
+    } finally {
+      setUploading(false);
+      setUploadProgress(null);
     }
   };
 
@@ -204,18 +304,24 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
       return;
     }
     setActionError(null);
+    const minutes = Number(lessonForm.duration) || 0;
     const payload = {
       title,
+      description: lessonForm.description.trim() || undefined,
+      body: lessonForm.body.trim() || undefined,
       type: lessonForm.type,
       contentUrl: lessonForm.contentUrl.trim() || undefined,
-      duration: lessonForm.duration ? Number(lessonForm.duration) : undefined,
-      order: Number(lessonForm.order) || 0,
+      contentPublicId: lessonForm.contentPublicId.trim() || undefined,
+      duration: minutes > 0 ? minutes * 60 : undefined,
+      isPublished: lessonForm.isPublished,
+      isPreview: lessonForm.isPreview,
+      chapterId: lessonChapterId,
     };
     try {
       if (editingLesson) {
         await updateLesson.mutateAsync({ id: editingLesson.id, payload });
       } else {
-        await createLesson.mutateAsync({ ...payload, chapterId: lessonChapterId });
+        await createLesson.mutateAsync(payload);
       }
       setLessonModal(false);
     } catch (err) {
@@ -223,20 +329,18 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
     }
   };
 
-  const onDeleteLesson = async (lesson: CurriculumLesson) => {
-    const confirmed = window.confirm(`Delete lesson "${lesson.title}"?`);
-    if (!confirmed) return;
+  const onDeleteLesson = async () => {
+    if (!confirmDeleteLesson) return;
     setActionError(null);
     try {
-      await deleteLesson.mutateAsync(lesson.id);
+      await deleteLesson.mutateAsync(confirmDeleteLesson.id);
+      setConfirmDeleteLesson(null);
     } catch (err) {
       setActionError((err as ApiError)?.message || "Failed to delete lesson");
     }
   };
 
-  if (isLoading) {
-    return <PageLoader label="Loading curriculum..." />;
-  }
+  if (isLoading) return <PageLoader label="Loading curriculum..." />;
 
   return (
     <div className="space-y-4">
@@ -245,11 +349,11 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
           <h2 className="text-lg font-bold text-foreground">Curriculum</h2>
           <p className="text-sm text-muted-foreground">
             {courseTitle
-              ? `Chapters and lessons for “${courseTitle}”.`
-              : "Manage chapters and lessons for this course."}
+              ? `Chapters, lessons, videos, and files for “${courseTitle}”.`
+              : "Manage chapters, lessons, videos, and downloadable files."}
           </p>
         </div>
-        <Button type="button" size="sm" onClick={openCreateChapter}>
+        <Button type="button" size="sm" onClick={openCreateChapter} disabled={busy}>
           <Plus className="h-4 w-4" aria-hidden />
           Add chapter
         </Button>
@@ -266,11 +370,11 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
         </p>
       ) : null}
 
-      {!chapters.length ? (
+      {!sortedChapters.length ? (
         <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center">
           <p className="font-semibold text-foreground">No chapters yet</p>
           <p className="mt-1 text-sm text-muted-foreground">
-            Create a chapter, then add video, PDF, or text lessons under it.
+            Create a chapter, then add lessons with video and downloadable files.
           </p>
           <Button type="button" className="mt-5" size="sm" onClick={openCreateChapter}>
             <Plus className="h-4 w-4" aria-hidden />
@@ -279,8 +383,9 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
         </div>
       ) : (
         <div className="space-y-3">
-          {chapters.map((chapter, index) => {
+          {sortedChapters.map((chapter, index) => {
             const isOpen = expanded[chapter.id] ?? index === 0;
+            const lessons = [...chapter.lessons].sort((a, b) => a.order - b.order);
             return (
               <div
                 key={chapter.id}
@@ -309,87 +414,59 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
                         {chapter.title}
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        {chapter.lessons.length} lesson{chapter.lessons.length === 1 ? "" : "s"} ·
-                        order {chapter.order}
+                        {lessons.length} lesson{lessons.length === 1 ? "" : "s"}
                         {chapter.isPublished === false ? " · draft" : " · published"}
                       </p>
-                      {chapter.description ? (
-                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{chapter.description}</p>
-                      ) : null}
                     </div>
                   </button>
-                  <AdminIconAction
-                    label="Add lesson"
-                    icon={Plus}
-                    tone="success"
-                    disabled={busy}
-                    onClick={() => openCreateLesson(chapter)}
-                  />
-                  <AdminIconAction
-                    label="Edit chapter"
-                    icon={Pencil}
-                    tone="primary"
-                    disabled={busy}
-                    onClick={() => openEditChapter(chapter)}
-                  />
-                  <AdminIconAction
-                    label="Delete chapter"
-                    icon={Trash2}
-                    tone="danger"
-                    disabled={busy}
-                    onClick={() => void onDeleteChapter(chapter)}
-                  />
+                  <AdminIconAction label="Move up" onClick={() => void moveChapter(index, -1)} disabled={busy || index === 0} icon={ArrowUp} />
+                  <AdminIconAction label="Move down" onClick={() => void moveChapter(index, 1)} disabled={busy || index === sortedChapters.length - 1} icon={ArrowDown} />
+                  <AdminIconAction label="Edit chapter" onClick={() => openEditChapter(chapter)} icon={Pencil} />
+                  <AdminIconAction label="Add lesson" onClick={() => openCreateLesson(chapter)} icon={Plus} />
+                  <AdminIconAction label="Delete chapter" onClick={() => setConfirmDeleteChapter(chapter)} tone="danger" icon={Trash2} />
                 </div>
 
                 {isOpen ? (
-                  <ul className="divide-y divide-border">
-                    {!chapter.lessons.length ? (
-                      <li className="px-4 py-6 text-center text-sm text-muted-foreground">
-                        No lessons in this chapter yet.
-                      </li>
+                  <div className="space-y-2 p-3">
+                    {!lessons.length ? (
+                      <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                        No lessons yet.{" "}
+                        <button type="button" className="font-semibold text-primary underline" onClick={() => openCreateLesson(chapter)}>
+                          Add a lesson
+                        </button>
+                      </div>
                     ) : (
-                      chapter.lessons.map((lesson) => {
-                        const isVideo = String(lesson.type).toUpperCase() === "VIDEO";
-                        const duration = formatLessonDuration(lesson.duration);
-                        return (
-                          <li
-                            key={lesson.id}
-                            className="flex items-center gap-3 px-4 py-3 hover:bg-muted/30"
-                          >
-                            {isVideo ? (
-                              <PlayCircle className="h-4 w-4 shrink-0 text-accent" aria-hidden />
-                            ) : (
-                              <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden />
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate text-sm font-semibold text-foreground">
-                                {lesson.title}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {String(lesson.type).toLowerCase()}
-                                {duration ? ` · ${duration}` : ""}
-                                {lesson.contentUrl ? " · content set" : " · no content URL"}
-                              </p>
-                            </div>
-                            <AdminIconAction
-                              label="Edit lesson"
-                              icon={Pencil}
-                              tone="primary"
-                              disabled={busy}
-                              onClick={() => openEditLesson(chapter.id, lesson)}
-                            />
-                            <AdminIconAction
-                              label="Delete lesson"
-                              icon={Trash2}
-                              tone="danger"
-                              disabled={busy}
-                              onClick={() => void onDeleteLesson(lesson)}
-                            />
-                          </li>
-                        );
-                      })
+                      lessons.map((lesson, lessonIndex) => (
+                        <div
+                          key={lesson.id}
+                          className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/30 px-3 py-3"
+                        >
+                          {String(lesson.type).toUpperCase() === "VIDEO" ? (
+                            <PlayCircle className="h-4 w-4 shrink-0 text-accent" aria-hidden />
+                          ) : (
+                            <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-semibold text-foreground">{lesson.title}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {String(lesson.type)}
+                              {lesson.duration ? ` · ${formatLessonDuration(lesson.duration)}` : ""}
+                              {lesson.contentUrl ? " · content ready" : " · no content"}
+                              {(lesson.attachments?.length ?? 0) > 0
+                                ? ` · ${lesson.attachments!.length} file${lesson.attachments!.length === 1 ? "" : "s"}`
+                                : ""}
+                              {lesson.isPublished === false ? " · draft" : ""}
+                              {lesson.isPreview ? " · free preview" : ""}
+                            </p>
+                          </div>
+                          <AdminIconAction label="Move up" onClick={() => void moveLesson(chapter, lessonIndex, -1)} disabled={busy || lessonIndex === 0} icon={ArrowUp} />
+                          <AdminIconAction label="Move down" onClick={() => void moveLesson(chapter, lessonIndex, 1)} disabled={busy || lessonIndex === lessons.length - 1} icon={ArrowDown} />
+                          <AdminIconAction label="Edit lesson" onClick={() => openEditLesson(chapter.id, lesson)} icon={Pencil} />
+                          <AdminIconAction label="Delete lesson" onClick={() => setConfirmDeleteLesson(lesson)} tone="danger" icon={Trash2} />
+                        </div>
+                      ))
                     )}
-                  </ul>
+                  </div>
                 ) : null}
               </div>
             );
@@ -399,139 +476,225 @@ export function CourseCurriculumManager({ courseId, courseTitle }: CourseCurricu
 
       <AdminModal
         open={chapterModal}
-        title={editingChapter ? "Update chapter" : "Create chapter"}
-        description="Chapters group lessons inside a course."
         onClose={() => !busy && setChapterModal(false)}
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" disabled={busy} onClick={() => setChapterModal(false)}>
-              Cancel
-            </Button>
-            <Button type="button" disabled={busy} onClick={() => void onSaveChapter()}>
-              {busy ? "Saving..." : editingChapter ? "Update" : "Create"}
-            </Button>
-          </div>
-        }
+        title={editingChapter ? "Edit chapter" : "Add chapter"}
+        description="Chapters group lessons in order for students."
       >
-        <div className="space-y-4">
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Title</span>
-            <Input
-              value={chapterForm.title}
-              onChange={(e) => setChapterForm((p) => ({ ...p, title: e.target.value }))}
-              placeholder="e.g. Getting Started"
-              autoFocus
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Description</span>
-            <textarea
-              value={chapterForm.description}
-              onChange={(e) => setChapterForm((p) => ({ ...p, description: e.target.value }))}
-              rows={3}
-              placeholder="Short summary of what this chapter covers..."
-              className={cn(fieldClass(), "h-auto py-2.5")}
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Order</span>
-            <Input
-              type="number"
-              min={0}
-              value={chapterForm.order}
-              onChange={(e) => setChapterForm((p) => ({ ...p, order: e.target.value }))}
-            />
-          </label>
-          <label className="flex cursor-pointer items-center gap-3 rounded-xl border border-border bg-muted/30 px-4 py-3">
+        <div className="space-y-3">
+          <Input
+            value={chapterForm.title}
+            onChange={(e) => setChapterForm((p) => ({ ...p, title: e.target.value }))}
+            placeholder="Chapter title"
+          />
+          <textarea
+            value={chapterForm.description}
+            onChange={(e) => setChapterForm((p) => ({ ...p, description: e.target.value }))}
+            placeholder="Optional description"
+            rows={3}
+            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+          />
+          <label className="flex items-center gap-2 text-sm">
             <input
               type="checkbox"
               checked={chapterForm.isPublished}
               onChange={(e) => setChapterForm((p) => ({ ...p, isPublished: e.target.checked }))}
-              className="h-4 w-4 rounded border-border text-primary focus:ring-primary/30"
             />
-            <span className="text-sm">
-              <span className="font-semibold text-foreground">Publish chapter</span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">
-                Unpublished chapters stay hidden on the public course page.
-              </span>
-            </span>
+            Published
           </label>
-          {actionError ? <p className="text-sm text-accent">{actionError}</p> : null}
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setChapterModal(false)}>
+              Cancel
+            </Button>
+            <Button type="button" size="sm" disabled={busy} onClick={() => void onSaveChapter()}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save chapter
+            </Button>
+          </div>
         </div>
       </AdminModal>
 
       <AdminModal
         open={lessonModal}
-        title={editingLesson ? "Update lesson" : "Create lesson"}
-        description="Add VIDEO, PDF, or TEXT content under a chapter."
         onClose={() => !busy && setLessonModal(false)}
-        className="sm:max-w-lg"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" disabled={busy} onClick={() => setLessonModal(false)}>
-              Cancel
-            </Button>
-            <Button type="button" disabled={busy} onClick={() => void onSaveLesson()}>
-              {busy ? "Saving..." : editingLesson ? "Update" : "Create"}
-            </Button>
-          </div>
-        }
+        title={editingLesson ? "Edit lesson" : "Add lesson"}
+        description="Add a main video/PDF/text lesson plus optional downloadable files."
+        className="max-w-2xl"
       >
-        <div className="space-y-4">
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Title</span>
-            <Input
-              value={lessonForm.title}
-              onChange={(e) => setLessonForm((p) => ({ ...p, title: e.target.value }))}
-              placeholder="e.g. JSX & Components"
-              autoFocus
-            />
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Type</span>
+        <div className="max-h-[70vh] space-y-3 overflow-y-auto pr-1">
+          <Input
+            value={lessonForm.title}
+            onChange={(e) => setLessonForm((p) => ({ ...p, title: e.target.value }))}
+            placeholder="Lesson title"
+          />
+          <Input
+            value={lessonForm.description}
+            onChange={(e) => setLessonForm((p) => ({ ...p, description: e.target.value }))}
+            placeholder="Short lesson description"
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
             <select
               value={lessonForm.type}
-              onChange={(e) =>
-                setLessonForm((p) => ({ ...p, type: e.target.value as LessonType }))
-              }
+              onChange={(e) => setLessonForm((p) => ({ ...p, type: e.target.value as LessonType }))}
               className={fieldClass()}
             >
               {LESSON_TYPES.map((type) => (
-                <option key={type} value={type}>
-                  {type}
-                </option>
+                <option key={type} value={type}>{type}</option>
               ))}
             </select>
-          </label>
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Content URL</span>
+            <Input
+              type="number"
+              min={0}
+              value={lessonForm.duration}
+              onChange={(e) => setLessonForm((p) => ({ ...p, duration: e.target.value }))}
+              placeholder="Duration (minutes)"
+            />
+          </div>
+
+          <div className="rounded-xl border border-border bg-muted/30 p-3">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Main content
+            </p>
             <Input
               value={lessonForm.contentUrl}
-              onChange={(e) => setLessonForm((p) => ({ ...p, contentUrl: e.target.value }))}
-              placeholder="https://... or /uploads/..."
+              onChange={(e) => setLessonForm((p) => ({ ...p, contentUrl: e.target.value, contentPublicId: "" }))}
+              placeholder="Paste YouTube / video / PDF URL"
             />
-          </label>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Duration (seconds)</span>
-              <Input
-                type="number"
-                min={0}
-                value={lessonForm.duration}
-                onChange={(e) => setLessonForm((p) => ({ ...p, duration: e.target.value }))}
-                placeholder="720"
+            <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted">
+              <Upload className="h-4 w-4" aria-hidden />
+              Upload video or PDF
+              <input
+                type="file"
+                className="hidden"
+                accept="video/*,application/pdf"
+                disabled={busy}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void onUploadContent(file);
+                  e.target.value = "";
+                }}
               />
             </label>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Order</span>
-              <Input
-                type="number"
-                value={lessonForm.order}
-                onChange={(e) => setLessonForm((p) => ({ ...p, order: e.target.value }))}
+            {uploadProgress != null ? (
+              <p className="mt-2 text-xs text-muted-foreground">Uploading… {uploadProgress}%</p>
+            ) : null}
+            {lessonForm.contentUrl ? (
+              <p className="mt-2 truncate text-xs text-primary">{lessonForm.contentUrl}</p>
+            ) : null}
+          </div>
+
+          {lessonForm.type === "TEXT" ? (
+            <textarea
+              value={lessonForm.body}
+              onChange={(e) => setLessonForm((p) => ({ ...p, body: e.target.value }))}
+              placeholder="Lesson text body"
+              rows={5}
+              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+            />
+          ) : null}
+
+          <div className="flex flex-wrap gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={lessonForm.isPublished}
+                onChange={(e) => setLessonForm((p) => ({ ...p, isPublished: e.target.checked }))}
               />
+              Published
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={lessonForm.isPreview}
+                onChange={(e) => setLessonForm((p) => ({ ...p, isPreview: e.target.checked }))}
+              />
+              Free preview
             </label>
           </div>
-          {actionError ? <p className="text-sm text-accent">{actionError}</p> : null}
+
+          {editingLesson ? (
+            <div className="rounded-xl border border-border bg-muted/30 p-3">
+              <div className="mb-2 flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Downloadable files
+                </p>
+                <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs font-semibold text-primary">
+                  <Paperclip className="h-3.5 w-3.5" aria-hidden />
+                  Add file
+                  <input
+                    type="file"
+                    className="hidden"
+                    disabled={busy}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) void onUploadAttachment(file);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+              </div>
+              {(editingLesson.attachments ?? []).length === 0 ? (
+                <p className="text-xs text-muted-foreground">No attachments yet.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {(editingLesson.attachments ?? []).map((file) => (
+                    <li key={file.id} className="flex items-center justify-between gap-2 rounded-lg bg-card px-3 py-2 text-sm">
+                      <span className="truncate">{file.filename}</span>
+                      <button
+                        type="button"
+                        className="text-accent"
+                        disabled={busy}
+                        onClick={() => void deleteAttachment.mutateAsync(file.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Save the lesson first to attach downloadable files.
+            </p>
+          )}
+
+          <div className="flex justify-end gap-2 pt-2">
+            <Button type="button" variant="outline" size="sm" disabled={busy} onClick={() => setLessonModal(false)}>
+              Cancel
+            </Button>
+            <Button type="button" size="sm" disabled={busy} onClick={() => void onSaveLesson()}>
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Save lesson
+            </Button>
+          </div>
+        </div>
+      </AdminModal>
+
+      <AdminModal
+        open={Boolean(confirmDeleteChapter)}
+        onClose={() => setConfirmDeleteChapter(null)}
+        title="Delete chapter?"
+        description="This will permanently delete the chapter and all lessons inside it."
+      >
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeleteChapter(null)}>Cancel</Button>
+          <Button type="button" size="sm" className="bg-accent hover:bg-accent/90" disabled={busy} onClick={() => void onDeleteChapter()}>
+            Delete chapter
+          </Button>
+        </div>
+      </AdminModal>
+
+      <AdminModal
+        open={Boolean(confirmDeleteLesson)}
+        onClose={() => setConfirmDeleteLesson(null)}
+        title="Delete lesson?"
+        description="This will permanently delete the lesson, its video, and all attachments."
+      >
+        <div className="flex justify-end gap-2">
+          <Button type="button" variant="outline" size="sm" onClick={() => setConfirmDeleteLesson(null)}>Cancel</Button>
+          <Button type="button" size="sm" className="bg-accent hover:bg-accent/90" disabled={busy} onClick={() => void onDeleteLesson()}>
+            Delete lesson
+          </Button>
         </div>
       </AdminModal>
     </div>

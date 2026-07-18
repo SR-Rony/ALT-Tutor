@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
+  Award,
   BookOpen,
   Calendar,
   CheckCircle2,
@@ -174,7 +175,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
             {course.title}
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-[#64748b] sm:text-base">
-            {course.description}
+            {course.summary?.trim() || course.description}
           </p>
 
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm text-[#475569]">
@@ -208,10 +209,10 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
               <span className="font-bold text-[#1a2b5e]">{course.teacher.name}</span>
             </span>
 
-            {course.createdAt ? (
+            {course.updatedAt || course.createdAt ? (
               <span className="inline-flex items-center gap-1.5 font-medium">
                 <Calendar className="h-4 w-4 text-[#f97316]" aria-hidden />
-                Last updated {formatShortDate(course.createdAt)}
+                Last updated {formatShortDate(course.updatedAt || course.createdAt!)}
               </span>
             ) : null}
 
@@ -225,10 +226,12 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
       <section className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:py-12">
         <div className="grid gap-8 lg:grid-cols-[1fr_20rem] xl:grid-cols-[1fr_22rem]">
           <div className="space-y-6">
-            {/* Preview player */}
+            {/* Preview / promo player */}
             <div className="overflow-hidden rounded-2xl border border-[#e8edf5]/80 bg-white shadow-[0_16px_40px_-18px_rgba(26,43,94,0.18)]">
               <div className="relative aspect-video bg-[#e8edf5]">
-                {course.thumbnail ? (
+                {course.promoVideoUrl ? (
+                  <PromoPlayer url={course.promoVideoUrl} title={course.title} />
+                ) : course.thumbnail ? (
                   <Image
                     src={course.thumbnail}
                     alt={course.title}
@@ -242,16 +245,20 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                     <BookOpen className="h-16 w-16 text-white/80" aria-hidden />
                   </div>
                 )}
-                <div className="absolute inset-0 bg-black/10" />
-                <Link
-                  href={isEnrolled ? learnHref : isAuthenticated ? "#enroll" : loginNextHref}
-                  aria-label={isEnrolled ? "Start course" : "Enroll to start"}
-                  className="absolute inset-0 flex items-center justify-center"
-                >
-                  <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#ef3239] text-white shadow-[0_12px_30px_-8px_rgba(239,50,57,0.6)] transition-transform hover:scale-105">
-                    <Play className="ml-1 h-7 w-7 fill-current" aria-hidden />
-                  </span>
-                </Link>
+                {!course.promoVideoUrl ? (
+                  <>
+                    <div className="absolute inset-0 bg-black/10" />
+                    <Link
+                      href={isEnrolled ? learnHref : isAuthenticated ? "#enroll" : loginNextHref}
+                      aria-label={isEnrolled ? "Start course" : "Enroll to start"}
+                      className="absolute inset-0 flex items-center justify-center"
+                    >
+                      <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#ef3239] text-white shadow-[0_12px_30px_-8px_rgba(239,50,57,0.6)] transition-transform hover:scale-105">
+                        <Play className="ml-1 h-7 w-7 fill-current" aria-hidden />
+                      </span>
+                    </Link>
+                  </>
+                ) : null}
               </div>
             </div>
 
@@ -301,6 +308,38 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                         </div>
                       ))}
                     </div>
+
+                    {(course.outcomes?.length ?? 0) > 0 ? (
+                      <div className="mt-8">
+                        <h3 className="text-base font-bold text-[#1a2b5e]">What you will learn</h3>
+                        <ul className="mt-3 space-y-2">
+                          {course.outcomes!.map((item) => (
+                            <li key={item} className="flex items-start gap-2 text-sm text-[#475569]">
+                              <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#16a34a]" aria-hidden />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {(course.requirements?.length ?? 0) > 0 ? (
+                      <div className="mt-8">
+                        <h3 className="text-base font-bold text-[#1a2b5e]">Requirements</h3>
+                        <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-[#475569]">
+                          {course.requirements!.map((item) => (
+                            <li key={item}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null}
+
+                    {course.targetAudience ? (
+                      <div className="mt-8">
+                        <h3 className="text-base font-bold text-[#1a2b5e]">Who this course is for</h3>
+                        <p className="mt-2 text-sm text-[#64748b]">{course.targetAudience}</p>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
 
@@ -517,7 +556,15 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                   </li>
                   <li className="flex items-center gap-2.5">
                     <CheckCircle2 className="h-4 w-4 shrink-0 text-[#16a34a]" aria-hidden />
-                    Lifetime access after enrollment
+                    {course.lifetimeAccess === false
+                      ? "Access while enrolled"
+                      : "Lifetime access after enrollment"}
+                  </li>
+                  <li className="flex items-center gap-2.5">
+                    <Award className="h-4 w-4 shrink-0 text-[#f59e0b]" aria-hidden />
+                    {course.hasCertificate === false
+                      ? "No certificate for this course"
+                      : "Certificate on completion"}
                   </li>
                 </ul>
               </div>
@@ -555,6 +602,42 @@ function FaqAccordion({ question, answer }: { question: string; answer: string }
       ) : null}
     </div>
   );
+}
+
+function youtubeEmbedUrl(url: string): string | null {
+  try {
+    const u = new URL(url);
+    if (u.hostname === "youtu.be") {
+      const id = u.pathname.slice(1);
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    if (u.hostname.includes("youtube.com")) {
+      const id = u.searchParams.get("v");
+      if (id) return `https://www.youtube.com/embed/${id}`;
+      const parts = u.pathname.split("/").filter(Boolean);
+      if (parts[0] === "embed" && parts[1]) return `https://www.youtube.com/embed/${parts[1]}`;
+      if (parts[0] === "shorts" && parts[1]) return `https://www.youtube.com/embed/${parts[1]}`;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function PromoPlayer({ url, title }: { url: string; title: string }) {
+  const yt = youtubeEmbedUrl(url);
+  if (yt) {
+    return (
+      <iframe
+        src={yt}
+        title={`${title} promo`}
+        className="absolute inset-0 h-full w-full"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+        allowFullScreen
+      />
+    );
+  }
+  return <video src={url} controls className="absolute inset-0 h-full w-full bg-black object-contain" />;
 }
 
 function ChapterAccordion({

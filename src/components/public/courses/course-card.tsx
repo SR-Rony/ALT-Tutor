@@ -56,7 +56,9 @@ export function CourseCard({ course, className }: CourseCardProps) {
           {course.title}
         </h3>
 
-        <p className="line-clamp-2 text-sm leading-relaxed text-[#64748b]">{course.description}</p>
+        <p className="line-clamp-2 text-sm leading-relaxed text-[#64748b]">
+          {course.summary?.trim() || course.description}
+        </p>
 
         <div className="mt-auto flex items-center justify-between gap-3 border-t border-[#eef2f8] pt-3.5">
           <p className="truncate text-sm font-medium text-[#475569]">{course.teacher.name}</p>

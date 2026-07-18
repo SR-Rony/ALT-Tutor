@@ -1,19 +1,24 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
   ArrowRight,
   Award,
   BookOpen,
+  Download,
   FileText,
+  Lock,
+  Paperclip,
   PlayCircle,
 } from "lucide-react";
 import { PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { useCourseDetail, useStudentCourses } from "@/hooks";
+import { formatLessonDuration } from "@/lib/course-format";
+import { apiClient } from "@/services/api-client";
 import type { CourseLesson } from "@/types/course.types";
 import { cn } from "@/utils";
 
@@ -42,6 +47,7 @@ function youtubeEmbedUrl(url: string): string | null {
 function LessonPlayer({ lesson }: { lesson: CourseLesson }) {
   const url = lesson.contentUrl ?? null;
   const yt = url ? youtubeEmbedUrl(url) : null;
+  const type = String(lesson.type).toUpperCase();
 
   if (yt) {
     return (
@@ -56,16 +62,35 @@ function LessonPlayer({ lesson }: { lesson: CourseLesson }) {
     );
   }
 
-  if (url && String(lesson.type).toUpperCase() === "VIDEO") {
+  if (url && type === "VIDEO") {
     return (
       <video key={url} src={url} controls className="aspect-video w-full rounded-xl bg-black" />
+    );
+  }
+
+  if (url && type === "PDF") {
+    return (
+      <iframe
+        key={url}
+        src={url}
+        title={lesson.title}
+        className="h-[70vh] w-full rounded-xl border border-border bg-white"
+      />
+    );
+  }
+
+  if (type === "TEXT" && lesson.body) {
+    return (
+      <div className="min-h-[240px] rounded-xl border border-border bg-card p-6">
+        <p className="whitespace-pre-line text-sm leading-relaxed text-foreground">{lesson.body}</p>
+      </div>
     );
   }
 
   return (
     <div className="flex aspect-video w-full flex-col items-center justify-center gap-3 rounded-xl bg-muted">
       <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 text-primary">
-        {String(lesson.type).toUpperCase() === "VIDEO" ? (
+        {type === "VIDEO" ? (
           <PlayCircle className="h-7 w-7" aria-hidden />
         ) : (
           <FileText className="h-7 w-7" aria-hidden />
@@ -87,22 +112,70 @@ function LessonPlayer({ lesson }: { lesson: CourseLesson }) {
 
 export function StudentCourseLearnPage({ slug }: Props) {
   const { data: course, isLoading } = useCourseDetail(slug);
-  const { data: enrollments = [] } = useStudentCourses();
+  const { data: enrollments = [], isLoading: enrollmentsLoading } = useStudentCourses();
   const [lessonIndex, setLessonIndex] = useState(0);
-
-  const lessons = useMemo(() => {
-    if (!course) return [];
-    return course.chapters.flatMap((chapter) =>
-      chapter.lessons.map((lesson) => ({ lesson, chapterTitle: chapter.title }))
-    );
-  }, [course]);
+  const [contentLessons, setContentLessons] = useState<CourseLesson[] | null>(null);
+  const [contentError, setContentError] = useState<string | null>(null);
 
   const enrollment = useMemo(
-    () => enrollments.find((item) => item.course.slug === slug) ?? null,
+    () =>
+      enrollments.find(
+        (item) =>
+          item.course.slug === slug && String(item.status).toUpperCase() !== "CANCELLED"
+      ) ?? null,
     [enrollments, slug]
   );
 
-  if (isLoading && !course) {
+  useEffect(() => {
+    if (!course || !enrollment) {
+      setContentLessons(null);
+      return;
+    }
+
+    let cancelled = false;
+    const load = async () => {
+      setContentError(null);
+      try {
+        const chapterLessons = await Promise.all(
+          course.chapters.map(async (chapter) => {
+            const response = await apiClient.get<CourseLesson[]>(
+              `/lessons?chapterId=${encodeURIComponent(chapter.id)}`
+            );
+            return (response.data ?? []).map((lesson) => ({
+              ...lesson,
+              attachments: lesson.attachments ?? [],
+            }));
+          })
+        );
+        if (!cancelled) {
+          setContentLessons(chapterLessons.flat().sort((a, b) => a.order - b.order));
+        }
+      } catch {
+        if (!cancelled) {
+          setContentError("Could not load lesson content. Please try again.");
+          setContentLessons([]);
+        }
+      }
+    };
+
+    void load();
+    return () => {
+      cancelled = true;
+    };
+  }, [course, enrollment]);
+
+  const lessons = useMemo(() => {
+    if (!course) return [];
+    const byId = new Map((contentLessons ?? []).map((lesson) => [lesson.id, lesson]));
+    return course.chapters.flatMap((chapter) =>
+      chapter.lessons.map((lesson) => ({
+        lesson: byId.get(lesson.id) ?? lesson,
+        chapterTitle: chapter.title,
+      }))
+    );
+  }, [course, contentLessons]);
+
+  if ((isLoading || enrollmentsLoading) && !course) {
     return <PageLoader label="Loading course..." />;
   }
 
@@ -117,13 +190,35 @@ export function StudentCourseLearnPage({ slug }: Props) {
     );
   }
 
+  if (!enrollment) {
+    return (
+      <div className="rounded-2xl border border-border bg-card px-6 py-14 text-center">
+        <span className="mx-auto mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+          <Lock className="h-6 w-6" aria-hidden />
+        </span>
+        <h1 className="text-xl font-bold text-foreground">Enrollment required</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Enroll in this course to access lessons, videos, and downloadable files.
+        </p>
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          <Button asChild size="sm">
+            <Link href={ROUTES.courseDetail(slug)}>View course details</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
+            <Link href={ROUTES.student.courses}>Back to My Courses</Link>
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
   const current = lessons[lessonIndex] ?? null;
-  const totalMinutes = lessons.reduce(
+  const totalSeconds = lessons.reduce(
     (sum, { lesson }) => sum + (Number(lesson.duration) || 0),
     0
   );
-  const progress = enrollment?.progress ?? 0;
-  const isCompleted = String(enrollment?.status ?? "").toUpperCase() === "COMPLETED";
+  const progress = enrollment.progress ?? 0;
+  const isCompleted = String(enrollment.status).toUpperCase() === "COMPLETED";
 
   return (
     <div className="space-y-6">
@@ -135,7 +230,6 @@ export function StudentCourseLearnPage({ slug }: Props) {
       </Button>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
-        {/* Left: course header + player */}
         <div className="space-y-6">
           <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
             <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
@@ -152,6 +246,9 @@ export function StudentCourseLearnPage({ slug }: Props) {
           </div>
 
           <div className="rounded-2xl border border-border bg-card p-4 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
+            {contentError ? (
+              <p className="mb-3 text-sm text-accent">{contentError}</p>
+            ) : null}
             {current ? (
               <>
                 <LessonPlayer lesson={current.lesson} />
@@ -159,17 +256,46 @@ export function StudentCourseLearnPage({ slug }: Props) {
                   <div>
                     <p className="text-xs text-muted-foreground">{current.chapterTitle}</p>
                     <p className="font-semibold text-foreground">{current.lesson.title}</p>
+                    {current.lesson.description ? (
+                      <p className="mt-1 text-sm text-muted-foreground">{current.lesson.description}</p>
+                    ) : null}
                   </div>
                   {current.lesson.duration ? (
                     <span className="text-xs text-muted-foreground">
-                      {current.lesson.duration} min
+                      {formatLessonDuration(current.lesson.duration)}
                     </span>
                   ) : null}
                 </div>
+
+                {(current.lesson.attachments?.length ?? 0) > 0 ? (
+                  <div className="mt-5 rounded-xl border border-border bg-muted/30 p-4">
+                    <p className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      <Paperclip className="h-3.5 w-3.5" aria-hidden />
+                      Lesson files
+                    </p>
+                    <ul className="space-y-2">
+                      {current.lesson.attachments!.map((file) => (
+                        <li key={file.id}>
+                          <a
+                            href={file.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="flex items-center gap-2 rounded-lg bg-card px-3 py-2 text-sm font-medium text-primary hover:underline"
+                          >
+                            <Download className="h-4 w-4" aria-hidden />
+                            {file.filename}
+                          </a>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
               </>
             ) : (
               <div className="flex aspect-video items-center justify-center rounded-xl bg-muted">
-                <p className="text-sm text-muted-foreground">No lessons published yet.</p>
+                <p className="text-sm text-muted-foreground">
+                  {contentLessons == null ? "Loading lessons..." : "No lessons published yet."}
+                </p>
               </div>
             )}
           </div>
@@ -205,7 +331,6 @@ export function StudentCourseLearnPage({ slug }: Props) {
           ) : null}
         </div>
 
-        {/* Right: progress + chapters */}
         <div className="space-y-6">
           <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
             <h2 className="text-base font-bold text-foreground">Course Progress</h2>
@@ -224,11 +349,15 @@ export function StudentCourseLearnPage({ slug }: Props) {
                 <span>
                   {Math.round((progress / 100) * lessons.length)}/{lessons.length} lessons
                 </span>
-                <span>{totalMinutes} min total</span>
+                <span>{formatLessonDuration(totalSeconds) || "0 min"} total</span>
               </div>
               <p className="mt-3 flex items-center gap-1.5 border-t border-accent-green/20 pt-3 text-xs text-muted-foreground">
                 <Award className="h-3.5 w-3.5" aria-hidden />
-                {isCompleted ? "Certificate available" : "Certificate not available"}
+                {course.hasCertificate === false
+                  ? "No certificate for this course"
+                  : isCompleted
+                    ? "Certificate available"
+                    : "Certificate not available yet"}
               </p>
             </div>
           </div>
@@ -249,7 +378,7 @@ export function StudentCourseLearnPage({ slug }: Props) {
                       <div className="flex items-center justify-between gap-3">
                         <p className="font-semibold text-foreground">{chapter.title}</p>
                         <span className="text-xs text-muted-foreground">
-                          {chapter.lessons.length} lessons · {chapterMinutes} min
+                          {chapter.lessons.length} lessons · {formatLessonDuration(chapterMinutes) || "0 min"}
                         </span>
                       </div>
                       {chapter.lessons.length > 0 ? (
@@ -278,7 +407,9 @@ export function StudentCourseLearnPage({ slug }: Props) {
                                   )}
                                   <span className="flex-1 truncate">{lesson.title}</span>
                                   {lesson.duration ? (
-                                    <span className="text-xs">{lesson.duration}m</span>
+                                    <span className="text-xs">
+                                      {formatLessonDuration(lesson.duration)}
+                                    </span>
                                   ) : null}
                                 </button>
                               </li>

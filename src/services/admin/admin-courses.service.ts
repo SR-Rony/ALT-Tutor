@@ -1,6 +1,11 @@
 import { env } from "@/config";
 import { mockAdminCourses } from "@/data/mock/admin-dashboard.mock";
-import type { AdminCourse, CourseLevel, CourseStatus } from "@/types/admin-dashboard.types";
+import type {
+  AdminCourse,
+  CourseLevel,
+  CourseStatus,
+  PublishReadiness,
+} from "@/types/admin-dashboard.types";
 import { sleep } from "@/utils";
 import { apiClient } from "../api-client";
 
@@ -8,9 +13,21 @@ export type CourseUpsertInput = {
   title: string;
   slug: string;
   description: string;
+  summary?: string;
   thumbnail?: string;
+  thumbnailPublicId?: string;
+  promoVideoUrl?: string;
+  promoVideoPublicId?: string;
   price?: number;
   level?: CourseLevel;
+  language?: string;
+  outcomes?: string[];
+  requirements?: string[];
+  targetAudience?: string;
+  hasCertificate?: boolean;
+  lifetimeAccess?: boolean;
+  seoTitle?: string;
+  seoDescription?: string;
   categoryId: string;
   teacherId?: string;
 };
@@ -26,6 +43,37 @@ export const adminCoursesService = {
     return response.data;
   },
 
+  async getById(id: string): Promise<AdminCourse> {
+    if (env.useMockApi) {
+      await sleep(200);
+      const course = mockAdminCourses.find((c) => c.id === id);
+      if (!course) throw { message: "Course not found", status: 404 };
+      return {
+        ...course,
+        readiness: {
+          ready: Boolean(course.title && course.description),
+          checks: [
+            { id: "title", label: "Course title is set", ok: Boolean(course.title) },
+            { id: "description", label: "Course description is set", ok: Boolean(course.description) },
+          ],
+        },
+        chapters: [],
+      };
+    }
+
+    const response = await apiClient.get<AdminCourse>(`/courses/manage/${id}`);
+    return response.data;
+  },
+
+  async getReadiness(id: string): Promise<PublishReadiness> {
+    if (env.useMockApi) {
+      await sleep(100);
+      return { ready: true, checks: [] };
+    }
+    const response = await apiClient.get<PublishReadiness>(`/courses/manage/${id}/readiness`);
+    return response.data;
+  },
+
   async create(payload: CourseUpsertInput): Promise<AdminCourse> {
     if (env.useMockApi) {
       await sleep(250);
@@ -34,10 +82,14 @@ export const adminCoursesService = {
         title: payload.title,
         slug: payload.slug,
         description: payload.description,
+        summary: payload.summary ?? null,
         thumbnail: payload.thumbnail ?? null,
         price: payload.price ?? 0,
         level: payload.level ?? "BEGINNER",
         status: "DRAFT",
+        language: payload.language ?? "English",
+        outcomes: payload.outcomes ?? [],
+        requirements: payload.requirements ?? [],
         teacherId: payload.teacherId ?? "teacher-1",
         categoryId: payload.categoryId,
         createdAt: new Date().toISOString(),

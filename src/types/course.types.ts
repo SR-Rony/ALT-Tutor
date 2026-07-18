@@ -17,9 +17,11 @@ export interface CatalogCourse {
   title: string;
   slug: string;
   description: string;
+  summary?: string | null;
   thumbnail: string | null;
   price: number;
   level: CourseLevel | string;
+  language?: string;
   teacher: CourseTeacher;
   category: CourseCategoryRef | null;
   studentsCount: number;
@@ -33,13 +35,27 @@ export type Course = CatalogCourse & {
   rating?: number;
 };
 
+export interface CourseLessonAttachment {
+  id: string;
+  filename: string;
+  url: string;
+  mimeType?: string | null;
+  size?: number | null;
+  order: number;
+}
+
 export interface CourseLesson {
   id: string;
   title: string;
+  description?: string | null;
+  body?: string | null;
   type: string;
   contentUrl?: string | null;
   duration?: number | null;
   order: number;
+  isPublished?: boolean;
+  isPreview?: boolean;
+  attachments?: CourseLessonAttachment[];
 }
 
 export interface CourseChapter {
@@ -59,9 +75,18 @@ export interface CourseReview {
 }
 
 export interface CourseDetail extends CatalogCourse {
+  promoVideoUrl?: string | null;
+  outcomes?: string[];
+  requirements?: string[];
+  targetAudience?: string | null;
+  hasCertificate?: boolean;
+  lifetimeAccess?: boolean;
+  seoTitle?: string | null;
+  seoDescription?: string | null;
   chapters: CourseChapter[];
   reviews: CourseReview[];
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CoursesQuery {

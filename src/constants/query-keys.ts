@@ -44,6 +44,7 @@ export const queryKeys = {
     users: ["admin", "users"] as const,
     user: (id: string) => ["admin", "users", id] as const,
     courses: ["admin", "courses"] as const,
+    course: (id: string) => ["admin", "courses", id] as const,
     categories: ["admin", "categories"] as const,
     subjects: ["admin", "subjects"] as const,
     payments: ["admin", "payments"] as const,

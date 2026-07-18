@@ -42,6 +42,14 @@ export function useAdminCourses() {
   });
 }
 
+export function useAdminCourse(id: string) {
+  return useQuery({
+    queryKey: queryKeys.admin.course(id),
+    queryFn: () => adminCoursesService.getById(id),
+    enabled: Boolean(id),
+  });
+}
+
 export function useAdminCategories() {
   return useQuery({
     queryKey: queryKeys.admin.categories,
@@ -116,8 +124,10 @@ export function useUpdateCourse() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Partial<CourseUpsertInput> }) =>
       adminCoursesService.update(id, payload),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.course(vars.id) });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.curriculum.byCourse(vars.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
       void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.courses.all });
@@ -131,10 +141,12 @@ export function useUpdateCourseStatus() {
   return useMutation({
     mutationFn: ({ id, status }: { id: string; status: CourseStatus }) =>
       adminCoursesService.updateStatus(id, status),
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.course(vars.id) });
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
       void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.courses.all });
     },
   });
 }

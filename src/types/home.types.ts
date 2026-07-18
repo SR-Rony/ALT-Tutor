@@ -11,6 +11,7 @@ export interface HomeCourse {
   title: string;
   slug: string;
   description: string;
+  summary?: string | null;
   thumbnail?: string | null;
   price: number | string;
   level?: string;
