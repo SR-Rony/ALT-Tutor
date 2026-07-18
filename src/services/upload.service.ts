@@ -73,7 +73,7 @@ export const uploadService = {
 
   async remove(publicId: string): Promise<{ result: string }> {
     const response = await apiClient.delete<{ result: string }>(
-      `/upload/${encodeURIComponent(publicId)}`
+      `/upload?publicId=${encodeURIComponent(publicId)}`
     );
     return response.data ?? { result: "ok" };
   },
