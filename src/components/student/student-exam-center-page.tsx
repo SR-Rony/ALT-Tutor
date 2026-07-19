@@ -10,12 +10,13 @@ import {
   Loader2,
   PenLine,
   PlayCircle,
+  Trash2,
   Upload,
+  X,
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants";
 import {
   useMyAssignments,
@@ -23,8 +24,13 @@ import {
   useStudentSubmissions,
   useSubmitAssignment,
 } from "@/hooks";
-import { uploadService } from "@/services/upload.service";
+import {
+  assessmentWindowLabel,
+  canSubmitAssessment,
+  getAssessmentWindowState,
+} from "@/lib/assessment-window";
 import { formatShortDate } from "@/lib/format";
+import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type { McqPhase } from "@/types/mcq.types";
 import type { StudentAssignment, StudentSubmission } from "@/types/student-dashboard.types";
@@ -66,6 +72,20 @@ function submissionForAssignment(submissions: StudentSubmission[], assignmentId:
   return submissions.find((s) => s.assignmentId === assignmentId) ?? null;
 }
 
+function uniqueFiles(urls: Array<string | null | undefined>) {
+  return [...new Set(urls.filter((u): u is string => Boolean(u && u.trim())))];
+}
+
+function fileLabel(url: string) {
+  try {
+    const path = new URL(url).pathname;
+    const name = path.split("/").filter(Boolean).pop();
+    return name ? decodeURIComponent(name) : url;
+  } catch {
+    return url.split("/").pop() ?? url;
+  }
+}
+
 function WrittenSubmitModal({
   assignment,
   existing,
@@ -76,17 +96,27 @@ function WrittenSubmitModal({
   onClose: () => void;
 }) {
   const submit = useSubmitAssignment();
+  const windowState = getAssessmentWindowState(assignment);
+  const canSubmit = canSubmitAssessment(windowState) && existing?.canResubmit !== false;
   const [answerText, setAnswerText] = useState(existing?.answerText ?? "");
-  const [fileUrl, setFileUrl] = useState(existing?.fileUrl ?? "");
+  const [fileUrls, setFileUrls] = useState<string[]>(() =>
+    uniqueFiles([...(existing?.fileUrls ?? []), existing?.fileUrl])
+  );
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [receipt, setReceipt] = useState<StudentSubmission | null>(null);
 
-  const onUpload = async (file: File) => {
+  const onUpload = async (files: FileList | null) => {
+    if (!files?.length) return;
     setUploading(true);
     setError(null);
     try {
-      const result = await uploadService.upload(file, "assignments");
-      setFileUrl(result.url);
+      const uploaded: string[] = [];
+      for (const file of Array.from(files)) {
+        const result = await uploadService.upload(file, "assignments");
+        uploaded.push(result.url);
+      }
+      setFileUrls((prev) => uniqueFiles([...prev, ...uploaded]));
     } catch (err) {
       setError((err as ApiError).message || "Upload failed");
     } finally {
@@ -95,25 +125,54 @@ function WrittenSubmitModal({
   };
 
   const onSubmit = async () => {
-    if (!answerText.trim() && !fileUrl.trim()) {
-      setError("Provide written answer text and/or upload a file");
+    if (!canSubmit) {
+      setError(
+        existing?.canResubmit === false
+          ? "Published grades cannot be overwritten"
+          : `Submission window is ${assessmentWindowLabel(windowState).toLowerCase()}`
+      );
+      return;
+    }
+    if (!answerText.trim() && fileUrls.length === 0) {
+      setError("Provide written answer text and/or upload at least one file");
       return;
     }
     setError(null);
     try {
-      await submit.mutateAsync({
+      const result = await submit.mutateAsync({
         assignmentId: assignment.id,
         answerText: answerText.trim() || undefined,
-        fileUrl: fileUrl.trim() || undefined,
-        fileUrls: fileUrl.trim() ? [fileUrl.trim()] : undefined,
+        fileUrl: fileUrls[0],
+        fileUrls,
       });
-      onClose();
+      setReceipt(result);
     } catch (err) {
       setError((err as ApiError).message || "Submission failed");
     }
   };
 
   const busy = submit.isPending || uploading;
+
+  if (receipt) {
+    return (
+      <AdminModal
+        open
+        title="Submission received"
+        description={assignment.title}
+        onClose={onClose}
+        className="sm:max-w-xl"
+        footer={
+          <div className="flex justify-end">
+            <Button type="button" onClick={onClose}>
+              Done
+            </Button>
+          </div>
+        }
+      >
+        <SubmissionReceiptBody submission={receipt} assignment={assignment} />
+      </AdminModal>
+    );
+  }
 
   return (
     <AdminModal
@@ -127,13 +186,30 @@ function WrittenSubmitModal({
           <Button type="button" variant="outline" disabled={busy} onClick={onClose}>
             Cancel
           </Button>
-          <Button type="button" disabled={busy} onClick={() => void onSubmit()}>
+          <Button type="button" disabled={busy || !canSubmit} onClick={() => void onSubmit()}>
             {submit.isPending ? "Submitting…" : existing ? "Update submission" : "Submit"}
           </Button>
         </div>
       }
     >
       <div className="space-y-4">
+        <div className="flex flex-wrap gap-2 text-xs">
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-1 font-semibold",
+              windowState === "OPEN"
+                ? "bg-accent-green/10 text-accent-green"
+                : windowState === "LATE"
+                  ? "bg-[#fff7ed] text-[#ea580c]"
+                  : "bg-muted text-muted-foreground"
+            )}
+          >
+            {assessmentWindowLabel(windowState)}
+          </span>
+          {assignment.dueDate ? (
+            <span className="rounded-full bg-muted px-2.5 py-1">Due {formatShortDate(assignment.dueDate)}</span>
+          ) : null}
+        </div>
         {assignment.instructions ? (
           <p className="rounded-xl border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
             {assignment.instructions}
@@ -147,27 +223,48 @@ function WrittenSubmitModal({
             value={answerText}
             onChange={(e) => setAnswerText(e.target.value)}
             rows={6}
+            disabled={!canSubmit}
             className="w-full rounded-xl border border-border px-3 py-2 text-sm"
             placeholder="Type your response here…"
           />
         </label>
         <div className="space-y-2">
-          <span className="text-sm font-semibold">Attachment (optional)</span>
-          <Input
-            value={fileUrl}
-            onChange={(e) => setFileUrl(e.target.value)}
-            placeholder="Paste file URL or upload below"
-          />
+          <span className="text-sm font-semibold">Attachments</span>
+          {fileUrls.length ? (
+            <ul className="space-y-2">
+              {fileUrls.map((url) => (
+                <li
+                  key={url}
+                  className="flex items-center justify-between gap-2 rounded-lg border border-border bg-muted/20 px-3 py-2 text-sm"
+                >
+                  <a href={url} target="_blank" rel="noreferrer" className="truncate text-primary hover:underline">
+                    {fileLabel(url)}
+                  </a>
+                  <button
+                    type="button"
+                    disabled={!canSubmit || busy}
+                    className="text-muted-foreground hover:text-accent"
+                    onClick={() => setFileUrls((prev) => prev.filter((item) => item !== url))}
+                    aria-label="Remove file"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-xs text-muted-foreground">No files attached yet.</p>
+          )}
           <label className="inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
             {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            Upload file
+            Upload files
             <input
               type="file"
+              multiple
               className="hidden"
-              disabled={busy}
+              disabled={busy || !canSubmit}
               onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) void onUpload(file);
+                void onUpload(e.target.files);
                 e.target.value = "";
               }}
             />
@@ -179,9 +276,66 @@ function WrittenSubmitModal({
   );
 }
 
+function SubmissionReceiptBody({
+  submission,
+  assignment,
+}: {
+  submission: StudentSubmission;
+  assignment?: StudentAssignment | null;
+}) {
+  const files = uniqueFiles([...(submission.fileUrls ?? []), submission.fileUrl]);
+  return (
+    <div className="space-y-3 text-sm">
+      <p>
+        <span className="text-muted-foreground">Receipt ID:</span>{" "}
+        <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{submission.receiptId ?? submission.id}</code>
+      </p>
+      <p>
+        <span className="text-muted-foreground">Submitted:</span> {formatShortDate(submission.submittedAt)}
+      </p>
+      <p>
+        <span className="text-muted-foreground">Status:</span>{" "}
+        {submission.statusLabel ?? (submission.status === "GRADED" ? "Graded" : "Pending review")}
+      </p>
+      {submission.answerText ? (
+        <div className="rounded-xl border border-border bg-muted/20 p-3">
+          <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Answer</p>
+          <p className="whitespace-pre-wrap">{submission.answerText}</p>
+        </div>
+      ) : null}
+      {files.length ? (
+        <div>
+          <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Attachments</p>
+          <ul className="space-y-1">
+            {files.map((url) => (
+              <li key={url}>
+                <a href={url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
+                  {fileLabel(url)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {submission.resultsReleased && submission.grade != null ? (
+        <div className="rounded-xl border border-accent-green/30 bg-[#ecfdf3] p-3">
+          <p className="font-semibold text-accent-green">Grade: {submission.grade}%</p>
+          {submission.feedback ? <p className="mt-1 text-muted-foreground">{submission.feedback}</p> : null}
+        </div>
+      ) : submission.status === "GRADED" ? (
+        <p className="text-muted-foreground">Graded — results not released yet.</p>
+      ) : null}
+      {assignment?.totalMarks != null ? (
+        <p className="text-xs text-muted-foreground">Total marks available: {assignment.totalMarks}</p>
+      ) : null}
+    </div>
+  );
+}
+
 export function StudentExamCenterPage() {
   const [tab, setTab] = useState<TabId>("upcoming");
   const [submitTarget, setSubmitTarget] = useState<StudentAssignment | null>(null);
+  const [receiptTarget, setReceiptTarget] = useState<StudentSubmission | null>(null);
   const { data: assignments = [], isLoading: assignmentsLoading } = useMyAssignments();
   const { data: mcqExams = [], isLoading: mcqLoading } = useMyMcqExams();
   const { data: submissions = [], isLoading: subLoading } = useStudentSubmissions();
@@ -192,22 +346,20 @@ export function StudentExamCenterPage() {
   );
 
   const upcoming = useMemo(() => {
-    const now = Date.now();
     return assignments.filter((a) => {
       if (String(a.type).toUpperCase() === "MCQ") return false;
       const sub = submissionForAssignment(submissions, a.id);
       if (sub) return false;
-      if (!a.dueDate) return true;
-      return new Date(a.dueDate).getTime() >= now;
+      return canSubmitAssessment(getAssessmentWindowState(a));
     });
   }, [assignments, submissions]);
 
   const completed = useMemo(() => {
-    return submissions.filter((s) => s.status === "GRADED" || s.grade != null);
+    return submissions.filter((s) => s.status === "GRADED" || s.resultsReleased);
   }, [submissions]);
 
   const pendingReview = useMemo(() => {
-    return submissions.filter((s) => s.status !== "GRADED" && s.grade == null);
+    return submissions.filter((s) => s.status !== "GRADED");
   }, [submissions]);
 
   const isLoading = assignmentsLoading && mcqLoading && subLoading;
@@ -249,7 +401,8 @@ export function StudentExamCenterPage() {
 
       {tab === "upcoming" ? (
         <section className="space-y-4">
-          {upcoming.length === 0 && mcqExams.filter((e) => (e.mcqStatus?.phase ?? "NOT_STARTED") !== "COMPLETED").length === 0 ? (
+          {upcoming.length === 0 &&
+          mcqExams.filter((e) => (e.mcqStatus?.phase ?? "NOT_STARTED") !== "COMPLETED").length === 0 ? (
             <EmptyState message="No upcoming assessments." />
           ) : null}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -260,6 +413,7 @@ export function StudentExamCenterPage() {
                 context={assignmentContext(item)}
                 dueDate={item.dueDate}
                 type={String(item.type)}
+                windowState={getAssessmentWindowState(item)}
                 onAction={() => setSubmitTarget(item)}
                 actionLabel="Submit"
               />
@@ -332,6 +486,8 @@ export function StudentExamCenterPage() {
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {writtenAssignments.map((item) => {
                 const sub = submissionForAssignment(submissions, item.id);
+                const windowState = getAssessmentWindowState(item);
+                const canAct = canSubmitAssessment(windowState) && sub?.canResubmit !== false;
                 return (
                   <AssessmentCard
                     key={item.id}
@@ -339,9 +495,32 @@ export function StudentExamCenterPage() {
                     context={assignmentContext(item)}
                     dueDate={item.dueDate}
                     type={String(item.type)}
-                    statusLabel={sub ? "Submitted" : "Not submitted"}
-                    onAction={() => setSubmitTarget(item)}
-                    actionLabel={sub ? "Update submission" : "Submit"}
+                    windowState={windowState}
+                    statusLabel={sub ? sub.statusLabel ?? "Submitted" : "Not submitted"}
+                    onAction={
+                      sub && !canAct
+                        ? () => setReceiptTarget(sub)
+                        : canAct
+                          ? () => setSubmitTarget(item)
+                          : undefined
+                    }
+                    actionLabel={
+                      sub && !canAct
+                        ? "View receipt"
+                        : sub
+                          ? "Update submission"
+                          : canAct
+                            ? "Submit"
+                            : assessmentWindowLabel(windowState)
+                    }
+                    secondaryAction={
+                      sub
+                        ? {
+                            label: "Receipt",
+                            onClick: () => setReceiptTarget(sub),
+                          }
+                        : undefined
+                    }
                   />
                 );
               })}
@@ -358,6 +537,7 @@ export function StudentExamCenterPage() {
             <SubmissionTable
               rows={[...pendingReview, ...completed]}
               showGrade={false}
+              onOpen={(row) => setReceiptTarget(row)}
             />
           )}
         </section>
@@ -372,7 +552,7 @@ export function StudentExamCenterPage() {
           {completed.length > 0 ? (
             <div>
               <h2 className="mb-3 text-lg font-bold text-foreground">Written &amp; file submissions</h2>
-              <SubmissionTable rows={completed} showGrade />
+              <SubmissionTable rows={completed} showGrade onOpen={(row) => setReceiptTarget(row)} />
             </div>
           ) : null}
           {mcqExams.some((e) => (e.mcqStatus?.finishedAttemptCount ?? 0) > 0) ? (
@@ -452,6 +632,26 @@ export function StudentExamCenterPage() {
           onClose={() => setSubmitTarget(null)}
         />
       ) : null}
+
+      {receiptTarget ? (
+        <AdminModal
+          open
+          title="Submission receipt"
+          description={receiptTarget.assignment?.title ?? "Submission"}
+          onClose={() => setReceiptTarget(null)}
+          className="sm:max-w-xl"
+          footer={
+            <div className="flex justify-end">
+              <Button type="button" variant="outline" onClick={() => setReceiptTarget(null)}>
+                <X className="h-4 w-4" />
+                Close
+              </Button>
+            </div>
+          }
+        >
+          <SubmissionReceiptBody submission={receiptTarget} />
+        </AdminModal>
+      ) : null}
     </div>
   );
 }
@@ -473,6 +673,8 @@ function AssessmentCard({
   onAction,
   actionLabel,
   statusLabel,
+  windowState,
+  secondaryAction,
 }: {
   title: string;
   context: string;
@@ -482,6 +684,8 @@ function AssessmentCard({
   onAction?: () => void;
   actionLabel?: string;
   statusLabel?: string;
+  windowState?: ReturnType<typeof getAssessmentWindowState>;
+  secondaryAction?: { label: string; onClick: () => void };
 }) {
   const typeIcon =
     type.toUpperCase() === "MCQ" ? (
@@ -507,24 +711,45 @@ function AssessmentCard({
             Due {formatShortDate(dueDate)}
           </span>
         ) : null}
+        {windowState ? (
+          <span
+            className={cn(
+              "rounded-full px-2.5 py-1 font-semibold",
+              windowState === "OPEN"
+                ? "bg-accent-green/10 text-accent-green"
+                : windowState === "LATE"
+                  ? "bg-[#fff7ed] text-[#ea580c]"
+                  : "bg-muted text-muted-foreground"
+            )}
+          >
+            {assessmentWindowLabel(windowState)}
+          </span>
+        ) : null}
         {statusLabel ? (
           <span className="rounded-full bg-primary-muted px-2.5 py-1 font-semibold text-primary">
             {statusLabel}
           </span>
         ) : null}
       </div>
-      {href ? (
-        <Button asChild size="pill" className="mt-4 w-full">
-          <Link href={href}>
-            <PlayCircle className="h-4 w-4" />
+      <div className="mt-auto flex flex-col gap-2 pt-4">
+        {href ? (
+          <Button asChild size="pill" className="w-full">
+            <Link href={href}>
+              <PlayCircle className="h-4 w-4" />
+              {actionLabel}
+            </Link>
+          </Button>
+        ) : onAction ? (
+          <Button type="button" size="pill" className="w-full" onClick={onAction}>
             {actionLabel}
-          </Link>
-        </Button>
-      ) : onAction ? (
-        <Button type="button" size="pill" className="mt-4 w-full" onClick={onAction}>
-          {actionLabel}
-        </Button>
-      ) : null}
+          </Button>
+        ) : null}
+        {secondaryAction ? (
+          <Button type="button" variant="outline" size="sm" className="w-full" onClick={secondaryAction.onClick}>
+            {secondaryAction.label}
+          </Button>
+        ) : null}
+      </div>
     </article>
   );
 }
@@ -532,9 +757,11 @@ function AssessmentCard({
 function SubmissionTable({
   rows,
   showGrade,
+  onOpen,
 }: {
   rows: StudentSubmission[];
   showGrade: boolean;
+  onOpen?: (row: StudentSubmission) => void;
 }) {
   return (
     <div className="overflow-x-auto rounded-2xl border border-border bg-card">
@@ -545,6 +772,7 @@ function SubmissionTable({
             <th className="px-4 py-3 text-left">Submitted</th>
             {showGrade ? <th className="px-4 py-3 text-left">Grade</th> : null}
             <th className="px-4 py-3 text-left">Status</th>
+            <th className="px-4 py-3 text-left" />
           </tr>
         </thead>
         <tbody>
@@ -554,7 +782,7 @@ function SubmissionTable({
               <td className="px-4 py-3 text-muted-foreground">{formatShortDate(item.submittedAt)}</td>
               {showGrade ? (
                 <td className="px-4 py-3">
-                  {item.grade != null ? (
+                  {item.resultsReleased && item.grade != null ? (
                     <span className="inline-flex items-center gap-1 font-semibold text-accent-green">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       {item.grade}%
@@ -565,7 +793,15 @@ function SubmissionTable({
                 </td>
               ) : null}
               <td className="px-4 py-3">
-                {item.grade != null ? "Graded" : "Pending review"}
+                {item.statusLabel ??
+                  (item.resultsReleased && item.grade != null ? "Graded" : "Pending review")}
+              </td>
+              <td className="px-4 py-3 text-right">
+                {onOpen ? (
+                  <Button type="button" variant="outline" size="sm" onClick={() => onOpen(item)}>
+                    Receipt
+                  </Button>
+                ) : null}
               </td>
             </tr>
           ))}

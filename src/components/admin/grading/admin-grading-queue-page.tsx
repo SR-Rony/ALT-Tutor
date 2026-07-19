@@ -12,13 +12,17 @@ import { formatShortDate } from "@/lib/format";
 import type { ApiError } from "@/types";
 import type { UngradedSubmission } from "@/types/student-dashboard.types";
 
+function uniqueFiles(urls: Array<string | null | undefined>) {
+  return [...new Set(urls.filter((u): u is string => Boolean(u && u.trim())))];
+}
+
 function GradeForm({ item, onDone }: { item: UngradedSubmission; onDone: () => void }) {
   const gradeMutation = useGradeSubmission();
-  const [grade, setGrade] = useState("");
-  const [feedback, setFeedback] = useState("");
+  const [grade, setGrade] = useState(item.grade != null ? String(item.grade) : "");
+  const [feedback, setFeedback] = useState(item.feedback ?? "");
   const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = async () => {
+  const save = async (publish: boolean) => {
     const value = Number.parseInt(grade, 10);
     if (Number.isNaN(value) || value < 0 || value > 100) {
       setError("Enter a grade between 0 and 100");
@@ -26,7 +30,12 @@ function GradeForm({ item, onDone }: { item: UngradedSubmission; onDone: () => v
     }
     setError(null);
     try {
-      await gradeMutation.mutateAsync({ id: item.id, grade: value, feedback: feedback.trim() || undefined });
+      await gradeMutation.mutateAsync({
+        id: item.id,
+        grade: value,
+        feedback: feedback.trim() || undefined,
+        publish,
+      });
       onDone();
     } catch (err) {
       setError((err as ApiError).message || "Grading failed");
@@ -57,34 +66,51 @@ function GradeForm({ item, onDone }: { item: UngradedSubmission; onDone: () => v
           <p className="whitespace-pre-wrap">{item.answerText}</p>
         </div>
       ) : null}
-      {(item.fileUrl || item.fileUrls?.length) ? (
+      {uniqueFiles([item.fileUrl, ...(item.fileUrls ?? [])]).length ? (
         <div className="text-sm">
           <p className="mb-1 text-xs font-semibold uppercase text-muted-foreground">Files</p>
-          {[item.fileUrl, ...(item.fileUrls ?? [])].filter(Boolean).map((url) => (
+          {uniqueFiles([item.fileUrl, ...(item.fileUrls ?? [])]).map((url) => (
             <a
               key={url}
-              href={url!}
+              href={url}
               target="_blank"
               rel="noreferrer"
-              className="block text-primary hover:underline"
+              className="block truncate text-primary hover:underline"
             >
               {url}
             </a>
           ))}
         </div>
       ) : null}
+      {item.grade != null ? (
+        <p className="text-xs text-muted-foreground">
+          Draft marks currently saved: {item.grade}% (not visible to student until published)
+        </p>
+      ) : null}
       {error ? <p className="text-sm text-accent">{error}</p> : null}
-      <Button type="button" size="sm" disabled={gradeMutation.isPending} onClick={() => void onSubmit()}>
-        {gradeMutation.isPending ? (
-          <>
-            <Loader2 className="h-4 w-4 animate-spin" /> Saving…
-          </>
-        ) : (
-          <>
-            <CheckCircle2 className="h-4 w-4" /> Submit grade
-          </>
-        )}
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={gradeMutation.isPending}
+          onClick={() => void save(false)}
+        >
+          {gradeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          Save draft
+        </Button>
+        <Button type="button" size="sm" disabled={gradeMutation.isPending} onClick={() => void save(true)}>
+          {gradeMutation.isPending ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Saving…
+            </>
+          ) : (
+            <>
+              <CheckCircle2 className="h-4 w-4" /> Publish result
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
@@ -102,7 +128,7 @@ export function AdminGradingQueuePage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <PageHeader
           title="Grading queue"
-          description="Review and grade written and file submissions awaiting marks."
+          description="Review written/file submissions. Save draft marks privately, then publish when ready."
           className="mb-0"
         />
         <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
@@ -139,6 +165,7 @@ export function AdminGradingQueuePage() {
                   <p className="mt-1 text-sm text-muted-foreground">
                     {item.student?.name ?? "Student"} · submitted {formatShortDate(item.submittedAt)} ·{" "}
                     {String(item.assignment?.type ?? "FILE")}
+                    {item.grade != null ? " · draft saved" : ""}
                   </p>
                 </div>
                 <Button

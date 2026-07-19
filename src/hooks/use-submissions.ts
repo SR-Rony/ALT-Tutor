@@ -33,11 +33,13 @@ export function useGradeSubmission() {
       id,
       grade,
       feedback,
+      publish,
     }: {
       id: string;
       grade: number;
       feedback?: string;
-    }) => submissionsService.grade(id, { grade, feedback }),
+      publish?: boolean;
+    }) => submissionsService.grade(id, { grade, feedback, publish }),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.submissions.ungraded });
       void qc.invalidateQueries({ queryKey: queryKeys.student.submissions });

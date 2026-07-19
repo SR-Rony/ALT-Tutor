@@ -34,16 +34,22 @@ export interface StudentNotification {
 
 export interface StudentSubmission {
   id: string;
+  receiptId?: string;
   fileUrl?: string | null;
   fileUrls?: string[];
   answerText?: string | null;
   grade?: number | null;
   feedback?: string | null;
   status?: string;
+  statusLabel?: string;
+  canResubmit?: boolean;
+  resultsReleased?: boolean;
   assignmentId: string;
   studentId?: string;
   submittedAt: string;
   updatedAt?: string;
+  gradedAt?: string | null;
+  gradedBy?: { id: string; name: string } | null;
   assignment?: {
     id: string;
     title: string;
@@ -51,8 +57,12 @@ export interface StudentSubmission {
     courseId?: string | null;
     description?: string;
     dueDate?: string | null;
+    availableFrom?: string | null;
+    availableUntil?: string | null;
+    status?: string;
     instructions?: string | null;
     totalMarks?: number | null;
+    resultReleaseMode?: string;
     course?: { id: string; title: string; slug: string };
     program?: { id: string; name: string; slug: string };
   };
