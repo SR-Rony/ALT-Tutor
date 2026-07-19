@@ -46,6 +46,7 @@ export const teacherNav: NavItem[] = [
   { title: "My Courses", href: ROUTES.teacher.courses, iconName: "book" },
   { title: "Assessments", href: ROUTES.teacher.assessments, iconName: "clipboard" },
   { title: "Grading", href: ROUTES.teacher.gradingQueue, iconName: "clipboard" },
+  { title: "Gradebook", href: ROUTES.teacher.gradebook, iconName: "clipboard" },
   { title: "My Subjects", href: ROUTES.teacher.subjects, iconName: "book" },
   { title: "Messages", href: ROUTES.teacher.chat, iconName: "messages" },
 ];
@@ -63,6 +64,7 @@ export const adminNav: NavItem[] = [
   { title: "Questionbank", href: ROUTES.admin.questionbank, iconName: "clipboard" },
   { title: "MCQ Exams", href: ROUTES.admin.mcqExams, iconName: "clipboard" },
   { title: "Access Products", href: ROUTES.admin.accessProducts, iconName: "wallet" },
+  { title: "Gradebook", href: ROUTES.admin.gradebook, iconName: "clipboard" },
   { title: "Grading", href: ROUTES.admin.gradingQueue, iconName: "clipboard" },
   { title: "Categories", href: ROUTES.admin.categories, iconName: "tags" },
   { title: "Support", href: ROUTES.admin.support, iconName: "support" },

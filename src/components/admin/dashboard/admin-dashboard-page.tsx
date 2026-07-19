@@ -11,11 +11,13 @@ import {
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import {
+  useAdminAnalytics,
   useAdminCourses,
   useAdminPayments,
   useAdminStats,
   useAdminUsers,
 } from "@/hooks";
+import { downloadCsv } from "@/lib/export-csv";
 import { formatMoney } from "@/lib/format";
 import type { ApiError } from "@/types";
 import { AdminDashboardCharts } from "./admin-dashboard-charts";
@@ -25,6 +27,7 @@ import { AdminStatCard } from "./admin-stat-card";
 
 export function AdminDashboardPage() {
   const statsQuery = useAdminStats();
+  const analyticsQuery = useAdminAnalytics();
   const usersQuery = useAdminUsers();
   const coursesQuery = useAdminCourses();
   const paymentsQuery = useAdminPayments();
@@ -33,14 +36,20 @@ export function AdminDashboardPage() {
     statsQuery.isLoading || usersQuery.isLoading || coursesQuery.isLoading || paymentsQuery.isLoading;
   const refreshing =
     !initialLoading &&
-    (statsQuery.isFetching || usersQuery.isFetching || coursesQuery.isFetching || paymentsQuery.isFetching);
+    (statsQuery.isFetching ||
+      analyticsQuery.isFetching ||
+      usersQuery.isFetching ||
+      coursesQuery.isFetching ||
+      paymentsQuery.isFetching);
   const stats = statsQuery.data;
+  const analytics = analyticsQuery.data ?? stats?.assessmentAnalytics;
   const error = (statsQuery.error ?? usersQuery.error ?? coursesQuery.error ?? paymentsQuery.error) as
     | ApiError
     | null;
 
   const refetchAll = () => {
     void statsQuery.refetch();
+    void analyticsQuery.refetch();
     void usersQuery.refetch();
     void coursesQuery.refetch();
     void paymentsQuery.refetch();
@@ -137,6 +146,95 @@ export function AdminDashboardPage() {
             courses={courses}
             payments={payments}
           />
+
+          <section className="space-y-3 rounded-2xl border border-border bg-card p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Learning analytics
+              </h2>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={!analytics}
+                onClick={() => {
+                  if (!analytics) return;
+                  downloadCsv("admin-analytics.csv", [
+                    ["Metric", "Value"],
+                    ["Practice sessions", analytics.submittedPracticeSessions],
+                    ["Avg practice score", analytics.averagePracticeScore],
+                    ["Ungraded written", analytics.ungradedWrittenSubmissions],
+                    ["Avg MCQ score", analytics.averageMcqScore],
+                    ["MCQ accuracy", analytics.averageMcqAccuracy ?? ""],
+                    ["MCQ pass rate", analytics.mcqPassRate ?? ""],
+                    [
+                      "Grading turnaround (h)",
+                      analytics.averageGradingTurnaroundHours ?? "",
+                    ],
+                    ...(analytics.weakTopics ?? []).map((t) => [
+                      `Weak: ${t.topicTitle} / ${t.title}`,
+                      `${t.accuracy}% (${t.correct}/${t.total})`,
+                    ]),
+                  ]);
+                }}
+              >
+                Export CSV
+              </Button>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-xl bg-muted/50 px-4 py-3">
+                <p className="text-xs uppercase text-muted-foreground">Practice sessions</p>
+                <p className="mt-1 text-2xl font-bold">
+                  {analytics?.submittedPracticeSessions ?? "—"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-muted/50 px-4 py-3">
+                <p className="text-xs uppercase text-muted-foreground">MCQ pass rate</p>
+                <p className="mt-1 text-2xl font-bold">
+                  {analytics?.mcqPassRate != null ? `${analytics.mcqPassRate}%` : "—"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-muted/50 px-4 py-3">
+                <p className="text-xs uppercase text-muted-foreground">Avg MCQ score</p>
+                <p className="mt-1 text-2xl font-bold">
+                  {analytics?.averageMcqScore != null ? `${analytics.averageMcqScore}%` : "—"}
+                </p>
+              </div>
+              <div className="rounded-xl bg-muted/50 px-4 py-3">
+                <p className="text-xs uppercase text-muted-foreground">Grading turnaround</p>
+                <p className="mt-1 text-2xl font-bold">
+                  {analytics?.averageGradingTurnaroundHours != null
+                    ? `${analytics.averageGradingTurnaroundHours}h`
+                    : "—"}
+                </p>
+              </div>
+            </div>
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Weak topics</h3>
+              {(analytics?.weakTopics?.length ?? 0) === 0 ? (
+                <p className="mt-2 text-sm text-muted-foreground">
+                  Not enough practice data yet (needs ≥3 answers per subtopic).
+                </p>
+              ) : (
+                <ul className="mt-2 space-y-1 text-sm">
+                  {analytics?.weakTopics?.map((t) => (
+                    <li
+                      key={t.subtopicId}
+                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2"
+                    >
+                      <span>
+                        {t.topicTitle} / {t.title}
+                      </span>
+                      <span className="font-semibold text-accent">{t.accuracy}% accuracy</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Ungraded written submissions: {analytics?.ungradedWrittenSubmissions ?? 0}
+            </p>
+          </section>
 
           <section className="space-y-3">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">

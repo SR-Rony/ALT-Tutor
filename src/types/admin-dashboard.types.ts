@@ -5,6 +5,29 @@ export interface AdminDashboardStats {
   totalCourses: number;
   totalEnrollments: number;
   totalRevenue: number;
+  assessmentAnalytics?: AdminLearningAnalytics;
+}
+
+export interface AdminWeakTopic {
+  subtopicId: string;
+  title: string;
+  topicTitle: string;
+  correct: number;
+  total: number;
+  accuracy: number;
+}
+
+export interface AdminLearningAnalytics {
+  submittedPracticeSessions: number;
+  averagePracticeScore: number;
+  ungradedWrittenSubmissions: number;
+  averageMcqScore: number;
+  averageMcqAccuracy?: number;
+  mcqPassRate?: number;
+  finishedMcqAttempts?: number;
+  averageGradingTurnaroundHours?: number | null;
+  weakTopics?: AdminWeakTopic[];
+  filters?: { courseId?: string | null; programId?: string | null };
 }
 
 export type BackendRole = "ADMIN" | "TEACHER" | "STUDENT";

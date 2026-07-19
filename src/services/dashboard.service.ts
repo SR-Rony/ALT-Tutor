@@ -1,6 +1,9 @@
 import { env } from "@/config";
 import { mockAdminStats } from "@/data/mock/admin-dashboard.mock";
-import type { AdminDashboardStats } from "@/types/admin-dashboard.types";
+import type {
+  AdminDashboardStats,
+  AdminLearningAnalytics,
+} from "@/types/admin-dashboard.types";
 import { sleep } from "@/utils";
 import { apiClient } from "./api-client";
 
@@ -54,7 +57,9 @@ const mockStudentStats: StudentDashboardStats = {
   ],
 };
 
-function normalizeStats(raw: AdminDashboardStats): AdminDashboardStats {
+function normalizeStats(
+  raw: AdminDashboardStats & { assessmentAnalytics?: AdminLearningAnalytics }
+): AdminDashboardStats {
   return {
     totalUsers: Number(raw.totalUsers) || 0,
     totalStudents: Number(raw.totalStudents) || 0,
@@ -62,6 +67,7 @@ function normalizeStats(raw: AdminDashboardStats): AdminDashboardStats {
     totalCourses: Number(raw.totalCourses) || 0,
     totalEnrollments: Number(raw.totalEnrollments) || 0,
     totalRevenue: Number(raw.totalRevenue) || 0,
+    assessmentAnalytics: raw.assessmentAnalytics,
   };
 }
 
@@ -74,6 +80,20 @@ export const dashboardService = {
 
     const response = await apiClient.get<AdminDashboardStats>("/dashboard/admin");
     return normalizeStats(response.data);
+  },
+
+  async getAdminAnalytics(filters?: {
+    courseId?: string;
+    programId?: string;
+  }): Promise<AdminLearningAnalytics> {
+    const params = new URLSearchParams();
+    if (filters?.courseId) params.set("courseId", filters.courseId);
+    if (filters?.programId) params.set("programId", filters.programId);
+    const q = params.toString() ? `?${params.toString()}` : "";
+    const response = await apiClient.get<AdminLearningAnalytics>(
+      `/dashboard/admin/analytics${q}`
+    );
+    return response.data;
   },
 
   async getTeacherStats(): Promise<TeacherDashboardStats> {

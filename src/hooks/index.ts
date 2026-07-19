@@ -3,6 +3,7 @@ export { useHomeData, useCategories } from "./use-home";
 export { usePublicNav } from "./use-public-nav";
 export {
   useAdminStats,
+  useAdminAnalytics,
   useAdminUsers,
   useAdminUser,
   useCreateTeacher,
@@ -116,6 +117,7 @@ export {
   useDeactivateAccessProduct,
 } from "./use-payments";
 export { useCourseProgramLinks, useSetCourseProgramLinks } from "./use-course-programs";
+export { useGradebook, useGradeOverride } from "./use-gradebook";
 export { useAdminSettings, useUpdateAdminSettings } from "./use-admin-settings";
 export {
   useMyMcqExams,

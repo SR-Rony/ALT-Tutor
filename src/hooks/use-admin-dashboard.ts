@@ -21,6 +21,13 @@ export function useAdminStats() {
   });
 }
 
+export function useAdminAnalytics(filters?: { courseId?: string; programId?: string }) {
+  return useQuery({
+    queryKey: [...queryKeys.admin.dashboard, "analytics", filters?.courseId ?? "", filters?.programId ?? ""] as const,
+    queryFn: () => dashboardService.getAdminAnalytics(filters),
+  });
+}
+
 export function useAdminUsers(role?: BackendRole) {
   return useQuery({
     queryKey: [...queryKeys.admin.users, role ?? "ALL"] as const,
