@@ -31,6 +31,7 @@ export const publicFooterCompanyLinks = [
 export const studentNav: NavItem[] = [
   { title: "Overview", href: ROUTES.student.root, iconName: "dashboard" },
   { title: "My Courses", href: ROUTES.student.courses, iconName: "book" },
+  { title: "Exam Center", href: ROUTES.student.assessments, iconName: "clipboard" },
   { title: "Assignments", href: ROUTES.student.assignments, iconName: "clipboard" },
   { title: "Notifications", href: ROUTES.student.notifications, iconName: "bell" },
   { title: "Payments", href: ROUTES.student.payments, iconName: "wallet" },
@@ -59,6 +60,7 @@ export const adminNav: NavItem[] = [
   { title: "Subjects", href: ROUTES.admin.subjects, iconName: "book" },
   { title: "Questionbank", href: ROUTES.admin.questionbank, iconName: "clipboard" },
   { title: "MCQ Exams", href: ROUTES.admin.mcqExams, iconName: "clipboard" },
+  { title: "Grading", href: ROUTES.admin.gradingQueue, iconName: "clipboard" },
   { title: "Categories", href: ROUTES.admin.categories, iconName: "tags" },
   { title: "Support", href: ROUTES.admin.support, iconName: "support" },
 ];

@@ -80,6 +80,14 @@ type BackendCourseDetail = BackendCatalogCourse & {
   lifetimeAccess?: boolean;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  programLinks?: Array<{
+    program: {
+      id: string;
+      name: string;
+      slug: string;
+      subject?: { id: string; name: string; slug: string };
+    };
+  }>;
   chapters?: BackendChapter[];
   reviews?: BackendReview[];
   createdAt?: string;
@@ -183,6 +191,7 @@ function mapDetail(raw: BackendCourseDetail): CourseDetail {
     lifetimeAccess: raw.lifetimeAccess ?? true,
     seoTitle: raw.seoTitle ?? null,
     seoDescription: raw.seoDescription ?? null,
+    programLinks: raw.programLinks ?? [],
     chapters: (raw.chapters ?? []).map(mapChapter).sort((a, b) => a.order - b.order),
     reviews,
     reviewsCount: reviews.length || base.reviewsCount,

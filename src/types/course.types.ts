@@ -76,6 +76,15 @@ export interface CourseReview {
   student: { id: string; name: string; avatar?: string | null };
 }
 
+export interface CourseProgramLink {
+  program: {
+    id: string;
+    name: string;
+    slug: string;
+    subject?: { id: string; name: string; slug: string };
+  };
+}
+
 export interface CourseDetail extends CatalogCourse {
   promoVideoUrl?: string | null;
   outcomes?: string[];
@@ -85,6 +94,7 @@ export interface CourseDetail extends CatalogCourse {
   lifetimeAccess?: boolean;
   seoTitle?: string | null;
   seoDescription?: string | null;
+  programLinks?: CourseProgramLink[];
   chapters: CourseChapter[];
   reviews: CourseReview[];
   createdAt?: string;

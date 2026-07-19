@@ -6,6 +6,7 @@ import type {
   CourseStatus,
   PublishReadiness,
 } from "@/types/admin-dashboard.types";
+import type { CourseProgramLink } from "@/types/course.types";
 import { sleep } from "@/utils";
 import { apiClient } from "../api-client";
 
@@ -144,5 +145,25 @@ export const adminCoursesService = {
 
     const response = await apiClient.delete<{ message: string }>(`/courses/${id}`);
     return response.data ?? { message: "Course deleted successfully" };
+  },
+
+  async getProgramLinks(courseId: string): Promise<CourseProgramLink[]> {
+    if (env.useMockApi) {
+      await sleep(150);
+      return [];
+    }
+    const response = await apiClient.get<CourseProgramLink[]>(`/courses/${courseId}/programs`);
+    return response.data ?? [];
+  },
+
+  async setProgramLinks(courseId: string, programIds: string[]): Promise<CourseProgramLink[]> {
+    if (env.useMockApi) {
+      await sleep(200);
+      return [];
+    }
+    const response = await apiClient.post<CourseProgramLink[]>(`/courses/${courseId}/programs`, {
+      programIds,
+    });
+    return response.data ?? [];
   },
 };

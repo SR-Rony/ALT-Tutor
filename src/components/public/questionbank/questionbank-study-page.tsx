@@ -28,9 +28,10 @@ import {
   SubjectBreadcrumbNav,
   useSubjectBreadcrumbs,
 } from "@/components/public/subjects";
-import { useQbQuestions } from "@/hooks/use-questionbank";
+import { useQbQuestions, useSavePracticeAnswer, useStartPracticeSession, useSubmitPracticeSession } from "@/hooks/use-questionbank";
+import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
-import type { QbDifficulty, QbFilters, QbPaper, QbQuestion, QbQuestionType } from "@/types/qb.types";
+import type { PracticeAnswerFeedback, QbDifficulty, QbFilters, QbPaper, QbQuestion, QbQuestionType } from "@/types/qb.types";
 import { cn } from "@/utils";
 import { downloadQuestionPaperPdf } from "@/utils/qb-pdf-export";
 
@@ -102,6 +103,10 @@ function QuestionCard({
   onToggleComplete,
   solutionsUnlocked = true,
   examMode = false,
+  selectedAnswer,
+  feedback,
+  onSelectAnswer,
+  saving = false,
 }: {
   question: QbQuestion;
   index: number;
@@ -109,6 +114,10 @@ function QuestionCard({
   onToggleComplete?: () => void;
   solutionsUnlocked?: boolean;
   examMode?: boolean;
+  selectedAnswer?: string | null;
+  feedback?: PracticeAnswerFeedback | null;
+  onSelectAnswer?: (letter: string) => void;
+  saving?: boolean;
 }) {
   if (isStructuredType(String(question.questionType))) {
     return (
@@ -131,6 +140,10 @@ function QuestionCard({
       onToggleComplete={onToggleComplete}
       solutionsUnlocked={solutionsUnlocked}
       examMode={examMode}
+      selectedAnswer={selectedAnswer}
+      feedback={feedback}
+      onSelectAnswer={onSelectAnswer}
+      saving={saving}
     />
   );
 }
@@ -142,6 +155,10 @@ function McqQuestionCard({
   onToggleComplete,
   solutionsUnlocked = true,
   examMode = false,
+  selectedAnswer,
+  feedback,
+  onSelectAnswer,
+  saving = false,
 }: {
   question: QbQuestion;
   index: number;
@@ -149,12 +166,19 @@ function McqQuestionCard({
   onToggleComplete?: () => void;
   solutionsUnlocked?: boolean;
   examMode?: boolean;
+  selectedAnswer?: string | null;
+  feedback?: PracticeAnswerFeedback | null;
+  onSelectAnswer?: (letter: string) => void;
+  saving?: boolean;
 }) {
-  const [selected, setSelected] = useState<string | null>(null);
   const [modal, setModal] = useState<"scheme" | "video" | null>(null);
+  const selected = selectedAnswer ?? null;
   const answered = selected !== null;
-  const correct = selected?.toUpperCase() === question.correctAnswer.toUpperCase();
+  const correctAnswer = feedback?.correctAnswer?.toUpperCase() ?? "";
+  const correct = feedback ? feedback.isCorrect : false;
   const qLabel = `Question ${question.number || index + 1}`;
+  const markScheme = feedback?.markScheme ?? question.markScheme;
+  const videoUrl = feedback?.videoUrl ?? question.videoUrl;
 
   return (
     <section id={`q-${question.number}`} className="scroll-mt-28">
@@ -211,12 +235,13 @@ function McqQuestionCard({
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
               {LETTERS.slice(0, question.options.length).map((letter) => {
                 const isSelected = selected === letter;
-                const isCorrectChoice = letter === question.correctAnswer.toUpperCase();
+                const isCorrectChoice = correctAnswer ? letter === correctAnswer : false;
                 return (
                   <button
                     key={letter}
                     type="button"
-                    onClick={() => setSelected(letter)}
+                    disabled={saving || (answered && examMode && !solutionsUnlocked)}
+                    onClick={() => onSelectAnswer?.(letter)}
                     className={cn(
                       "relative flex h-12 items-center justify-center rounded-xl border text-sm font-bold transition",
                       !answered && "border-border bg-muted/40 hover:border-primary hover:bg-primary-muted",
@@ -281,7 +306,7 @@ function McqQuestionCard({
             variant="outline"
             className="justify-start border-primary/40 text-primary hover:bg-primary-muted hover:text-primary"
             onClick={() => setModal("scheme")}
-            disabled={!question.markScheme || !solutionsUnlocked}
+            disabled={!markScheme || !solutionsUnlocked}
           >
             Mark Scheme
           </Button>
@@ -289,10 +314,10 @@ function McqQuestionCard({
             type="button"
             className="justify-start bg-primary text-primary-foreground hover:bg-primary/90"
             onClick={() => setModal("video")}
-            disabled={!question.videoUrl || !solutionsUnlocked}
+            disabled={!videoUrl || !solutionsUnlocked}
           >
             Video Solutions
-            {question.videoUrl ? (
+            {videoUrl ? (
               <span className="ml-auto rounded-full bg-white/25 px-1.5 text-[10px] font-bold text-white">
                 1
               </span>
@@ -332,12 +357,14 @@ function McqQuestionCard({
             Solution notes
           </div>
           <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed text-foreground md:text-[15px]">
-            <p className="whitespace-pre-wrap">{question.markScheme}</p>
+            <p className="whitespace-pre-wrap">{markScheme}</p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            Correct answer:{" "}
-            <span className="font-semibold text-foreground">{question.correctAnswer.toUpperCase()}</span>
-          </p>
+          {correctAnswer ? (
+            <p className="text-xs text-muted-foreground">
+              Correct answer:{" "}
+              <span className="font-semibold text-foreground">{correctAnswer}</span>
+            </p>
+          ) : null}
         </div>
       </AdminModal>
 
@@ -349,9 +376,9 @@ function McqQuestionCard({
         className="sm:max-w-3xl"
         footer={
           <div className="flex flex-wrap items-center justify-between gap-2">
-            {question.videoUrl ? (
+            {videoUrl ? (
               <a
-                href={question.videoUrl}
+                href={videoUrl}
                 target="_blank"
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
@@ -372,7 +399,7 @@ function McqQuestionCard({
             <PlayCircle className="h-3.5 w-3.5" />
             1 video available
           </div>
-          {question.videoUrl ? <VideoEmbed key={question.videoUrl} url={question.videoUrl} /> : null}
+          {videoUrl ? <VideoEmbed key={videoUrl} url={videoUrl} /> : null}
         </div>
       </AdminModal>
     </section>
@@ -564,6 +591,7 @@ export function QuestionbankStudyPage({
   examMode = false,
   initialPaper,
 }: Props) {
+  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const [filtersOpen, setFiltersOpen] = useState(true);
   const [typeOpen, setTypeOpen] = useState(false);
   const [filters, setFilters] = useState<QbFilters>(() =>
@@ -571,9 +599,19 @@ export function QuestionbankStudyPage({
   );
   const [viewMode, setViewMode] = useState<ViewMode>("ALL");
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
+  const [answerFeedback, setAnswerFeedback] = useState<Record<string, PracticeAnswerFeedback>>({});
   const [examSubmitted, setExamSubmitted] = useState(false);
+  const [sessionScore, setSessionScore] = useState<number | null>(null);
+  const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
+  const sessionStartedRef = useRef(false);
   const typeRef = useRef<HTMLDivElement>(null);
   const { data, isLoading, error, isFetching } = useQbQuestions(programSlug, subtopicSlug, filters);
+  const startSession = useStartPracticeSession();
+  const saveAnswer = useSavePracticeAnswer();
+  const submitSession = useSubmitPracticeSession();
 
   const program = data?.subtopic.topic.program;
   const topic = data?.subtopic.topic;
@@ -585,6 +623,86 @@ export function QuestionbankStudyPage({
     resourceHref: ROUTES.subjectQuestionbank(programSlug),
     topicLabel: data?.subtopic.title,
   });
+
+  useEffect(() => {
+    if (!data?.questions.length || !isAuthenticated || sessionStartedRef.current) return;
+    sessionStartedRef.current = true;
+    void startSession
+      .mutateAsync({
+        programSlug,
+        subtopicSlug,
+        mode: examMode ? "EXAM" : "STUDY",
+        difficulty: filters.difficulty,
+        paper: filters.paper,
+        questionType: filters.type,
+        durationMinutes: examMode ? 60 : undefined,
+      })
+      .then((result) => {
+        setSessionId(result.session.id);
+        if (result.session.status === "SUBMITTED") {
+          setExamSubmitted(true);
+          setSessionScore(result.session.score ?? null);
+        }
+      })
+      .catch((err: ApiError) => {
+        setSessionError(err.message || "Could not start practice session");
+        sessionStartedRef.current = false;
+      });
+  }, [
+    data?.questions.length,
+    isAuthenticated,
+    examMode,
+    filters.difficulty,
+    filters.paper,
+    filters.type,
+    programSlug,
+    subtopicSlug,
+    startSession,
+  ]);
+
+  const handleSelectAnswer = async (questionId: string, letter: string) => {
+    if (!sessionId || selectedAnswers[questionId]) return;
+    setSelectedAnswers((prev) => ({ ...prev, [questionId]: letter }));
+    setSavingQuestionId(questionId);
+    try {
+      const result = await saveAnswer.mutateAsync({
+        sessionId,
+        questionId,
+        answer: letter,
+        reveal: !examMode,
+      });
+      if (result.feedback) {
+        setAnswerFeedback((prev) => ({ ...prev, [questionId]: result.feedback! }));
+      }
+    } catch (err) {
+      setSessionError((err as ApiError).message || "Failed to save answer");
+    } finally {
+      setSavingQuestionId(null);
+    }
+  };
+
+  const handleSubmitExam = async () => {
+    if (!sessionId) return;
+    try {
+      const result = await submitSession.mutateAsync(sessionId);
+      setExamSubmitted(true);
+      setSessionScore(result.session.score ?? null);
+      const nextFeedback: Record<string, PracticeAnswerFeedback> = {};
+      for (const q of result.questions) {
+        if (q.isCorrect != null && q.correctAnswer) {
+          nextFeedback[q.id] = {
+            isCorrect: Boolean(q.isCorrect),
+            correctAnswer: q.correctAnswer,
+            markScheme: q.markScheme,
+            videoUrl: q.videoUrl,
+          };
+        }
+      }
+      setAnswerFeedback((prev) => ({ ...prev, ...nextFeedback }));
+    } catch (err) {
+      setSessionError((err as ApiError).message || "Failed to submit exam");
+    }
+  };
 
   useEffect(() => {
     if (!typeOpen) return;
@@ -809,6 +927,19 @@ export function QuestionbankStudyPage({
       </div>
 
       <div className="mx-auto max-w-7xl space-y-10 px-4 py-8 md:px-6">
+        {!isAuthenticated ? (
+          <div className="rounded-xl border border-primary/20 bg-primary-muted/60 px-4 py-3 text-sm text-foreground">
+            <Link href={`${ROUTES.auth.login}?next=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "")}`} className="font-semibold text-primary hover:underline">
+              Sign in
+            </Link>{" "}
+            to check answers and track your practice session.
+          </div>
+        ) : null}
+        {sessionError ? (
+          <p className="rounded-xl border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
+            {sessionError}
+          </p>
+        ) : null}
         {examMode ? (
           <div
             className={cn(
@@ -820,7 +951,8 @@ export function QuestionbankStudyPage({
           >
             {examSubmitted ? (
               <p className="font-medium">
-                Exam submitted. Mark scheme and video solutions are now unlocked.
+                Exam submitted{sessionScore != null ? ` — score ${sessionScore}%` : ""}. Mark scheme and
+                video solutions are now unlocked.
               </p>
             ) : (
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -863,6 +995,10 @@ export function QuestionbankStudyPage({
               onToggleComplete={() => toggleComplete(question.id)}
               solutionsUnlocked={solutionsUnlocked}
               examMode={examMode}
+              selectedAnswer={selectedAnswers[question.id] ?? null}
+              feedback={answerFeedback[question.id] ?? null}
+              onSelectAnswer={(letter) => void handleSelectAnswer(question.id, letter)}
+              saving={savingQuestionId === question.id}
             />
           ))
         )}
@@ -870,8 +1006,14 @@ export function QuestionbankStudyPage({
         {examMode ? (
           <div className="sticky bottom-4 z-20 flex flex-col gap-2 sm:flex-row sm:justify-end">
             {!examSubmitted ? (
-              <Button type="button" size="pill" className="w-full sm:w-auto" onClick={() => setExamSubmitted(true)}>
-                Submit exam and unlock solutions
+              <Button
+                type="button"
+                size="pill"
+                className="w-full sm:w-auto"
+                disabled={!sessionId || submitSession.isPending}
+                onClick={() => void handleSubmitExam()}
+              >
+                {submitSession.isPending ? "Submitting…" : "Submit exam and unlock solutions"}
               </Button>
             ) : (
               <Button
@@ -879,9 +1021,15 @@ export function QuestionbankStudyPage({
                 variant="outline"
                 size="pill"
                 className="w-full sm:w-auto"
-                onClick={() => setExamSubmitted(false)}
+                onClick={() => {
+                  setExamSubmitted(false);
+                  setSessionId(null);
+                  setSelectedAnswers({});
+                  setAnswerFeedback({});
+                  sessionStartedRef.current = false;
+                }}
               >
-                Reset exam mode
+                Start new exam
               </Button>
             )}
           </div>

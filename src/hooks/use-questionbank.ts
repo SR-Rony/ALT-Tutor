@@ -121,3 +121,43 @@ export function useImportQbQuestions() {
     onSuccess: invalidate,
   });
 }
+
+export function useStartPracticeSession() {
+  return useMutation({
+    mutationFn: questionbankService.startPracticeSession,
+  });
+}
+
+export function useSavePracticeAnswer() {
+  return useMutation({
+    mutationFn: ({
+      sessionId,
+      questionId,
+      answer,
+      reveal,
+    }: {
+      sessionId: string;
+      questionId: string;
+      answer: string;
+      reveal?: boolean;
+    }) => questionbankService.savePracticeAnswer(sessionId, questionId, answer, reveal),
+  });
+}
+
+export function useSubmitPracticeSession() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sessionId: string) => questionbankService.submitPracticeSession(sessionId),
+    onSuccess: (data) => {
+      void qc.setQueryData(queryKeys.questionbank.practiceSession(data.session.id), data);
+    },
+  });
+}
+
+export function usePracticeSession(sessionId?: string) {
+  return useQuery({
+    queryKey: queryKeys.questionbank.practiceSession(sessionId ?? ""),
+    queryFn: () => questionbankService.getPracticeSession(sessionId!),
+    enabled: Boolean(sessionId),
+  });
+}

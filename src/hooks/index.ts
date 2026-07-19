@@ -90,7 +90,15 @@ export {
   useUpdateQbQuestion,
   useDeleteQbQuestion,
   useImportQbQuestions,
+  useStartPracticeSession,
+  useSavePracticeAnswer,
+  useSubmitPracticeSession,
+  usePracticeSession,
 } from "./use-questionbank";
+export { useMyAssignments, useCourseAssignments, useAssignmentDetail } from "./use-assignments";
+export { useSubmitAssignment, useUngradedSubmissions, useGradeSubmission } from "./use-submissions";
+export { useAccessProducts, useCheckout } from "./use-payments";
+export { useCourseProgramLinks, useSetCourseProgramLinks } from "./use-course-programs";
 export { useAdminSettings, useUpdateAdminSettings } from "./use-admin-settings";
 export {
   useMyMcqExams,

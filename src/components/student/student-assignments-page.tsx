@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Clock, HelpCircle, PlayCircle } from "lucide-react";
+import { ArrowRight, Clock, HelpCircle, PlayCircle } from "lucide-react";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -55,11 +55,19 @@ export function StudentAssignmentsPage() {
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-8 px-0 sm:space-y-10">
-      <PageHeader
-        title="Assignments & MCQ Exams"
-        description="Timed MCQ exams start when you click Start. Retakes available when configured."
-        className="mb-0"
-      />
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <PageHeader
+          title="Assignments & MCQ Exams"
+          description="Timed MCQ exams start when you click Start. Retakes available when configured."
+          className="mb-0"
+        />
+        <Button asChild variant="outline" size="sm">
+          <Link href={ROUTES.student.assessments}>
+            Open Exam Center
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </Button>
+      </div>
 
       {(mcqError || subError) && (
         <p className="text-sm text-accent">

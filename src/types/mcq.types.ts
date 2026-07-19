@@ -13,13 +13,15 @@ export interface McqExam {
   title: string;
   description: string;
   type: "MCQ";
-  courseId: string;
+  courseId?: string | null;
+  programId?: string | null;
   durationMinutes?: number | null;
   maxAttempts?: number;
   passingScore?: number | null;
   dueDate?: string | null;
   createdAt?: string;
   course?: { id: string; title: string; slug: string };
+  program?: { id: string; name: string; slug: string };
   questions?: McqQuestion[];
   _count?: { mcqAttempts?: number; questions?: number };
   mcqStatus?: McqExamStatus | null;

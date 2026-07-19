@@ -5,7 +5,16 @@ import type {
   CreateQbTopicInput,
   QbImportResult,
 } from "./questionbank-admin.types";
-import type { QbFilters, QbProgramOverview, QbStudyPayload, QbTopic } from "@/types/qb.types";
+import type {
+  PracticeAnswerFeedback,
+  PracticeSessionResult,
+  PracticeSessionStart,
+  QbFilters,
+  QbProgramOverview,
+  QbStudyPayload,
+  QbTopic,
+  StartPracticeSessionInput,
+} from "@/types/qb.types";
 import { sleep } from "@/utils";
 import { apiClient } from "./api-client";
 
@@ -86,6 +95,42 @@ export const questionbankService = {
     form.append("file", file);
     return apiClient
       .post<QbImportResult>(`/questionbank/subtopics/${subtopicId}/import`, form)
+      .then((r) => r.data);
+  },
+
+  startPracticeSession(payload: StartPracticeSessionInput): Promise<PracticeSessionStart> {
+    return apiClient
+      .post<PracticeSessionStart>(`/questionbank/practice/sessions`, payload)
+      .then((r) => r.data);
+  },
+
+  savePracticeAnswer(
+    sessionId: string,
+    questionId: string,
+    answer: string,
+    reveal = true
+  ): Promise<{ answer: { isCorrect: boolean }; feedback: PracticeAnswerFeedback | null }> {
+    return apiClient
+      .patch<{ answer: { isCorrect: boolean }; feedback: PracticeAnswerFeedback | null }>(
+        `/questionbank/practice/sessions/${sessionId}/answers`,
+        {
+          questionId,
+          answer,
+          reveal,
+        }
+      )
+      .then((r) => r.data);
+  },
+
+  submitPracticeSession(sessionId: string): Promise<PracticeSessionResult> {
+    return apiClient
+      .post<PracticeSessionResult>(`/questionbank/practice/sessions/${sessionId}/submit`)
+      .then((r) => r.data);
+  },
+
+  getPracticeSession(sessionId: string): Promise<PracticeSessionResult> {
+    return apiClient
+      .get<PracticeSessionResult>(`/questionbank/practice/sessions/${sessionId}`)
       .then((r) => r.data);
   },
 };

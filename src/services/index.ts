@@ -1,5 +1,8 @@
 export { questionbankService } from "./questionbank.service";
 export { mcqService } from "./mcq.service";
+export { assignmentsService } from "./assignments.service";
+export { submissionsService } from "./submissions.service";
+export { paymentsService } from "./payments.service";
 export { uploadService } from "./upload.service";
 export { subjectsService } from "./subjects.service";
 export { apiClient } from "./api-client";

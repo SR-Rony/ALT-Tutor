@@ -18,7 +18,10 @@ import { ROUTES } from "@/constants";
 import {
   useAdminCategories,
   useAdminCourse,
+  useAdminSubjectsTree,
   useAdminUsers,
+  useCourseProgramLinks,
+  useSetCourseProgramLinks,
   useUpdateCourse,
   useUpdateCourseStatus,
 } from "@/hooks";
@@ -28,12 +31,13 @@ import type { ApiError, CourseLevel, CourseStatus } from "@/types";
 import { cn } from "@/utils";
 
 type Props = { courseId: string };
-type TabId = "overview" | "details" | "curriculum" | "publish";
+type TabId = "overview" | "details" | "curriculum" | "programs" | "publish";
 
 const TABS: { id: TabId; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "details", label: "Course details" },
   { id: "curriculum", label: "Curriculum" },
+  { id: "programs", label: "Questionbank" },
   { id: "publish", label: "Preview & publish" },
 ];
 
@@ -490,6 +494,8 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
         <CourseCurriculumManager courseId={courseId} courseTitle={course.title} />
       ) : null}
 
+      {tab === "programs" ? <CourseProgramsTab courseId={courseId} /> : null}
+
       {tab === "publish" ? (
         <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
           <div className="rounded-2xl border border-border bg-card p-5">
@@ -577,5 +583,91 @@ function Field({
       </span>
       {children}
     </label>
+  );
+}
+
+function CourseProgramsTab({ courseId }: { courseId: string }) {
+  const { data: tree = [], isLoading: treeLoading } = useAdminSubjectsTree();
+  const { data: links = [], isLoading: linksLoading } = useCourseProgramLinks(courseId);
+  const setPrograms = useSetCourseProgramLinks(courseId);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [message, setMessage] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelected(links.map((l) => l.program.id));
+  }, [links]);
+
+  const allPrograms = useMemo(
+    () =>
+      tree.flatMap((cat) =>
+        cat.subjects.flatMap((subject) =>
+          subject.programs.map((program) => ({
+            id: program.id,
+            label: `${cat.name} · ${subject.name} · ${program.name}`,
+            slug: program.slug,
+          }))
+        )
+      ),
+    [tree]
+  );
+
+  const toggle = (id: string) => {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
+  };
+
+  const onSave = async () => {
+    setMessage(null);
+    setError(null);
+    try {
+      await setPrograms.mutateAsync(selected);
+      setMessage("Linked programs saved. Course questionbank routes will redirect to the first program.");
+    } catch (err) {
+      setError((err as ApiError).message || "Failed to save program links");
+    }
+  };
+
+  if (treeLoading || linksLoading) {
+    return <PageLoader label="Loading subject programs..." />;
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <h2 className="text-lg font-bold text-foreground">Linked subject programs</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Students opening this course&apos;s questionbank are redirected to the first linked program.
+        Select one or more IB subject programs whose questionbank this course should expose.
+      </p>
+      {allPrograms.length === 0 ? (
+        <p className="mt-6 text-sm text-muted-foreground">
+          No subject programs found. Create programs under Admin → Subjects first.
+        </p>
+      ) : (
+        <div className="mt-5 max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-border p-3">
+          {allPrograms.map((program) => (
+            <label
+              key={program.id}
+              className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-muted/50"
+            >
+              <input
+                type="checkbox"
+                className="mt-1 h-4 w-4 rounded border-border text-primary accent-primary"
+                checked={selected.includes(program.id)}
+                onChange={() => toggle(program.id)}
+              />
+              <span>
+                <span className="block text-sm font-medium text-foreground">{program.label}</span>
+                <span className="text-xs text-muted-foreground">{program.slug}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+      {message ? <p className="mt-3 text-sm text-accent-green">{message}</p> : null}
+      {error ? <p className="mt-3 text-sm text-accent">{error}</p> : null}
+      <Button type="button" className="mt-4" disabled={setPrograms.isPending} onClick={() => void onSave()}>
+        {setPrograms.isPending ? "Saving…" : "Save program links"}
+      </Button>
+    </div>
   );
 }

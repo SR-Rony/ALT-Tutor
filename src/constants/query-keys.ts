@@ -31,6 +31,18 @@ export const queryKeys = {
     questions: (programSlug: string, subtopicSlug: string, filters: object) =>
       ["questionbank", "questions", programSlug, subtopicSlug, filters] as const,
     admin: (programId?: string) => ["questionbank", "admin", programId ?? "all"] as const,
+    practiceSession: (sessionId: string) => ["questionbank", "practice", sessionId] as const,
+  },
+  assignments: {
+    mine: ["assignments", "mine"] as const,
+    byCourse: (courseId: string) => ["assignments", "course", courseId] as const,
+  },
+  submissions: {
+    mine: ["submissions", "mine"] as const,
+    ungraded: ["submissions", "ungraded"] as const,
+  },
+  payments: {
+    products: ["payments", "products"] as const,
   },
   mcq: {
     all: ["mcq"] as const,
@@ -45,6 +57,7 @@ export const queryKeys = {
     user: (id: string) => ["admin", "users", id] as const,
     courses: ["admin", "courses"] as const,
     course: (id: string) => ["admin", "courses", id] as const,
+    coursePrograms: (id: string) => ["admin", "courses", id, "programs"] as const,
     categories: ["admin", "categories"] as const,
     subjects: ["admin", "subjects"] as const,
     payments: ["admin", "payments"] as const,
@@ -59,5 +72,6 @@ export const queryKeys = {
     payments: ["student", "payments"] as const,
     profile: ["student", "profile"] as const,
     assignments: (courseId: string) => ["student", "assignments", courseId] as const,
+    myAssignments: ["student", "my-assignments"] as const,
   },
 } as const;

@@ -75,3 +75,55 @@ export type QbFilters = {
   paper?: QbPaper[];
   type?: QbQuestionType[];
 };
+
+export type PracticeMode = "STUDY" | "EXAM";
+export type PracticeSessionStatus = "IN_PROGRESS" | "SUBMITTED";
+
+export interface PracticeAnswerFeedback {
+  isCorrect: boolean;
+  correctAnswer: string;
+  markScheme?: string | null;
+  videoUrl?: string | null;
+}
+
+export interface PracticeSession {
+  id: string;
+  studentId: string;
+  programId: string;
+  subtopicId: string;
+  mode: PracticeMode;
+  status: PracticeSessionStatus;
+  questionIds: string[];
+  totalQuestions: number;
+  correctCount?: number | null;
+  score?: number | null;
+  expiresAt?: string | null;
+  submittedAt?: string | null;
+  createdAt: string;
+}
+
+export interface PracticeSessionStart {
+  session: PracticeSession;
+  access: { canAccess: boolean; canViewSolutions: boolean; reason?: string | null };
+  questions: QbQuestion[];
+}
+
+export interface PracticeQuestionResult extends QbQuestion {
+  studentAnswer?: string | null;
+  isCorrect?: boolean | null;
+}
+
+export interface PracticeSessionResult {
+  session: PracticeSession;
+  questions: PracticeQuestionResult[];
+}
+
+export interface StartPracticeSessionInput {
+  programSlug: string;
+  subtopicSlug: string;
+  mode: PracticeMode;
+  difficulty?: QbDifficulty[];
+  paper?: QbPaper[];
+  questionType?: QbQuestionType[];
+  durationMinutes?: number;
+}

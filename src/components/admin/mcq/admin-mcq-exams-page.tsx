@@ -1,16 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Clock, Eye, Plus, RefreshCw, Trash2, Users } from "lucide-react";
+import { Clock, Plus, RefreshCw, Trash2, Users } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { ROUTES } from "@/constants";
 import {
   useAdminCourses,
   useAdminMcqExams,
   useAdminMcqResults,
+  useCourseAssignments,
   useCreateMcqExam,
   useDeleteMcqExam,
 } from "@/hooks";
@@ -31,6 +34,8 @@ export function AdminMcqExamsPage() {
   const { data: exams = [], isLoading, error, refetch, isFetching } = useAdminMcqExams(
     effectiveCourseId
   );
+  // Assessment workspace: MCQ builder below; written grading lives in /admin/grading.
+  const { data: courseAssignments = [] } = useCourseAssignments(effectiveCourseId);
   const createExam = useCreateMcqExam();
   const deleteExam = useDeleteMcqExam();
 
@@ -103,6 +108,18 @@ export function AdminMcqExamsPage() {
     return { avg, passed, total: results.length };
   }, [results]);
 
+  const otherAssignments = useMemo(
+    () => courseAssignments.filter((a) => String(a.type).toUpperCase() !== "MCQ"),
+    [courseAssignments]
+  );
+
+  function typeBadgeClass(type: string) {
+    const t = type.toUpperCase();
+    if (t === "MCQ") return "bg-primary-muted text-primary";
+    if (t === "WRITTEN") return "bg-[#fff7ed] text-[#ea580c]";
+    return "bg-muted text-muted-foreground";
+  }
+
   if (isLoading && exams.length === 0 && courses.length > 0) {
     return <PageLoader label="Loading MCQ exams..." />;
   }
@@ -159,7 +176,37 @@ export function AdminMcqExamsPage() {
           {error ? (
             <p className="mt-2 text-sm text-accent">{(error as unknown as ApiError)?.message}</p>
           ) : null}
+          <p className="mt-3 text-sm text-muted-foreground">
+            Written and file assignments are created via{" "}
+            <code className="rounded bg-muted px-1 py-0.5 text-xs">POST /assignments</code> with type{" "}
+            <strong>WRITTEN</strong> or <strong>FILE</strong>. Grade them in the{" "}
+            <Link href={ROUTES.admin.gradingQueue} className="font-semibold text-primary hover:underline">
+              grading queue
+            </Link>
+            .
+          </p>
         </div>
+
+        {otherAssignments.length > 0 ? (
+          <div className="border-b border-border px-5 py-4">
+            <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+              Other assessments
+            </h3>
+            <div className="mt-3 space-y-2">
+              {otherAssignments.map((a) => (
+                <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-4 py-3">
+                  <div>
+                    <p className="font-semibold text-foreground">{a.title}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-1">{a.description}</p>
+                  </div>
+                  <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", typeBadgeClass(String(a.type)))}>
+                    {String(a.type)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
 
         <div className="divide-y divide-border">
           {exams.length === 0 ? (
@@ -169,6 +216,11 @@ export function AdminMcqExamsPage() {
             <div key={exam.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
               <div>
                 <h3 className="font-semibold text-foreground">{exam.title}</h3>
+                <div className="mt-1 flex flex-wrap gap-2">
+                  <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase", typeBadgeClass("MCQ"))}>
+                    MCQ
+                  </span>
+                </div>
                 <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{exam.description}</p>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">

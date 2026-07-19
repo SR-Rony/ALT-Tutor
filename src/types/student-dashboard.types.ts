@@ -1,5 +1,5 @@
 export type EnrollmentStatus = "ACTIVE" | "COMPLETED" | "CANCELLED";
-export type AssignmentType = "FILE" | "MCQ";
+export type AssignmentType = "FILE" | "MCQ" | "WRITTEN";
 export type PaymentStatus = "PENDING" | "SUCCESS" | "FAILED" | "REFUNDED";
 
 export interface StudentCourseSummary {
@@ -34,9 +34,12 @@ export interface StudentNotification {
 
 export interface StudentSubmission {
   id: string;
-  fileUrl: string;
+  fileUrl?: string | null;
+  fileUrls?: string[];
+  answerText?: string | null;
   grade?: number | null;
   feedback?: string | null;
+  status?: string;
   assignmentId: string;
   studentId?: string;
   submittedAt: string;
@@ -45,9 +48,13 @@ export interface StudentSubmission {
     id: string;
     title: string;
     type: AssignmentType | string;
-    courseId: string;
+    courseId?: string | null;
     description?: string;
     dueDate?: string | null;
+    instructions?: string | null;
+    totalMarks?: number | null;
+    course?: { id: string; title: string; slug: string };
+    program?: { id: string; name: string; slug: string };
   };
 }
 
@@ -55,11 +62,19 @@ export interface StudentAssignment {
   id: string;
   title: string;
   description: string;
+  instructions?: string | null;
   type: AssignmentType | string;
+  status?: string;
   dueDate?: string | null;
+  availableFrom?: string | null;
+  availableUntil?: string | null;
   durationMinutes?: number | null;
-  courseId: string;
+  totalMarks?: number | null;
+  courseId?: string | null;
+  programId?: string | null;
   createdAt?: string;
+  course?: { id: string; title: string; slug: string };
+  program?: { id: string; name: string; slug: string };
   _count?: { questions?: number; mcqAttempts?: number; submissions?: number };
 }
 
@@ -68,9 +83,32 @@ export interface StudentPayment {
   amount: number | string;
   status: PaymentStatus | string;
   transactionId?: string | null;
-  courseId: string;
+  courseId?: string | null;
+  accessProductId?: string | null;
   createdAt: string;
   course?: { id: string; title: string; thumbnail?: string | null };
+  accessProduct?: { id: string; title: string; slug: string };
+}
+
+export interface AccessProduct {
+  id: string;
+  title: string;
+  slug: string;
+  description?: string | null;
+  price: number | string;
+  regularPrice?: number | string | null;
+  durationDays?: number | null;
+  program?: { id: string; name: string; slug: string } | null;
+}
+
+export interface CheckoutResult {
+  payment: StudentPayment | null;
+  checkoutUrl: string | null;
+  granted?: boolean;
+}
+
+export interface UngradedSubmission extends StudentSubmission {
+  student?: { id: string; name: string; avatar?: string | null };
 }
 
 export interface StudentDashboardStats {

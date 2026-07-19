@@ -244,6 +244,7 @@ export function StudentCourseLearnPage({ slug }: Props) {
   );
   const progress = enrollment?.progress ?? 0;
   const isCompleted = String(enrollment?.status ?? "").toUpperCase() === "COMPLETED";
+  const programSlug = course.programLinks?.[0]?.program?.slug;
 
   return (
     <div className="space-y-6">
@@ -253,6 +254,26 @@ export function StudentCourseLearnPage({ slug }: Props) {
           Back to My Courses
         </Link>
       </Button>
+
+      <div className="flex flex-wrap gap-2">
+        <span className="rounded-full bg-primary px-3 py-1.5 text-sm font-semibold text-primary-foreground">
+          Lessons
+        </span>
+        {programSlug ? (
+          <Link
+            href={ROUTES.subjectQuestionbank(programSlug)}
+            className="rounded-full bg-muted px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          >
+            Questionbank
+          </Link>
+        ) : null}
+        <Link
+          href={ROUTES.student.assessments}
+          className="rounded-full bg-muted px-3 py-1.5 text-sm font-semibold text-muted-foreground hover:text-foreground"
+        >
+          Exams
+        </Link>
+      </div>
 
       <div className="grid gap-6 xl:grid-cols-[1fr_340px]">
         <div className="space-y-6">

@@ -423,7 +423,7 @@ export function AdminTeachersPage() {
               />
             </label>
             <Input
-              value={form.avatar}
+              value={form.avatar ?? ""}
               onChange={(event) => setForm((current) => ({ ...current, avatar: event.target.value }))}
               placeholder="Or paste photo URL"
             />
@@ -449,7 +449,7 @@ export function AdminTeachersPage() {
             <label className="space-y-1.5 sm:col-span-2">
               <span className="text-sm font-semibold text-foreground">Address *</span>
               <Input
-                value={form.address}
+                value={form.address ?? ""}
                 onChange={(event) =>
                   setForm((current) => ({ ...current, address: event.target.value }))
                 }
@@ -462,7 +462,7 @@ export function AdminTeachersPage() {
               </span>
               <Input
                 type="email"
-                value={form.email}
+                value={form.email ?? ""}
                 onChange={(event) => setForm((current) => ({ ...current, email: event.target.value }))}
                 placeholder="teacher@example.com"
               />
