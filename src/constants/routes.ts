@@ -46,6 +46,8 @@ export const ROUTES = {
     courses: "/teacher/courses",
     courseCurriculum: (id: string) => `/teacher/courses/${id}`,
     subjects: "/teacher/subjects",
+    assessments: "/teacher/assessments",
+    gradingQueue: "/teacher/grading",
     chat: "/teacher/chat",
     settings: "/teacher/settings",
   },

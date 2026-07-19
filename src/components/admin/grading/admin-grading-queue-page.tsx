@@ -115,7 +115,19 @@ function GradeForm({ item, onDone }: { item: UngradedSubmission; onDone: () => v
   );
 }
 
-export function AdminGradingQueuePage() {
+type GradingQueueProps = {
+  title?: string;
+  description?: string;
+  assessmentsHref?: string;
+  assessmentsLabel?: string;
+};
+
+export function GradingQueuePage({
+  title = "Grading queue",
+  description = "Review written/file submissions. Save draft marks privately, then publish when ready.",
+  assessmentsHref = ROUTES.admin.mcqExams,
+  assessmentsLabel = "Assessments",
+}: GradingQueueProps) {
   const { data = [], isLoading, error, refetch } = useUngradedSubmissions();
   const [gradingId, setGradingId] = useState<string | null>(null);
 
@@ -126,11 +138,7 @@ export function AdminGradingQueuePage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <PageHeader
-          title="Grading queue"
-          description="Review written/file submissions. Save draft marks privately, then publish when ready."
-          className="mb-0"
-        />
+        <PageHeader title={title} description={description} className="mb-0" />
         <Button type="button" variant="outline" size="sm" onClick={() => void refetch()}>
           Refresh
         </Button>
@@ -142,8 +150,8 @@ export function AdminGradingQueuePage() {
 
       <p className="text-sm text-muted-foreground">
         MCQ exams are auto-marked. Manage exams from{" "}
-        <Link href={ROUTES.admin.mcqExams} className="font-semibold text-primary hover:underline">
-          MCQ Exams
+        <Link href={assessmentsHref} className="font-semibold text-primary hover:underline">
+          {assessmentsLabel}
         </Link>
         .
       </p>
@@ -185,5 +193,11 @@ export function AdminGradingQueuePage() {
         </div>
       )}
     </div>
+  );
+}
+
+export function AdminGradingQueuePage() {
+  return (
+    <GradingQueuePage assessmentsHref={ROUTES.admin.mcqExams} assessmentsLabel="MCQ Exams" />
   );
 }

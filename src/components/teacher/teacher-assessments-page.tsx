@@ -10,16 +10,21 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants";
 import {
-  useAdminCourses,
   useAdminMcqExams,
   useAdminMcqResults,
   useCourseAssignments,
+  useCreateAssignment,
   useCreateMcqExam,
+  useDeleteAssignment,
   useDeleteMcqExam,
+  useTeacherCourses,
+  useUpdateAssignment,
 } from "@/hooks";
 import { downloadCsv } from "@/lib/export-csv";
+import { formatShortDate } from "@/lib/format";
 import type { ApiError } from "@/types";
 import type { CreateMcqExamInput } from "@/types/mcq.types";
+import type { StudentAssignment } from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
 
 const LETTERS = ["A", "B", "C", "D"];
@@ -28,33 +33,54 @@ function emptyQuestion() {
   return { text: "", options: ["", "", "", ""], correctAnswer: "A" };
 }
 
-export function AdminMcqExamsPage() {
-  const { data: courses = [] } = useAdminCourses();
+function typeBadgeClass(type: string) {
+  const t = type.toUpperCase();
+  if (t === "MCQ") return "bg-primary-muted text-primary";
+  if (t === "WRITTEN") return "bg-[#fff7ed] text-[#ea580c]";
+  return "bg-muted text-muted-foreground";
+}
+
+export function TeacherAssessmentsPage() {
+  const { data: courseData, isLoading: coursesLoading } = useTeacherCourses();
+  const courses = courseData?.all ?? [];
   const [courseId, setCourseId] = useState("");
   const effectiveCourseId = courseId || courses[0]?.id;
-  const { data: exams = [], isLoading, error, refetch, isFetching } = useAdminMcqExams(
-    effectiveCourseId
-  );
-  // Assessment workspace: MCQ builder below; written grading lives in /admin/grading.
-  const { data: courseAssignments = [] } = useCourseAssignments(effectiveCourseId);
+
+  const { data: exams = [], isLoading, error, refetch, isFetching } = useAdminMcqExams(effectiveCourseId);
+  const { data: courseAssignments = [], refetch: refetchAssignments } =
+    useCourseAssignments(effectiveCourseId);
   const createExam = useCreateMcqExam();
   const deleteExam = useDeleteMcqExam();
+  const createAssignment = useCreateAssignment();
+  const updateAssignment = useUpdateAssignment();
+  const deleteAssignment = useDeleteAssignment();
 
-  const [modal, setModal] = useState<"create" | null>(null);
+  const [modal, setModal] = useState<"mcq" | "written" | null>(null);
+  const [editWritten, setEditWritten] = useState<StudentAssignment | null>(null);
   const [resultsId, setResultsId] = useState<string | null>(null);
   const { data: results = [] } = useAdminMcqResults(resultsId ?? undefined);
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [instructions, setInstructions] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("15");
   const [maxAttempts, setMaxAttempts] = useState("2");
   const [passingScore, setPassingScore] = useState("60");
+  const [totalMarks, setTotalMarks] = useState("100");
+  const [dueDate, setDueDate] = useState("");
+  const [writtenType, setWrittenType] = useState<"WRITTEN" | "FILE">("WRITTEN");
+  const [writtenStatus, setWrittenStatus] = useState<"DRAFT" | "PUBLISHED">("PUBLISHED");
   const [questions, setQuestions] = useState([emptyQuestion(), emptyQuestion()]);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  const busy = createExam.isPending || deleteExam.isPending;
+  const busy =
+    createExam.isPending ||
+    deleteExam.isPending ||
+    createAssignment.isPending ||
+    updateAssignment.isPending ||
+    deleteAssignment.isPending;
 
-  const resetForm = () => {
+  const resetMcqForm = () => {
     setTitle("");
     setDescription("");
     setDurationMinutes("15");
@@ -63,7 +89,21 @@ export function AdminMcqExamsPage() {
     setQuestions([emptyQuestion(), emptyQuestion()]);
   };
 
-  const onSave = async () => {
+  const resetWrittenForm = (item?: StudentAssignment | null) => {
+    setTitle(item?.title ?? "");
+    setDescription(item?.description ?? "");
+    setInstructions(item?.instructions ?? "");
+    setTotalMarks(item?.totalMarks != null ? String(item.totalMarks) : "100");
+    setDueDate(item?.dueDate ? item.dueDate.slice(0, 10) : "");
+    setWrittenType(
+      String(item?.type ?? "WRITTEN").toUpperCase() === "FILE" ? "FILE" : "WRITTEN"
+    );
+    setWrittenStatus(
+      String(item?.status ?? "PUBLISHED").toUpperCase() === "DRAFT" ? "DRAFT" : "PUBLISHED"
+    );
+  };
+
+  const onSaveMcq = async () => {
     if (!effectiveCourseId) return;
     setActionError(null);
     const payload: CreateMcqExamInput = {
@@ -96,9 +136,49 @@ export function AdminMcqExamsPage() {
     try {
       await createExam.mutateAsync(payload);
       setModal(null);
-      resetForm();
+      resetMcqForm();
     } catch (err) {
       setActionError((err as ApiError)?.message || "Failed to create exam");
+    }
+  };
+
+  const onSaveWritten = async () => {
+    if (!effectiveCourseId) return;
+    setActionError(null);
+    if (!title.trim() || !description.trim()) {
+      setActionError("Title and description are required");
+      return;
+    }
+    try {
+      if (editWritten) {
+        await updateAssignment.mutateAsync({
+          id: editWritten.id,
+          payload: {
+            title: title.trim(),
+            description: description.trim(),
+            instructions: instructions.trim() || undefined,
+            status: writtenStatus,
+            totalMarks: Number.parseInt(totalMarks, 10) || undefined,
+            dueDate: dueDate ? new Date(`${dueDate}T23:59:59.000Z`).toISOString() : undefined,
+          },
+        });
+      } else {
+        await createAssignment.mutateAsync({
+          title: title.trim(),
+          description: description.trim(),
+          instructions: instructions.trim() || undefined,
+          type: writtenType,
+          status: writtenStatus,
+          courseId: effectiveCourseId,
+          totalMarks: Number.parseInt(totalMarks, 10) || undefined,
+          dueDate: dueDate ? new Date(`${dueDate}T23:59:59.000Z`).toISOString() : undefined,
+        });
+      }
+      setModal(null);
+      setEditWritten(null);
+      void refetchAssignments();
+    } catch (err) {
+      setActionError((err as ApiError)?.message || "Failed to save assessment");
     }
   };
 
@@ -114,15 +194,42 @@ export function AdminMcqExamsPage() {
     [courseAssignments]
   );
 
-  function typeBadgeClass(type: string) {
-    const t = type.toUpperCase();
-    if (t === "MCQ") return "bg-primary-muted text-primary";
-    if (t === "WRITTEN") return "bg-[#fff7ed] text-[#ea580c]";
-    return "bg-muted text-muted-foreground";
+  const exportResults = () => {
+    downloadCsv(`mcq-results-${resultsId ?? "export"}.csv`, [
+      ["Student", "Phone", "Attempt", "Score", "Passed", "Submitted"],
+      ...results.map((r) => [
+        r.student.name,
+        r.student.phone,
+        r.attemptNumber,
+        r.score,
+        r.passed ? "Pass" : "Fail",
+        r.submittedAt ? new Date(r.submittedAt).toISOString() : "",
+      ]),
+    ]);
+  };
+
+  if (coursesLoading) return <PageLoader label="Loading your courses…" />;
+
+  if (courses.length === 0) {
+    return (
+      <div className="space-y-4">
+        <PageHeader
+          title="Assessments"
+          description="Create MCQ and written assessments for courses you own or are delegated to."
+        />
+        <div className="rounded-2xl border border-dashed border-border px-6 py-14 text-center text-sm text-muted-foreground">
+          No managed courses yet. Create or request access from{" "}
+          <Link href={ROUTES.teacher.courses} className="font-semibold text-primary hover:underline">
+            My Courses
+          </Link>
+          .
+        </div>
+      </div>
+    );
   }
 
-  if (isLoading && exams.length === 0 && courses.length > 0) {
-    return <PageLoader label="Loading MCQ exams..." />;
+  if (isLoading && exams.length === 0) {
+    return <PageLoader label="Loading assessments…" />;
   }
 
   return (
@@ -131,30 +238,49 @@ export function AdminMcqExamsPage() {
         <div className="border-b border-border px-5 py-6">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
-              title="MCQ Exams"
-              description="Timed exams with start-on-click timer, auto marking, pass score, and retakes."
+              title="Assessments"
+              description="MCQ exams and written/file assignments for your courses. Grade written work in the grading queue."
               className="mb-0"
             />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <AdminIconAction
                 label="Refresh"
                 icon={RefreshCw}
                 tone="primary"
                 disabled={isFetching}
-                onClick={() => void refetch()}
+                onClick={() => {
+                  void refetch();
+                  void refetchAssignments();
+                }}
                 className={isFetching ? "animate-spin" : undefined}
               />
               <Button
                 type="button"
                 size="sm"
+                variant="outline"
                 disabled={!effectiveCourseId}
                 onClick={() => {
-                  resetForm();
-                  setModal("create");
+                  resetWrittenForm();
+                  setEditWritten(null);
+                  setActionError(null);
+                  setModal("written");
                 }}
               >
                 <Plus className="h-4 w-4" />
-                New exam
+                Written / file
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!effectiveCourseId}
+                onClick={() => {
+                  resetMcqForm();
+                  setActionError(null);
+                  setModal("mcq");
+                }}
+              >
+                <Plus className="h-4 w-4" />
+                New MCQ
               </Button>
             </div>
           </div>
@@ -178,10 +304,8 @@ export function AdminMcqExamsPage() {
             <p className="mt-2 text-sm text-accent">{(error as unknown as ApiError)?.message}</p>
           ) : null}
           <p className="mt-3 text-sm text-muted-foreground">
-            Written and file assignments are created via{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">POST /assignments</code> with type{" "}
-            <strong>WRITTEN</strong> or <strong>FILE</strong>. Grade them in the{" "}
-            <Link href={ROUTES.admin.gradingQueue} className="font-semibold text-primary hover:underline">
+            Grade written submissions in the{" "}
+            <Link href={ROUTES.teacher.gradingQueue} className="font-semibold text-primary hover:underline">
               grading queue
             </Link>
             .
@@ -191,18 +315,59 @@ export function AdminMcqExamsPage() {
         {otherAssignments.length > 0 ? (
           <div className="border-b border-border px-5 py-4">
             <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-              Other assessments
+              Written &amp; file assessments
             </h3>
             <div className="mt-3 space-y-2">
               {otherAssignments.map((a) => (
-                <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-4 py-3">
+                <div
+                  key={a.id}
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-4 py-3"
+                >
                   <div>
                     <p className="font-semibold text-foreground">{a.title}</p>
                     <p className="text-sm text-muted-foreground line-clamp-1">{a.description}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {a.status ?? "PUBLISHED"}
+                      {a.dueDate ? ` · Due ${formatShortDate(a.dueDate)}` : ""}
+                      {a.totalMarks != null ? ` · ${a.totalMarks} marks` : ""}
+                    </p>
                   </div>
-                  <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", typeBadgeClass(String(a.type)))}>
-                    {String(a.type)}
-                  </span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span
+                      className={cn(
+                        "rounded-full px-2.5 py-0.5 text-xs font-semibold",
+                        typeBadgeClass(String(a.type))
+                      )}
+                    >
+                      {String(a.type)}
+                    </span>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => {
+                        setEditWritten(a);
+                        resetWrittenForm(a);
+                        setActionError(null);
+                        setModal("written");
+                      }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="text-accent"
+                      onClick={() => {
+                        if (window.confirm(`Delete "${a.title}"?`)) {
+                          void deleteAssignment.mutateAsync(a.id).then(() => refetchAssignments());
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               ))}
             </div>
@@ -210,6 +375,9 @@ export function AdminMcqExamsPage() {
         ) : null}
 
         <div className="divide-y divide-border">
+          <div className="px-5 py-3">
+            <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">MCQ exams</h3>
+          </div>
           {exams.length === 0 ? (
             <p className="px-5 py-10 text-center text-muted-foreground">No MCQ exams for this course.</p>
           ) : null}
@@ -217,11 +385,6 @@ export function AdminMcqExamsPage() {
             <div key={exam.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
               <div>
                 <h3 className="font-semibold text-foreground">{exam.title}</h3>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase", typeBadgeClass("MCQ"))}>
-                    MCQ
-                  </span>
-                </div>
                 <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{exam.description}</p>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
@@ -231,14 +394,6 @@ export function AdminMcqExamsPage() {
                   <span className="rounded-md bg-muted px-2 py-0.5">
                     {exam.questions?.length ?? exam._count?.questions ?? 0} questions
                   </span>
-                  <span className="rounded-md bg-muted px-2 py-0.5">
-                    {exam.maxAttempts ?? 1} attempt{(exam.maxAttempts ?? 1) > 1 ? "s" : ""}
-                  </span>
-                  {exam.passingScore != null ? (
-                    <span className="rounded-md bg-primary-muted px-2 py-0.5 text-primary">
-                      Pass {exam.passingScore}%
-                    </span>
-                  ) : null}
                   <span className="rounded-md bg-muted px-2 py-0.5">
                     {exam._count?.mcqAttempts ?? 0} attempts taken
                   </span>
@@ -269,7 +424,7 @@ export function AdminMcqExamsPage() {
       </div>
 
       <AdminModal
-        open={modal === "create"}
+        open={modal === "mcq"}
         title="Create MCQ exam"
         description="Timer starts when student clicks Start. Marks calculated on submit."
         onClose={() => !busy && setModal(null)}
@@ -279,7 +434,7 @@ export function AdminMcqExamsPage() {
             <Button type="button" variant="outline" disabled={busy} onClick={() => setModal(null)}>
               Cancel
             </Button>
-            <Button type="button" disabled={busy} onClick={() => void onSave()}>
+            <Button type="button" disabled={busy} onClick={() => void onSaveMcq()}>
               {busy ? "Saving..." : "Create exam"}
             </Button>
           </div>
@@ -365,31 +520,100 @@ export function AdminMcqExamsPage() {
       </AdminModal>
 
       <AdminModal
-        open={Boolean(resultsId)}
-        title="Exam results"
-        description={resultSummary ? `Avg ${resultSummary.avg}% · ${resultSummary.passed}/${resultSummary.total} passed` : undefined}
-        onClose={() => setResultsId(null)}
-        className="sm:max-w-3xl"
+        open={modal === "written"}
+        title={editWritten ? "Edit written assessment" : "Create written / file assessment"}
+        description="Students submit text and/or files. You grade them in the grading queue."
+        onClose={() => {
+          if (!busy) {
+            setModal(null);
+            setEditWritten(null);
+          }
+        }}
+        className="sm:max-w-xl"
         footer={
           <div className="flex justify-end gap-2">
             <Button
               type="button"
               variant="outline"
-              disabled={!results.length}
-              onClick={() =>
-                downloadCsv(`mcq-results-${resultsId ?? "export"}.csv`, [
-                  ["Student", "Phone", "Attempt", "Score", "Passed", "Submitted"],
-                  ...results.map((r) => [
-                    r.student.name,
-                    r.student.phone,
-                    r.attemptNumber,
-                    r.score,
-                    r.passed ? "Pass" : "Fail",
-                    r.submittedAt ? new Date(r.submittedAt).toISOString() : "",
-                  ]),
-                ])
-              }
+              disabled={busy}
+              onClick={() => {
+                setModal(null);
+                setEditWritten(null);
+              }}
             >
+              Cancel
+            </Button>
+            <Button type="button" disabled={busy} onClick={() => void onSaveWritten()}>
+              {busy ? "Saving…" : editWritten ? "Save changes" : "Create"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-3">
+          <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+          <textarea
+            placeholder="Description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={2}
+            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+          />
+          <textarea
+            placeholder="Instructions (optional)"
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            rows={2}
+            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+          />
+          <div className="grid gap-3 sm:grid-cols-2">
+            {!editWritten ? (
+              <label className="space-y-1 text-sm">
+                <span className="font-semibold">Type</span>
+                <select
+                  value={writtenType}
+                  onChange={(e) => setWrittenType(e.target.value as "WRITTEN" | "FILE")}
+                  className="flex h-10 w-full rounded-xl border border-border px-3 text-sm"
+                >
+                  <option value="WRITTEN">Written</option>
+                  <option value="FILE">File</option>
+                </select>
+              </label>
+            ) : null}
+            <label className="space-y-1 text-sm">
+              <span className="font-semibold">Status</span>
+              <select
+                value={writtenStatus}
+                onChange={(e) => setWrittenStatus(e.target.value as "DRAFT" | "PUBLISHED")}
+                className="flex h-10 w-full rounded-xl border border-border px-3 text-sm"
+              >
+                <option value="DRAFT">Draft</option>
+                <option value="PUBLISHED">Published</option>
+              </select>
+            </label>
+            <label className="space-y-1 text-sm">
+              <span className="font-semibold">Total marks</span>
+              <Input value={totalMarks} onChange={(e) => setTotalMarks(e.target.value)} />
+            </label>
+            <label className="space-y-1 text-sm">
+              <span className="font-semibold">Due date</span>
+              <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+            </label>
+          </div>
+          {actionError ? <p className="text-sm text-accent">{actionError}</p> : null}
+        </div>
+      </AdminModal>
+
+      <AdminModal
+        open={Boolean(resultsId)}
+        title="Exam results"
+        description={
+          resultSummary ? `Avg ${resultSummary.avg}% · ${resultSummary.passed}/${resultSummary.total} passed` : undefined
+        }
+        onClose={() => setResultsId(null)}
+        className="sm:max-w-3xl"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" disabled={!results.length} onClick={exportResults}>
               <Download className="h-4 w-4" />
               Export CSV
             </Button>
