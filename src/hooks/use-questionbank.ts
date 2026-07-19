@@ -30,6 +30,7 @@ export function useAdminQuestionbank(programId?: string) {
   return useQuery({
     queryKey: queryKeys.questionbank.admin(programId),
     queryFn: () => questionbankService.adminList(programId),
+    enabled: Boolean(programId),
   });
 }
 

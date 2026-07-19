@@ -8,6 +8,7 @@ export interface McqQuestion {
   order: number;
   /** Present on manager/admin payloads only */
   correctAnswer?: string;
+  sourceQuestionId?: string | null;
 }
 
 export interface McqExam {
@@ -29,6 +30,7 @@ export interface McqExam {
   course?: { id: string; title: string; slug: string };
   program?: { id: string; name: string; slug: string };
   questions?: McqQuestion[];
+  selectedQuestionbankIds?: string[];
   _count?: { mcqAttempts?: number; questions?: number };
   mcqStatus?: McqExamStatus | null;
 }
@@ -151,4 +153,5 @@ export type CreateMcqExamInput = {
   availableUntil?: string;
   resultReleaseMode?: ResultReleaseMode;
   questions?: { text: string; options: string[]; correctAnswer: string; order?: number }[];
+  questionbankQuestionIds?: string[];
 };
