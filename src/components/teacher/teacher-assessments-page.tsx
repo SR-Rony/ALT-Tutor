@@ -110,6 +110,7 @@ export function TeacherAssessmentsPage() {
       title: title.trim(),
       description: description.trim(),
       courseId: effectiveCourseId,
+      status: "PUBLISHED",
       durationMinutes: Number.parseInt(durationMinutes, 10) || 15,
       maxAttempts: Number.parseInt(maxAttempts, 10) || 1,
       passingScore: Number.parseInt(passingScore, 10) || 60,
@@ -129,7 +130,7 @@ export function TeacherAssessmentsPage() {
           };
         }),
     };
-    if (payload.questions.length < 1) {
+    if (!payload.questions || payload.questions.length < 1) {
       setActionError("Add at least one question");
       return;
     }

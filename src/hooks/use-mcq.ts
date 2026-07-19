@@ -12,10 +12,10 @@ export function useMyMcqExams() {
   });
 }
 
-export function useAdminMcqExams(courseId?: string) {
+export function useAdminMcqExams(courseId?: string, programId?: string) {
   return useQuery({
-    queryKey: queryKeys.mcq.admin(courseId),
-    queryFn: () => mcqService.adminList(courseId),
+    queryKey: queryKeys.mcq.admin(courseId, programId),
+    queryFn: () => mcqService.adminList(courseId, programId),
   });
 }
 
@@ -39,7 +39,10 @@ export function useCreateMcqExam() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CreateMcqExamInput) => mcqService.create(payload),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.mcq.all }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.mcq.all });
+      void qc.invalidateQueries({ queryKey: ["assignments"] });
+    },
   });
 }
 
@@ -48,7 +51,10 @@ export function useUpdateMcqExam() {
   return useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: Partial<CreateMcqExamInput> }) =>
       mcqService.update(id, payload),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.mcq.all }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.mcq.all });
+      void qc.invalidateQueries({ queryKey: ["assignments"] });
+    },
   });
 }
 
@@ -56,7 +62,10 @@ export function useDeleteMcqExam() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: string) => mcqService.remove(id),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.mcq.all }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.mcq.all });
+      void qc.invalidateQueries({ queryKey: ["assignments"] });
+    },
   });
 }
 

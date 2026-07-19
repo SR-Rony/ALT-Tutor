@@ -2,105 +2,100 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Clock, Download, Plus, RefreshCw, Trash2, Users } from "lucide-react";
+import { Clock, Download, Pencil, Plus, RefreshCw, Trash2, Users } from "lucide-react";
+import { AdminAssessmentBuilderModal } from "@/components/admin/mcq/admin-assessment-builder-modal";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants";
 import {
   useAdminCourses,
-  useAdminMcqExams,
   useAdminMcqResults,
+  useAdminSubjectsTree,
   useCourseAssignments,
-  useCreateMcqExam,
+  useDeleteAssignment,
   useDeleteMcqExam,
+  useProgramAssignments,
+  useUpdateAssignment,
+  useUpdateMcqExam,
 } from "@/hooks";
 import { downloadCsv } from "@/lib/export-csv";
 import type { ApiError } from "@/types";
-import type { CreateMcqExamInput } from "@/types/mcq.types";
+import type { StudentAssignment } from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
 
-const LETTERS = ["A", "B", "C", "D"];
+type ScopeFilter = "course" | "program";
 
-function emptyQuestion() {
-  return { text: "", options: ["", "", "", ""], correctAnswer: "A" };
+function typeBadgeClass(type: string) {
+  const t = type.toUpperCase();
+  if (t === "MCQ") return "bg-primary-muted text-primary";
+  if (t === "WRITTEN") return "bg-[#fff7ed] text-[#ea580c]";
+  return "bg-muted text-muted-foreground";
+}
+
+function statusBadgeClass(status: string) {
+  const s = status.toUpperCase();
+  if (s === "PUBLISHED") return "bg-[#ecfdf3] text-accent-green";
+  if (s === "CLOSED") return "bg-muted text-muted-foreground";
+  return "bg-[#fff7ed] text-[#ea580c]";
 }
 
 export function AdminMcqExamsPage() {
   const { data: courses = [] } = useAdminCourses();
-  const [courseId, setCourseId] = useState("");
-  const effectiveCourseId = courseId || courses[0]?.id;
-  const { data: exams = [], isLoading, error, refetch, isFetching } = useAdminMcqExams(
-    effectiveCourseId
-  );
-  // Assessment workspace: MCQ builder below; written grading lives in /admin/grading.
-  const { data: courseAssignments = [] } = useCourseAssignments(effectiveCourseId);
-  const createExam = useCreateMcqExam();
-  const deleteExam = useDeleteMcqExam();
+  const { data: subjectsTree = [] } = useAdminSubjectsTree();
 
-  const [modal, setModal] = useState<"create" | null>(null);
+  const programs = useMemo(
+    () =>
+      subjectsTree.flatMap((cat) =>
+        (cat.subjects ?? []).flatMap((sub) =>
+          (sub.programs ?? []).map((p) => ({
+            id: p.id,
+            name: p.name,
+            label: `${cat.name} / ${sub.name} / ${p.name}`,
+          }))
+        )
+      ),
+    [subjectsTree]
+  );
+
+  const [scopeFilter, setScopeFilter] = useState<ScopeFilter>("course");
+  const [courseId, setCourseId] = useState("");
+  const [programId, setProgramId] = useState("");
+  const effectiveCourseId = courseId || courses[0]?.id;
+  const effectiveProgramId = programId || programs[0]?.id;
+
+  const courseQuery = useCourseAssignments(
+    scopeFilter === "course" ? effectiveCourseId : undefined
+  );
+  const programQuery = useProgramAssignments(
+    scopeFilter === "program" ? effectiveProgramId : undefined
+  );
+
+  const assessments = scopeFilter === "course" ? courseQuery.data ?? [] : programQuery.data ?? [];
+  const isLoading = scopeFilter === "course" ? courseQuery.isLoading : programQuery.isLoading;
+  const isFetching = scopeFilter === "course" ? courseQuery.isFetching : programQuery.isFetching;
+  const error = scopeFilter === "course" ? courseQuery.error : programQuery.error;
+  const refetch = () =>
+    scopeFilter === "course" ? void courseQuery.refetch() : void programQuery.refetch();
+
+  const updateExam = useUpdateMcqExam();
+  const updateAssignment = useUpdateAssignment();
+  const deleteExam = useDeleteMcqExam();
+  const deleteAssignment = useDeleteAssignment();
+
+  const [builderOpen, setBuilderOpen] = useState(false);
+  const [editItem, setEditItem] = useState<StudentAssignment | null>(null);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [resultsId, setResultsId] = useState<string | null>(null);
   const { data: results = [] } = useAdminMcqResults(resultsId ?? undefined);
 
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [durationMinutes, setDurationMinutes] = useState("15");
-  const [maxAttempts, setMaxAttempts] = useState("2");
-  const [passingScore, setPassingScore] = useState("60");
-  const [questions, setQuestions] = useState([emptyQuestion(), emptyQuestion()]);
-  const [actionError, setActionError] = useState<string | null>(null);
-
-  const busy = createExam.isPending || deleteExam.isPending;
-
-  const resetForm = () => {
-    setTitle("");
-    setDescription("");
-    setDurationMinutes("15");
-    setMaxAttempts("2");
-    setPassingScore("60");
-    setQuestions([emptyQuestion(), emptyQuestion()]);
-  };
-
-  const onSave = async () => {
-    if (!effectiveCourseId) return;
-    setActionError(null);
-    const payload: CreateMcqExamInput = {
-      title: title.trim(),
-      description: description.trim(),
-      courseId: effectiveCourseId,
-      durationMinutes: Number.parseInt(durationMinutes, 10) || 15,
-      maxAttempts: Number.parseInt(maxAttempts, 10) || 1,
-      passingScore: Number.parseInt(passingScore, 10) || 60,
-      questions: questions
-        .filter((q) => q.text.trim())
-        .map((q, i) => {
-          const letterIdx = LETTERS.indexOf(q.correctAnswer as (typeof LETTERS)[number]);
-          const correct =
-            letterIdx >= 0 && q.options[letterIdx]?.trim()
-              ? q.options[letterIdx].trim()
-              : q.correctAnswer;
-          return {
-            text: q.text.trim(),
-            options: q.options.filter(Boolean),
-            correctAnswer: correct,
-            order: i,
-          };
-        }),
-    };
-    if (payload.questions.length < 1) {
-      setActionError("Add at least one question");
-      return;
-    }
-    try {
-      await createExam.mutateAsync(payload);
-      setModal(null);
-      resetForm();
-    } catch (err) {
-      setActionError((err as ApiError)?.message || "Failed to create exam");
-    }
-  };
+  const selectedIds = useMemo(
+    () => Object.entries(selected).filter(([, v]) => v).map(([id]) => id),
+    [selected]
+  );
 
   const resultSummary = useMemo(() => {
     if (!results.length) return null;
@@ -109,20 +104,63 @@ export function AdminMcqExamsPage() {
     return { avg, passed, total: results.length };
   }, [results]);
 
-  const otherAssignments = useMemo(
-    () => courseAssignments.filter((a) => String(a.type).toUpperCase() !== "MCQ"),
-    [courseAssignments]
-  );
+  const toggleAll = (checked: boolean) => {
+    const next: Record<string, boolean> = {};
+    for (const a of assessments) next[a.id] = checked;
+    setSelected(next);
+  };
 
-  function typeBadgeClass(type: string) {
-    const t = type.toUpperCase();
-    if (t === "MCQ") return "bg-primary-muted text-primary";
-    if (t === "WRITTEN") return "bg-[#fff7ed] text-[#ea580c]";
-    return "bg-muted text-muted-foreground";
-  }
+  const setStatusBulk = async (status: "PUBLISHED" | "CLOSED") => {
+    if (!selectedIds.length) return;
+    setBulkError(null);
+    setBulkBusy(true);
+    try {
+      for (const id of selectedIds) {
+        const item = assessments.find((a) => a.id === id);
+        if (!item) continue;
+        if (String(item.type).toUpperCase() === "MCQ") {
+          await updateExam.mutateAsync({ id, payload: { status } });
+        } else {
+          await updateAssignment.mutateAsync({ id, payload: { status } });
+        }
+      }
+      setSelected({});
+      refetch();
+    } catch (err) {
+      setBulkError((err as ApiError)?.message || "Bulk update failed");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
-  if (isLoading && exams.length === 0 && courses.length > 0) {
-    return <PageLoader label="Loading MCQ exams..." />;
+  const onDelete = async (item: StudentAssignment) => {
+    if (!window.confirm(`Delete "${item.title}"?`)) return;
+    if (String(item.type).toUpperCase() === "MCQ") {
+      await deleteExam.mutateAsync(item.id);
+    } else {
+      await deleteAssignment.mutateAsync(item.id);
+    }
+    refetch();
+  };
+
+  const exportListCsv = () => {
+    downloadCsv("assessments.csv", [
+      ["Title", "Type", "Status", "Scope", "Duration", "Questions", "Attempts", "Submissions"],
+      ...assessments.map((a) => [
+        a.title,
+        String(a.type),
+        String(a.status ?? ""),
+        a.course?.title ?? a.program?.name ?? "",
+        a.durationMinutes ?? "",
+        a._count?.questions ?? "",
+        a._count?.mcqAttempts ?? "",
+        a._count?.submissions ?? "",
+      ]),
+    ]);
+  };
+
+  if (isLoading && assessments.length === 0 && (courses.length > 0 || programs.length > 0)) {
+    return <PageLoader label="Loading assessments..." />;
   }
 
   return (
@@ -131,56 +169,104 @@ export function AdminMcqExamsPage() {
         <div className="border-b border-border px-5 py-6">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
-              title="MCQ Exams"
-              description="Timed exams with start-on-click timer, auto marking, pass score, and retakes."
+              title="Assessments"
+              description="Step builder for MCQ, written, and file assessments — course or program scope."
               className="mb-0"
             />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <AdminIconAction
                 label="Refresh"
                 icon={RefreshCw}
                 tone="primary"
                 disabled={isFetching}
-                onClick={() => void refetch()}
+                onClick={refetch}
                 className={isFetching ? "animate-spin" : undefined}
               />
+              <Button type="button" size="sm" variant="outline" onClick={exportListCsv}>
+                <Download className="h-4 w-4" />
+                CSV
+              </Button>
               <Button
                 type="button"
                 size="sm"
-                disabled={!effectiveCourseId}
                 onClick={() => {
-                  resetForm();
-                  setModal("create");
+                  setEditItem(null);
+                  setBuilderOpen(true);
                 }}
               >
                 <Plus className="h-4 w-4" />
-                New exam
+                New assessment
               </Button>
             </div>
           </div>
-          <label className="block max-w-md space-y-1.5">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Course
-            </span>
-            <select
-              value={effectiveCourseId ?? ""}
-              onChange={(e) => setCourseId(e.target.value)}
-              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant={scopeFilter === "course" ? "default" : "outline"}
+              onClick={() => setScopeFilter("course")}
             >
-              {courses.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.title}
-                </option>
-              ))}
-            </select>
-          </label>
+              Course
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant={scopeFilter === "program" ? "default" : "outline"}
+              onClick={() => setScopeFilter("program")}
+            >
+              Program
+            </Button>
+          </div>
+
+          {scopeFilter === "course" ? (
+            <label className="mt-3 block max-w-md space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Course
+              </span>
+              <select
+                value={effectiveCourseId ?? ""}
+                onChange={(e) => {
+                  setCourseId(e.target.value);
+                  setSelected({});
+                }}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {courses.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label className="mt-3 block max-w-xl space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Subject program
+              </span>
+              <select
+                value={effectiveProgramId ?? ""}
+                onChange={(e) => {
+                  setProgramId(e.target.value);
+                  setSelected({});
+                }}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {programs.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+
           {error ? (
             <p className="mt-2 text-sm text-accent">{(error as unknown as ApiError)?.message}</p>
           ) : null}
+
           <p className="mt-3 text-sm text-muted-foreground">
-            Written and file assignments are created via{" "}
-            <code className="rounded bg-muted px-1 py-0.5 text-xs">POST /assignments</code> with type{" "}
-            <strong>WRITTEN</strong> or <strong>FILE</strong>. Grade them in the{" "}
+            Grade written/file work in the{" "}
             <Link href={ROUTES.admin.gradingQueue} className="font-semibold text-primary hover:underline">
               grading queue
             </Link>
@@ -188,186 +274,170 @@ export function AdminMcqExamsPage() {
           </p>
         </div>
 
-        {otherAssignments.length > 0 ? (
-          <div className="border-b border-border px-5 py-4">
-            <h3 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-              Other assessments
-            </h3>
-            <div className="mt-3 space-y-2">
-              {otherAssignments.map((a) => (
-                <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border px-4 py-3">
-                  <div>
-                    <p className="font-semibold text-foreground">{a.title}</p>
-                    <p className="text-sm text-muted-foreground line-clamp-1">{a.description}</p>
-                  </div>
-                  <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-semibold", typeBadgeClass(String(a.type)))}>
-                    {String(a.type)}
-                  </span>
-                </div>
-              ))}
-            </div>
+        {selectedIds.length > 0 ? (
+          <div className="flex flex-wrap items-center gap-2 border-b border-border bg-muted/40 px-5 py-3">
+            <span className="text-sm font-semibold">{selectedIds.length} selected</span>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={bulkBusy}
+              onClick={() => void setStatusBulk("PUBLISHED")}
+            >
+              Publish
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={bulkBusy}
+              onClick={() => void setStatusBulk("CLOSED")}
+            >
+              Close
+            </Button>
+            <Button type="button" size="sm" variant="ghost" onClick={() => setSelected({})}>
+              Clear
+            </Button>
+            {bulkError ? <p className="w-full text-sm text-accent">{bulkError}</p> : null}
           </div>
         ) : null}
 
         <div className="divide-y divide-border">
-          {exams.length === 0 ? (
-            <p className="px-5 py-10 text-center text-muted-foreground">No MCQ exams for this course.</p>
+          <div className="flex items-center gap-3 px-5 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={assessments.length > 0 && selectedIds.length === assessments.length}
+              onChange={(e) => toggleAll(e.target.checked)}
+              aria-label="Select all"
+            />
+            <span>Assessments</span>
+          </div>
+          {assessments.length === 0 ? (
+            <p className="px-5 py-10 text-center text-muted-foreground">
+              No assessments for this scope.
+            </p>
           ) : null}
-          {exams.map((exam) => (
-            <div key={exam.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
-              <div>
-                <h3 className="font-semibold text-foreground">{exam.title}</h3>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold uppercase", typeBadgeClass("MCQ"))}>
-                    MCQ
-                  </span>
-                </div>
-                <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{exam.description}</p>
-                <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
-                    <Clock className="h-3 w-3" />
-                    {exam.durationMinutes} min
-                  </span>
-                  <span className="rounded-md bg-muted px-2 py-0.5">
-                    {exam.questions?.length ?? exam._count?.questions ?? 0} questions
-                  </span>
-                  <span className="rounded-md bg-muted px-2 py-0.5">
-                    {exam.maxAttempts ?? 1} attempt{(exam.maxAttempts ?? 1) > 1 ? "s" : ""}
-                  </span>
-                  {exam.passingScore != null ? (
-                    <span className="rounded-md bg-primary-muted px-2 py-0.5 text-primary">
-                      Pass {exam.passingScore}%
-                    </span>
-                  ) : null}
-                  <span className="rounded-md bg-muted px-2 py-0.5">
-                    {exam._count?.mcqAttempts ?? 0} attempts taken
-                  </span>
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <Button type="button" size="sm" variant="outline" onClick={() => setResultsId(exam.id)}>
-                  <Users className="h-4 w-4" />
-                  Results
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="ghost"
-                  className="text-accent"
-                  onClick={() => {
-                    if (window.confirm(`Delete "${exam.title}"?`)) {
-                      void deleteExam.mutateAsync(exam.id);
+          {assessments.map((item) => {
+            const isMcq = String(item.type).toUpperCase() === "MCQ";
+            return (
+              <div key={item.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={Boolean(selected[item.id])}
+                    onChange={(e) =>
+                      setSelected((prev) => ({ ...prev, [item.id]: e.target.checked }))
                     }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                    aria-label={`Select ${item.title}`}
+                  />
+                  <div className="min-w-0">
+                    <h3 className="font-semibold text-foreground">{item.title}</h3>
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                          typeBadgeClass(String(item.type))
+                        )}
+                      >
+                        {String(item.type)}
+                      </span>
+                      <span
+                        className={cn(
+                          "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase",
+                          statusBadgeClass(String(item.status ?? "DRAFT"))
+                        )}
+                      >
+                        {String(item.status ?? "DRAFT")}
+                      </span>
+                    </div>
+                    <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                      {item.description}
+                    </p>
+                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                      {isMcq ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
+                          <Clock className="h-3 w-3" />
+                          {item.durationMinutes ?? "—"} min
+                        </span>
+                      ) : null}
+                      {isMcq ? (
+                        <span className="rounded-md bg-muted px-2 py-0.5">
+                          {item._count?.questions ?? 0} questions
+                        </span>
+                      ) : null}
+                      <span className="rounded-md bg-muted px-2 py-0.5">
+                        {item.course?.title ?? item.program?.name ?? "—"}
+                      </span>
+                      {isMcq ? (
+                        <span className="rounded-md bg-muted px-2 py-0.5">
+                          {item._count?.mcqAttempts ?? 0} attempts
+                        </span>
+                      ) : (
+                        <span className="rounded-md bg-muted px-2 py-0.5">
+                          {item._count?.submissions ?? 0} submissions
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {isMcq ? (
+                    <Button type="button" size="sm" variant="outline" onClick={() => setResultsId(item.id)}>
+                      <Users className="h-4 w-4" />
+                      Results
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setEditItem(item);
+                      setBuilderOpen(true);
+                    }}
+                  >
+                    <Pencil className="h-4 w-4" />
+                    Edit
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    className="text-accent"
+                    onClick={() => void onDelete(item)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
-      <AdminModal
-        open={modal === "create"}
-        title="Create MCQ exam"
-        description="Timer starts when student clicks Start. Marks calculated on submit."
-        onClose={() => !busy && setModal(null)}
-        className="sm:max-w-2xl"
-        footer={
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" disabled={busy} onClick={() => setModal(null)}>
-              Cancel
-            </Button>
-            <Button type="button" disabled={busy} onClick={() => void onSave()}>
-              {busy ? "Saving..." : "Create exam"}
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-3">
-          <Input placeholder="Exam title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <textarea
-            placeholder="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={2}
-            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
-          />
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="space-y-1 text-sm">
-              <span className="font-semibold">Duration (min)</span>
-              <Input value={durationMinutes} onChange={(e) => setDurationMinutes(e.target.value)} />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-semibold">Max attempts</span>
-              <Input value={maxAttempts} onChange={(e) => setMaxAttempts(e.target.value)} />
-            </label>
-            <label className="space-y-1 text-sm">
-              <span className="font-semibold">Pass %</span>
-              <Input value={passingScore} onChange={(e) => setPassingScore(e.target.value)} />
-            </label>
-          </div>
-          {questions.map((q, qi) => (
-            <div key={qi} className="rounded-xl border border-border p-3">
-              <Input
-                placeholder={`Question ${qi + 1}`}
-                value={q.text}
-                onChange={(e) => {
-                  const next = [...questions];
-                  next[qi] = { ...next[qi], text: e.target.value };
-                  setQuestions(next);
-                }}
-                className="mb-2"
-              />
-              {LETTERS.map((letter, oi) => (
-                <Input
-                  key={letter}
-                  placeholder={`Option ${letter}`}
-                  value={q.options[oi] ?? ""}
-                  onChange={(e) => {
-                    const next = [...questions];
-                    const opts = [...next[qi].options];
-                    opts[oi] = e.target.value;
-                    next[qi] = { ...next[qi], options: opts };
-                    setQuestions(next);
-                  }}
-                  className="mb-1"
-                />
-              ))}
-              <select
-                value={q.correctAnswer}
-                onChange={(e) => {
-                  const next = [...questions];
-                  next[qi] = { ...next[qi], correctAnswer: e.target.value };
-                  setQuestions(next);
-                }}
-                className="mt-1 flex h-9 w-full rounded-lg border border-border px-2 text-sm"
-              >
-                {LETTERS.map((l) => (
-                  <option key={l} value={l}>
-                    Correct: {l}
-                  </option>
-                ))}
-              </select>
-            </div>
-          ))}
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setQuestions((prev) => [...prev, emptyQuestion()])}
-          >
-            Add question
-          </Button>
-          {actionError ? <p className="text-sm text-accent">{actionError}</p> : null}
-        </div>
-      </AdminModal>
+      <AdminAssessmentBuilderModal
+        open={builderOpen}
+        onClose={() => {
+          setBuilderOpen(false);
+          setEditItem(null);
+          refetch();
+        }}
+        courses={courses.map((c) => ({ id: c.id, title: c.title }))}
+        programs={programs}
+        editItem={editItem}
+        defaultCourseId={scopeFilter === "course" ? effectiveCourseId : undefined}
+        defaultProgramId={scopeFilter === "program" ? effectiveProgramId : undefined}
+      />
 
       <AdminModal
         open={Boolean(resultsId)}
         title="Exam results"
-        description={resultSummary ? `Avg ${resultSummary.avg}% · ${resultSummary.passed}/${resultSummary.total} passed` : undefined}
+        description={
+          resultSummary
+            ? `Avg ${resultSummary.avg}% · ${resultSummary.passed}/${resultSummary.total} passed`
+            : undefined
+        }
         onClose={() => setResultsId(null)}
         className="sm:max-w-3xl"
         footer={

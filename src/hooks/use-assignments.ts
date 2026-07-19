@@ -23,6 +23,14 @@ export function useCourseAssignments(courseId?: string) {
   });
 }
 
+export function useProgramAssignments(programId?: string) {
+  return useQuery({
+    queryKey: queryKeys.assignments.byProgram(programId ?? ""),
+    queryFn: () => assignmentsService.findByProgram(programId!),
+    enabled: Boolean(programId),
+  });
+}
+
 export function useAssignmentDetail(id: string) {
   return useQuery({
     queryKey: ["assignments", "detail", id],
@@ -39,7 +47,11 @@ export function useCreateAssignment() {
       if (data.courseId) {
         void qc.invalidateQueries({ queryKey: queryKeys.assignments.byCourse(data.courseId) });
       }
+      if (data.programId) {
+        void qc.invalidateQueries({ queryKey: queryKeys.assignments.byProgram(data.programId) });
+      }
       void qc.invalidateQueries({ queryKey: queryKeys.student.myAssignments });
+      void qc.invalidateQueries({ queryKey: queryKeys.mcq.all });
     },
   });
 }
@@ -53,6 +65,10 @@ export function useUpdateAssignment() {
       if (data.courseId) {
         void qc.invalidateQueries({ queryKey: queryKeys.assignments.byCourse(data.courseId) });
       }
+      if (data.programId) {
+        void qc.invalidateQueries({ queryKey: queryKeys.assignments.byProgram(data.programId) });
+      }
+      void qc.invalidateQueries({ queryKey: queryKeys.mcq.all });
     },
   });
 }

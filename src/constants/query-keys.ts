@@ -36,6 +36,7 @@ export const queryKeys = {
   assignments: {
     mine: ["assignments", "mine"] as const,
     byCourse: (courseId: string) => ["assignments", "course", courseId] as const,
+    byProgram: (programId: string) => ["assignments", "program", programId] as const,
   },
   submissions: {
     mine: ["submissions", "mine"] as const,
@@ -46,7 +47,8 @@ export const queryKeys = {
   },
   mcq: {
     all: ["mcq"] as const,
-    admin: (courseId?: string) => ["mcq", "admin", courseId ?? "all"] as const,
+    admin: (courseId?: string, programId?: string) =>
+      ["mcq", "admin", courseId ?? "all", programId ?? ""] as const,
     results: (examId: string) => ["mcq", "results", examId] as const,
     status: (id: string) => ["mcq", "status", id] as const,
     mine: ["mcq", "mine"] as const,

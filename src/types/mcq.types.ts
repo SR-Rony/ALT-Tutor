@@ -6,6 +6,8 @@ export interface McqQuestion {
   text: string;
   options: string[];
   order: number;
+  /** Present on manager/admin payloads only */
+  correctAnswer?: string;
 }
 
 export interface McqExam {
@@ -13,12 +15,16 @@ export interface McqExam {
   title: string;
   description: string;
   type: "MCQ";
+  status?: "DRAFT" | "PUBLISHED" | "CLOSED" | string;
   courseId?: string | null;
   programId?: string | null;
   durationMinutes?: number | null;
   maxAttempts?: number;
   passingScore?: number | null;
   dueDate?: string | null;
+  availableFrom?: string | null;
+  availableUntil?: string | null;
+  resultReleaseMode?: ResultReleaseMode;
   createdAt?: string;
   course?: { id: string; title: string; slug: string };
   program?: { id: string; name: string; slug: string };
@@ -134,10 +140,15 @@ export interface McqAttemptRow {
 export type CreateMcqExamInput = {
   title: string;
   description: string;
-  courseId: string;
-  durationMinutes: number;
+  courseId?: string;
+  programId?: string;
+  status?: "DRAFT" | "PUBLISHED" | "CLOSED";
+  durationMinutes?: number;
   maxAttempts?: number;
   passingScore?: number;
   dueDate?: string;
-  questions: { text: string; options: string[]; correctAnswer: string; order?: number }[];
+  availableFrom?: string;
+  availableUntil?: string;
+  resultReleaseMode?: ResultReleaseMode;
+  questions?: { text: string; options: string[]; correctAnswer: string; order?: number }[];
 };

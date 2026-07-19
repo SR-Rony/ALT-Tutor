@@ -95,7 +95,15 @@ export {
   useSubmitPracticeSession,
   usePracticeSession,
 } from "./use-questionbank";
-export { useMyAssignments, useCourseAssignments, useAssignmentDetail, useCreateAssignment, useUpdateAssignment, useDeleteAssignment } from "./use-assignments";
+export {
+  useMyAssignments,
+  useCourseAssignments,
+  useProgramAssignments,
+  useAssignmentDetail,
+  useCreateAssignment,
+  useUpdateAssignment,
+  useDeleteAssignment,
+} from "./use-assignments";
 export { useSubmitAssignment, useUngradedSubmissions, useGradeSubmission } from "./use-submissions";
 export { useAccessProducts, useCheckout } from "./use-payments";
 export { useCourseProgramLinks, useSetCourseProgramLinks } from "./use-course-programs";

@@ -14,8 +14,11 @@ export const mcqService = {
     return apiClient.get<McqExam[]>("/assignments/mcq/mine").then((r) => r.data ?? []);
   },
 
-  adminList(courseId?: string): Promise<McqExam[]> {
-    const q = courseId ? `?courseId=${encodeURIComponent(courseId)}` : "";
+  adminList(courseId?: string, programId?: string): Promise<McqExam[]> {
+    const params = new URLSearchParams();
+    if (courseId) params.set("courseId", courseId);
+    if (programId) params.set("programId", programId);
+    const q = params.toString() ? `?${params.toString()}` : "";
     return apiClient.get<McqExam[]>(`/assignments/mcq/admin${q}`).then((r) => r.data ?? []);
   },
 

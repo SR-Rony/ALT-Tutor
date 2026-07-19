@@ -79,7 +79,10 @@ export interface StudentAssignment {
   availableFrom?: string | null;
   availableUntil?: string | null;
   durationMinutes?: number | null;
+  maxAttempts?: number | null;
+  passingScore?: number | null;
   totalMarks?: number | null;
+  resultReleaseMode?: string;
   courseId?: string | null;
   programId?: string | null;
   createdAt?: string;

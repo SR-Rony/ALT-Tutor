@@ -35,6 +35,12 @@ export const assignmentsService = {
       .then((r) => r.data ?? []);
   },
 
+  findByProgram(programId: string): Promise<StudentAssignment[]> {
+    return apiClient
+      .get<StudentAssignment[]>(`/assignments?programId=${encodeURIComponent(programId)}`)
+      .then((r) => r.data ?? []);
+  },
+
   getById(id: string): Promise<StudentAssignment> {
     return apiClient.get<StudentAssignment>(`/assignments/${id}`).then((r) => r.data);
   },
