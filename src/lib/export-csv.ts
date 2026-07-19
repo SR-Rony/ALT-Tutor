@@ -1,11 +1,16 @@
-/** Download a CSV file in the browser. */
-export function downloadCsv(filename: string, rows: Array<Array<string | number | null | undefined>>) {
+/** Build CSV body (no download). Exported for unit tests. */
+export function buildCsv(rows: Array<Array<string | number | null | undefined>>): string {
   const escape = (value: string | number | null | undefined) => {
     const text = value == null ? "" : String(value);
     if (/[",\n]/.test(text)) return `"${text.replace(/"/g, '""')}"`;
     return text;
   };
-  const body = rows.map((row) => row.map(escape).join(",")).join("\n");
+  return rows.map((row) => row.map(escape).join(",")).join("\n");
+}
+
+/** Download a CSV file in the browser. */
+export function downloadCsv(filename: string, rows: Array<Array<string | number | null | undefined>>) {
+  const body = buildCsv(rows);
   const blob = new Blob([body], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");

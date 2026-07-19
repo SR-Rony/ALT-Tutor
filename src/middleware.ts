@@ -1,12 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE } from "@/constants/auth";
-
-const ROLE_PREFIXES: Record<string, string> = {
-  student: "/student",
-  teacher: "/teacher",
-  admin: "/admin",
-};
+import { isPathAllowedForRole, ROLE_PREFIXES } from "@/lib/role-access";
 
 /**
  * Soft gate using the session cookie set on login.
@@ -23,10 +18,9 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl);
   }
 
-  const allowedPrefix = ROLE_PREFIXES[role];
-  if (allowedPrefix && !(pathname === allowedPrefix || pathname.startsWith(`${allowedPrefix}/`))) {
+  if (!isPathAllowedForRole(role, pathname)) {
     const homeUrl = request.nextUrl.clone();
-    homeUrl.pathname = allowedPrefix;
+    homeUrl.pathname = ROLE_PREFIXES[role] ?? "/login";
     return NextResponse.redirect(homeUrl);
   }
 
