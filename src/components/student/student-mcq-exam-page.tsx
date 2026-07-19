@@ -268,33 +268,73 @@ export function StudentMcqExamPage() {
   }
 
   if (phase === "result" && result) {
+    const waiting = result.resultsReleased === false;
     return (
       <div className="mx-auto max-w-2xl space-y-6 py-6">
         <div
           className={cn(
             "rounded-2xl border p-8 text-center",
-            result.passed
-              ? "border-accent-green/40 bg-[#ecfdf3]"
-              : "border-accent/30 bg-accent/5"
+            waiting
+              ? "border-primary/20 bg-primary-muted/40"
+              : result.passed
+                ? "border-accent-green/40 bg-[#ecfdf3]"
+                : "border-accent/30 bg-accent/5"
           )}
         >
-          {result.passed ? (
+          {waiting ? (
+            <Clock className="mx-auto mb-3 h-12 w-12 text-primary" />
+          ) : result.passed ? (
             <CheckCircle2 className="mx-auto mb-3 h-12 w-12 text-accent-green" />
           ) : (
             <AlertTriangle className="mx-auto mb-3 h-12 w-12 text-accent" />
           )}
           <h1 className="text-2xl font-bold text-foreground">
-            {result.passed ? "Passed" : "Not passed"}
+            {waiting ? "Results pending" : result.passed ? "Passed" : "Not passed"}
           </h1>
-          <p className="mt-2 text-4xl font-bold text-primary">{result.score}%</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {result.correctCount} / {result.totalQuestions} correct · Attempt #{result.attemptNumber}
-          </p>
-          {status.passingScore != null ? (
-            <p className="mt-1 text-xs text-muted-foreground">Pass mark: {status.passingScore}%</p>
-          ) : null}
+          {waiting ? (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Score and answers are hidden until results are released.
+            </p>
+          ) : (
+            <>
+              <p className="mt-2 text-4xl font-bold text-primary">{result.score}%</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {result.correctCount} / {result.totalQuestions} correct · Attempt #
+                {result.attemptNumber}
+              </p>
+              {status.passingScore != null ? (
+                <p className="mt-1 text-xs text-muted-foreground">Pass mark: {status.passingScore}%</p>
+              ) : null}
+            </>
+          )}
           <p className="mt-3 text-sm text-muted-foreground">{result.message}</p>
         </div>
+
+        {result.canReviewAnswers && result.review?.length ? (
+          <div className="space-y-3">
+            <h2 className="text-lg font-bold text-foreground">Answer review</h2>
+            {result.review.map((item, idx) => (
+              <article
+                key={item.questionId}
+                className={cn(
+                  "rounded-xl border p-4 text-sm",
+                  item.isCorrect ? "border-accent-green/30 bg-[#ecfdf3]/40" : "border-accent/20 bg-accent/5"
+                )}
+              >
+                <p className="font-semibold text-foreground">
+                  Q{idx + 1}. {item.text}
+                </p>
+                <p className="mt-2 text-muted-foreground">
+                  Your answer: <strong className="text-foreground">{item.yourAnswer ?? "—"}</strong>
+                </p>
+                <p className="text-muted-foreground">
+                  Correct: <strong className="text-foreground">{item.correctAnswer}</strong>
+                </p>
+              </article>
+            ))}
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap justify-center gap-3">
           {status.canRetake ? (
             <Button

@@ -366,7 +366,7 @@ export function StudentExamCenterPage() {
       {tab === "results" ? (
         <section className="space-y-6">
           {completed.length === 0 &&
-          mcqExams.every((e) => !e.mcqStatus?.latestResult) ? (
+          mcqExams.every((e) => !(e.mcqStatus?.finishedAttemptCount || e.mcqStatus?.latestResult)) ? (
             <EmptyState message="No graded results yet." />
           ) : null}
           {completed.length > 0 ? (
@@ -375,36 +375,68 @@ export function StudentExamCenterPage() {
               <SubmissionTable rows={completed} showGrade />
             </div>
           ) : null}
-          {mcqExams.some((e) => e.mcqStatus?.latestResult) ? (
+          {mcqExams.some((e) => (e.mcqStatus?.finishedAttemptCount ?? 0) > 0) ? (
             <div>
               <h2 className="mb-3 text-lg font-bold text-foreground">MCQ exam scores</h2>
               <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-                <table className="w-full min-w-[28rem] text-sm">
+                <table className="w-full min-w-[36rem] text-sm">
                   <thead className="border-b bg-muted/50 text-xs uppercase text-muted-foreground">
                     <tr>
                       <th className="px-4 py-3 text-left">Exam</th>
-                      <th className="px-4 py-3 text-left">Course</th>
-                      <th className="px-4 py-3 text-left">Score</th>
+                      <th className="px-4 py-3 text-left">Attempts</th>
+                      <th className="px-4 py-3 text-left">Latest</th>
+                      <th className="px-4 py-3 text-left">Best</th>
+                      <th className="px-4 py-3 text-left">Trend</th>
                       <th className="px-4 py-3 text-left">Result</th>
+                      <th className="px-4 py-3 text-left" />
                     </tr>
                   </thead>
                   <tbody>
                     {mcqExams
-                      .filter((e) => e.mcqStatus?.latestResult)
-                      .map((exam) => (
-                        <tr key={exam.id} className="border-b last:border-0">
-                          <td className="px-4 py-3 font-medium">{exam.title}</td>
-                          <td className="px-4 py-3 text-muted-foreground">{exam.course?.title}</td>
-                          <td className="px-4 py-3">{exam.mcqStatus?.latestResult?.score}%</td>
-                          <td className="px-4 py-3">
-                            {exam.mcqStatus?.latestResult?.passed ? (
-                              <span className="text-accent-green">Pass</span>
-                            ) : (
-                              <span className="text-accent">Fail</span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      .filter((e) => (e.mcqStatus?.finishedAttemptCount ?? 0) > 0)
+                      .map((exam) => {
+                        const st = exam.mcqStatus;
+                        const released = st?.resultsReleased !== false;
+                        const latest = st?.latestScore ?? st?.latestResult?.score;
+                        const best = st?.bestScore;
+                        const passed = st?.latestResult?.passed;
+                        const trend = st?.scoreTrend ?? [];
+                        return (
+                          <tr key={exam.id} className="border-b last:border-0">
+                            <td className="px-4 py-3 font-medium">{exam.title}</td>
+                            <td className="px-4 py-3 text-muted-foreground">
+                              {st?.finishedAttemptCount ?? 0}
+                            </td>
+                            <td className="px-4 py-3">
+                              {released && latest != null ? `${latest}%` : "Pending"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {released && best != null ? `${best}%` : "—"}
+                            </td>
+                            <td className="px-4 py-3 text-xs text-muted-foreground">
+                              {released && trend.length
+                                ? trend.map((t) => `#${t.attemptNumber}:${t.score}%`).join(" → ")
+                                : "—"}
+                            </td>
+                            <td className="px-4 py-3">
+                              {!released ? (
+                                <span className="text-muted-foreground">Waiting</span>
+                              ) : passed ? (
+                                <span className="text-accent-green">Pass</span>
+                              ) : passed === false ? (
+                                <span className="text-accent">Fail</span>
+                              ) : (
+                                "—"
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <Button asChild variant="outline" size="sm">
+                                <Link href={ROUTES.student.mcqExam(exam.id)}>Open</Link>
+                              </Button>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
               </div>

@@ -1,5 +1,6 @@
 import type {
   CreateMcqExamInput,
+  McqAttemptHistory,
   McqAttemptRow,
   McqExam,
   McqExamStatus,
@@ -62,9 +63,9 @@ export const mcqService = {
       .then((r) => r.data);
   },
 
-  myResult(assignmentId: string): Promise<{ latest: McqResult; attempts: McqResult[] }> {
+  myResult(assignmentId: string): Promise<McqAttemptHistory> {
     return apiClient
-      .get<{ latest: McqResult; attempts: McqResult[] }>(`/assignments/${assignmentId}/mcq/my-result`)
+      .get<McqAttemptHistory>(`/assignments/${assignmentId}/mcq/my-result`)
       .then((r) => r.data);
   },
 };

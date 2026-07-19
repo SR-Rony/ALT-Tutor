@@ -20,17 +20,17 @@ export function Logo({ className, showTagline = false, compact = false }: LogoPr
 
   return (
     <Link href="/" className={cn("group flex items-center gap-2.5 lg:gap-3", className)}>
-      <Image
-        src="/logo.jpeg"
-        alt={siteConfig.name}
-        width={160}
-        height={48}
-        priority
-        className={cn(
-          "h-9 w-auto shrink-0 rounded-lg object-contain transition-transform group-hover:scale-[1.02] lg:h-11",
-          compact && "h-8 lg:h-9"
-        )}
-      />
+    <Image
+      src="/logo.png"
+      alt={siteConfig.name}
+      width={500}
+      height={150}
+      priority
+      className={cn(
+        "w-full h-auto max-w-[200px] shrink-0 object-contain transition-transform ml-[-20px]",
+        compact && "max-w-[180px]"
+      )}
+    />
       {showTagline ? (
         <span
           className={cn(

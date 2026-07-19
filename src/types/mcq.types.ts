@@ -41,7 +41,17 @@ export interface McqExamStatus {
   canRetake: boolean;
   inProgressAttemptId?: string | null;
   latestResult?: McqResult | null;
+  resultReleaseMode?: ResultReleaseMode;
+  reviewAnswersAfter?: boolean;
+  resultsReleased?: boolean;
+  canReviewAnswers?: boolean;
+  finishedAttemptCount?: number;
+  bestScore?: number | null;
+  latestScore?: number | null;
+  scoreTrend?: Array<{ attemptNumber: number; score: number; passed: boolean }>;
 }
+
+export type ResultReleaseMode = "IMMEDIATE" | "AFTER_CLOSE" | "MANUAL";
 
 export interface McqSession {
   attemptId: string;
@@ -59,23 +69,51 @@ export interface McqSession {
   questions: McqQuestion[];
 }
 
+export interface McqReviewItem {
+  questionId: string;
+  text: string;
+  options: string[];
+  order: number;
+  yourAnswer: string | null;
+  correctAnswer: string;
+  isCorrect: boolean;
+}
+
 export interface McqResult {
   attemptId: string;
   attemptNumber: number;
   status: McqAttemptStatus;
-  score: number;
-  accuracy: number;
-  correctCount: number;
+  score: number | null;
+  accuracy: number | null;
+  correctCount: number | null;
   answeredCount: number;
   totalQuestions: number;
   unansweredCount: number;
-  passed: boolean;
+  passed: boolean | null;
   passingScore?: number | null;
   startedAt: string;
   expiresAt: string;
   submittedAt?: string | null;
   message?: string;
+  resultsReleased?: boolean;
+  canReviewAnswers?: boolean;
+  resultReleaseMode?: ResultReleaseMode;
   yourAnswers?: Record<string, string>;
+  review?: McqReviewItem[];
+}
+
+export interface McqAttemptHistory {
+  assignmentId: string;
+  title: string;
+  resultsReleased: boolean;
+  canReviewAnswers: boolean;
+  resultReleaseMode: ResultReleaseMode;
+  finishedAttemptCount: number;
+  bestScore: number | null;
+  latestScore: number | null;
+  scoreTrend: Array<{ attemptNumber: number; score: number; passed: boolean }>;
+  latest: McqResult;
+  attempts: McqResult[];
 }
 
 export interface McqAttemptRow {
