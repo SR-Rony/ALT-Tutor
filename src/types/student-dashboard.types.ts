@@ -96,10 +96,14 @@ export interface StudentPayment {
   amount: number | string;
   status: PaymentStatus | string;
   transactionId?: string | null;
+  provider?: string | null;
+  fulfilledAt?: string | null;
+  paidAt?: string | null;
   courseId?: string | null;
   accessProductId?: string | null;
+  checkoutUrl?: string | null;
   createdAt: string;
-  course?: { id: string; title: string; thumbnail?: string | null };
+  course?: { id: string; title: string; thumbnail?: string | null; slug?: string };
   accessProduct?: { id: string; title: string; slug: string };
 }
 
@@ -111,6 +115,8 @@ export interface AccessProduct {
   price: number | string;
   regularPrice?: number | string | null;
   durationDays?: number | null;
+  isActive?: boolean;
+  programId?: string | null;
   program?: { id: string; name: string; slug: string } | null;
 }
 

@@ -25,7 +25,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config";
 import { roleHomeRoutes, ROUTES } from "@/constants";
-import { useCourseDetail, useEnrollCourse, useStudentCourses } from "@/hooks";
+import { useCourseDetail, useCheckout, useEnrollCourse, useStudentCourses } from "@/hooks";
 import {
   averageReviewRating,
   formatCourseLevel,
@@ -90,6 +90,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
 
   const { data: myCourses = [] } = useStudentCourses(isStudent);
   const enrollCourse = useEnrollCourse();
+  const checkout = useCheckout();
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>("description");
 
@@ -140,6 +141,20 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
       router.push(lessonId ? lessonHref(lessonId) : learnHref);
     } catch (err) {
       setEnrollError((err as ApiError)?.message || "Enrollment failed. Please try again.");
+    }
+  };
+
+  const onCheckout = async () => {
+    setEnrollError(null);
+    try {
+      const result = await checkout.mutateAsync({ courseId: course.id });
+      if (result.checkoutUrl) {
+        window.location.href = result.checkoutUrl;
+        return;
+      }
+      setEnrollError("Checkout URL was not returned. Please try again.");
+    } catch (err) {
+      setEnrollError((err as ApiError)?.message || "Checkout failed. Please try again.");
     }
   };
 
@@ -541,11 +556,21 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                     </Button>
                   ) : (
                     <div className="space-y-2">
-                      <Button type="button" variant="default" size="pillLg" className="w-full" disabled>
-                        Payment required
+                      <Button
+                        type="button"
+                        variant="default"
+                        size="pillLg"
+                        className="w-full"
+                        disabled={checkout.isPending}
+                        onClick={() => void onCheckout()}
+                      >
+                        {checkout.isPending ? (
+                          <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                        ) : null}
+                        Buy course — {formatCoursePrice(course.price)}
                       </Button>
                       <p className="text-center text-xs leading-relaxed text-[#64748b]">
-                        This is a paid course. Enroll after checkout to watch lessons.
+                        Secure checkout. Access unlocks after payment confirmation.
                       </p>
                     </div>
                   )

@@ -22,9 +22,11 @@ export function StudentPaymentsPage() {
   const { data: products = [], isLoading: productsLoading } = useAccessProducts();
   const checkout = useCheckout();
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [busyProductId, setBusyProductId] = useState<string | null>(null);
 
   const buyPass = async (accessProductId: string) => {
     setCheckoutError(null);
+    setBusyProductId(accessProductId);
     try {
       const result = await checkout.mutateAsync({ accessProductId });
       if (result.checkoutUrl) {
@@ -36,6 +38,8 @@ export function StudentPaymentsPage() {
       }
     } catch (err) {
       setCheckoutError((err as ApiError)?.message || "Checkout failed");
+    } finally {
+      setBusyProductId(null);
     }
   };
 
@@ -100,10 +104,10 @@ export function StudentPaymentsPage() {
                 <Button
                   type="button"
                   className="mt-4"
-                  disabled={checkout.isPending}
+                  disabled={busyProductId === product.id}
                   onClick={() => void buyPass(product.id)}
                 >
-                  {checkout.isPending ? "Starting checkout…" : "Buy Practice Pass"}
+                  {busyProductId === product.id ? "Starting checkout…" : "Buy Practice Pass"}
                 </Button>
               </article>
             ))}

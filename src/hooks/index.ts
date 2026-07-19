@@ -105,7 +105,16 @@ export {
   useDeleteAssignment,
 } from "./use-assignments";
 export { useSubmitAssignment, useUngradedSubmissions, useGradeSubmission } from "./use-submissions";
-export { useAccessProducts, useCheckout } from "./use-payments";
+export {
+  useAccessProducts,
+  useAdminAccessProducts,
+  useCheckout,
+  useConfirmStubPayment,
+  usePaymentByTransaction,
+  useCreateAccessProduct,
+  useUpdateAccessProduct,
+  useDeactivateAccessProduct,
+} from "./use-payments";
 export { useCourseProgramLinks, useSetCourseProgramLinks } from "./use-course-programs";
 export { useAdminSettings, useUpdateAdminSettings } from "./use-admin-settings";
 export {

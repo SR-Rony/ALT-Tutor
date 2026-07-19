@@ -29,6 +29,9 @@ export const ROUTES = {
     register: "/register",
     forgotPassword: "/forgot-password",
   },
+  payments: {
+    return: "/payments/return",
+  },
   student: {
     root: "/student",
     courses: "/student/courses",
@@ -61,6 +64,7 @@ export const ROUTES = {
     categories: "/admin/categories",
     subjects: "/admin/subjects",
     questionbank: "/admin/questionbank",
+    accessProducts: "/admin/access-products",
     mcqExams: "/admin/mcq-exams",
     gradingQueue: "/admin/grading",
     support: "/admin/support",
