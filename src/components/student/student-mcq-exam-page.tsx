@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import {
   AlertTriangle,
@@ -22,6 +22,9 @@ import type { McqResult, McqSession } from "@/types/mcq.types";
 import { cn } from "@/utils";
 
 const LETTERS = ["A", "B", "C", "D"] as const;
+const AUTOSAVE_DEBOUNCE_MS = 800;
+
+type SaveState = "idle" | "saving" | "saved" | "failed";
 
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);
@@ -50,17 +53,75 @@ export function StudentMcqExamPage() {
   const [remaining, setRemaining] = useState(0);
   const [actionError, setActionError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [submitFailed, setSubmitFailed] = useState(false);
+  const [dirty, setDirty] = useState(false);
+
+  const answersRef = useRef(answers);
+  const dirtyRef = useRef(false);
+  const saveTimerRef = useRef<number | null>(null);
+  const lastSavedJsonRef = useRef<string>("{}");
+
+  useEffect(() => {
+    answersRef.current = answers;
+  }, [answers]);
+
+  useEffect(() => {
+    dirtyRef.current = dirty;
+  }, [dirty]);
+
+  const flushSave = useCallback(async () => {
+    if (!session || phase !== "exam") return;
+    const payload = answersRef.current;
+    const json = JSON.stringify(payload);
+    if (json === lastSavedJsonRef.current) {
+      setDirty(false);
+      setSaveState("saved");
+      return;
+    }
+    setSaveState("saving");
+    try {
+      await mcqService.saveAnswers(assignmentId, payload);
+      lastSavedJsonRef.current = json;
+      setDirty(false);
+      setSaveState("saved");
+    } catch {
+      setSaveState("failed");
+    }
+  }, [assignmentId, phase, session]);
+
+  const scheduleSave = useCallback(() => {
+    if (saveTimerRef.current != null) {
+      window.clearTimeout(saveTimerRef.current);
+    }
+    saveTimerRef.current = window.setTimeout(() => {
+      void flushSave();
+    }, AUTOSAVE_DEBOUNCE_MS);
+  }, [flushSave]);
+
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current != null) window.clearTimeout(saveTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     if (!status) return;
     if (status.phase === "IN_PROGRESS" && status.inProgressAttemptId) {
       void mcqService.getSession(assignmentId).then((data) => {
         if (isSession(data)) {
+          const restored = (data.savedAnswers as Record<string, string>) ?? {};
           setSession(data);
-          setAnswers((data.savedAnswers as Record<string, string>) ?? {});
+          setAnswers(restored);
+          lastSavedJsonRef.current = JSON.stringify(restored);
+          setDirty(false);
+          setSaveState("saved");
           setCurrentIndex(0);
           setRemaining(data.remainingSeconds);
           setPhase("exam");
+        } else {
+          setResult(data);
+          setPhase("result");
         }
       });
     } else if (status.latestResult && (status.phase === "COMPLETED" || status.phase === "CAN_RETAKE")) {
@@ -84,6 +145,51 @@ export function StudentMcqExamPage() {
   }, [phase, session?.attemptId]);
 
   useEffect(() => {
+    if (phase !== "exam") return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (dirtyRef.current) {
+        e.preventDefault();
+        e.returnValue = "";
+      }
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [phase]);
+
+  const handleSubmit = useCallback(
+    async (auto = false) => {
+      if (!session || submitting) return;
+      if (saveTimerRef.current != null) {
+        window.clearTimeout(saveTimerRef.current);
+        saveTimerRef.current = null;
+      }
+      setSubmitting(true);
+      setActionError(null);
+      setSubmitFailed(false);
+      try {
+        if (dirtyRef.current) {
+          await flushSave();
+        }
+        const res = await submitExam.mutateAsync({ assignmentId, answers: answersRef.current });
+        setResult(res);
+        setPhase("result");
+        setDirty(false);
+        setSubmitFailed(false);
+        void refetch();
+      } catch (err) {
+        setActionError((err as ApiError)?.message || "Submit failed");
+        setSubmitFailed(true);
+        setSubmitting(false);
+        if (auto) {
+          // Keep exam phase so student can manually retry after auto-submit failure.
+          setPhase("exam");
+        }
+      }
+    },
+    [session, submitting, submitExam, assignmentId, refetch, flushSave]
+  );
+
+  useEffect(() => {
     if (phase === "exam" && remaining === 0 && session && !submitting) {
       void handleSubmit(true);
     }
@@ -94,36 +200,41 @@ export function StudentMcqExamPage() {
     setActionError(null);
     try {
       const data = await startExam.mutateAsync(assignmentId);
+      const restored = (data.savedAnswers as Record<string, string>) ?? {};
       setSession(data);
-      setAnswers((data.savedAnswers as Record<string, string>) ?? {});
+      setAnswers(restored);
+      lastSavedJsonRef.current = JSON.stringify(restored);
+      setDirty(false);
+      setSaveState(Object.keys(restored).length ? "saved" : "idle");
       setCurrentIndex(0);
       setRemaining(data.remainingSeconds);
       setPhase("exam");
+      setSubmitFailed(false);
     } catch (err) {
       setActionError((err as ApiError)?.message || "Could not start exam");
     }
   };
 
-  const handleSubmit = useCallback(
-    async (auto = false) => {
-      if (!session || submitting) return;
-      setSubmitting(true);
-      setActionError(null);
-      try {
-        const res = await submitExam.mutateAsync({ assignmentId, answers });
-        setResult(res);
-        setPhase("result");
-        void refetch();
-      } catch (err) {
-        setActionError((err as ApiError)?.message || "Submit failed");
-        if (!auto) setSubmitting(false);
-      }
-    },
-    [session, submitting, submitExam, assignmentId, answers, refetch]
-  );
-
   const selectAnswer = (questionId: string, option: string) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: option }));
+    setAnswers((prev) => {
+      const next = { ...prev, [questionId]: option };
+      answersRef.current = next;
+      return next;
+    });
+    setDirty(true);
+    setSaveState("saving");
+    scheduleSave();
+  };
+
+  const handleExit = async () => {
+    if (dirty) {
+      const ok = window.confirm(
+        "You have unsaved answers. Save and leave the exam? Your attempt will stay in progress."
+      );
+      if (!ok) return;
+      await flushSave();
+    }
+    router.push(ROUTES.student.assignments);
   };
 
   const answeredCount = useMemo(
@@ -131,6 +242,15 @@ export function StudentMcqExamPage() {
     [answers]
   );
   const currentQuestion = session?.questions[currentIndex] ?? null;
+
+  const saveLabel =
+    saveState === "saving"
+      ? "Saving…"
+      : saveState === "saved"
+        ? "Saved"
+        : saveState === "failed"
+          ? "Save failed — retrying on next change"
+          : "";
 
   if (isLoading && !status) {
     return <PageLoader label="Loading exam..." />;
@@ -208,6 +328,7 @@ export function StudentMcqExamPage() {
               <p className="text-sm font-semibold text-foreground">{session.title}</p>
               <p className="text-xs text-muted-foreground">
                 Attempt #{session.attemptNumber} · {answeredCount}/{session.totalQuestions} answered
+                {saveLabel ? ` · ${saveLabel}` : ""}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -314,18 +435,38 @@ export function StudentMcqExamPage() {
             <p className="mt-3 text-xs text-muted-foreground">
               Green = answered, blue = current question.
             </p>
+            {saveState === "failed" ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="mt-3 w-full"
+                onClick={() => void flushSave()}
+              >
+                Retry save
+              </Button>
+            ) : null}
           </aside>
         </div>
 
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="outline" onClick={() => router.push(ROUTES.student.assignments)}>
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" onClick={() => void handleExit()}>
             Exit
           </Button>
           <Button type="button" disabled={submitting} onClick={() => void handleSubmit(false)}>
-            {submitting ? "Submitting..." : "Finish & see marks"}
+            {submitting
+              ? "Submitting..."
+              : submitFailed
+                ? "Retry submit"
+                : "Finish & see marks"}
           </Button>
         </div>
         {actionError ? <p className="text-sm text-accent">{actionError}</p> : null}
+        {submitFailed ? (
+          <p className="text-sm text-muted-foreground">
+            Auto-submit failed. Your answers are kept — tap Retry submit when ready.
+          </p>
+        ) : null}
       </div>
     );
   }
