@@ -105,7 +105,8 @@ export interface PracticeSession {
 export interface PracticeSessionStart {
   session: PracticeSession;
   access: { canAccess: boolean; canViewSolutions: boolean; reason?: string | null };
-  questions: QbQuestion[];
+  questions: PracticeQuestionResult[];
+  restored?: boolean;
 }
 
 export interface PracticeQuestionResult extends QbQuestion {
@@ -116,6 +117,11 @@ export interface PracticeQuestionResult extends QbQuestion {
 export interface PracticeSessionResult {
   session: PracticeSession;
   questions: PracticeQuestionResult[];
+}
+
+export interface PracticeHistoryItem extends PracticeSession {
+  answeredCount: number;
+  program: { id: string; name: string; slug: string };
 }
 
 export interface StartPracticeSessionInput {

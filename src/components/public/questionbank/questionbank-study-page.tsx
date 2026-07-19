@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Bookmark,
   Check,
   CheckCircle2,
   ChevronDown,
+  Clock,
   Expand,
   ExternalLink,
   FileText,
@@ -30,8 +31,17 @@ import {
 } from "@/components/public/subjects";
 import { useQbQuestions, useSavePracticeAnswer, useStartPracticeSession, useSubmitPracticeSession } from "@/hooks/use-questionbank";
 import { useAppSelector } from "@/store";
+import { questionbankService } from "@/services/questionbank.service";
 import type { ApiError } from "@/types";
-import type { PracticeAnswerFeedback, QbDifficulty, QbFilters, QbPaper, QbQuestion, QbQuestionType } from "@/types/qb.types";
+import type {
+  PracticeAnswerFeedback,
+  PracticeHistoryItem,
+  QbDifficulty,
+  QbFilters,
+  QbPaper,
+  QbQuestion,
+  QbQuestionType,
+} from "@/types/qb.types";
 import { cn } from "@/utils";
 import { downloadQuestionPaperPdf } from "@/utils/qb-pdf-export";
 
@@ -44,6 +54,12 @@ type Props = {
 type ViewMode = "ALL" | "COMPLETE" | "INCOMPLETE";
 
 const LETTERS = ["A", "B", "C", "D"] as const;
+
+function formatTimer(totalSeconds: number) {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
 
 const TYPE_OPTIONS: { value: QbQuestionType; label: string }[] = [
   { value: "DATA_BASED", label: "Data-based Questions" },
@@ -128,6 +144,9 @@ function QuestionCard({
         onToggleComplete={onToggleComplete}
         solutionsUnlocked={solutionsUnlocked}
         examMode={examMode}
+        selectedAnswer={selectedAnswer}
+        onSelectAnswer={onSelectAnswer}
+        saving={saving}
       />
     );
   }
@@ -240,7 +259,7 @@ function McqQuestionCard({
                   <button
                     key={letter}
                     type="button"
-                    disabled={saving || (answered && examMode && !solutionsUnlocked)}
+                    disabled={saving || (examMode && solutionsUnlocked)}
                     onClick={() => onSelectAnswer?.(letter)}
                     className={cn(
                       "relative flex h-12 items-center justify-center rounded-xl border text-sm font-bold transition",
@@ -414,6 +433,9 @@ function StructuredQuestionCard({
   onToggleComplete,
   solutionsUnlocked = true,
   examMode = false,
+  selectedAnswer,
+  onSelectAnswer,
+  saving = false,
 }: {
   question: QbQuestion;
   index: number;
@@ -421,11 +443,19 @@ function StructuredQuestionCard({
   onToggleComplete?: () => void;
   solutionsUnlocked?: boolean;
   examMode?: boolean;
+  selectedAnswer?: string | null;
+  onSelectAnswer?: (answer: string) => void;
+  saving?: boolean;
 }) {
   const [modal, setModal] = useState<"scheme" | "video" | null>(null);
+  const [draft, setDraft] = useState(selectedAnswer ?? "");
   const qLabel = `Question ${question.number || index + 1}`;
   const maxMarkMatch = question.body?.match(/\[Maximum mark:\s*(\d+)\]/i);
   const maxMarks = maxMarkMatch?.[1];
+
+  useEffect(() => {
+    setDraft(selectedAnswer ?? "");
+  }, [selectedAnswer]);
 
   return (
     <section id={`q-${question.number}`} className="scroll-mt-28">
@@ -480,11 +510,27 @@ function StructuredQuestionCard({
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Your written response
             </p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {examMode && !solutionsUnlocked
-                ? "Complete your answer on paper or in your workbook. Mark scheme unlocks after submission."
-                : "Use the mark scheme and video solution on the right when you are ready to check your work."}
-            </p>
+            <textarea
+              value={draft}
+              disabled={saving || (examMode && solutionsUnlocked)}
+              onChange={(event) => setDraft(event.target.value)}
+              className="mt-3 min-h-28 w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground outline-none focus:border-primary"
+              placeholder="Write your structured response here…"
+            />
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <p className="text-xs text-muted-foreground">
+                Structured responses are saved but not auto-scored; review them against the mark scheme.
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={saving || !draft.trim() || draft === selectedAnswer}
+                onClick={() => onSelectAnswer?.(draft.trim())}
+              >
+                {saving ? "Saving…" : "Save response"}
+              </Button>
+            </div>
           </div>
         </article>
 
@@ -604,6 +650,9 @@ export function QuestionbankStudyPage({
   const [answerFeedback, setAnswerFeedback] = useState<Record<string, PracticeAnswerFeedback>>({});
   const [examSubmitted, setExamSubmitted] = useState(false);
   const [sessionScore, setSessionScore] = useState<number | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
+  const [practiceHistory, setPracticeHistory] = useState<PracticeHistoryItem[]>([]);
   const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
   const sessionStartedRef = useRef(false);
@@ -615,6 +664,19 @@ export function QuestionbankStudyPage({
 
   const program = data?.subtopic.topic.program;
   const topic = data?.subtopic.topic;
+
+  const loadHistory = useCallback(async () => {
+    if (!isAuthenticated || !examMode) return;
+    try {
+      setPracticeHistory(await questionbankService.getPracticeHistory("EXAM"));
+    } catch {
+      // History is supplementary; the active exam remains usable if this request fails.
+    }
+  }, [isAuthenticated, examMode]);
+
+  useEffect(() => {
+    void loadHistory();
+  }, [loadHistory]);
 
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
@@ -639,10 +701,39 @@ export function QuestionbankStudyPage({
       })
       .then((result) => {
         setSessionId(result.session.id);
+        setExpiresAt(result.session.expiresAt ?? null);
+        if (result.session.expiresAt) {
+          setRemainingSeconds(
+            Math.max(
+              0,
+              Math.floor((new Date(result.session.expiresAt).getTime() - Date.now()) / 1000)
+            )
+          );
+        }
+        const restoredAnswers: Record<string, string> = {};
+        for (const question of result.questions) {
+          if ("studentAnswer" in question && question.studentAnswer) {
+            restoredAnswers[question.id] = question.studentAnswer;
+          }
+        }
+        setSelectedAnswers(restoredAnswers);
         if (result.session.status === "SUBMITTED") {
           setExamSubmitted(true);
           setSessionScore(result.session.score ?? null);
+          const restoredFeedback: Record<string, PracticeAnswerFeedback> = {};
+          for (const question of result.questions) {
+            if (question.isCorrect != null && question.correctAnswer) {
+              restoredFeedback[question.id] = {
+                isCorrect: question.isCorrect,
+                correctAnswer: question.correctAnswer,
+                markScheme: question.markScheme,
+                videoUrl: question.videoUrl,
+              };
+            }
+          }
+          setAnswerFeedback(restoredFeedback);
         }
+        void loadHistory();
       })
       .catch((err: ApiError) => {
         setSessionError(err.message || "Could not start practice session");
@@ -658,10 +749,23 @@ export function QuestionbankStudyPage({
     programSlug,
     subtopicSlug,
     startSession,
+    loadHistory,
   ]);
 
+  useEffect(() => {
+    if (!examMode || examSubmitted || !expiresAt) return;
+    const update = () => {
+      setRemainingSeconds(
+        Math.max(0, Math.floor((new Date(expiresAt).getTime() - Date.now()) / 1000))
+      );
+    };
+    update();
+    const timer = window.setInterval(update, 1000);
+    return () => window.clearInterval(timer);
+  }, [examMode, examSubmitted, expiresAt]);
+
   const handleSelectAnswer = async (questionId: string, letter: string) => {
-    if (!sessionId || selectedAnswers[questionId]) return;
+    if (!sessionId || examSubmitted) return;
     setSelectedAnswers((prev) => ({ ...prev, [questionId]: letter }));
     setSavingQuestionId(questionId);
     try {
@@ -671,6 +775,28 @@ export function QuestionbankStudyPage({
         answer: letter,
         reveal: !examMode,
       });
+      if (result.expired && result.result) {
+        setExamSubmitted(true);
+        setSessionScore(result.result.session.score ?? null);
+        setRemainingSeconds(0);
+        const expiredFeedback: Record<string, PracticeAnswerFeedback> = {};
+        const expiredAnswers: Record<string, string> = {};
+        for (const question of result.result.questions) {
+          if (question.studentAnswer) expiredAnswers[question.id] = question.studentAnswer;
+          if (question.isCorrect != null && question.correctAnswer) {
+            expiredFeedback[question.id] = {
+              isCorrect: question.isCorrect,
+              correctAnswer: question.correctAnswer,
+              markScheme: question.markScheme,
+              videoUrl: question.videoUrl,
+            };
+          }
+        }
+        setSelectedAnswers(expiredAnswers);
+        setAnswerFeedback(expiredFeedback);
+        void loadHistory();
+        return;
+      }
       if (result.feedback) {
         setAnswerFeedback((prev) => ({ ...prev, [questionId]: result.feedback! }));
       }
@@ -681,8 +807,19 @@ export function QuestionbankStudyPage({
     }
   };
 
-  const handleSubmitExam = async () => {
+  const handleSubmitExam = async (automatic = false) => {
     if (!sessionId) return;
+    const unanswered = Math.max(0, (data?.questions.length ?? 0) - Object.keys(selectedAnswers).length);
+    if (
+      !automatic &&
+      !window.confirm(
+        unanswered > 0
+          ? `Submit now? ${unanswered} question${unanswered === 1 ? "" : "s"} remain unanswered.`
+          : "Submit this exam now? You will not be able to change your answers."
+      )
+    ) {
+      return;
+    }
     try {
       const result = await submitSession.mutateAsync(sessionId);
       setExamSubmitted(true);
@@ -699,10 +836,25 @@ export function QuestionbankStudyPage({
         }
       }
       setAnswerFeedback((prev) => ({ ...prev, ...nextFeedback }));
+      setRemainingSeconds(0);
+      void loadHistory();
     } catch (err) {
       setSessionError((err as ApiError).message || "Failed to submit exam");
     }
   };
+
+  useEffect(() => {
+    if (
+      examMode &&
+      !examSubmitted &&
+      sessionId &&
+      remainingSeconds === 0 &&
+      !submitSession.isPending
+    ) {
+      void handleSubmitExam(true);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remainingSeconds, examMode, examSubmitted, sessionId, submitSession.isPending]);
 
   useEffect(() => {
     if (!typeOpen) return;
@@ -956,10 +1108,28 @@ export function QuestionbankStudyPage({
               </p>
             ) : (
               <div className="flex flex-wrap items-center justify-between gap-3">
-                <p className="inline-flex items-center gap-2 font-medium">
-                  <Lock className="h-4 w-4 text-primary" />
-                  Solutions are locked during exam mode.
-                </p>
+                <div>
+                  <p className="inline-flex items-center gap-2 font-medium">
+                    <Lock className="h-4 w-4 text-primary" />
+                    Solutions are locked during exam mode.
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {Object.keys(selectedAnswers).length}/{data.questions.length} answered
+                  </p>
+                </div>
+                {remainingSeconds != null ? (
+                  <span
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-lg font-bold",
+                      remainingSeconds < 300
+                        ? "bg-accent/10 text-accent"
+                        : "bg-card text-primary"
+                    )}
+                  >
+                    <Clock className="h-4 w-4" />
+                    {formatTimer(remainingSeconds)}
+                  </span>
+                ) : null}
                 <Button
                   type="button"
                   variant="outline"
@@ -1013,7 +1183,12 @@ export function QuestionbankStudyPage({
                 disabled={!sessionId || submitSession.isPending}
                 onClick={() => void handleSubmitExam()}
               >
-                {submitSession.isPending ? "Submitting…" : "Submit exam and unlock solutions"}
+                {submitSession.isPending
+                  ? "Submitting…"
+                  : `Submit exam (${Math.max(
+                      0,
+                      data.questions.length - Object.keys(selectedAnswers).length
+                    )} unanswered)`}
               </Button>
             ) : (
               <Button
@@ -1026,6 +1201,8 @@ export function QuestionbankStudyPage({
                   setSessionId(null);
                   setSelectedAnswers({});
                   setAnswerFeedback({});
+                  setExpiresAt(null);
+                  setRemainingSeconds(null);
                   sessionStartedRef.current = false;
                 }}
               >
@@ -1033,6 +1210,38 @@ export function QuestionbankStudyPage({
               </Button>
             )}
           </div>
+        ) : null}
+
+        {examMode && practiceHistory.length ? (
+          <section className="space-y-3">
+            <h2 className="text-lg font-bold text-foreground">Practice exam history</h2>
+            <div className="overflow-x-auto rounded-2xl border border-border bg-card">
+              <table className="w-full min-w-[34rem] text-sm">
+                <thead className="border-b bg-muted/50 text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="px-4 py-3 text-left">Started</th>
+                    <th className="px-4 py-3 text-left">Status</th>
+                    <th className="px-4 py-3 text-left">Answered</th>
+                    <th className="px-4 py-3 text-left">Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {practiceHistory.map((item) => (
+                    <tr key={item.id} className="border-b last:border-0">
+                      <td className="px-4 py-3">{new Date(item.createdAt).toLocaleString()}</td>
+                      <td className="px-4 py-3">{item.status}</td>
+                      <td className="px-4 py-3">
+                        {item.answeredCount}/{item.totalQuestions}
+                      </td>
+                      <td className="px-4 py-3">
+                        {item.status === "SUBMITTED" ? `${item.score ?? 0}%` : "In progress"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
         ) : null}
       </div>
     </div>

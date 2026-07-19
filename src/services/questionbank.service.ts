@@ -7,6 +7,7 @@ import type {
 } from "./questionbank-admin.types";
 import type {
   PracticeAnswerFeedback,
+  PracticeHistoryItem,
   PracticeSessionResult,
   PracticeSessionStart,
   QbFilters,
@@ -109,9 +110,19 @@ export const questionbankService = {
     questionId: string,
     answer: string,
     reveal = true
-  ): Promise<{ answer: { isCorrect: boolean }; feedback: PracticeAnswerFeedback | null }> {
+  ): Promise<{
+    answer: { isCorrect: boolean } | null;
+    feedback: PracticeAnswerFeedback | null;
+    expired?: boolean;
+    result?: PracticeSessionResult;
+  }> {
     return apiClient
-      .patch<{ answer: { isCorrect: boolean }; feedback: PracticeAnswerFeedback | null }>(
+      .patch<{
+        answer: { isCorrect: boolean } | null;
+        feedback: PracticeAnswerFeedback | null;
+        expired?: boolean;
+        result?: PracticeSessionResult;
+      }>(
         `/questionbank/practice/sessions/${sessionId}/answers`,
         {
           questionId,
@@ -132,5 +143,12 @@ export const questionbankService = {
     return apiClient
       .get<PracticeSessionResult>(`/questionbank/practice/sessions/${sessionId}`)
       .then((r) => r.data);
+  },
+
+  getPracticeHistory(mode?: "STUDY" | "EXAM"): Promise<PracticeHistoryItem[]> {
+    const query = mode ? `?mode=${mode}` : "";
+    return apiClient
+      .get<PracticeHistoryItem[]>(`/questionbank/practice/history${query}`)
+      .then((r) => r.data ?? []);
   },
 };
