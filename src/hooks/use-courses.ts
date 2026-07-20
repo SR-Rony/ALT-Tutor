@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/constants";
 import { courseService } from "@/services";
+import { useAppSelector } from "@/store";
 import type { CoursesQuery } from "@/types/course.types";
 
 export function useCourses() {
@@ -19,8 +20,9 @@ export function useCoursesCatalog(query: CoursesQuery = {}) {
 }
 
 export function useCourseDetail(slug: string, enabled = true) {
+  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   return useQuery({
-    queryKey: queryKeys.courses.detail(slug),
+    queryKey: queryKeys.courses.detail(slug, isAuthenticated),
     queryFn: () => courseService.getBySlug(slug),
     enabled: Boolean(slug) && enabled,
   });

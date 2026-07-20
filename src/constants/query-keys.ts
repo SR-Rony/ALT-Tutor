@@ -9,7 +9,7 @@ export const queryKeys = {
   courses: {
     all: ["courses"] as const,
     catalog: (filters: object = {}) => ["courses", "catalog", filters] as const,
-    detail: (slug: string) => ["courses", "detail", slug] as const,
+    detail: (slug: string, authed = false) => ["courses", "detail", slug, authed ? "authed" : "anon"] as const,
   },
   curriculum: {
     byCourse: (courseId: string) => ["curriculum", courseId] as const,

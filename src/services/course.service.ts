@@ -282,9 +282,7 @@ export const courseService = {
     }
 
     try {
-      const response = await apiClient.get<BackendCourseDetail>(`/courses/slug/${slug}`, {
-        skipAuth: true,
-      });
+      const response = await apiClient.get<BackendCourseDetail>(`/courses/slug/${slug}`);
       return mapDetail(response.data);
     } catch {
       return null;

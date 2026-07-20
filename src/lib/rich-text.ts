@@ -43,6 +43,18 @@ export function normalizeRichTextContent(value: string | null | undefined): stri
     .join("");
 }
 
+/** First sentence or truncated plain text for compact previews. */
+export function richTextExcerpt(
+  value: string | null | undefined,
+  maxLength = 160,
+): string {
+  const plain = richTextToPlain(value);
+  if (!plain) return "";
+  const sentence = plain.match(/^[^.!?]+[.!?]?/)?.[0]?.trim() ?? plain;
+  if (sentence.length <= maxLength) return sentence;
+  return `${sentence.slice(0, maxLength).trim()}…`;
+}
+
 /** Normalize before API submit (empty editor → empty string). */
 export function serializeRichText(value: string | null | undefined): string {
   if (isRichTextEmpty(value)) return "";

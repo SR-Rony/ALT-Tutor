@@ -33,7 +33,7 @@ import {
   formatLessonDuration,
 } from "@/lib/course-format";
 import { formatShortDate } from "@/lib/format";
-import { richTextToPlain } from "@/lib/rich-text";
+import { richTextExcerpt, richTextToPlain } from "@/lib/rich-text";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
@@ -160,9 +160,9 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
     }
   };
 
-  const onOpenLesson = (lessonId: string) => {
-    if (isEnrolled || (isStudent && isFree)) {
-      // Free courses are watchable without purchase; optional enroll still available from sidebar.
+  const onOpenLesson = (lessonId: string, isPreview?: boolean) => {
+    const canOpenPreview = Boolean(isStudent && isAuthenticated && isPreview);
+    if (isEnrolled || (isStudent && isFree) || canOpenPreview) {
       router.push(lessonHref(lessonId));
       return;
     }
@@ -184,14 +184,15 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
   return (
     <div className="relative overflow-x-clip bg-[#f7f9fc]">
       {/* Hero band */}
-      <section className="relative border-b border-[#e8edf5]/80 bg-[linear-gradient(180deg,#eef4fb_0%,#f7f9fc_100%)]">
+      <section className="relative overflow-hidden border-b border-[#dce4f0] bg-[linear-gradient(125deg,#eef6ff_0%,#dbeafe_42%,#fce8ec_100%)]">
         <div aria-hidden className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-16 top-8 h-64 w-64 rounded-full bg-[#fef3c7]/45 blur-3xl" />
-          <div className="absolute right-0 top-0 h-full w-1/2 bg-[linear-gradient(135deg,rgba(24,119,242,0.07)_0%,transparent_55%)]" />
+          <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-[#1877f2]/20 blur-3xl" />
+          <div className="absolute -right-16 bottom-0 h-64 w-64 rounded-full bg-[#ef3239]/15 blur-3xl" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.55)_0%,transparent_45%)]" />
         </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10">
-          <nav className="mb-6 text-sm font-medium text-[#64748b]">
+        <div className="relative mx-auto max-w-7xl px-4 py-5 sm:px-6 sm:py-7">
+          <nav className="mb-4 text-sm font-medium text-[#64748b]">
             <Link href={ROUTES.home} className="hover:text-[#ef3239]">
               Home
             </Link>
@@ -203,64 +204,132 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
             <span className="text-[#1a2b5e]">{course.title}</span>
           </nav>
 
-          {course.category ? (
-            <p className="text-sm font-semibold uppercase tracking-[0.12em] text-[#1877f2]">
-              {course.category.name}
-            </p>
-          ) : null}
-          <h1 className="mt-2 max-w-3xl text-3xl font-extrabold leading-tight tracking-tight text-[#1a2b5e] sm:text-4xl lg:text-[2.65rem]">
-            {course.title}
-          </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-[#64748b] sm:text-base">
-            {course.summary?.trim() || richTextToPlain(course.description)}
-          </p>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
+            <div className="min-w-0 flex-1">
+              <h1 className="text-2xl font-extrabold leading-tight tracking-tight text-[#1a2b5e] sm:text-3xl lg:text-4xl">
+                {course.title}
+              </h1>
 
-          <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm text-[#475569]">
-            <span className="inline-flex items-center gap-1.5 font-semibold text-[#1a2b5e]">
-              <RatingStars rating={avgRating} />
-              {course.reviews.length > 0 ? (
-                <>
-                  {avgRating.toFixed(1)}{" "}
-                  <span className="font-medium text-[#64748b]">
-                    ({course.reviews.length} review{course.reviews.length === 1 ? "" : "s"})
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {course.category ? (
+                  <span className="rounded-full bg-[#1877f2]/10 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-[#1877f2]">
+                    {course.category.name}
                   </span>
-                </>
+                ) : null}
+                <span className="rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-[#64748b] ring-1 ring-[#dce4f0]">
+                  {formatCourseLevel(course.level)}
+                </span>
+                {totalSeconds > 0 ? (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-semibold text-[#64748b] ring-1 ring-[#dce4f0]">
+                    <Clock className="h-3 w-3" aria-hidden />
+                    {formatLessonDuration(totalSeconds)}
+                  </span>
+                ) : null}
+                <span className="inline-flex items-center gap-1 rounded-full bg-white/80 px-2.5 py-0.5 text-xs font-semibold text-[#64748b] ring-1 ring-[#dce4f0]">
+                  <BookOpen className="h-3 w-3" aria-hidden />
+                  {lessonCount} lessons
+                </span>
+              </div>
+
+              {(course.summary?.trim() || course.description?.trim()) ? (
+                <p className="mt-3 line-clamp-2 max-w-3xl text-sm leading-relaxed text-[#64748b]">
+                  {course.summary?.trim() || richTextExcerpt(course.description, 180)}
+                </p>
+              ) : null}
+
+              <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[#475569]">
+                <span className="inline-flex items-center gap-1.5 font-semibold text-[#1a2b5e]">
+                  <RatingStars rating={avgRating} />
+                  {course.reviews.length > 0 ? (
+                    <>
+                      {avgRating.toFixed(1)}{" "}
+                      <span className="font-medium text-[#64748b]">
+                        ({course.reviews.length})
+                      </span>
+                    </>
+                  ) : (
+                    <span className="font-medium text-[#64748b]">No reviews yet</span>
+                  )}
+                </span>
+
+                <span className="hidden h-4 w-px bg-[#cbd5e1] sm:inline" aria-hidden />
+
+                <span className="inline-flex items-center gap-2 font-medium">
+                  <span className="inline-flex h-6 w-6 items-center justify-center overflow-hidden rounded-full bg-[#1877f2] text-[10px] font-bold text-white">
+                    {course.teacher.avatar ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={course.teacher.avatar}
+                        alt={course.teacher.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      course.teacher.name.charAt(0).toUpperCase()
+                    )}
+                  </span>
+                  {course.teacher.name}
+                </span>
+
+                {course.updatedAt || course.createdAt ? (
+                  <>
+                    <span className="hidden h-4 w-px bg-[#cbd5e1] sm:inline" aria-hidden />
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-[#64748b]">
+                      <Calendar className="h-3.5 w-3.5 text-[#f97316]" aria-hidden />
+                      Updated {formatShortDate(course.updatedAt || course.createdAt!)}
+                    </span>
+                  </>
+                ) : null}
+
+                <span className="hidden h-4 w-px bg-[#cbd5e1] sm:inline" aria-hidden />
+
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-[#64748b]">
+                  <Users className="h-3.5 w-3.5 text-[#1877f2]" aria-hidden />
+                  {course.studentsCount} enrolled
+                </span>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 flex-wrap items-center gap-2 lg:flex-col lg:items-stretch lg:pt-1">
+              {isEnrolled || (isStudent && isFree) ? (
+                <Button asChild size="pillLg" className="min-w-[10rem] shadow-brand">
+                  <Link href={learnHref}>Continue learning</Link>
+                </Button>
+              ) : isFree ? (
+                <Button
+                  size="pillLg"
+                  className="min-w-[10rem] shadow-brand"
+                  disabled={enrollCourse.isPending}
+                  onClick={() => void onEnroll()}
+                >
+                  {enrollCourse.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    "Enroll free"
+                  )}
+                </Button>
               ) : (
-                <span className="font-medium text-[#64748b]">No reviews yet</span>
+                <Button
+                  size="pillLg"
+                  className="min-w-[10rem] shadow-brand"
+                  disabled={checkout.isPending}
+                  onClick={() => void onCheckout()}
+                >
+                  {checkout.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <>Buy — {formatCoursePrice(course.price)}</>
+                  )}
+                </Button>
               )}
-            </span>
-
-            <span className="inline-flex items-center gap-2 font-medium">
-              <span className="inline-flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-[#1877f2] text-xs font-bold text-white">
-                {course.teacher.avatar ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={course.teacher.avatar}
-                    alt={course.teacher.name}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  course.teacher.name.charAt(0).toUpperCase()
-                )}
-              </span>
-              <span className="font-bold text-[#1a2b5e]">{course.teacher.name}</span>
-            </span>
-
-            {course.updatedAt || course.createdAt ? (
-              <span className="inline-flex items-center gap-1.5 font-medium">
-                <Calendar className="h-4 w-4 text-[#f97316]" aria-hidden />
-                Last updated {formatShortDate(course.updatedAt || course.createdAt!)}
-              </span>
-            ) : null}
-
-            <span className="rounded-md bg-[#eff6ff] px-2 py-0.5 text-xs font-bold uppercase tracking-wide text-[#1877f2]">
-              {formatCourseLevel(course.level)}
-            </span>
+              <Button asChild variant="outline" size="sm" className="border-[#dce4f0] bg-white/80">
+                <a href="#enroll">See pricing</a>
+              </Button>
+            </div>
           </div>
         </div>
       </section>
 
-      <section className="relative mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:py-12">
+      <section className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
         <div className="grid gap-8 lg:grid-cols-[1fr_20rem] xl:grid-cols-[1fr_22rem]">
           <div className="space-y-6">
             {/* Preview / promo player */}
@@ -325,7 +394,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                     <h2 className="text-xl font-extrabold text-[#1a2b5e]">About this course</h2>
                     <RichTextContent
                       html={course.description}
-                      className="mt-4 text-sm leading-relaxed text-[#64748b] sm:text-base"
+                      className="mt-4 w-full max-w-none text-sm leading-relaxed text-[#64748b] sm:text-base"
                     />
 
                     <div className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -479,8 +548,10 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                       description={chapter.description}
                       lessons={chapter.lessons}
                       defaultOpen={index === 0}
-                      canAccess={isEnrolled || isFree}
+                      isEnrolled={isEnrolled}
                       isFree={isFree}
+                      isAuthenticated={isAuthenticated}
+                      isStudent={isStudent}
                       isPending={enrollCourse.isPending}
                       onOpenLesson={onOpenLesson}
                     />
@@ -728,20 +799,30 @@ function ChapterAccordion({
   description,
   lessons,
   defaultOpen,
-  canAccess,
+  isEnrolled,
   isFree,
+  isAuthenticated,
+  isStudent,
   isPending,
   onOpenLesson,
 }: {
   index: number;
   title: string;
   description?: string | null;
-  lessons: { id: string; title: string; type: string; duration?: number | null }[];
+  lessons: {
+    id: string;
+    title: string;
+    type: string;
+    duration?: number | null;
+    isPreview?: boolean;
+  }[];
   defaultOpen?: boolean;
-  canAccess: boolean;
+  isEnrolled: boolean;
   isFree: boolean;
+  isAuthenticated: boolean;
+  isStudent: boolean;
   isPending: boolean;
-  onOpenLesson: (lessonId: string) => void;
+  onOpenLesson: (lessonId: string, isPreview?: boolean) => void;
 }) {
   const [open, setOpen] = useState(Boolean(defaultOpen));
   const chapterDuration = lessons.reduce(
@@ -788,14 +869,18 @@ function ChapterAccordion({
           {lessons.map((lesson, lessonIndex) => {
             const duration = formatLessonDuration(lesson.duration);
             const isVideo = lesson.type === "VIDEO";
+            const canOpen =
+              isEnrolled ||
+              isFree ||
+              Boolean(isStudent && isAuthenticated && lesson.isPreview);
             return (
               <li key={lesson.id}>
                 <button
                   type="button"
-                  onClick={() => onOpenLesson(lesson.id)}
+                  onClick={() => onOpenLesson(lesson.id, lesson.isPreview)}
                   disabled={isPending}
                   className="group flex w-full items-center gap-3 rounded-lg border border-[#ddd3ea] bg-white px-3 py-3 text-left text-sm transition-all hover:border-[#9b51e0] hover:shadow-sm disabled:cursor-wait disabled:opacity-60"
-                  aria-label={`${canAccess ? "Open" : "Unlock"} lesson ${lesson.title}`}
+                  aria-label={`${canOpen ? "Open" : "Unlock"} lesson ${lesson.title}`}
                 >
                   <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eef5ff] text-[#1877f2] transition-colors group-hover:bg-[#e5efff]">
                     {isVideo ? (
@@ -815,14 +900,23 @@ function ChapterAccordion({
                       {duration}
                     </span>
                   ) : null}
-                  {canAccess ? (
+                  {canOpen ? (
                     isFree ? (
                       <span className="shrink-0 rounded-full bg-[#e9fbf2] px-2 py-0.5 text-[10px] font-bold text-[#16a36a]">
                         Free
                       </span>
+                    ) : lesson.isPreview ? (
+                      <span className="shrink-0 rounded-full bg-[#eef5ff] px-2 py-0.5 text-[10px] font-bold text-[#1877f2]">
+                        Free preview
+                      </span>
                     ) : (
                       <PlayCircle className="h-4 w-4 shrink-0 text-[#9b51e0]" aria-hidden />
                     )
+                  ) : lesson.isPreview && !isAuthenticated ? (
+                    <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold text-[#1877f2]">
+                      <Lock className="h-3.5 w-3.5" aria-hidden />
+                      Log in
+                    </span>
                   ) : (
                     <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-semibold text-[#8a829b]">
                       <Lock className="h-3.5 w-3.5" aria-hidden />
