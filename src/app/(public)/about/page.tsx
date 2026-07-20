@@ -1,11 +1,11 @@
-import { PageHeader } from "@/components/shared";
+import type { Metadata } from "next";
+import { AboutPage, aboutPageContent } from "@/components/public/about";
 
-export const metadata = { title: "About" };
+export const metadata: Metadata = {
+  title: aboutPageContent.meta.title,
+  description: aboutPageContent.meta.description,
+};
 
-export default function AboutPage() {
-  return (
-    <section className="mx-auto max-w-3xl px-4 py-10 md:px-6">
-      <PageHeader title="About" description="Replace this page with your institution story and mission." />
-    </section>
-  );
+export default function AboutRoutePage() {
+  return <AboutPage />;
 }

@@ -136,7 +136,7 @@ export function HomeHero() {
                 <Link href={ROUTES.courses}>{heroPrimaryCta}</Link>
               </Button>
               <Button asChild variant="secondary" size="pillLg" className="w-full sm:w-auto">
-                <Link href={ROUTES.courses}>
+                <Link href={`${ROUTES.about}#story-video`}>
                   <span className="inline-flex items-center justify-center gap-2.5">
                     <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
                       <Play className="h-3.5 w-3.5 shrink-0 fill-current" aria-hidden />
