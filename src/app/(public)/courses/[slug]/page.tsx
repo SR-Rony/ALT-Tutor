@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { CourseDetailView } from "@/components/public/courses";
 import { courseService } from "@/services";
 
@@ -25,5 +26,9 @@ export async function generateMetadata({ params }: CourseDetailPageProps): Promi
 
 export default async function CourseDetailPage({ params }: CourseDetailPageProps) {
   const { slug } = await params;
-  return <CourseDetailView slug={slug} />;
+  return (
+    <Suspense fallback={null}>
+      <CourseDetailView slug={slug} />
+    </Suspense>
+  );
 }

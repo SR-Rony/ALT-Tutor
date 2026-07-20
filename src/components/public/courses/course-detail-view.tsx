@@ -2,8 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Award,
   BookOpen,
@@ -11,6 +11,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  Download,
   FileText,
   GraduationCap,
   Layers,
@@ -21,6 +22,7 @@ import {
   PlayCircle,
   Star,
   Users,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config";
@@ -37,6 +39,7 @@ import { richTextExcerpt, richTextToPlain } from "@/lib/rich-text";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
+import type { CourseLesson } from "@/types/course.types";
 import { cn } from "@/utils";
 
 type CourseDetailViewProps = {
@@ -85,6 +88,7 @@ function RatingStars({ rating }: { rating: number }) {
 
 export function CourseDetailView({ slug }: CourseDetailViewProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { data: course, isLoading, isError } = useCourseDetail(slug);
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const user = useAppSelector((s) => s.auth.user);
@@ -95,6 +99,9 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
   const checkout = useCheckout();
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DetailTab>("description");
+  const [activeLessonId, setActiveLessonId] = useState<string | null>(
+    () => searchParams.get("lesson")
+  );
 
   const enrollment = useMemo(
     () =>
@@ -106,6 +113,42 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
     [myCourses, slug]
   );
   const isEnrolled = Boolean(enrollment);
+
+  const allLessons = useMemo(
+    () => course?.chapters.flatMap((chapter) => chapter.lessons) ?? [],
+    [course]
+  );
+
+  const activeLesson = useMemo(
+    () => allLessons.find((lesson) => lesson.id === activeLessonId) ?? null,
+    [activeLessonId, allLessons]
+  );
+
+  const canOpenLessonInline = useCallback(
+    (lesson: CourseLesson) =>
+      Boolean(
+        isStudent &&
+          isAuthenticated &&
+          lesson.isPreview &&
+          !isEnrolled &&
+          Number(course?.price ?? 0) > 0
+      ),
+    [course?.price, isAuthenticated, isEnrolled, isStudent]
+  );
+
+  const clearActiveLesson = useCallback(() => {
+    setActiveLessonId(null);
+    router.replace(ROUTES.courseDetail(slug), { scroll: false });
+  }, [router, slug]);
+
+  useEffect(() => {
+    const requestedId = searchParams.get("lesson");
+    if (!requestedId || !course) return;
+    const lesson = allLessons.find((item) => item.id === requestedId);
+    if (lesson && canOpenLessonInline(lesson)) {
+      setActiveLessonId(requestedId);
+    }
+  }, [allLessons, canOpenLessonInline, course, searchParams]);
 
   if (isLoading) return <CourseDetailSkeleton />;
 
@@ -161,17 +204,35 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
   };
 
   const onOpenLesson = (lessonId: string, isPreview?: boolean) => {
+    const lesson = allLessons.find((item) => item.id === lessonId);
     const canOpenPreview = Boolean(isStudent && isAuthenticated && isPreview);
-    if (isEnrolled || (isStudent && isFree) || canOpenPreview) {
+
+    if (isEnrolled || (isStudent && isFree)) {
       router.push(lessonHref(lessonId));
       return;
     }
-    if (!isAuthenticated) {
+
+    if (canOpenPreview && lesson && canOpenLessonInline(lesson)) {
+      setActiveLessonId(lessonId);
+      router.replace(`${ROUTES.courseDetail(slug)}?lesson=${encodeURIComponent(lessonId)}`, {
+        scroll: false,
+      });
+      document.getElementById("course-player")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+
+    if (!isAuthenticated && isPreview) {
       router.push(
-        `${ROUTES.auth.login}?next=${encodeURIComponent(lessonHref(lessonId))}`
+        `${ROUTES.auth.login}?next=${encodeURIComponent(`${ROUTES.courseDetail(slug)}?lesson=${encodeURIComponent(lessonId)}`)}`
       );
       return;
     }
+
+    if (!isAuthenticated) {
+      router.push(`${ROUTES.auth.login}?next=${encodeURIComponent(ROUTES.courseDetail(slug))}`);
+      return;
+    }
+
     document.getElementById("enroll")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
@@ -289,7 +350,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
               </div>
             </div>
 
-            <div className="flex shrink-0 flex-wrap items-center gap-2 lg:flex-col lg:items-stretch lg:pt-1">
+            {/* <div className="flex shrink-0 flex-wrap items-center gap-2 lg:flex-col lg:items-stretch lg:pt-1">
               {isEnrolled || (isStudent && isFree) ? (
                 <Button asChild size="pillLg" className="min-w-[10rem] shadow-brand">
                   <Link href={learnHref}>Continue learning</Link>
@@ -324,7 +385,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
               <Button asChild variant="outline" size="sm" className="border-[#dce4f0] bg-white/80">
                 <a href="#enroll">See pricing</a>
               </Button>
-            </div>
+            </div> */}
           </div>
         </div>
       </section>
@@ -332,40 +393,104 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
       <section className="relative mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:py-8">
         <div className="grid gap-8 lg:grid-cols-[1fr_20rem] xl:grid-cols-[1fr_22rem]">
           <div className="space-y-6">
-            {/* Preview / promo player */}
-            <div className="overflow-hidden rounded-2xl border border-[#e8edf5]/80 bg-white shadow-[0_16px_40px_-18px_rgba(26,43,94,0.18)]">
-              <div className="relative aspect-video bg-[#e8edf5]">
-                {course.promoVideoUrl ? (
-                  <PromoPlayer url={course.promoVideoUrl} title={course.title} />
-                ) : course.thumbnail ? (
-                  <Image
-                    src={course.thumbnail}
-                    alt={course.title}
-                    fill
-                    priority
-                    sizes="(max-width: 1024px) 100vw, 60vw"
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#93c5fd] to-[#2563eb]">
-                    <BookOpen className="h-16 w-16 text-white/80" aria-hidden />
+            {/* Preview / lesson player */}
+            <div
+              id="course-player"
+              className="overflow-hidden rounded-2xl border border-[#e8edf5]/80 bg-white shadow-[0_16px_40px_-18px_rgba(26,43,94,0.18)]"
+            >
+              {activeLesson ? (
+                <>
+                  <LessonInlinePlayer lesson={activeLesson} />
+                  <div className="space-y-4 border-t border-[#eef2f8] p-4 sm:p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold uppercase tracking-wide text-[#1877f2]">
+                          Free preview
+                        </p>
+                        <h3 className="mt-1 text-lg font-extrabold text-[#1a2b5e]">
+                          {activeLesson.title}
+                        </h3>
+                        {activeLesson.duration ? (
+                          <p className="mt-1 text-xs text-[#64748b]">
+                            {formatLessonDuration(activeLesson.duration)}
+                          </p>
+                        ) : null}
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="shrink-0 gap-1.5 border-[#dce4f0]"
+                        onClick={clearActiveLesson}
+                      >
+                        <X className="h-3.5 w-3.5" aria-hidden />
+                        Back to overview
+                      </Button>
+                    </div>
+                    {activeLesson.description ? (
+                      <RichTextContent
+                        html={activeLesson.description}
+                        className="text-sm leading-relaxed text-[#64748b]"
+                      />
+                    ) : null}
+                    {(activeLesson.attachments?.length ?? 0) > 0 ? (
+                      <ul className="space-y-2 rounded-xl bg-[#f8fafc] p-3">
+                        {activeLesson.attachments!.map((file) => (
+                          <li key={file.id}>
+                            <a
+                              href={file.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-medium text-[#1877f2] hover:underline"
+                            >
+                              <Download className="h-4 w-4" aria-hidden />
+                              {file.filename}
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {!isEnrolled && !isFree ? (
+                      <p className="rounded-xl bg-[#fff7ed] px-4 py-3 text-sm text-[#9a3412]">
+                        Enjoying the preview? Enroll to unlock all lessons, questionbank, and exams.
+                      </p>
+                    ) : null}
                   </div>
-                )}
-                {!course.promoVideoUrl ? (
-                  <>
-                    <div className="absolute inset-0 bg-black/10" />
-                    <Link
-                      href={isEnrolled ? learnHref : isAuthenticated ? "#enroll" : loginNextHref}
-                      aria-label={isEnrolled ? "Start course" : "Enroll to start"}
-                      className="absolute inset-0 flex items-center justify-center"
-                    >
-                      <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#ef3239] text-white shadow-[0_12px_30px_-8px_rgba(239,50,57,0.6)] transition-transform hover:scale-105">
-                        <Play className="ml-1 h-7 w-7 fill-current" aria-hidden />
-                      </span>
-                    </Link>
-                  </>
-                ) : null}
-              </div>
+                </>
+              ) : (
+                <div className="relative aspect-video bg-[#e8edf5]">
+                  {course.promoVideoUrl ? (
+                    <PromoPlayer url={course.promoVideoUrl} title={course.title} />
+                  ) : course.thumbnail ? (
+                    <Image
+                      src={course.thumbnail}
+                      alt={course.title}
+                      fill
+                      priority
+                      sizes="(max-width: 1024px) 100vw, 60vw"
+                      className="object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#93c5fd] to-[#2563eb]">
+                      <BookOpen className="h-16 w-16 text-white/80" aria-hidden />
+                    </div>
+                  )}
+                  {!course.promoVideoUrl ? (
+                    <>
+                      <div className="absolute inset-0 bg-black/10" />
+                      <Link
+                        href={isEnrolled ? learnHref : isAuthenticated ? "#enroll" : loginNextHref}
+                        aria-label={isEnrolled ? "Start course" : "Enroll to start"}
+                        className="absolute inset-0 flex items-center justify-center"
+                      >
+                        <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-[#ef3239] text-white shadow-[0_12px_30px_-8px_rgba(239,50,57,0.6)] transition-transform hover:scale-105">
+                          <Play className="ml-1 h-7 w-7 fill-current" aria-hidden />
+                        </span>
+                      </Link>
+                    </>
+                  ) : null}
+                </div>
+              )}
             </div>
 
             {/* Tabs */}
@@ -553,6 +678,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                       isAuthenticated={isAuthenticated}
                       isStudent={isStudent}
                       isPending={enrollCourse.isPending}
+                      activeLessonId={activeLessonId}
                       onOpenLesson={onOpenLesson}
                     />
                   ))}
@@ -777,6 +903,73 @@ function youtubeEmbedUrl(url: string): string | null {
   }
 }
 
+function LessonInlinePlayer({ lesson }: { lesson: CourseLesson }) {
+  const url = lesson.contentUrl ?? null;
+  const yt = url ? youtubeEmbedUrl(url) : null;
+  const type = String(lesson.type).toUpperCase();
+
+  if (yt) {
+    return (
+      <div className="relative aspect-video bg-black">
+        <iframe
+          src={yt}
+          title={lesson.title}
+          className="absolute inset-0 h-full w-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  if (url && type === "VIDEO") {
+    return (
+      <video
+        src={url}
+        controls
+        className="aspect-video w-full bg-black object-contain"
+      />
+    );
+  }
+
+  if (url && type === "PDF") {
+    return (
+      <iframe
+        src={url}
+        title={lesson.title}
+        className="h-[70vh] w-full border-0 bg-white"
+      />
+    );
+  }
+
+  if (type === "TEXT" && lesson.body) {
+    return (
+      <div className="min-h-[240px] p-6">
+        <RichTextContent html={lesson.body} className="text-sm leading-relaxed text-[#64748b]" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-[#e8edf5] px-6 text-center">
+      <FileText className="h-10 w-10 text-[#64748b]" aria-hidden />
+      <p className="text-sm font-medium text-[#1a2b5e]">{lesson.title}</p>
+      {url ? (
+        <a
+          href={url}
+          target="_blank"
+          rel="noreferrer"
+          className="text-sm font-semibold text-[#1877f2] hover:underline"
+        >
+          Open lesson content
+        </a>
+      ) : (
+        <p className="text-xs text-[#64748b]">Preview content is not available yet.</p>
+      )}
+    </div>
+  );
+}
+
 function PromoPlayer({ url, title }: { url: string; title: string }) {
   const yt = youtubeEmbedUrl(url);
   if (yt) {
@@ -804,6 +997,7 @@ function ChapterAccordion({
   isAuthenticated,
   isStudent,
   isPending,
+  activeLessonId,
   onOpenLesson,
 }: {
   index: number;
@@ -822,6 +1016,7 @@ function ChapterAccordion({
   isAuthenticated: boolean;
   isStudent: boolean;
   isPending: boolean;
+  activeLessonId?: string | null;
   onOpenLesson: (lessonId: string, isPreview?: boolean) => void;
 }) {
   const [open, setOpen] = useState(Boolean(defaultOpen));
@@ -873,14 +1068,21 @@ function ChapterAccordion({
               isEnrolled ||
               isFree ||
               Boolean(isStudent && isAuthenticated && lesson.isPreview);
+            const isActive = activeLessonId === lesson.id;
             return (
               <li key={lesson.id}>
                 <button
                   type="button"
                   onClick={() => onOpenLesson(lesson.id, lesson.isPreview)}
                   disabled={isPending}
-                  className="group flex w-full items-center gap-3 rounded-lg border border-[#ddd3ea] bg-white px-3 py-3 text-left text-sm transition-all hover:border-[#9b51e0] hover:shadow-sm disabled:cursor-wait disabled:opacity-60"
+                  className={cn(
+                    "group flex w-full items-center gap-3 rounded-lg border px-3 py-3 text-left text-sm transition-all hover:shadow-sm disabled:cursor-wait disabled:opacity-60",
+                    isActive
+                      ? "border-[#1877f2] bg-[#eef5ff] shadow-sm"
+                      : "border-[#ddd3ea] bg-white hover:border-[#9b51e0]"
+                  )}
                   aria-label={`${canOpen ? "Open" : "Unlock"} lesson ${lesson.title}`}
+                  aria-current={isActive ? "true" : undefined}
                 >
                   <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#eef5ff] text-[#1877f2] transition-colors group-hover:bg-[#e5efff]">
                     {isVideo ? (
