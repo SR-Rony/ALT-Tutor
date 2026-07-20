@@ -7,6 +7,7 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   useAdminAccessProducts,
   useAdminSubjectsTree,
@@ -15,6 +16,7 @@ import {
   useUpdateAccessProduct,
 } from "@/hooks";
 import { formatMoney } from "@/lib/format";
+import { richTextToPlain, serializeRichText } from "@/lib/rich-text";
 import type { ApiError } from "@/types";
 import type { AccessProduct } from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
@@ -93,7 +95,7 @@ export function AdminAccessProductsPage() {
     const payload = {
       title: title.trim(),
       slug: slug.trim(),
-      description: description.trim() || undefined,
+      description: serializeRichText(description) || undefined,
       price: Number.parseFloat(price) || 0,
       durationDays: durationDays.trim() ? Number.parseInt(durationDays, 10) : null,
       programId: programId || null,
@@ -149,7 +151,7 @@ export function AdminAccessProductsPage() {
             <div key={p.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
               <div>
                 <h3 className="font-semibold text-foreground">{p.title}</h3>
-                <p className="text-sm text-muted-foreground">{p.description || p.slug}</p>
+                <p className="text-sm text-muted-foreground">{richTextToPlain(p.description) || p.slug}</p>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
                   <span className="rounded-md bg-muted px-2 py-0.5">{formatMoney(Number(p.price))}</span>
                   <span className="rounded-md bg-muted px-2 py-0.5">
@@ -220,12 +222,11 @@ export function AdminAccessProductsPage() {
             }}
           />
           <Input placeholder="Slug" value={slug} onChange={(e) => setSlug(e.target.value)} />
-          <textarea
+          <RichTextEditor
             placeholder="Description"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={2}
-            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+            onChange={setDescription}
+            minHeight="100px"
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="space-y-1 text-sm">

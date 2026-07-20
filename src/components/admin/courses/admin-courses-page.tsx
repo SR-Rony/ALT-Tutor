@@ -34,7 +34,9 @@ import {
   useUpdateCourseStatus,
 } from "@/hooks";
 import { formatMoney, formatShortDate } from "@/lib/format";
+import { isRichTextEmpty, serializeRichText } from "@/lib/rich-text";
 import { slugify } from "@/lib/slugify";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { uploadService } from "@/services/upload.service";
 import type { ApiError, AdminCourse, CourseLevel, CourseStatus } from "@/types";
 import { cn } from "@/utils";
@@ -238,11 +240,11 @@ export function AdminCoursesPage() {
   const onSubmit = async () => {
     const title = form.title.trim();
     const slug = form.slug.trim();
-    const description = form.description.trim();
+    const description = serializeRichText(form.description);
     const categoryId = form.categoryId;
     const teacherId = form.teacherId;
 
-    if (!title || !slug || !description || !categoryId) {
+    if (!title || !slug || isRichTextEmpty(description) || !categoryId) {
       setActionError("Title, slug, description, and category are required");
       return;
     }
@@ -581,12 +583,11 @@ export function AdminCoursesPage() {
 
           <label className="block space-y-1.5 sm:col-span-2">
             <span className="text-sm font-semibold text-foreground">Description</span>
-            <textarea
+            <RichTextEditor
               value={form.description}
-              onChange={(e) => setForm((prev) => ({ ...prev, description: e.target.value }))}
-              rows={4}
+              onChange={(description) => setForm((prev) => ({ ...prev, description }))}
               placeholder="What students will learn..."
-              className={cn(fieldClassName(), "h-auto py-2.5")}
+              minHeight="140px"
             />
           </label>
 

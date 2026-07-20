@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { useAccessProducts, useCheckout, useStudentPayments } from "@/hooks";
 import { formatMoney, formatShortDate } from "@/lib/format";
+import { richTextToPlain } from "@/lib/rich-text";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
 
@@ -91,7 +92,7 @@ export function StudentPaymentsPage() {
               >
                 <h3 className="font-bold text-foreground">{product.title}</h3>
                 <p className="mt-1 flex-1 text-sm text-muted-foreground">
-                  {product.description ||
+                  {richTextToPlain(product.description) ||
                     product.program?.name ||
                     "All linked subject programs"}
                 </p>

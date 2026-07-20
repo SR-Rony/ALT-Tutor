@@ -22,6 +22,8 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { serializeRichText } from "@/lib/rich-text";
 import { slugify } from "@/lib/slugify";
 import {
   useAdminQuestionbank,
@@ -711,7 +713,7 @@ export function AdminQuestionbankPage() {
         const payload = {
           title: title.trim(),
           slug: slug.trim() || slugify(title),
-          description: description.trim() || undefined,
+          description: serializeRichText(description) || undefined,
         };
         if (modal.editId) {
           await updateTopic.mutateAsync({ id: modal.editId, payload });
@@ -728,7 +730,7 @@ export function AdminQuestionbankPage() {
         const payload = {
           title: title.trim(),
           slug: slug.trim() || slugify(title),
-          description: description.trim() || undefined,
+          description: serializeRichText(description) || undefined,
         };
         if (modal.editId) {
           await updateSubtopic.mutateAsync({ id: modal.editId, payload });
@@ -1542,9 +1544,14 @@ export function AdminQuestionbankPage() {
               <Input value={slug} onChange={(e) => setSlug(slugify(e.target.value))} />
             </label>
             {modal?.kind === "topic" || modal?.kind === "subtopic" ? (
-              <label className="block space-y-1.5">
+              <label className="block space-y-1.5 sm:col-span-2">
                 <span className="text-sm font-semibold">Description</span>
-                <Input value={description} onChange={(e) => setDescription(e.target.value)} />
+                <RichTextEditor
+                  value={description}
+                  onChange={setDescription}
+                  placeholder="Optional topic overview"
+                  minHeight="100px"
+                />
               </label>
             ) : null}
           </div>

@@ -19,6 +19,7 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   useAddLessonAttachment,
   useCourseCurriculum,
@@ -33,6 +34,7 @@ import {
   useUpdateLesson,
 } from "@/hooks/use-curriculum";
 import { formatLessonDuration } from "@/lib/course-format";
+import { serializeRichText } from "@/lib/rich-text";
 import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type {
@@ -194,7 +196,7 @@ export function CourseCurriculumManager({ courseId, courseTitle }: Props) {
     try {
       const payload = {
         title,
-        description: chapterForm.description.trim() || undefined,
+        description: serializeRichText(chapterForm.description) || undefined,
         isPublished: chapterForm.isPublished,
       };
       if (editingChapter) {
@@ -307,8 +309,8 @@ export function CourseCurriculumManager({ courseId, courseTitle }: Props) {
     const minutes = Number(lessonForm.duration) || 0;
     const payload = {
       title,
-      description: lessonForm.description.trim() || undefined,
-      body: lessonForm.body.trim() || undefined,
+      description: serializeRichText(lessonForm.description) || undefined,
+      body: serializeRichText(lessonForm.body) || undefined,
       type: lessonForm.type,
       contentUrl: lessonForm.contentUrl.trim() || undefined,
       contentPublicId: lessonForm.contentPublicId.trim() || undefined,
@@ -486,12 +488,11 @@ export function CourseCurriculumManager({ courseId, courseTitle }: Props) {
             onChange={(e) => setChapterForm((p) => ({ ...p, title: e.target.value }))}
             placeholder="Chapter title"
           />
-          <textarea
+          <RichTextEditor
             value={chapterForm.description}
-            onChange={(e) => setChapterForm((p) => ({ ...p, description: e.target.value }))}
-            placeholder="Optional description"
-            rows={3}
-            className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+            onChange={(description) => setChapterForm((p) => ({ ...p, description }))}
+            placeholder="Optional chapter description"
+            minHeight="100px"
           />
           <label className="flex items-center gap-2 text-sm">
             <input
@@ -526,10 +527,11 @@ export function CourseCurriculumManager({ courseId, courseTitle }: Props) {
             onChange={(e) => setLessonForm((p) => ({ ...p, title: e.target.value }))}
             placeholder="Lesson title"
           />
-          <Input
+          <RichTextEditor
             value={lessonForm.description}
-            onChange={(e) => setLessonForm((p) => ({ ...p, description: e.target.value }))}
+            onChange={(description) => setLessonForm((p) => ({ ...p, description }))}
             placeholder="Short lesson description"
+            minHeight="90px"
           />
           <div className="grid gap-3 sm:grid-cols-2">
             <select
@@ -583,12 +585,11 @@ export function CourseCurriculumManager({ courseId, courseTitle }: Props) {
           </div>
 
           {lessonForm.type === "TEXT" ? (
-            <textarea
+            <RichTextEditor
               value={lessonForm.body}
-              onChange={(e) => setLessonForm((p) => ({ ...p, body: e.target.value }))}
+              onChange={(body) => setLessonForm((p) => ({ ...p, body }))}
               placeholder="Lesson text body"
-              rows={5}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+              minHeight="160px"
             />
           ) : null}
 

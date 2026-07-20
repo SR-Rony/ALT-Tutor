@@ -14,6 +14,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { publicFooterCompanyLinks, publicFooterProgramLinks, siteConfig } from "@/config";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { roleHomeRoutes, ROUTES } from "@/constants";
 import { useAuthSessionReady } from "@/providers/auth-session-provider";
 import { useAppSelector } from "@/store";
@@ -118,9 +119,10 @@ export function PublicFooter() {
                 className="h-10 w-auto rounded-lg object-contain sm:h-11"
               />
             </Link>
-            <p className="mt-4 max-w-sm text-sm leading-relaxed text-[#58688b]">
-              {siteConfig.description}
-            </p>
+            <RichTextContent
+              html={siteConfig.description}
+              className="mt-4 max-w-sm text-sm leading-relaxed text-[#58688b]"
+            />
 
             <div className="mt-6 space-y-3">
               <a

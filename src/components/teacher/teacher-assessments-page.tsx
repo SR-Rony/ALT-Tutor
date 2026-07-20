@@ -8,6 +8,7 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { ROUTES } from "@/constants";
 import {
   useAdminMcqExams,
@@ -22,6 +23,7 @@ import {
 } from "@/hooks";
 import { downloadCsv } from "@/lib/export-csv";
 import { formatShortDate } from "@/lib/format";
+import { isRichTextEmpty, richTextToPlain, serializeRichText } from "@/lib/rich-text";
 import type { ApiError } from "@/types";
 import type { CreateMcqExamInput } from "@/types/mcq.types";
 import type { StudentAssignment } from "@/types/student-dashboard.types";
@@ -108,7 +110,7 @@ export function TeacherAssessmentsPage() {
     setActionError(null);
     const payload: CreateMcqExamInput = {
       title: title.trim(),
-      description: description.trim(),
+      description: serializeRichText(description),
       courseId: effectiveCourseId,
       status: "PUBLISHED",
       durationMinutes: Number.parseInt(durationMinutes, 10) || 15,
@@ -146,7 +148,7 @@ export function TeacherAssessmentsPage() {
   const onSaveWritten = async () => {
     if (!effectiveCourseId) return;
     setActionError(null);
-    if (!title.trim() || !description.trim()) {
+    if (!title.trim() || isRichTextEmpty(description)) {
       setActionError("Title and description are required");
       return;
     }
@@ -156,8 +158,8 @@ export function TeacherAssessmentsPage() {
           id: editWritten.id,
           payload: {
             title: title.trim(),
-            description: description.trim(),
-            instructions: instructions.trim() || undefined,
+            description: serializeRichText(description),
+            instructions: serializeRichText(instructions) || undefined,
             status: writtenStatus,
             totalMarks: Number.parseInt(totalMarks, 10) || undefined,
             dueDate: dueDate ? new Date(`${dueDate}T23:59:59.000Z`).toISOString() : undefined,
@@ -166,8 +168,8 @@ export function TeacherAssessmentsPage() {
       } else {
         await createAssignment.mutateAsync({
           title: title.trim(),
-          description: description.trim(),
-          instructions: instructions.trim() || undefined,
+          description: serializeRichText(description),
+          instructions: serializeRichText(instructions) || undefined,
           type: writtenType,
           status: writtenStatus,
           courseId: effectiveCourseId,
@@ -326,7 +328,7 @@ export function TeacherAssessmentsPage() {
                 >
                   <div>
                     <p className="font-semibold text-foreground">{a.title}</p>
-                    <p className="text-sm text-muted-foreground line-clamp-1">{a.description}</p>
+                    <p className="text-sm text-muted-foreground line-clamp-1">{richTextToPlain(a.description)}</p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {a.status ?? "PUBLISHED"}
                       {a.dueDate ? ` · Due ${formatShortDate(a.dueDate)}` : ""}
@@ -386,7 +388,7 @@ export function TeacherAssessmentsPage() {
             <div key={exam.id} className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
               <div>
                 <h3 className="font-semibold text-foreground">{exam.title}</h3>
-                <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{exam.description}</p>
+                <p className="mt-1 text-sm text-muted-foreground line-clamp-2">{richTextToPlain(exam.description)}</p>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
                   <span className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5">
                     <Clock className="h-3 w-3" />
@@ -443,12 +445,11 @@ export function TeacherAssessmentsPage() {
       >
         <div className="space-y-3">
           <Input placeholder="Exam title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <textarea
+          <RichTextEditor
             placeholder="Description"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={2}
-            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+            onChange={setDescription}
+            minHeight="100px"
           />
           <div className="grid gap-3 sm:grid-cols-3">
             <label className="space-y-1 text-sm">
@@ -552,19 +553,17 @@ export function TeacherAssessmentsPage() {
       >
         <div className="space-y-3">
           <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-          <textarea
+          <RichTextEditor
             placeholder="Description"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={2}
-            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+            onChange={setDescription}
+            minHeight="100px"
           />
-          <textarea
+          <RichTextEditor
             placeholder="Instructions (optional)"
             value={instructions}
-            onChange={(e) => setInstructions(e.target.value)}
-            rows={2}
-            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+            onChange={setInstructions}
+            minHeight="100px"
           />
           <div className="grid gap-3 sm:grid-cols-2">
             {!editWritten ? (

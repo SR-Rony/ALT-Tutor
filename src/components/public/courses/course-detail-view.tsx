@@ -33,6 +33,8 @@ import {
   formatLessonDuration,
 } from "@/lib/course-format";
 import { formatShortDate } from "@/lib/format";
+import { richTextToPlain } from "@/lib/rich-text";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
@@ -210,7 +212,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
             {course.title}
           </h1>
           <p className="mt-4 max-w-3xl text-sm leading-relaxed text-[#64748b] sm:text-base">
-            {course.summary?.trim() || course.description}
+            {course.summary?.trim() || richTextToPlain(course.description)}
           </p>
 
           <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-3 text-sm text-[#475569]">
@@ -321,9 +323,10 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                 {activeTab === "description" ? (
                   <div>
                     <h2 className="text-xl font-extrabold text-[#1a2b5e]">About this course</h2>
-                    <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-[#64748b] sm:text-base">
-                      {course.description}
-                    </p>
+                    <RichTextContent
+                      html={course.description}
+                      className="mt-4 text-sm leading-relaxed text-[#64748b] sm:text-base"
+                    />
 
                     <div className="mt-6 grid gap-3 sm:grid-cols-2">
                       {[
@@ -761,7 +764,7 @@ function ChapterAccordion({
           <div className="min-w-0">
             <p className="truncate text-sm font-bold text-[#4b3a78] sm:text-base">{title}</p>
             {description ? (
-              <p className="mt-0.5 line-clamp-1 text-xs text-[#7b7192]">{description}</p>
+              <p className="mt-0.5 line-clamp-1 text-xs text-[#7b7192]">{richTextToPlain(description)}</p>
             ) : null}
           </div>
         </div>

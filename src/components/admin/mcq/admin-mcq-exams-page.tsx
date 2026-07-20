@@ -21,6 +21,7 @@ import {
   useUpdateMcqExam,
 } from "@/hooks";
 import { downloadCsv } from "@/lib/export-csv";
+import { richTextToPlain } from "@/lib/rich-text";
 import type { ApiError } from "@/types";
 import type { StudentAssignment } from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
@@ -352,7 +353,7 @@ export function AdminMcqExamsPage() {
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                      {item.description}
+                      {richTextToPlain(item.description)}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-muted-foreground">
                       {isMcq ? (

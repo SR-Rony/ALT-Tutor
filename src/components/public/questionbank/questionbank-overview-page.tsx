@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { ArrowUp, Database, Sparkles } from "lucide-react";
 import { useEffect, useState } from "react";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/shared";
 import { ROUTES } from "@/constants";
@@ -98,7 +99,7 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
             </p>
             <h2 className="mt-1 text-2xl font-bold text-foreground md:text-3xl">{topic.title}</h2>
             {topic.description ? (
-              <p className="mt-2 text-sm text-muted-foreground">{topic.description}</p>
+              <RichTextContent html={topic.description} className="mt-2 text-sm text-muted-foreground" />
             ) : null}
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {topic.subtopics.map((sub) => (
@@ -119,7 +120,7 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
                       {String(sub.badge).toUpperCase() === "GOLD" ? "ALT Gold" : "ALT Free"}
                     </span>
                   </div>
-                  <p className="mb-2 flex-1 text-sm text-muted-foreground">{sub.description}</p>
+                  <RichTextContent html={sub.description} className="mb-2 flex-1 text-sm text-muted-foreground" />
                   <p className="mb-4 text-xs font-medium text-muted-foreground">
                     {sub._count?.questions ?? 0} questions
                   </p>

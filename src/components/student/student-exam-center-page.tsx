@@ -17,6 +17,7 @@ import {
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { ROUTES } from "@/constants";
 import {
   useMyAssignments,
@@ -211,11 +212,12 @@ function WrittenSubmitModal({
           ) : null}
         </div>
         {assignment.instructions ? (
-          <p className="rounded-xl border border-border bg-muted/30 p-3 text-sm text-muted-foreground">
-            {assignment.instructions}
-          </p>
+          <RichTextContent
+            html={assignment.instructions}
+            className="rounded-xl border border-border bg-muted/30 p-3 text-sm text-muted-foreground"
+          />
         ) : assignment.description ? (
-          <p className="text-sm text-muted-foreground">{assignment.description}</p>
+          <RichTextContent html={assignment.description} className="text-sm text-muted-foreground" />
         ) : null}
         <label className="block space-y-1.5 text-sm">
           <span className="font-semibold">Written answer</span>

@@ -4,7 +4,9 @@ import { useEffect, useState } from "react";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { useAdminSettings, useUpdateAdminSettings } from "@/hooks";
+import { serializeRichText } from "@/lib/rich-text";
 import type { ApiError } from "@/types";
 import type { PlatformSettings } from "@/types/settings.types";
 import { cn } from "@/utils";
@@ -83,7 +85,7 @@ export function AdminSettingsPage() {
       await updateSettings.mutateAsync({
         siteName,
         tagline: form.tagline.trim(),
-        description: form.description.trim(),
+        description: serializeRichText(form.description),
         companyName: form.companyName.trim(),
         supportEmail: emptyToNull(form.supportEmail),
         supportPhone: emptyToNull(form.supportPhone),
@@ -157,12 +159,12 @@ export function AdminSettingsPage() {
             />
           </Field>
           <Field label="Description" htmlFor="description">
-            <textarea
+            <RichTextEditor
               id="description"
-              rows={3}
               value={form.description}
-              onChange={(e) => setField("description", e.target.value)}
-              className="flex w-full rounded-xl border border-border bg-background px-3 py-2 text-sm text-foreground outline-none transition focus:border-primary focus:ring-2 focus:ring-primary/20"
+              onChange={(description) => setField("description", description)}
+              placeholder="Short site description for SEO and footer"
+              minHeight="120px"
             />
           </Field>
           <Field label="Company name" htmlFor="company">

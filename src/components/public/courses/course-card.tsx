@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BookOpen, Users } from "lucide-react";
 import { ROUTES } from "@/constants";
 import { formatCourseLevel, formatCoursePrice } from "@/lib/course-format";
+import { richTextToPlain } from "@/lib/rich-text";
 import type { CatalogCourse } from "@/types/course.types";
 import { cn } from "@/utils";
 
@@ -62,7 +63,7 @@ export function CourseCard({ course, className }: CourseCardProps) {
         </h3>
 
         <p className="line-clamp-2 text-sm leading-relaxed text-[#64748b]">
-          {course.summary?.trim() || course.description}
+          {course.summary?.trim() || richTextToPlain(course.description)}
         </p>
 
         <div className="mt-auto flex items-center justify-between gap-3 border-t border-[#eef2f8] pt-3.5">

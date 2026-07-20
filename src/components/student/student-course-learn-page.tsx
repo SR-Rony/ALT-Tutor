@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { useCourseDetail, useStudentCourses } from "@/hooks";
 import { formatLessonDuration } from "@/lib/course-format";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { apiClient } from "@/services/api-client";
 import type { CourseLesson } from "@/types/course.types";
 import { cn } from "@/utils";
@@ -83,7 +84,7 @@ function LessonPlayer({ lesson }: { lesson: CourseLesson }) {
   if (type === "TEXT" && lesson.body) {
     return (
       <div className="min-h-[240px] rounded-xl border border-border bg-card p-6">
-        <p className="whitespace-pre-line text-sm leading-relaxed text-foreground">{lesson.body}</p>
+        <RichTextContent html={lesson.body} className="text-sm leading-relaxed text-foreground" />
       </div>
     );
   }
@@ -303,7 +304,10 @@ export function StudentCourseLearnPage({ slug }: Props) {
                     <p className="text-xs text-muted-foreground">{current.chapterTitle}</p>
                     <p className="font-semibold text-foreground">{current.lesson.title}</p>
                     {current.lesson.description ? (
-                      <p className="mt-1 text-sm text-muted-foreground">{current.lesson.description}</p>
+                      <RichTextContent
+                        html={current.lesson.description}
+                        className="mt-1 text-sm text-muted-foreground"
+                      />
                     ) : null}
                   </div>
                   {current.lesson.duration ? (

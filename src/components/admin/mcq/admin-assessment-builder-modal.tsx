@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   useAdminQuestionbank,
   useCourseProgramLinks,
@@ -12,6 +13,7 @@ import {
   useUpdateAssignment,
   useUpdateMcqExam,
 } from "@/hooks";
+import { isRichTextEmpty, serializeRichText } from "@/lib/rich-text";
 import { mcqService } from "@/services/mcq.service";
 import type { ApiError } from "@/types";
 import type { CreateMcqExamInput, ResultReleaseMode } from "@/types/mcq.types";
@@ -288,7 +290,7 @@ export function AdminAssessmentBuilderModal({
   const stepError = (index: number): string | null => {
     if (index === 0) {
       if (!title.trim()) return "Title is required";
-      if (!description.trim()) return "Description is required";
+      if (isRichTextEmpty(description)) return "Description is required";
       return null;
     }
     if (index === 1) {
@@ -366,7 +368,7 @@ export function AdminAssessmentBuilderModal({
       if (type === "MCQ") {
         const payload: CreateMcqExamInput = {
           title: title.trim(),
-          description: description.trim(),
+          description: serializeRichText(description),
           ...scope,
           status: publishStatus,
           durationMinutes: Number.parseInt(durationMinutes, 10) || 15,
@@ -388,8 +390,8 @@ export function AdminAssessmentBuilderModal({
       } else {
         const payload = {
           title: title.trim(),
-          description: description.trim(),
-          instructions: instructions.trim() || undefined,
+          description: serializeRichText(description),
+          instructions: serializeRichText(instructions) || undefined,
           type,
           status: publishStatus,
           ...scope,
@@ -483,22 +485,20 @@ export function AdminAssessmentBuilderModal({
       {step === 0 ? (
         <div className="space-y-3">
           <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} disabled={busy} />
-          <textarea
+          <RichTextEditor
             placeholder="Description"
             value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={2}
+            onChange={setDescription}
             disabled={busy}
-            className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+            minHeight="100px"
           />
           {type !== "MCQ" ? (
-            <textarea
+            <RichTextEditor
               placeholder="Instructions (optional)"
               value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              rows={2}
+              onChange={setInstructions}
               disabled={busy}
-              className="w-full rounded-xl border border-border px-3 py-2 text-sm"
+              minHeight="100px"
             />
           ) : null}
           <label className="block space-y-1 text-sm">

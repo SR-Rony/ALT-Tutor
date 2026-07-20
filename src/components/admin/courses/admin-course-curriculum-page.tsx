@@ -14,6 +14,7 @@ import { CourseCurriculumManager } from "@/components/curriculum/course-curricul
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { ROUTES } from "@/constants";
 import {
   useAdminCategories,
@@ -25,6 +26,7 @@ import {
   useUpdateCourse,
   useUpdateCourseStatus,
 } from "@/hooks";
+import { isRichTextEmpty, serializeRichText } from "@/lib/rich-text";
 import { uploadService } from "@/services/upload.service";
 import type { CourseUpsertInput } from "@/services/admin/admin-courses.service";
 import type { ApiError, CourseLevel, CourseStatus } from "@/types";
@@ -140,7 +142,7 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
     return {
       title: form.title.trim(),
       slug: form.slug.trim() || slugify(form.title),
-      description: form.description.trim(),
+      description: serializeRichText(form.description),
       summary: form.summary.trim() || undefined,
       thumbnail: form.thumbnail.trim() || undefined,
       thumbnailPublicId: form.thumbnailPublicId.trim() || undefined,
@@ -163,7 +165,7 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
 
   const onSave = async () => {
     const payload = buildPayload();
-    if (!payload?.title || !payload.description || !payload.categoryId) {
+    if (!payload?.title || isRichTextEmpty(payload.description) || !payload.categoryId) {
       setActionError("Title, description, and category are required.");
       return;
     }
@@ -317,11 +319,11 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
             />
           </Field>
           <Field label="Full description" className="lg:col-span-2">
-            <textarea
+            <RichTextEditor
               value={form.description}
-              onChange={(e) => setField("description", e.target.value)}
-              rows={5}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+              onChange={(description) => setField("description", description)}
+              placeholder="Detailed course overview for students"
+              minHeight="160px"
             />
           </Field>
           <Field label="Category">
