@@ -135,20 +135,20 @@ export function PublicAuthActions({ mobile = false, onNavigate }: PublicAuthActi
   }
 
   return (
-    <div className="flex items-center gap-2 sm:gap-3">
-      <Button asChild variant="secondary" size="pill" className="hidden sm:inline-flex lg:px-5">
+    <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+      <Button asChild variant="secondary" size="pill" className="hidden shrink-0 sm:inline-flex lg:px-5">
         <Link href={dashboardHref}>
           <LayoutDashboard className="h-4 w-4" />
           <span>Dashboard</span>
         </Link>
       </Button>
 
-      <div ref={ref} className="relative">
+      <div ref={ref} className="relative shrink-0">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           className={cn(
-            "inline-flex items-center gap-2 rounded-full border border-border bg-card py-1 pl-1 pr-2.5 text-sm font-semibold text-foreground transition-colors",
+            "inline-flex shrink-0 items-center gap-2 rounded-full border border-border bg-card py-1 pl-1 pr-2.5 text-sm font-semibold text-foreground transition-colors",
             "hover:border-primary/30 hover:bg-[#e8f2fe] hover:text-primary",
             open && "border-primary/30 bg-[#e8f2fe] text-primary"
           )}
@@ -169,7 +169,7 @@ export function PublicAuthActions({ mobile = false, onNavigate }: PublicAuthActi
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 6 }}
               transition={{ duration: 0.15 }}
-              className="absolute right-0 top-full z-50 mt-2 w-56"
+              className="absolute right-0 top-full z-[60] mt-2 w-56"
               role="menu"
             >
               <div className="overflow-hidden rounded-xl border border-[#e8edf5] bg-white py-2 shadow-[0_16px_40px_-12px_rgba(24,119,242,0.18)]">

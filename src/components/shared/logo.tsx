@@ -19,7 +19,7 @@ export function Logo({ className, showTagline = false, compact = false }: LogoPr
         : "hidden";
 
   return (
-    <Link href="/" className={cn("group flex items-center gap-2.5 lg:gap-3", className)}>
+    <Link href="/" className={cn("group flex h-full w-full items-center overflow-hidden gap-2.5 lg:gap-3", className)}>
     <Image
       src="/logo.png"
       alt={siteConfig.name}
@@ -27,7 +27,7 @@ export function Logo({ className, showTagline = false, compact = false }: LogoPr
       height={150}
       priority
       className={cn(
-        "w-full h-auto max-w-[200px] shrink-0 object-contain transition-transform ml-[-20px]",
+        "h-auto w-full max-w-[200px] shrink-0 object-contain object-left transition-transform ml-[-20px]",
         compact && "max-w-[180px]"
       )}
     />

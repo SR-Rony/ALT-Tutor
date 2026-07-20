@@ -306,9 +306,11 @@ function PublicHeaderInner() {
   }, []);
 
   return (
-    <header className="sticky top-0 z-50 border-b border-border/60 bg-card shadow-[0_4px_24px_-8px_rgba(24,119,242,0.08)]">
-      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 md:px-6 lg:h-[4.5rem] lg:gap-6">
-        <Logo className="shrink-0" />
+    <header className="sticky top-0 z-50 overflow-visible border-b border-border/60 bg-card shadow-[0_4px_24px_-8px_rgba(24,119,242,0.08)]">
+      <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 overflow-visible px-4 md:px-6 lg:h-[4.5rem] lg:gap-6">
+        <div className="flex h-full w-[11rem] shrink-0 items-center overflow-hidden sm:w-[12.5rem]">
+          <Logo className="shrink-0" />
+        </div>
 
         <nav aria-label="Main navigation" className="hidden flex-1 items-center justify-center gap-0.5 lg:flex xl:gap-1">
           {navItems.map((item) =>
@@ -320,7 +322,7 @@ function PublicHeaderInner() {
           )}
         </nav>
 
-        <div className="ml-auto flex items-center gap-2 sm:gap-3 lg:ml-0 lg:shrink-0">
+        <div className="ml-auto flex shrink-0 items-center gap-2 sm:gap-3">
           <a
             href={`tel:${siteConfig.phone}`}
             className="hidden items-center gap-2 rounded-lg px-2 py-1.5 text-sm font-semibold text-foreground transition-colors hover:text-primary md:inline-flex"
