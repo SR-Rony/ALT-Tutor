@@ -1,11 +1,11 @@
-import { PageHeader } from "@/components/shared";
+import type { Metadata } from "next";
+import { ContactPage, contactPageContent } from "@/components/public/support";
 
-export const metadata = { title: "Contact" };
+export const metadata: Metadata = {
+  title: contactPageContent.meta.title,
+  description: contactPageContent.meta.description,
+};
 
-export default function ContactPage() {
-  return (
-    <section className="mx-auto max-w-3xl px-4 py-10 md:px-6">
-      <PageHeader title="Contact" description="Add your contact form component here." />
-    </section>
-  );
+export default function ContactRoutePage() {
+  return <ContactPage />;
 }

@@ -1,14 +1,11 @@
-import { PageHeader } from "@/components/shared";
+import type { Metadata } from "next";
+import { HelpPage, helpPageContent } from "@/components/public/support";
 
-export const metadata = { title: "Help Center" };
+export const metadata: Metadata = {
+  title: helpPageContent.meta.title,
+  description: helpPageContent.meta.description,
+};
 
-export default function HelpPage() {
-  return (
-    <section className="mx-auto max-w-3xl px-4 py-10 md:px-6">
-      <PageHeader
-        title="Help Center"
-        description="Find answers about courses, accounts, certificates, and platform support."
-      />
-    </section>
-  );
+export default function HelpRoutePage() {
+  return <HelpPage />;
 }
