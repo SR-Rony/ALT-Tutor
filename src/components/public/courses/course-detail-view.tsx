@@ -949,8 +949,9 @@ function CourseSidebarCard({
   onEnroll: () => void;
   onCheckout: () => void;
 }) {
-  const slug = course.slug;
   const hasQuestionbank = (course.programLinks?.length ?? 0) > 0;
+  const linkedProgramName = course.programLinks?.[0]?.program?.name;
+  const questionbankLearnHref = `${learnHref}?tab=questionbank`;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
@@ -1057,9 +1058,57 @@ function CourseSidebarCard({
         {enrollError ? <p className="text-center text-sm text-accent">{enrollError}</p> : null}
 
         {hasQuestionbank ? (
-          <Button asChild variant="outline" size="lg" className="h-11 w-full">
-            <Link href={ROUTES.questionbank(slug)}>Questionbank</Link>
-          </Button>
+          <div className="space-y-1.5">
+            {isEnrolled ? (
+              <Button asChild variant="outline" size="lg" className="h-11 w-full">
+                <Link href={questionbankLearnHref}>Open questionbank</Link>
+              </Button>
+            ) : isStudent ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                className="h-11 w-full"
+                disabled={isFree ? enrollPending : checkoutPending}
+                onClick={isFree ? onEnroll : onCheckout}
+              >
+                {isFree ? (
+                  enrollPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Enroll to unlock questionbank"
+                  )
+                ) : checkoutPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  "Enroll to unlock questionbank"
+                )}
+              </Button>
+            ) : isAuthenticated ? (
+              <Button asChild variant="outline" size="lg" className="h-11 w-full">
+                <Link
+                  href={
+                    userRole && userRole in roleHomeRoutes
+                      ? roleHomeRoutes[userRole as keyof typeof roleHomeRoutes]
+                      : ROUTES.home
+                  }
+                >
+                  Go to dashboard
+                </Link>
+              </Button>
+            ) : (
+              <Button asChild variant="outline" size="lg" className="h-11 w-full">
+                <Link href={loginNextHref}>Log in to access questionbank</Link>
+              </Button>
+            )}
+            <p className="text-center text-xs text-muted-foreground">
+              {isEnrolled
+                ? linkedProgramName
+                  ? `Practice ${linkedProgramName} questions included with your enrollment.`
+                  : "Course-linked practice questions are ready in your dashboard."
+                : "Full questionbank access is included when you enroll in this course."}
+            </p>
+          </div>
         ) : null}
 
         <div className="border-t border-[#e5e7eb] pt-4">
