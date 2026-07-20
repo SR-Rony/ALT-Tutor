@@ -20,6 +20,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { PageLoader } from "@/components/shared";
+import { SecureVideoPlayer } from "@/components/shared/secure-video-player";
 import { Button } from "@/components/ui/button";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { ROUTES } from "@/constants";
@@ -34,11 +35,13 @@ import { formatLessonDuration } from "@/lib/course-format";
 import { formatShortDate } from "@/lib/format";
 import { richTextToPlain } from "@/lib/rich-text";
 import { apiClient } from "@/services/api-client";
+import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
 import type { CourseDetail, CourseLesson } from "@/types/course.types";
 import type { McqExam, McqPhase } from "@/types/mcq.types";
 import type { StudentAssignment } from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
+import { isPlayableVideoLesson, resolveLessonPdfUrl } from "@/utils/pdf-viewer";
 
 type Props = { slug: string };
 type CourseTab = "lessons" | "questionbank" | "exams";
@@ -49,57 +52,30 @@ const TABS: { id: CourseTab; label: string; icon: typeof BookOpen }[] = [
   { id: "exams", label: "Exams", icon: ClipboardList },
 ];
 
-function youtubeEmbedUrl(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname === "youtu.be") {
-      const id = u.pathname.slice(1);
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.searchParams.get("v");
-      if (id) return `https://www.youtube.com/embed/${id}`;
-      const parts = u.pathname.split("/").filter(Boolean);
-      if (parts[0] === "embed" && parts[1]) return `https://www.youtube.com/embed/${parts[1]}`;
-      if (parts[0] === "shorts" && parts[1]) return `https://www.youtube.com/embed/${parts[1]}`;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
 function LessonPlayer({ lesson }: { lesson: CourseLesson }) {
-  const url = lesson.contentUrl ?? null;
-  const yt = url ? youtubeEmbedUrl(url) : null;
+  const user = useAppSelector((state) => state.auth.user);
+  const watermarkText = user ? `${user.name} · ${user.phone}` : null;
+  const pdfUrl = resolveLessonPdfUrl(lesson);
   const type = String(lesson.type).toUpperCase();
 
-  if (yt) {
+  if (pdfUrl) {
     return (
       <iframe
-        key={yt}
-        src={yt}
+        key={pdfUrl}
+        src={pdfUrl}
         title={lesson.title}
-        className="aspect-video w-full rounded-xl border border-border bg-black"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-        allowFullScreen
+        className="h-[70vh] w-full rounded-xl border border-border bg-white"
       />
     );
   }
 
-  if (url && type === "VIDEO") {
+  if (type === "VIDEO" || isPlayableVideoLesson(lesson)) {
     return (
-      <video key={url} src={url} controls className="aspect-video w-full rounded-xl bg-black" />
-    );
-  }
-
-  if (url && type === "PDF") {
-    return (
-      <iframe
-        key={url}
-        src={url}
+      <SecureVideoPlayer
+        lessonId={lesson.id}
         title={lesson.title}
-        className="h-[70vh] w-full rounded-xl border border-border bg-white"
+        watermarkText={watermarkText}
+        rounded
       />
     );
   }
@@ -122,15 +98,7 @@ function LessonPlayer({ lesson }: { lesson: CourseLesson }) {
         )}
       </span>
       <p className="text-sm font-medium text-foreground">{lesson.title}</p>
-      {url ? (
-        <Button asChild size="sm" variant="outline">
-          <a href={url} target="_blank" rel="noreferrer">
-            Open lesson content
-          </a>
-        </Button>
-      ) : (
-        <p className="text-xs text-muted-foreground">No content uploaded for this lesson yet.</p>
-      )}
+      <p className="text-xs text-muted-foreground">No content uploaded for this lesson yet.</p>
     </div>
   );
 }

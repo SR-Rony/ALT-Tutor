@@ -122,6 +122,51 @@
   }
 }
 
+@keyframes watermark-drift {
+  0% {
+    transform: translate(0, 0) rotate(-24deg);
+    opacity: 0.28;
+  }
+  50% {
+    transform: translate(42%, -18%) rotate(-24deg);
+    opacity: 0.52;
+  }
+  100% {
+    transform: translate(8%, 12%) rotate(-24deg);
+    opacity: 0.28;
+  }
+}
+
+@keyframes watermark-drift-slow {
+  0% {
+    transform: translate(0, 0) rotate(-24deg);
+    opacity: 0.24;
+  }
+  50% {
+    transform: translate(-36%, 22%) rotate(-24deg);
+    opacity: 0.48;
+  }
+  100% {
+    transform: translate(-8%, -10%) rotate(-24deg);
+    opacity: 0.24;
+  }
+}
+
+@keyframes watermark-drift-reverse {
+  0% {
+    transform: translate(0, 0) rotate(-24deg);
+    opacity: 0.3;
+  }
+  50% {
+    transform: translate(28%, -28%) rotate(-24deg);
+    opacity: 0.5;
+  }
+  100% {
+    transform: translate(-18%, 16%) rotate(-24deg);
+    opacity: 0.3;
+  }
+}
+
 @keyframes gallery-marquee {
   0% {
     transform: translateX(0);
@@ -231,6 +276,18 @@
 
   .animate-pulse-glow {
     animation: pulse-glow 4s ease-in-out infinite;
+  }
+
+  .animate-watermark-drift {
+    animation: watermark-drift 16s linear infinite;
+  }
+
+  .animate-watermark-drift-slow {
+    animation: watermark-drift-slow 22s linear infinite;
+  }
+
+  .animate-watermark-drift-reverse {
+    animation: watermark-drift-reverse 19s linear infinite;
   }
 
   .animate-gallery-marquee {

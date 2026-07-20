@@ -34,6 +34,7 @@ import {
 } from "@/lib/course-format";
 import { richTextExcerpt, richTextToPlain } from "@/lib/rich-text";
 import { RichTextContent } from "@/components/ui/rich-text-content";
+import { SecureVideoPlayer } from "@/components/shared/secure-video-player";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
 import type { CourseDetail, CourseLesson } from "@/types/course.types";
@@ -1135,24 +1136,9 @@ function CourseSidebarCard({
   );
 }
 
-function youtubeEmbedUrl(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname === "youtu.be") {
-      const id = u.pathname.slice(1);
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.searchParams.get("v");
-      if (id) return `https://www.youtube.com/embed/${id}`;
-      const parts = u.pathname.split("/").filter(Boolean);
-      if (parts[0] === "embed" && parts[1]) return `https://www.youtube.com/embed/${parts[1]}`;
-      if (parts[0] === "shorts" && parts[1]) return `https://www.youtube.com/embed/${parts[1]}`;
-    }
-    return null;
-  } catch {
-    return null;
-  }
+function useVideoWatermarkLabel() {
+  const user = useAppSelector((state) => state.auth.user);
+  return user ? `${user.name} · ${user.phone}` : "ALT Tutor Preview";
 }
 
 function PdfEmbedViewer({ url, title }: { url: string; title: string }) {
@@ -1224,33 +1210,22 @@ function PdfEmbedViewer({ url, title }: { url: string; title: string }) {
 }
 
 function LessonMediaPlayer({ lesson }: { lesson: CourseLesson }) {
-  const url = lesson.contentUrl ?? null;
+  const watermarkText = useVideoWatermarkLabel();
   const pdfUrl = resolveLessonPdfUrl(lesson);
-  const yt = url && !pdfUrl ? youtubeEmbedUrl(url) : null;
   const type = String(lesson.type).toUpperCase();
-
-  if (yt) {
-    return (
-      <div className="relative aspect-video w-full">
-        <iframe
-          src={yt}
-          title={lesson.title}
-          className="absolute inset-0 h-full w-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-
-  if (url && type === "VIDEO" && !pdfUrl) {
-    return (
-      <video src={url} controls className="aspect-video w-full bg-black object-contain" />
-    );
-  }
 
   if (pdfUrl) {
     return <PdfEmbedViewer url={pdfUrl} title={lesson.title} />;
+  }
+
+  if (type === "VIDEO" || isPlayableVideoLesson(lesson)) {
+    return (
+      <SecureVideoPlayer
+        lessonId={lesson.id}
+        title={lesson.title}
+        watermarkText={watermarkText}
+      />
+    );
   }
 
   if (type === "TEXT" && lesson.body) {
@@ -1265,40 +1240,14 @@ function LessonMediaPlayer({ lesson }: { lesson: CourseLesson }) {
     <div className="flex aspect-video flex-col items-center justify-center gap-3 bg-[#0f172a] px-6 text-center text-white">
       <FileText className="h-10 w-10 text-white/70" aria-hidden />
       <p className="text-sm font-medium">{lesson.title}</p>
-      {url ? (
-        <a
-          href={url}
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm font-semibold text-[#93c5fd] hover:underline"
-        >
-          Open lesson content
-        </a>
-      ) : (
-        <p className="text-xs text-white/60">Preview content is not available yet.</p>
-      )}
+      <p className="text-xs text-white/60">Preview content is not available yet.</p>
     </div>
   );
 }
 
 function PromoMediaPlayer({ url, title }: { url: string; title: string }) {
-  const yt = youtubeEmbedUrl(url);
-  if (yt) {
-    return (
-      <div className="relative aspect-video w-full">
-        <iframe
-          src={yt}
-          title={`${title} promo`}
-          className="absolute inset-0 h-full w-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-  return (
-    <video src={url} controls className="aspect-video w-full bg-black object-contain" />
-  );
+  const watermarkText = useVideoWatermarkLabel();
+  return <SecureVideoPlayer title={title} directUrl={url} watermarkText={watermarkText} />;
 }
 
 function ChapterAccordion({
