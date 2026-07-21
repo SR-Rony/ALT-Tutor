@@ -4,20 +4,11 @@ import type {
   AdminDashboardStats,
   AdminLearningAnalytics,
 } from "@/types/admin-dashboard.types";
+import type { TeacherDashboardStats } from "@/types/teacher-dashboard.types";
 import { sleep } from "@/utils";
 import { apiClient } from "./api-client";
 
-export interface TeacherDashboardStats {
-  totalCourses: number;
-  totalStudents: number;
-  courses: Array<{
-    id: string;
-    title: string;
-    slug: string;
-    status: string;
-    _count: { enrollments: number; reviews: number };
-  }>;
-}
+export type { TeacherDashboardStats } from "@/types/teacher-dashboard.types";
 
 export interface StudentDashboardStats {
   totalEnrolled: number;
@@ -32,14 +23,42 @@ export interface StudentDashboardStats {
 
 const mockTeacherStats: TeacherDashboardStats = {
   totalCourses: 2,
+  publishedCourses: 1,
   totalStudents: 3,
+  totalEnrollments: 4,
+  pendingGrading: 2,
+  totalAssessments: 5,
   courses: [
     {
       id: "c1",
       title: "Complete Node.js Bootcamp",
       slug: "complete-nodejs-bootcamp",
       status: "PUBLISHED",
-      _count: { enrollments: 2, reviews: 1 },
+      ownership: "owned",
+      category: { id: "cat1", name: "Programming" },
+      _count: { enrollments: 2, reviews: 1, assignments: 3, chapters: 4 },
+    },
+    {
+      id: "c2",
+      title: "Python for Beginners",
+      slug: "python-for-beginners",
+      status: "DRAFT",
+      ownership: "owned",
+      category: { id: "cat1", name: "Programming" },
+      _count: { enrollments: 1, reviews: 0, assignments: 2, chapters: 2 },
+    },
+  ],
+  pendingSubmissions: [
+    {
+      id: "s1",
+      submittedAt: new Date().toISOString(),
+      student: { id: "st1", name: "Jane Student" },
+      assignment: {
+        id: "a1",
+        title: "Week 1 Written Task",
+        type: "WRITTEN",
+        course: { id: "c1", title: "Complete Node.js Bootcamp" },
+      },
     },
   ],
 };

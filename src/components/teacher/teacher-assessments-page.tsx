@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { Clock, Download, Plus, RefreshCw, Trash2, Users } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
@@ -43,10 +44,19 @@ function typeBadgeClass(type: string) {
 }
 
 export function TeacherAssessmentsPage() {
+  const searchParams = useSearchParams();
   const { data: courseData, isLoading: coursesLoading } = useTeacherCourses();
   const courses = courseData?.all ?? [];
   const [courseId, setCourseId] = useState("");
   const effectiveCourseId = courseId || courses[0]?.id;
+
+  useEffect(() => {
+    const fromQuery = searchParams.get("courseId");
+    if (!fromQuery || !courses.length) return;
+    if (courses.some((c) => c.id === fromQuery)) {
+      setCourseId(fromQuery);
+    }
+  }, [courses, searchParams]);
 
   const { data: exams = [], isLoading, error, refetch, isFetching } = useAdminMcqExams(effectiveCourseId);
   const { data: courseAssignments = [], refetch: refetchAssignments } =
