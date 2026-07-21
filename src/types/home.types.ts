@@ -39,9 +39,19 @@ export interface HomeStats {
   totalStudents: number;
 }
 
+export interface HomeFeaturedReview {
+  id: string;
+  rating: number;
+  comment: string | null;
+  createdAt?: string;
+  student: { id: string; name: string; avatar?: string | null };
+  course: { id: string; title: string; slug: string };
+}
+
 export interface HomeData {
   featuredCourses: HomeCourse[];
   latestBlogs: HomeBlog[];
   stats: HomeStats;
   categories: HomeCategory[];
+  featuredReviews: HomeFeaturedReview[];
 }

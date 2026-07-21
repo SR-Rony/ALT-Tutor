@@ -6,3 +6,4 @@ export { HomeAnimatedLessons } from "./home-animated-lessons";
 export { HomeAboutSection } from "./home-about-section";
 export { HomeHelpSection } from "./home-help-section";
 export { HomePhotoGallery } from "./home-photo-gallery";
+export { HomeStudentReviews } from "./home-student-reviews";

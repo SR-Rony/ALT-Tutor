@@ -108,13 +108,20 @@ export function HomePracticeQuestions() {
                 onFocus={() => onTabChange(tab.id)}
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
-                  "cursor-pointer rounded-full px-4 py-2.5 text-sm font-semibold transition-all duration-300 sm:px-5 sm:py-3 sm:text-base",
+                  "group relative cursor-pointer px-3 py-2 text-sm font-semibold transition-colors duration-300 sm:px-4 sm:text-base",
                   isActive
-                    ? "bg-[#1877f2] text-white shadow-[0_10px_28px_-12px_rgba(24,119,242,0.55)]"
-                    : "border border-[#dce4f0] bg-white text-[#1a2b5e] hover:border-[#1877f2]/35 hover:text-[#1877f2]"
+                    ? "text-[#ef3239]"
+                    : "text-[#1a2b5e]/75 hover:text-[#ef3239]"
                 )}
               >
                 {tab.label}
+                <span
+                  aria-hidden
+                  className={cn(
+                    "absolute inset-x-0 -bottom-0.5 h-0.5 origin-left rounded-full bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239] transition-transform duration-300 ease-out",
+                    isActive ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
+                  )}
+                />
               </button>
             );
           })}

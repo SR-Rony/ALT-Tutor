@@ -50,6 +50,7 @@ export type {
   HomeCategory,
   HomeCourse,
   HomeData,
+  HomeFeaturedReview,
   HomeStats,
 } from "./home.types";
 export type {

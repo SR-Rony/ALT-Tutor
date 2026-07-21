@@ -1,7 +1,34 @@
 import { env } from "@/config";
-import type { HomeCategory, HomeCourse, HomeData } from "@/types/home.types";
+import type { HomeCategory, HomeCourse, HomeData, HomeFeaturedReview } from "@/types/home.types";
 import { sleep } from "@/utils";
 import { apiClient } from "./api-client";
+
+const mockFeaturedReviews: HomeFeaturedReview[] = [
+  {
+    id: "r1",
+    rating: 5,
+    comment:
+      "ALT Tutor made SSC Math so clear. Short lessons, real past-paper practice, and I finally stopped fearing exams.",
+    student: { id: "s1", name: "Jane Student" },
+    course: { id: "c1", title: "Complete Node.js Bootcamp", slug: "complete-nodejs-bootcamp" },
+  },
+  {
+    id: "r2",
+    rating: 5,
+    comment:
+      "The teachers explain step by step. I improved my score in just one month with the practice questions.",
+    student: { id: "s2", name: "Ali Learner" },
+    course: { id: "c1", title: "Complete Node.js Bootcamp", slug: "complete-nodejs-bootcamp" },
+  },
+  {
+    id: "r3",
+    rating: 5,
+    comment:
+      "Best online class experience. Videos load fast, notes are clean, and support replies quickly.",
+    student: { id: "s3", name: "Nusrat Rahman" },
+    course: { id: "c2", title: "React Fundamentals", slug: "react-fundamentals" },
+  },
+];
 
 const mockHomeData: HomeData = {
   featuredCourses: [
@@ -25,6 +52,7 @@ const mockHomeData: HomeData = {
     { id: "2", name: "UI/UX Design", slug: "ui-ux-design" },
     { id: "3", name: "Business", slug: "business" },
   ],
+  featuredReviews: mockFeaturedReviews,
 };
 
 export const homeService = {
@@ -43,6 +71,7 @@ export const homeService = {
         totalStudents: Number(response.data.stats?.totalStudents) || 0,
       },
       categories: response.data.categories ?? [],
+      featuredReviews: response.data.featuredReviews ?? [],
     };
   },
 };
@@ -58,4 +87,4 @@ export const categoryService = {
   },
 };
 
-export type { HomeCourse, HomeCategory, HomeData };
+export type { HomeCourse, HomeCategory, HomeData, HomeFeaturedReview };
