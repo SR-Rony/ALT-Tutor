@@ -8,7 +8,6 @@ import {
   GraduationCap,
   Layers,
   ListTree,
-  PenLine,
   RefreshCw,
   Users,
   type LucideIcon,
@@ -33,45 +32,38 @@ const quickActions: {
 }[] = [
   {
     title: "My Courses",
-    description: "Create and manage curriculum",
+    description: "Curriculum & lessons",
     href: ROUTES.teacher.courses,
     icon: BookOpen,
     tone: "bg-primary/10 text-primary",
   },
   {
     title: "Assessments",
-    description: "MCQ exams & written tasks",
+    description: "Create MCQ & written",
     href: ROUTES.teacher.assessments,
     icon: ClipboardList,
     tone: "bg-accent/10 text-accent",
   },
   {
-    title: "Grading Queue",
-    description: "Review pending submissions",
+    title: "Grading",
+    description: "Review submissions",
     href: ROUTES.teacher.gradingQueue,
     icon: ClipboardCheck,
     tone: "bg-[#fff7ed] text-[#ea580c]",
   },
   {
     title: "Gradebook",
-    description: "Scores, overrides & CSV",
+    description: "Scores & overrides",
     href: ROUTES.teacher.gradebook,
     icon: GraduationCap,
     tone: "bg-[#ecfdf3] text-accent-green",
   },
   {
     title: "My Subjects",
-    description: "Programs & study resources",
+    description: "Programs & resources",
     href: ROUTES.teacher.subjects,
     icon: Layers,
     tone: "bg-[#eff6ff] text-[#1877f2]",
-  },
-  {
-    title: "New Assessment",
-    description: "Set up the next exam",
-    href: ROUTES.teacher.assessments,
-    icon: PenLine,
-    tone: "bg-[#fdf2f8] text-[#db2777]",
   },
 ];
 
@@ -114,7 +106,7 @@ export function TeacherDashboardPage() {
       <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card/80 p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title={`Welcome back, ${firstName(user?.name)}`}
-          description="Your LMS teaching workspace — courses, assessments, grading, and student progress."
+          description="Courses, assessments, grading, gradebook, and subjects — everything for day-to-day teaching."
           className="mb-0"
         />
         <div className="flex flex-wrap gap-2 shrink-0">
@@ -130,6 +122,12 @@ export function TeacherDashboardPage() {
             </Link>
           </Button>
           <Button asChild variant="secondary" size="sm">
+            <Link href={ROUTES.teacher.assessments}>
+              <ClipboardList className="h-4 w-4" aria-hidden />
+              New assessment
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
             <Link href={ROUTES.teacher.courses}>Manage courses</Link>
           </Button>
           <Button
@@ -181,7 +179,7 @@ export function TeacherDashboardPage() {
         />
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         {quickActions.map((action) => {
           const Icon = action.icon;
           return (
@@ -244,12 +242,17 @@ export function TeacherDashboardPage() {
               courses.slice(0, 6).map((course) => (
                 <div
                   key={course.id}
-                  className="rounded-xl border border-border px-4 py-3 transition-colors hover:bg-muted/40"
+                  className="rounded-xl border border-border px-4 py-3 transition-colors hover:border-primary/30 hover:bg-muted/40"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate font-semibold text-foreground">{course.title}</p>
+                        <Link
+                          href={ROUTES.teacher.courseCurriculum(course.id)}
+                          className="truncate font-semibold text-foreground hover:text-primary hover:underline"
+                        >
+                          {course.title}
+                        </Link>
                         <span
                           className={cn(
                             "rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase",
@@ -283,7 +286,14 @@ export function TeacherDashboardPage() {
                         </Link>
                       </Button>
                       <Button asChild variant="ghost" size="sm">
-                        <Link href={`${ROUTES.teacher.assessments}?courseId=${course.id}`}>Assessments</Link>
+                        <Link href={`${ROUTES.teacher.assessments}?courseId=${course.id}`}>
+                          Assessments
+                        </Link>
+                      </Button>
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={`${ROUTES.teacher.gradebook}?courseId=${course.id}`}>
+                          Gradebook
+                        </Link>
                       </Button>
                     </div>
                   </div>

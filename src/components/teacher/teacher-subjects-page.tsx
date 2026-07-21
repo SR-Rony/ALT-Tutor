@@ -81,7 +81,7 @@ export function TeacherSubjectsPage() {
   if (isLoading && tree.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title="My Subjects" description="Manage topics for your assigned subjects." className="mb-0" />
+        <PageHeader title="My Subjects" description="Programs & resource labels for subjects assigned to you — not the central Questionbank editor." className="mb-0" />
         <PageLoader label="Loading subjects..." />
       </div>
     );
@@ -94,7 +94,7 @@ export function TeacherSubjectsPage() {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="My Subjects"
-              description="Edit programs and resources under subjects assigned to you."
+              description="Edit programs and study-resource labels under subjects assigned to you. Central Questionbank content is managed by admin."
               className="mb-0"
             />
             <AdminIconAction

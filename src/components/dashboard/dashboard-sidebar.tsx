@@ -10,7 +10,9 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ClipboardCheck,
   ClipboardList,
+  GraduationCap,
   Grid3X3,
   Headphones,
   LayoutDashboard,
@@ -50,6 +52,8 @@ const navIcons: Record<string, LucideIcon> = {
   users: Users,
   messages: MessageSquare,
   clipboard: ClipboardList,
+  clipboardCheck: ClipboardCheck,
+  graduation: GraduationCap,
   bell: Bell,
   wallet: Wallet,
 };
