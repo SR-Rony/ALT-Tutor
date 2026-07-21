@@ -130,9 +130,9 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
   const checkout = useCheckout();
   const [enrollError, setEnrollError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SectionId>("curriculum");
-  const [modalLessonId, setModalLessonId] = useState<string | null>(
-    () => searchParams.get("lesson")
-  );
+  // Never seed the modal from the URL directly; the effect below opens it
+  // only after the auth/preview checks in canOpenLessonInline pass.
+  const [modalLessonId, setModalLessonId] = useState<string | null>(null);
   const [promoModalOpen, setPromoModalOpen] = useState(false);
 
   const enrollment = useMemo(
@@ -383,6 +383,12 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
   };
 
   const onSidebarPreview = () => {
+    // All previews (including intro/promo video) require login — even on free courses.
+    if (!isAuthenticated) {
+      router.push(`${ROUTES.auth.login}?next=${encodeURIComponent(ROUTES.courseDetail(slug))}`);
+      return;
+    }
+
     if (course.promoVideoUrl) {
       setModalLessonId(null);
       setPromoModalOpen(true);
@@ -390,15 +396,8 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
     }
 
     const videoPreview = sidebarVideoPreviewLesson;
-    if (videoPreview && isStudent && isAuthenticated && canOpenLessonInline(videoPreview)) {
+    if (videoPreview && isStudent && canOpenLessonInline(videoPreview)) {
       openLessonModal(videoPreview.id);
-      return;
-    }
-
-    if (videoPreview && !isAuthenticated) {
-      router.push(
-        `${ROUTES.auth.login}?next=${encodeURIComponent(`${ROUTES.courseDetail(slug)}?lesson=${encodeURIComponent(videoPreview.id)}`)}`
-      );
       return;
     }
 
@@ -1009,7 +1008,11 @@ function CourseSidebarCard({
           <div className="space-y-2.5">
             {showVideoPreview ? (
               <Button type="button" variant="default" size="lg" className="h-12 w-full" onClick={onPreview}>
-                {hasPromoVideo ? "Watch intro video" : "Watch free preview"}
+                {!isAuthenticated
+                  ? "Log in to watch intro video"
+                  : hasPromoVideo
+                    ? "Watch intro video"
+                    : "Watch free preview"}
               </Button>
             ) : null}
             {isStudent ? (
@@ -1329,7 +1332,7 @@ function ChapterAccordion({
             const duration = formatLessonDuration(lesson.duration);
             const canOpen =
               isEnrolled ||
-              isFree ||
+              (isAuthenticated && isFree) ||
               Boolean(isStudent && isAuthenticated && lesson.isPreview);
             const isActive = activeLessonId === lesson.id;
             const isPreviewLesson = Boolean(lesson.isPreview && !isFree);
@@ -1385,10 +1388,8 @@ function ChapterAccordion({
                     {canOpen
                       ? isPreviewLesson
                         ? "Preview"
-                        : isFree
-                          ? "Open"
-                          : "Open"
-                      : lesson.isPreview && !isAuthenticated
+                        : "Open"
+                      : !isAuthenticated && (lesson.isPreview || isFree)
                         ? "Log in"
                         : "Locked"}
                   </span>
