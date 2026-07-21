@@ -125,8 +125,8 @@ type GradingQueueProps = {
 export function GradingQueuePage({
   title = "Grading queue",
   description = "Review written/file submissions. Save draft marks privately, then publish when ready.",
-  assessmentsHref = ROUTES.admin.mcqExams,
-  assessmentsLabel = "Assessments",
+  assessmentsHref = ROUTES.admin.examsWritten,
+  assessmentsLabel = "Written Exams",
 }: GradingQueueProps) {
   const { data = [], isLoading, error, refetch } = useUngradedSubmissions();
   const [gradingId, setGradingId] = useState<string | null>(null);
@@ -198,6 +198,9 @@ export function GradingQueuePage({
 
 export function AdminGradingQueuePage() {
   return (
-    <GradingQueuePage assessmentsHref={ROUTES.admin.mcqExams} assessmentsLabel="MCQ Exams" />
+    <GradingQueuePage
+      assessmentsHref={ROUTES.admin.examsWritten}
+      assessmentsLabel="Written Exams"
+    />
   );
 }

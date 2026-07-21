@@ -27,6 +27,7 @@ import type { StudentAssignment } from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
 
 type ScopeFilter = "course" | "program";
+export type AdminExamKind = "MCQ" | "WRITTEN";
 
 function typeBadgeClass(type: string) {
   const t = type.toUpperCase();
@@ -42,7 +43,25 @@ function statusBadgeClass(status: string) {
   return "bg-[#fff7ed] text-[#ea580c]";
 }
 
-export function AdminMcqExamsPage() {
+function matchesExamKind(type: string, kind: AdminExamKind) {
+  const t = type.toUpperCase();
+  if (kind === "MCQ") return t === "MCQ";
+  return t === "WRITTEN" || t === "FILE";
+}
+
+export function AdminMcqExamsPage({ examKind = "MCQ" }: { examKind?: AdminExamKind }) {
+  const isMcqPage = examKind === "MCQ";
+  const pageTitle = isMcqPage ? "MCQ Exams" : "Written Exams";
+  const pageDescription = isMcqPage
+    ? "Create, publish, and review auto-graded MCQ exams for courses or programs."
+    : "Create and manage written / file-upload exams. Grade submissions in the grading queue.";
+  const newButtonLabel = isMcqPage ? "New MCQ exam" : "New written exam";
+  const emptyLabel = isMcqPage
+    ? "No MCQ exams for this scope."
+    : "No written exams for this scope.";
+  const allowedTypes = isMcqPage
+    ? (["MCQ"] as const)
+    : (["WRITTEN", "FILE"] as const);
   const { data: courses = [] } = useAdminCourses();
   const { data: subjectsTree = [] } = useAdminSubjectsTree();
 
@@ -73,7 +92,11 @@ export function AdminMcqExamsPage() {
     scopeFilter === "program" ? effectiveProgramId : undefined
   );
 
-  const assessments = scopeFilter === "course" ? courseQuery.data ?? [] : programQuery.data ?? [];
+  const assessmentsRaw = scopeFilter === "course" ? courseQuery.data ?? [] : programQuery.data ?? [];
+  const assessments = useMemo(
+    () => assessmentsRaw.filter((item) => matchesExamKind(String(item.type), examKind)),
+    [assessmentsRaw, examKind]
+  );
   const isLoading = scopeFilter === "course" ? courseQuery.isLoading : programQuery.isLoading;
   const isFetching = scopeFilter === "course" ? courseQuery.isFetching : programQuery.isFetching;
   const error = scopeFilter === "course" ? courseQuery.error : programQuery.error;
@@ -145,7 +168,7 @@ export function AdminMcqExamsPage() {
   };
 
   const exportListCsv = () => {
-    downloadCsv("assessments.csv", [
+    downloadCsv(isMcqPage ? "mcq-exams.csv" : "written-exams.csv", [
       ["Title", "Type", "Status", "Scope", "Duration", "Questions", "Attempts", "Submissions"],
       ...assessments.map((a) => [
         a.title,
@@ -161,7 +184,7 @@ export function AdminMcqExamsPage() {
   };
 
   if (isLoading && assessments.length === 0 && (courses.length > 0 || programs.length > 0)) {
-    return <PageLoader label="Loading assessments..." />;
+    return <PageLoader label={`Loading ${isMcqPage ? "MCQ" : "written"} exams...`} />;
   }
 
   return (
@@ -169,11 +192,7 @@ export function AdminMcqExamsPage() {
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
         <div className="border-b border-border px-5 py-6">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <PageHeader
-              title="Assessments"
-              description="Step builder for MCQ, written, and file assessments — course or program scope."
-              className="mb-0"
-            />
+            <PageHeader title={pageTitle} description={pageDescription} className="mb-0" />
             <div className="flex flex-wrap gap-2">
               <AdminIconAction
                 label="Refresh"
@@ -196,7 +215,7 @@ export function AdminMcqExamsPage() {
                 }}
               >
                 <Plus className="h-4 w-4" />
-                New assessment
+                {newButtonLabel}
               </Button>
             </div>
           </div>
@@ -267,11 +286,36 @@ export function AdminMcqExamsPage() {
           ) : null}
 
           <p className="mt-3 text-sm text-muted-foreground">
-            Grade written/file work in the{" "}
-            <Link href={ROUTES.admin.gradingQueue} className="font-semibold text-primary hover:underline">
-              grading queue
-            </Link>
-            .
+            {isMcqPage ? (
+              <>
+                Need written work? Open{" "}
+                <Link
+                  href={ROUTES.admin.examsWritten}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  Written Exams
+                </Link>
+                .
+              </>
+            ) : (
+              <>
+                Grade submissions in the{" "}
+                <Link
+                  href={ROUTES.admin.gradingQueue}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  grading queue
+                </Link>
+                . MCQ exams live under{" "}
+                <Link
+                  href={ROUTES.admin.examsMcq}
+                  className="font-semibold text-primary hover:underline"
+                >
+                  MCQ Exams
+                </Link>
+                .
+              </>
+            )}
           </p>
         </div>
 
@@ -311,12 +355,10 @@ export function AdminMcqExamsPage() {
               onChange={(e) => toggleAll(e.target.checked)}
               aria-label="Select all"
             />
-            <span>Assessments</span>
+            <span>{isMcqPage ? "MCQ exams" : "Written exams"}</span>
           </div>
           {assessments.length === 0 ? (
-            <p className="px-5 py-10 text-center text-muted-foreground">
-              No assessments for this scope.
-            </p>
+            <p className="px-5 py-10 text-center text-muted-foreground">{emptyLabel}</p>
           ) : null}
           {assessments.map((item) => {
             const isMcq = String(item.type).toUpperCase() === "MCQ";
@@ -429,6 +471,7 @@ export function AdminMcqExamsPage() {
         editItem={editItem}
         defaultCourseId={scopeFilter === "course" ? effectiveCourseId : undefined}
         defaultProgramId={scopeFilter === "program" ? effectiveProgramId : undefined}
+        allowedTypes={[...allowedTypes]}
       />
 
       <AdminModal

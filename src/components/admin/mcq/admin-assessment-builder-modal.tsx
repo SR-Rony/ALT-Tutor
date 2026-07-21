@@ -82,6 +82,8 @@ export type AdminAssessmentBuilderModalProps = {
   editItem?: StudentAssignment | null;
   defaultCourseId?: string;
   defaultProgramId?: string;
+  /** Restrict create type options. Single value locks the type. */
+  allowedTypes?: AssessmentType[];
 };
 
 export function AdminAssessmentBuilderModal({
@@ -92,17 +94,23 @@ export function AdminAssessmentBuilderModal({
   editItem,
   defaultCourseId,
   defaultProgramId,
+  allowedTypes,
 }: AdminAssessmentBuilderModalProps) {
   const createExam = useCreateMcqExam();
   const updateExam = useUpdateMcqExam();
   const createAssignment = useCreateAssignment();
   const updateAssignment = useUpdateAssignment();
 
+  const typeOptions = allowedTypes?.length
+    ? allowedTypes
+    : (["MCQ", "WRITTEN", "FILE"] as AssessmentType[]);
+  const defaultCreateType = typeOptions[0] ?? "MCQ";
+
   const [step, setStep] = useState(0);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [instructions, setInstructions] = useState("");
-  const [type, setType] = useState<AssessmentType>("MCQ");
+  const [type, setType] = useState<AssessmentType>(defaultCreateType);
   const [scopeKind, setScopeKind] = useState<ScopeKind>("course");
   const [courseId, setCourseId] = useState("");
   const [programId, setProgramId] = useState("");
@@ -190,7 +198,7 @@ export function AdminAssessmentBuilderModal({
     setTitle("");
     setDescription("");
     setInstructions("");
-    setType("MCQ");
+    setType(defaultCreateType);
     setScopeKind(defaultProgramId && !defaultCourseId ? "program" : "course");
     setCourseId(defaultCourseId || courses[0]?.id || "");
     setProgramId(defaultProgramId || programs[0]?.id || "");
@@ -501,19 +509,32 @@ export function AdminAssessmentBuilderModal({
               minHeight="100px"
             />
           ) : null}
-          <label className="block space-y-1 text-sm">
-            <span className="font-semibold">Type</span>
-            <select
-              value={type}
-              disabled={busy || isEdit}
-              onChange={(e) => setType(e.target.value as AssessmentType)}
-              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-            >
-              <option value="MCQ">MCQ exam</option>
-              <option value="WRITTEN">Written</option>
-              <option value="FILE">File upload</option>
-            </select>
-          </label>
+          {typeOptions.length === 1 ? (
+            <p className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
+              Type:{" "}
+              <span className="font-semibold text-foreground">
+                {typeOptions[0] === "MCQ"
+                  ? "MCQ exam"
+                  : typeOptions[0] === "WRITTEN"
+                    ? "Written exam"
+                    : "File upload"}
+              </span>
+            </p>
+          ) : (
+            <label className="block space-y-1 text-sm">
+              <span className="font-semibold">Type</span>
+              <select
+                value={type}
+                disabled={busy || isEdit}
+                onChange={(e) => setType(e.target.value as AssessmentType)}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {typeOptions.includes("MCQ") ? <option value="MCQ">MCQ exam</option> : null}
+                {typeOptions.includes("WRITTEN") ? <option value="WRITTEN">Written</option> : null}
+                {typeOptions.includes("FILE") ? <option value="FILE">File upload</option> : null}
+              </select>
+            </label>
+          )}
         </div>
       ) : null}
 

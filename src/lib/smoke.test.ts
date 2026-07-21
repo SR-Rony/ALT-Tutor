@@ -49,7 +49,8 @@ describe("role path access", () => {
   });
 
   it("keeps admins on /admin routes", () => {
-    expect(isPathAllowedForRole("admin", "/admin/mcq-exams")).toBe(true);
+    expect(isPathAllowedForRole("admin", "/admin/exams/mcq")).toBe(true);
+    expect(isPathAllowedForRole("admin", "/admin/exams/written")).toBe(true);
     expect(isPathAllowedForRole("admin", "/teacher/assessments")).toBe(false);
   });
 });

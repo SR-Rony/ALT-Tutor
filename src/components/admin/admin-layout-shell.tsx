@@ -17,6 +17,8 @@ const adminPageTitles: Record<string, string> = {
   [ROUTES.admin.qbSubjects]: "QB Subjects",
   [ROUTES.admin.qbPrograms]: "QB Programs",
   [ROUTES.admin.subjects]: "Subjects",
+  [ROUTES.admin.examsMcq]: "MCQ Exams",
+  [ROUTES.admin.examsWritten]: "Written Exams",
   [ROUTES.admin.mcqExams]: "MCQ Exams",
   [ROUTES.admin.accessProducts]: "Access Products",
   [ROUTES.admin.gradebook]: "Gradebook",
