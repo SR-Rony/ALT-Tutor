@@ -5,10 +5,12 @@ import { queryKeys } from "@/constants";
 import {
   adminCategoriesService,
   adminCoursesService,
+  adminEnrollmentsService,
   adminPaymentsService,
   adminUsersService,
   dashboardService,
 } from "@/services";
+import type { AdminEnrollmentsQuery } from "@/services/admin/admin-enrollments.service";
 import type { CategoryInput } from "@/services/admin/admin-categories.service";
 import type { CourseUpsertInput } from "@/services/admin/admin-courses.service";
 import type { TeacherInput } from "@/services/admin/admin-users.service";
@@ -101,6 +103,25 @@ export function useAdminPayments() {
   return useQuery({
     queryKey: queryKeys.admin.payments,
     queryFn: () => adminPaymentsService.getAll(),
+  });
+}
+
+export function useAdminEnrollments(filters: AdminEnrollmentsQuery = {}) {
+  return useQuery({
+    queryKey: queryKeys.admin.enrollments(filters),
+    queryFn: () => adminEnrollmentsService.list(filters),
+  });
+}
+
+export function useAdminCancelEnrollment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => adminEnrollmentsService.cancel(id),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "enrollments"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
+    },
   });
 }
 

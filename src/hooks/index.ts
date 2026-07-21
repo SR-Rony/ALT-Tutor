@@ -12,6 +12,8 @@ export {
   useAdminCourse,
   useAdminCategories,
   useAdminPayments,
+  useAdminEnrollments,
+  useAdminCancelEnrollment,
   useUpdateUserStatus,
   useUpdateUserRole,
   useDeleteUser,

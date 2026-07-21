@@ -29,11 +29,15 @@ export type {
 export type {
   AdminCourse,
   AdminDashboardStats,
+  AdminEnrollment,
+  AdminEnrollmentCounts,
+  AdminEnrollmentsResponse,
   AdminPayment,
   AdminUser,
   BackendRole,
   CourseLevel,
   CourseStatus,
+  EnrollmentStatus,
   PaymentStatus,
 } from "./admin-dashboard.types";
 export type {

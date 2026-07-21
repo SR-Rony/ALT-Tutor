@@ -87,6 +87,52 @@ export interface AdminCourse {
 
 export type PaymentStatus = "PENDING" | "SUCCESS" | "FAILED" | "REFUNDED";
 
+export type EnrollmentStatus = "ACTIVE" | "COMPLETED" | "CANCELLED";
+
+export interface AdminEnrollmentStudent {
+  id: string;
+  name: string;
+  email?: string | null;
+  phone: string;
+  avatar?: string | null;
+}
+
+export interface AdminEnrollmentCourse {
+  id: string;
+  title: string;
+  slug: string;
+  price: number | string;
+  thumbnail?: string | null;
+  teacher: { id: string; name: string };
+}
+
+export interface AdminEnrollment {
+  id: string;
+  progress: number;
+  status: EnrollmentStatus | string;
+  enrolledAt: string;
+  studentId: string;
+  courseId: string;
+  student: AdminEnrollmentStudent;
+  course: AdminEnrollmentCourse;
+}
+
+export interface AdminEnrollmentCounts {
+  all: number;
+  active: number;
+  completed: number;
+  cancelled: number;
+}
+
+export interface AdminEnrollmentsResponse {
+  items: AdminEnrollment[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  counts: AdminEnrollmentCounts;
+}
+
 export interface AdminPayment {
   id: string;
   amount: number | string;
