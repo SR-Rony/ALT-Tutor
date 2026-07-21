@@ -35,77 +35,6 @@ function DifficultyStars({ filled }: { filled: number }) {
   );
 }
 
-function MaxwellBoltzmannFigure() {
-  return (
-    <div className="relative mx-auto my-4 w-full max-w-md overflow-hidden rounded-xl border border-[#e8edf5] bg-[#f8fafc] p-4 sm:p-5">
-      <svg viewBox="0 0 360 200" className="h-auto w-full" aria-hidden>
-        <text x="8" y="20" className="fill-[#64748b]" fontSize="11">
-          Number of particles
-        </text>
-        <line x1="40" y1="20" x2="40" y2="160" stroke="#94a3b8" strokeWidth="1.5" />
-        <line x1="40" y1="160" x2="340" y2="160" stroke="#94a3b8" strokeWidth="1.5" />
-        <path
-          d="M40 160 C 80 155, 100 40, 160 50 C 210 58, 240 120, 280 145 C 310 155, 330 158, 340 160"
-          fill="none"
-          stroke="#1877f2"
-          strokeWidth="2.5"
-        />
-        <path
-          d="M180 160 L180 78 C 200 90, 230 130, 260 148 L260 160 Z"
-          fill="#ef3239"
-          fillOpacity="0.35"
-        />
-        <path
-          d="M260 160 L260 148 C 290 155, 320 158, 340 160 Z"
-          fill="#389452"
-          fillOpacity="0.4"
-        />
-        <line x1="180" y1="30" x2="180" y2="160" stroke="#1a1a2e" strokeWidth="1" strokeDasharray="4 3" />
-        <text x="168" y="24" className="fill-[#1a1a2e]" fontSize="12" fontWeight="700">
-          Ea
-        </text>
-        <text x="205" y="130" className="fill-[#ef3239]" fontSize="14" fontWeight="700">
-          X
-        </text>
-        <text x="285" y="150" className="fill-[#389452]" fontSize="14" fontWeight="700">
-          Y
-        </text>
-        <text x="160" y="182" className="fill-[#64748b]" fontSize="11">
-          Energy
-        </text>
-      </svg>
-      <p className="mt-1 text-center text-[11px] font-medium text-[#64748b]">
-        Maxwell–Boltzmann energy distribution
-      </p>
-    </div>
-  );
-}
-
-function BiodiversityFigure() {
-  return (
-    <div className="my-4 overflow-hidden rounded-xl border border-[#e8edf5] bg-gradient-to-br from-[#fff7ed] via-[#f0fdf4] to-[#e8f2fe] p-4 sm:p-5">
-      <p className="text-center text-xs font-bold uppercase tracking-wide text-[#1a1a2e] sm:text-sm">
-        Figure: Biodiversity-related jobs in South Africa
-      </p>
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        {[
-          { label: "Tourism", value: "42%", color: "#1877f2" },
-          { label: "Conservation", value: "23%", color: "#389452" },
-          { label: "Agriculture", value: "21%", color: "#f59e0b" },
-          { label: "Research", value: "14%", color: "#ef3239" },
-        ].map((item) => (
-          <div key={item.label} className="rounded-xl bg-white/90 p-3 text-center shadow-sm">
-            <p className="text-lg font-extrabold" style={{ color: item.color }}>
-              {item.value}
-            </p>
-            <p className="mt-0.5 text-[11px] font-semibold text-[#64748b]">{item.label}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
 export function HomePracticeQuestions() {
   const prefersReducedMotion = useReducedMotion();
   const [activeTab, setActiveTab] = useState<TabId>("mathematics");
@@ -238,10 +167,7 @@ export function HomePracticeQuestions() {
                     {question.prompt}
                   </p>
 
-                  {activeTab === "sciences" ? <MaxwellBoltzmannFigure /> : null}
-                  {activeTab === "individuals" ? <BiodiversityFigure /> : null}
-
-                  {question.figureLabel && activeTab !== "sciences" && activeTab !== "individuals" ? (
+                  {question.figureLabel ? (
                     <p className="mt-3 text-xs font-semibold text-[#64748b]">{question.figureLabel}</p>
                   ) : null}
 

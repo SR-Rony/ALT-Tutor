@@ -24,7 +24,7 @@ export const homeStats = [
 export const academicProgram = {
   title: "What's included in the Alt Tutor Academic Program",
   subtitle:
-    "Everything you need for IB exam success — questionbanks, past papers, practice exams, and more in one place.",
+    "Everything you need for SSC & HSC exam success — questionbanks, past papers, practice exams, and more in one place.",
   features: [
     {
       id: "questionbank",
@@ -60,7 +60,7 @@ export const academicProgram = {
       icon: "pen" as const,
       iconColor: "#a855f7",
       description:
-        "Full-length practice exams designed to mirror the real IB papers — timed, scored, and ready when you are.",
+        "Full-length practice exams designed to mirror real board papers — timed, scored, and ready when you are.",
       previewCards: [
         { code: "EX1", title: "SL Practice Set A", progress: 65 },
         { code: "EX2", title: "SL Practice Set B", progress: 28 },
@@ -128,13 +128,14 @@ export const academicProgram = {
 } as const;
 
 export const practiceExamQuestions = {
-  title: "Practice IB Exam Style Questions",
+  title: "Practice SSC & HSC Exam Style Questions",
   subtitle:
     "Thousands of exam-style questions, filtered by topic and difficulty, with detailed mark schemes and video solutions for every question.",
   tabs: [
     { id: "mathematics", label: "Mathematics" },
-    { id: "sciences", label: "Sciences" },
-    { id: "individuals", label: "Individuals & Societies" },
+    { id: "sciences", label: "Science" },
+    { id: "english", label: "English" },
+    { id: "higher-math", label: "Higher Math" },
   ],
   questions: {
     mathematics: {
@@ -160,33 +161,54 @@ export const practiceExamQuestions = {
       calculator: true,
       difficulty: "Medium" as const,
       stars: 3,
-      prompt:
-        "Which option represents the increase in the number of particles with sufficient energy to react when the temperature of the reaction mixture is increased?",
-      figureLabel: "Maxwell–Boltzmann distribution",
-      figureNote: "Energy on the x-axis, number of particles on the y-axis. Shaded regions X and Y show particles above activation energy.",
+      prompt: "A car travels 100 km in 2 hours. What is its average speed?",
+      figureLabel: null as string | null,
+      figureNote: null as string | null,
       body: null as string | null,
       marks: 1,
       options: [
-        { key: "A", text: "X" },
-        { key: "B", text: "Y" },
-        { key: "C", text: "X + Y" },
-        { key: "D", text: "Y − X" },
+        { key: "A", text: "25 km/h" },
+        { key: "B", text: "50 km/h" },
+        { key: "C", text: "100 km/h" },
+        { key: "D", text: "200 km/h" },
       ],
-      bookletLabel: "Data Booklet",
+      bookletLabel: "Formula Sheet",
       videoCount: 1,
     },
-    individuals: {
+    english: {
       calculator: false,
-      difficulty: "Medium" as const,
-      stars: 4,
-      prompt: "With reference to the Figure, outline the significance of South Africa's biodiversity for jobs.",
-      figureLabel: "Figure: Biodiversity-related jobs in South Africa",
-      figureNote:
-        "Infographic showing employment across conservation, tourism, agriculture, and research sectors linked to biodiversity.",
+      difficulty: "Easy" as const,
+      stars: 2,
+      prompt: "Choose the correct passive form: “They built this school in 2010.”",
+      figureLabel: null as string | null,
+      figureNote: null as string | null,
       body: null as string | null,
-      marks: 2,
-      options: [] as { key: string; text: string }[],
-      bookletLabel: "Data Booklet",
+      marks: 1,
+      options: [
+        { key: "A", text: "This school built in 2010." },
+        { key: "B", text: "This school was built in 2010." },
+        { key: "C", text: "This school is built in 2010." },
+        { key: "D", text: "This school has built in 2010." },
+      ],
+      bookletLabel: "Grammar Notes",
+      videoCount: 1,
+    },
+    "higher-math": {
+      calculator: true,
+      difficulty: "Hard" as const,
+      stars: 4,
+      prompt: "If f(x) = 2x + 3, what is f(4)?",
+      figureLabel: null as string | null,
+      figureNote: null as string | null,
+      body: null as string | null,
+      marks: 1,
+      options: [
+        { key: "A", text: "8" },
+        { key: "B", text: "10" },
+        { key: "C", text: "11" },
+        { key: "D", text: "14" },
+      ],
+      bookletLabel: "Formula Booklet",
       videoCount: 1,
     },
   },
