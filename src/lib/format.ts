@@ -1,8 +1,9 @@
 export function formatMoney(value: number | string): string {
   const amount = Number(value) || 0;
-  return new Intl.NumberFormat("en-US", {
+  return new Intl.NumberFormat("en-BD", {
     style: "currency",
-    currency: "USD",
+    currency: "BDT",
+    currencyDisplay: "narrowSymbol",
     maximumFractionDigits: amount % 1 === 0 ? 0 : 2,
   }).format(amount);
 }

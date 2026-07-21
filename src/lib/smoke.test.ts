@@ -5,12 +5,12 @@ import { isPathAllowedForRole } from "@/lib/role-access";
 import { isRichTextEmpty, richTextToPlain, serializeRichText } from "@/lib/rich-text";
 
 describe("formatMoney", () => {
-  it("formats whole dollars without cents", () => {
-    expect(formatMoney(499)).toBe("$499");
+  it("formats whole taka without decimals", () => {
+    expect(formatMoney(499)).toBe("৳499");
   });
 
-  it("formats fractional amounts with cents", () => {
-    expect(formatMoney(12.5)).toBe("$12.50");
+  it("formats fractional amounts with decimals", () => {
+    expect(formatMoney(12.5)).toBe("৳12.50");
   });
 });
 
