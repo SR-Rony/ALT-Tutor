@@ -64,6 +64,7 @@ export const queryKeys = {
     subjects: ["admin", "subjects"] as const,
     payments: ["admin", "payments"] as const,
     enrollments: (filters: object = {}) => ["admin", "enrollments", filters] as const,
+    reviews: (filters: object = {}) => ["admin", "reviews", filters] as const,
     settings: ["admin", "settings"] as const,
     support: ["admin", "support"] as const,
   },

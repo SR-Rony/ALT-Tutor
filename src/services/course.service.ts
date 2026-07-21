@@ -67,6 +67,7 @@ type BackendReview = {
   id: string;
   rating: number;
   comment?: string | null;
+  adminReply?: string | null;
   createdAt?: string;
   student?: { id: string; name: string; avatar?: string | null };
 };
@@ -169,6 +170,7 @@ function mapReview(raw: BackendReview): CourseReview {
     id: raw.id,
     rating: Number(raw.rating) || 0,
     comment: raw.comment ?? null,
+    adminReply: raw.adminReply ?? null,
     createdAt: raw.createdAt,
     student: {
       id: raw.student?.id ?? "",

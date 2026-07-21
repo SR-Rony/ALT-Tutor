@@ -1,3 +1,4 @@
+export { reviewService } from "./review.service";
 export { questionbankService } from "./questionbank.service";
 export { mcqService } from "./mcq.service";
 export { assignmentsService } from "./assignments.service";
@@ -22,4 +23,5 @@ export {
   adminPaymentsService,
   adminSettingsService,
   adminEnrollmentsService,
+  adminReviewsService,
 } from "./admin";

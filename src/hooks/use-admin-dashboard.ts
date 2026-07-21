@@ -7,6 +7,7 @@ import {
   adminCoursesService,
   adminEnrollmentsService,
   adminPaymentsService,
+  adminReviewsService,
   adminUsersService,
   dashboardService,
 } from "@/services";
@@ -14,7 +15,12 @@ import type { AdminEnrollmentsQuery } from "@/services/admin/admin-enrollments.s
 import type { CategoryInput } from "@/services/admin/admin-categories.service";
 import type { CourseUpsertInput } from "@/services/admin/admin-courses.service";
 import type { TeacherInput } from "@/services/admin/admin-users.service";
-import type { BackendRole, CourseStatus } from "@/types/admin-dashboard.types";
+import type {
+  BackendRole,
+  CourseStatus,
+  AdminReviewsQuery,
+  UpdateAdminReviewInput,
+} from "@/types/admin-dashboard.types";
 
 export function useAdminStats() {
   return useQuery({
@@ -268,5 +274,38 @@ export function useDeleteCategory() {
       void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
     },
+  });
+}
+
+export function useAdminReviews(filters: AdminReviewsQuery = {}) {
+  return useQuery({
+    queryKey: queryKeys.admin.reviews(filters),
+    queryFn: () => adminReviewsService.list(filters),
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
+  });
+}
+
+function invalidateAdminReviews(queryClient: ReturnType<typeof useQueryClient>) {
+  void queryClient.invalidateQueries({ queryKey: ["admin", "reviews"] });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.courses.all });
+}
+
+export function useAdminUpdateReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateAdminReviewInput }) =>
+      adminReviewsService.update(id, payload),
+    onSuccess: () => invalidateAdminReviews(queryClient),
+  });
+}
+
+export function useAdminDeleteReview() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => adminReviewsService.remove(id),
+    onSuccess: () => invalidateAdminReviews(queryClient),
   });
 }

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Award,
   BookOpen,
@@ -25,7 +26,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { siteConfig } from "@/config";
-import { roleHomeRoutes, ROUTES } from "@/constants";
+import { queryKeys, roleHomeRoutes, ROUTES } from "@/constants";
 import { useCourseDetail, useCheckout, useEnrollCourse, useStudentCourses } from "@/hooks";
 import {
   averageReviewRating,
@@ -35,6 +36,7 @@ import {
 import { richTextExcerpt, richTextToPlain } from "@/lib/rich-text";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { SecureVideoPlayer } from "@/components/shared/secure-video-player";
+import { reviewService } from "@/services";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
 import type { CourseDetail, CourseLesson } from "@/types/course.types";
@@ -120,6 +122,7 @@ function RatingStars({ rating }: { rating: number }) {
 export function CourseDetailView({ slug }: CourseDetailViewProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
   const { data: course, isLoading, isError } = useCourseDetail(slug);
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const user = useAppSelector((s) => s.auth.user);
@@ -134,6 +137,11 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
   // only after the auth/preview checks in canOpenLessonInline pass.
   const [modalLessonId, setModalLessonId] = useState<string | null>(null);
   const [promoModalOpen, setPromoModalOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewError, setReviewError] = useState<string | null>(null);
+  const [reviewSuccess, setReviewSuccess] = useState<string | null>(null);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
   const enrollment = useMemo(
     () =>
@@ -404,6 +412,28 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
     scrollToSectionElement("curriculum");
   };
 
+  const onSubmitReview = async () => {
+    if (!course?.id || !isEnrolled || !isStudent) return;
+    setReviewError(null);
+    setReviewSuccess(null);
+    setReviewSubmitting(true);
+    try {
+      await reviewService.create({
+        courseId: course.id,
+        rating: reviewRating,
+        comment: reviewComment.trim() || undefined,
+      });
+      setReviewComment("");
+      setReviewRating(5);
+      setReviewSuccess("Thanks! Your review was submitted and is waiting for admin approval.");
+      void queryClient.invalidateQueries({ queryKey: queryKeys.courses.detail(slug, true) });
+    } catch (err) {
+      setReviewError((err as ApiError)?.message || "Failed to submit review");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
   return (
     <div className="relative bg-[#f9fafb]">
       <CourseVideoModal
@@ -589,6 +619,51 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                 title="What students are saying"
                 subtitle={course.reviews.length > 0 ? `${avgRating.toFixed(1)} average rating` : "Reviews from enrolled learners"}
               />
+
+              {isStudent && isEnrolled ? (
+                <div className="mt-5 rounded-2xl border border-[#e5e7eb] bg-white p-5">
+                  <p className="font-semibold text-[#111827]">Leave a review</p>
+                  <p className="mt-1 text-sm text-[#64748b]">
+                    Share your experience. Reviews appear publicly after admin approval.
+                  </p>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    {[1, 2, 3, 4, 5].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setReviewRating(value)}
+                        className="rounded-lg p-1 transition hover:bg-[#f3f4f6]"
+                        aria-label={`${value} stars`}
+                      >
+                        <Star
+                          className={`h-5 w-5 ${
+                            value <= reviewRating ? "fill-[#f59e0b] text-[#f59e0b]" : "text-[#d1d5db]"
+                          }`}
+                        />
+                      </button>
+                    ))}
+                  </div>
+                  <textarea
+                    value={reviewComment}
+                    onChange={(e) => setReviewComment(e.target.value)}
+                    rows={3}
+                    placeholder="Write your feedback (optional)"
+                    className="mt-3 w-full rounded-xl border border-[#e5e7eb] px-3 py-2 text-sm"
+                  />
+                  {reviewError ? <p className="mt-2 text-sm text-[#b42318]">{reviewError}</p> : null}
+                  {reviewSuccess ? <p className="mt-2 text-sm text-[#067647]">{reviewSuccess}</p> : null}
+                  <Button
+                    type="button"
+                    size="sm"
+                    className="mt-3"
+                    disabled={reviewSubmitting}
+                    onClick={() => void onSubmitReview()}
+                  >
+                    {reviewSubmitting ? "Submitting…" : "Submit review"}
+                  </Button>
+                </div>
+              ) : null}
+
               {course.reviews.length === 0 ? (
                 <p className="mt-4 rounded-2xl border border-dashed border-[#e5e7eb] bg-white px-6 py-10 text-center text-sm text-[#64748b]">
                   No reviews yet. Be the first to enroll and share feedback.
@@ -608,6 +683,11 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                       </div>
                       {review.comment ? (
                         <p className="mt-3 text-sm leading-relaxed text-[#64748b]">{review.comment}</p>
+                      ) : null}
+                      {review.adminReply ? (
+                        <p className="mt-3 rounded-xl bg-[#eff8ff] px-3 py-2 text-sm text-[#175cd3]">
+                          <span className="font-semibold">Admin reply:</span> {review.adminReply}
+                        </p>
                       ) : null}
                     </li>
                   ))}

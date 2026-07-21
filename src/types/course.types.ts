@@ -72,6 +72,7 @@ export interface CourseReview {
   id: string;
   rating: number;
   comment?: string | null;
+  adminReply?: string | null;
   createdAt?: string;
   student: { id: string; name: string; avatar?: string | null };
 }

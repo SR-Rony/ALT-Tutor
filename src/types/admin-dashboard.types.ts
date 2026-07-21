@@ -144,3 +144,64 @@ export interface AdminPayment {
   student: { id: string; name: string };
   course: { id: string; title: string };
 }
+
+export type ReviewStatus = "PENDING" | "APPROVED" | "HIDDEN";
+
+export interface AdminReviewStudent {
+  id: string;
+  name: string;
+  phone: string;
+  avatar?: string | null;
+}
+
+export interface AdminReviewCourse {
+  id: string;
+  title: string;
+  slug: string;
+}
+
+export interface AdminReview {
+  id: string;
+  rating: number;
+  comment?: string | null;
+  status: ReviewStatus | string;
+  adminReply?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  studentId: string;
+  courseId: string;
+  student: AdminReviewStudent;
+  course: AdminReviewCourse;
+}
+
+export interface AdminReviewCounts {
+  all: number;
+  pending: number;
+  approved: number;
+  hidden: number;
+}
+
+export interface AdminReviewsResponse {
+  items: AdminReview[];
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  counts: AdminReviewCounts;
+}
+
+export type AdminReviewsQuery = {
+  status?: ReviewStatus;
+  rating?: number;
+  courseId?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
+};
+
+export type UpdateAdminReviewInput = {
+  status?: ReviewStatus;
+  rating?: number;
+  comment?: string | null;
+  adminReply?: string | null;
+};

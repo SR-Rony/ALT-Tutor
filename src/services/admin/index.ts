@@ -4,4 +4,5 @@ export { adminCategoriesService } from "./admin-categories.service";
 export { adminPaymentsService } from "./admin-payments.service";
 export { adminSettingsService } from "./admin-settings.service";
 export { adminEnrollmentsService } from "./admin-enrollments.service";
+export { adminReviewsService } from "./admin-reviews.service";
 export { supportManagementService } from "./admin-support-management.service";

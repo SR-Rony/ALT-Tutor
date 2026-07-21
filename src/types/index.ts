@@ -33,12 +33,17 @@ export type {
   AdminEnrollmentCounts,
   AdminEnrollmentsResponse,
   AdminPayment,
+  AdminReview,
+  AdminReviewCounts,
+  AdminReviewsResponse,
   AdminUser,
   BackendRole,
   CourseLevel,
   CourseStatus,
   EnrollmentStatus,
   PaymentStatus,
+  ReviewStatus,
+  UpdateAdminReviewInput,
 } from "./admin-dashboard.types";
 export type {
   HomeBlog,

@@ -63,6 +63,7 @@ export const ROUTES = {
     courses: "/admin/courses",
     courseCurriculum: (id: string) => `/admin/courses/${id}`,
     enrollments: "/admin/enrollments",
+    reviews: "/admin/reviews",
     categories: "/admin/categories",
     subjects: "/admin/subjects",
     questionbank: "/admin/questionbank",

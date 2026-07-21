@@ -60,6 +60,7 @@ export const adminNav: NavItem[] = [
   { title: "Teachers", href: ROUTES.admin.teachers, iconName: "userCog" },
   { title: "Courses", href: ROUTES.admin.courses, iconName: "book" },
   { title: "Enrollments", href: ROUTES.admin.enrollments, iconName: "users" },
+  { title: "Reviews", href: ROUTES.admin.reviews, iconName: "messages" },
   {
     title: "Questionbank",
     iconName: "clipboard",
