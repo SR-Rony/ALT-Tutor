@@ -47,19 +47,76 @@ function RatingStars({ rating }: { rating: number }) {
   );
 }
 
-function ReviewCard({ review }: { review: HomeFeaturedReview }) {
+const CARD_ACCENTS = [
+  {
+    bar: "from-[#1877f2] via-[#38bdf8] to-[#22d3ee]",
+    avatar: "from-[#1877f2] to-[#38bdf8]",
+    quote: "text-[#1877f2]",
+    ring: "hover:border-[#1877f2]/40",
+    glow: "hover:shadow-[0_20px_44px_-22px_rgba(24,119,242,0.35)]",
+  },
+  {
+    bar: "from-[#ef3239] via-[#ff6b35] to-[#f59e0b]",
+    avatar: "from-[#ef3239] to-[#ff6b35]",
+    quote: "text-[#ef3239]",
+    ring: "hover:border-[#ef3239]/40",
+    glow: "hover:shadow-[0_20px_44px_-22px_rgba(239,50,57,0.32)]",
+  },
+  {
+    bar: "from-[#12b76a] via-[#2dd4bf] to-[#22d3ee]",
+    avatar: "from-[#12b76a] to-[#2dd4bf]",
+    quote: "text-[#12b76a]",
+    ring: "hover:border-[#12b76a]/40",
+    glow: "hover:shadow-[0_20px_44px_-22px_rgba(18,183,106,0.32)]",
+  },
+  {
+    bar: "from-[#a855f7] via-[#8b5cf6] to-[#6366f1]",
+    avatar: "from-[#a855f7] to-[#6366f1]",
+    quote: "text-[#a855f7]",
+    ring: "hover:border-[#a855f7]/40",
+    glow: "hover:shadow-[0_20px_44px_-22px_rgba(168,85,247,0.32)]",
+  },
+] as const;
+
+function ReviewCard({ review, index }: { review: HomeFeaturedReview; index: number }) {
+  const accent = CARD_ACCENTS[index % CARD_ACCENTS.length];
   return (
-    <article className="group relative flex h-full min-h-[15.5rem] flex-col overflow-hidden rounded-2xl border border-[#e8eef6] bg-[#f7f9fc] p-5 shadow-[0_12px_36px_-28px_rgba(26,43,94,0.45)] transition duration-300 hover:-translate-y-0.5 hover:border-[#c7d7f5] hover:bg-white hover:shadow-[0_18px_40px_-24px_rgba(24,119,242,0.28)] sm:min-h-[16.5rem] sm:p-6">
-      <Quote
-        className="absolute right-4 top-4 h-8 w-8 text-[#1877f2]/15 transition group-hover:text-[#1877f2]/25"
+    <article
+      className={cn(
+        "group relative flex h-full min-h-[15.5rem] flex-col rounded-2xl border border-[#e8eef6] bg-white p-5 pt-6 shadow-[0_12px_36px_-28px_rgba(26,43,94,0.45)] transition duration-300 hover:-translate-y-1 sm:min-h-[16.5rem] sm:p-6 sm:pt-7",
+        accent.ring,
+        accent.glow
+      )}
+    >
+      {/* Top accent bar — rounded with the card so it never clips */}
+      <span
         aria-hidden
+        className={cn(
+          "absolute inset-x-0 top-0 h-1.5 rounded-t-2xl bg-gradient-to-r opacity-80 transition-opacity duration-300 group-hover:opacity-100",
+          accent.bar
+        )}
       />
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute right-4 top-5 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#f7f9fc] transition-colors duration-300 group-hover:bg-white",
+          accent.quote
+        )}
+      >
+        <Quote className="h-[18px] w-[18px] opacity-40 transition-opacity duration-300 group-hover:opacity-70" />
+      </span>
+
       <RatingStars rating={review.rating} />
-      <p className="mt-3 flex-1 text-sm leading-relaxed text-[#334155] sm:text-[0.95rem]">
+      <p className="mt-3 flex-1 pr-8 text-sm leading-relaxed text-[#334155] sm:text-[0.95rem]">
         “{review.comment}”
       </p>
       <div className="mt-5 flex items-center gap-3 border-t border-[#e8eef6] pt-4">
-        <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1877f2] text-sm font-bold text-white">
+        <span
+          className={cn(
+            "inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br text-sm font-bold text-white shadow-md",
+            accent.avatar
+          )}
+        >
           {review.student.name.charAt(0).toUpperCase()}
         </span>
         <div className="min-w-0">
@@ -71,6 +128,9 @@ function ReviewCard({ review }: { review: HomeFeaturedReview }) {
             {review.course.title}
           </Link>
         </div>
+        <span className="ml-auto hidden shrink-0 rounded-full bg-[#ecfdf3] px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#067647] sm:inline-flex">
+          Verified
+        </span>
       </div>
     </article>
   );
@@ -82,46 +142,45 @@ export function HomeStudentReviews() {
   const reviews = data?.featuredReviews ?? [];
   const visible = useVisibleCount();
 
-  const [page, setPage] = useState(0);
+  const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const [direction, setDirection] = useState(1);
 
-  const pageCount = useMemo(() => {
-    if (reviews.length === 0) return 0;
-    return Math.max(1, Math.ceil(reviews.length / visible));
-  }, [reviews.length, visible]);
+  // Slides advance 1 review at a time; the visible window wraps around the list.
+  const stepCount = reviews.length > visible ? reviews.length : reviews.length > 0 ? 1 : 0;
 
-  const safePage = pageCount > 0 ? page % pageCount : 0;
+  const safeIndex = stepCount > 0 ? ((index % stepCount) + stepCount) % stepCount : 0;
 
   const pageItems = useMemo(() => {
-    const start = safePage * visible;
-    return reviews.slice(start, start + visible);
-  }, [reviews, safePage, visible]);
+    if (reviews.length === 0) return [];
+    const count = Math.min(visible, reviews.length);
+    return Array.from({ length: count }, (_, i) => reviews[(safeIndex + i) % reviews.length]);
+  }, [reviews, safeIndex, visible]);
 
   const goTo = useCallback(
     (next: number, dir: number) => {
-      if (pageCount <= 1) return;
+      if (stepCount <= 1) return;
       setDirection(dir);
-      setPage(((next % pageCount) + pageCount) % pageCount);
+      setIndex(((next % stepCount) + stepCount) % stepCount);
     },
-    [pageCount]
+    [stepCount]
   );
 
-  const goNext = useCallback(() => goTo(safePage + 1, 1), [goTo, safePage]);
-  const goPrev = useCallback(() => goTo(safePage - 1, -1), [goTo, safePage]);
+  const goNext = useCallback(() => goTo(safeIndex + 1, 1), [goTo, safeIndex]);
+  const goPrev = useCallback(() => goTo(safeIndex - 1, -1), [goTo, safeIndex]);
 
   useEffect(() => {
-    setPage(0);
+    setIndex(0);
   }, [visible, reviews.length]);
 
   useEffect(() => {
-    if (prefersReducedMotion || paused || pageCount <= 1 || isLoading) return;
+    if (prefersReducedMotion || paused || stepCount <= 1 || isLoading) return;
     const id = window.setInterval(() => {
       setDirection(1);
-      setPage((p) => (p + 1) % pageCount);
+      setIndex((p) => (p + 1) % stepCount);
     }, AUTO_MS);
     return () => window.clearInterval(id);
-  }, [prefersReducedMotion, paused, pageCount, isLoading]);
+  }, [prefersReducedMotion, paused, stepCount, isLoading]);
 
   if (!isLoading && reviews.length === 0) return null;
 
@@ -165,7 +224,7 @@ export function HomeStudentReviews() {
             if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPaused(false);
           }}
         >
-          {pageCount > 1 ? (
+          {stepCount > 1 ? (
             <>
               <button
                 type="button"
@@ -201,10 +260,11 @@ export function HomeStudentReviews() {
               ))}
             </div>
           ) : (
-            <div className="overflow-hidden px-0 sm:px-8 lg:px-10">
+            // -my/py keeps room for the hover lift so card top border isn't clipped
+            <div className="-my-3 overflow-hidden px-0 py-3 sm:px-8 lg:px-10">
               <AnimatePresence mode="wait" custom={direction}>
                 <motion.div
-                  key={safePage}
+                  key={safeIndex}
                   custom={direction}
                   initial={
                     prefersReducedMotion
@@ -227,26 +287,30 @@ export function HomeStudentReviews() {
                         : "grid-cols-3"
                   )}
                 >
-                  {pageItems.map((review) => (
-                    <ReviewCard key={review.id} review={review} />
+                  {pageItems.map((review, i) => (
+                    <ReviewCard
+                      key={review.id}
+                      review={review}
+                      index={safeIndex + i}
+                    />
                   ))}
                 </motion.div>
               </AnimatePresence>
             </div>
           )}
 
-          {pageCount > 1 ? (
+          {stepCount > 1 ? (
             <div className="mt-6 flex items-center justify-center gap-2">
-              {Array.from({ length: pageCount }).map((_, i) => (
+              {Array.from({ length: stepCount }).map((_, i) => (
                 <button
                   key={i}
                   type="button"
                   aria-label={`Go to review slide ${i + 1}`}
-                  aria-current={i === safePage ? "true" : undefined}
-                  onClick={() => goTo(i, i > safePage ? 1 : -1)}
+                  aria-current={i === safeIndex ? "true" : undefined}
+                  onClick={() => goTo(i, i > safeIndex ? 1 : -1)}
                   className={cn(
                     "h-2 rounded-full transition-all duration-300",
-                    i === safePage
+                    i === safeIndex
                       ? "w-7 bg-[#ef3239]"
                       : "w-2 bg-[#d1d5db] hover:bg-[#ef3239]/50"
                   )}
