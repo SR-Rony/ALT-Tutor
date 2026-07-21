@@ -53,8 +53,8 @@ export function AdminMcqExamsPage({ examKind = "MCQ" }: { examKind?: AdminExamKi
   const isMcqPage = examKind === "MCQ";
   const pageTitle = isMcqPage ? "MCQ Exams" : "Written Exams";
   const pageDescription = isMcqPage
-    ? "Create, publish, and review auto-graded MCQ exams for courses or programs."
-    : "Create and manage written / file-upload exams. Grade submissions in the grading queue.";
+    ? "Manage MCQ exams here. Create with the step-by-step wizard: Basics → Scope → Questions → Schedule → Preview → Publish."
+    : "Manage written / file exams here. Create with the step-by-step wizard, then grade in Exams → Grading.";
   const newButtonLabel = isMcqPage ? "New MCQ exam" : "New written exam";
   const emptyLabel = isMcqPage
     ? "No MCQ exams for this scope."

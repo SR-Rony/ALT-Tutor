@@ -22,7 +22,6 @@ import type { StudentAssignment } from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
 
 const LETTERS = ["A", "B", "C", "D"] as const;
-const STEPS = ["Basics", "Scope", "Questions", "Schedule", "Preview", "Publish"] as const;
 
 type AssessmentType = "MCQ" | "WRITTEN" | "FILE";
 type ScopeKind = "course" | "program";
@@ -37,8 +36,25 @@ type QuestionDraft = {
   correctAnswer: string;
 };
 
+function wizardSteps(type: AssessmentType) {
+  return [
+    "Basics",
+    "Scope",
+    type === "MCQ" ? "Questions" : "Marks",
+    "Schedule",
+    "Preview",
+    "Publish",
+  ] as const;
+}
+
 function emptyQuestion(): QuestionDraft {
   return { text: "", options: ["", "", "", ""], correctAnswer: "A" };
+}
+
+function typeLabel(type: AssessmentType) {
+  if (type === "MCQ") return "MCQ exam";
+  if (type === "WRITTEN") return "Written exam";
+  return "File upload";
 }
 
 function toLocalInput(value?: string | null) {
@@ -132,6 +148,8 @@ export function AdminAssessmentBuilderModal({
   const [actionError, setActionError] = useState<string | null>(null);
 
   const isEdit = Boolean(editItem?.id);
+  const steps = wizardSteps(type);
+  const lastStep = steps.length - 1;
   const busy =
     createExam.isPending ||
     updateExam.isPending ||
@@ -313,6 +331,9 @@ export function AdminAssessmentBuilderModal({
         if (mappedQuestions.some((q) => q.options.length < 2)) {
           return "Each custom question needs at least two options";
         }
+      } else {
+        const marks = Number.parseInt(totalMarks, 10);
+        if (!marks || marks < 1) return "Total marks must be at least 1";
       }
       return null;
     }
@@ -325,6 +346,12 @@ export function AdminAssessmentBuilderModal({
       if (type === "MCQ") {
         const duration = Number.parseInt(durationMinutes, 10);
         if (!duration || duration < 1) return "Duration must be at least 1 minute";
+        const attempts = Number.parseInt(maxAttempts, 10);
+        if (!attempts || attempts < 1) return "Max attempts must be at least 1";
+        const pass = Number.parseInt(passingScore, 10);
+        if (Number.isNaN(pass) || pass < 0 || pass > 100) {
+          return "Pass % must be between 0 and 100";
+        }
       }
       return null;
     }
@@ -337,8 +364,20 @@ export function AdminAssessmentBuilderModal({
         }
         const duration = Number.parseInt(durationMinutes, 10);
         if (!duration || duration < 1) return "Published MCQ needs a valid duration";
+      } else {
+        const marks = Number.parseInt(totalMarks, 10);
+        if (!marks || marks < 1) return "Published exam needs total marks";
       }
       return null;
+    }
+    return null;
+  };
+
+  /** Validate every step from 0..target-1 before jumping forward. */
+  const firstBlockingError = (targetStep: number): { step: number; message: string } | null => {
+    for (let i = 0; i < targetStep; i += 1) {
+      const err = stepError(i);
+      if (err) return { step: i, message: err };
     }
     return null;
   };
@@ -350,12 +389,25 @@ export function AdminAssessmentBuilderModal({
       return;
     }
     setActionError(null);
-    setStep((s) => Math.min(s + 1, STEPS.length - 1));
+    setStep((s) => Math.min(s + 1, lastStep));
   };
 
   const goBack = () => {
     setActionError(null);
     setStep((s) => Math.max(s - 1, 0));
+  };
+
+  const goToStep = (target: number) => {
+    if (target > step) {
+      const blocked = firstBlockingError(target);
+      if (blocked) {
+        setActionError(blocked.message);
+        setStep(blocked.step);
+        return;
+      }
+    }
+    setActionError(null);
+    setStep(target);
   };
 
   const onSave = async () => {
@@ -428,13 +480,38 @@ export function AdminAssessmentBuilderModal({
       ? courses.find((c) => c.id === courseId)?.title ?? "—"
       : programs.find((p) => p.id === programId)?.label ?? "—";
 
+  const questionCount = mappedQuestions.length + selectedQbIds.length;
+  const readiness = [
+    { ok: Boolean(title.trim()) && !isRichTextEmpty(description), label: "Basics filled" },
+    {
+      ok: scopeKind === "course" ? Boolean(courseId) : Boolean(programId),
+      label: "Scope selected",
+    },
+    {
+      ok: type === "MCQ" ? questionCount >= 1 : Number.parseInt(totalMarks, 10) >= 1,
+      label: type === "MCQ" ? "At least one question" : "Total marks set",
+    },
+    {
+      ok:
+        type !== "MCQ" ||
+        (Number.parseInt(durationMinutes, 10) >= 1 && Number.parseInt(maxAttempts, 10) >= 1),
+      label: type === "MCQ" ? "Duration & attempts set" : "Schedule ready",
+    },
+  ];
+
+  const modalTitle = isEdit
+    ? `Edit ${typeLabel(type)}`
+    : typeOptions.length === 1
+      ? `New ${typeLabel(defaultCreateType)}`
+      : "New assessment";
+
   return (
     <AdminModal
       open={open}
-      title={isEdit ? "Edit assessment" : "New assessment"}
-      description="Basics → Scope → Questions → Schedule → Preview → Publish"
+      title={modalTitle}
+      description="Step-by-step: fill each stage, review, then save as draft or publish."
       onClose={() => !busy && onClose()}
-      className="sm:max-w-3xl"
+      className="sm:max-w-4xl"
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
           <Button type="button" variant="outline" disabled={busy || step === 0} onClick={goBack}>
@@ -444,7 +521,7 @@ export function AdminAssessmentBuilderModal({
             <Button type="button" variant="outline" disabled={busy} onClick={() => !busy && onClose()}>
               Cancel
             </Button>
-            {step < STEPS.length - 1 ? (
+            {step < lastStep ? (
               <Button type="button" disabled={busy || loadingEdit} onClick={goNext}>
                 Next
               </Button>
@@ -458,34 +535,27 @@ export function AdminAssessmentBuilderModal({
       }
     >
       <div className="mb-4 flex flex-wrap gap-1">
-        {STEPS.map((label, i) => (
-          <button
-            key={label}
-            type="button"
-            disabled={busy}
-            onClick={() => {
-              if (i > step) {
-                const err = stepError(step);
-                if (err) {
-                  setActionError(err);
-                  return;
-                }
-              }
-              setActionError(null);
-              setStep(i);
-            }}
-            className={cn(
-              "rounded-lg px-2.5 py-1 text-xs font-semibold transition",
-              i === step
-                ? "bg-primary text-primary-foreground"
-                : i < step
-                  ? "bg-primary-muted text-primary"
-                  : "bg-muted text-muted-foreground"
-            )}
-          >
-            {i + 1}. {label}
-          </button>
-        ))}
+        {steps.map((label, i) => {
+          const completed = i < step && !stepError(i);
+          return (
+            <button
+              key={`${label}-${i}`}
+              type="button"
+              disabled={busy}
+              onClick={() => goToStep(i)}
+              className={cn(
+                "rounded-lg px-2.5 py-1 text-xs font-semibold transition",
+                i === step
+                  ? "bg-primary text-primary-foreground"
+                  : completed
+                    ? "bg-primary-muted text-primary"
+                    : "bg-muted text-muted-foreground"
+              )}
+            >
+              {i + 1}. {label}
+            </button>
+          );
+        })}
       </div>
 
       {loadingEdit ? <p className="text-sm text-muted-foreground">Loading assessment…</p> : null}
@@ -512,13 +582,7 @@ export function AdminAssessmentBuilderModal({
           {typeOptions.length === 1 ? (
             <p className="rounded-xl border border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
               Type:{" "}
-              <span className="font-semibold text-foreground">
-                {typeOptions[0] === "MCQ"
-                  ? "MCQ exam"
-                  : typeOptions[0] === "WRITTEN"
-                    ? "Written exam"
-                    : "File upload"}
-              </span>
+              <span className="font-semibold text-foreground">{typeLabel(typeOptions[0])}</span>
             </p>
           ) : (
             <label className="block space-y-1 text-sm">
@@ -530,7 +594,7 @@ export function AdminAssessmentBuilderModal({
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
                 {typeOptions.includes("MCQ") ? <option value="MCQ">MCQ exam</option> : null}
-                {typeOptions.includes("WRITTEN") ? <option value="WRITTEN">Written</option> : null}
+                {typeOptions.includes("WRITTEN") ? <option value="WRITTEN">Written exam</option> : null}
                 {typeOptions.includes("FILE") ? <option value="FILE">File upload</option> : null}
               </select>
             </label>
@@ -722,8 +786,26 @@ export function AdminAssessmentBuilderModal({
                 </h3>
                 {questions.map((q, qi) => (
                   <div key={qi} className="rounded-xl border border-border p-3">
+                    <div className="mb-2 flex items-center justify-between gap-2">
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        Question {qi + 1}
+                      </span>
+                      {questions.length > 1 ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          disabled={busy}
+                          onClick={() =>
+                            setQuestions((prev) => prev.filter((_, idx) => idx !== qi))
+                          }
+                        >
+                          Remove
+                        </Button>
+                      ) : null}
+                    </div>
                     <Input
-                      placeholder={`Question ${qi + 1}`}
+                      placeholder={`Question ${qi + 1} text`}
                       value={q.text}
                       disabled={busy}
                       onChange={(e) => {
@@ -779,10 +861,22 @@ export function AdminAssessmentBuilderModal({
               </div>
             </>
           ) : (
-            <label className="block space-y-1 text-sm">
-              <span className="font-semibold">Total marks</span>
-              <Input value={totalMarks} disabled={busy} onChange={(e) => setTotalMarks(e.target.value)} />
-            </label>
+            <div className="space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Written and file exams are graded manually. Set the total marks students can earn,
+                then continue to schedule and publish. Submissions appear in{" "}
+                <span className="font-semibold text-foreground">Exams → Grading</span>.
+              </p>
+              <label className="block space-y-1 text-sm">
+                <span className="font-semibold">Total marks</span>
+                <Input
+                  value={totalMarks}
+                  disabled={busy}
+                  onChange={(e) => setTotalMarks(e.target.value)}
+                  inputMode="numeric"
+                />
+              </label>
+            </div>
           )}
         </div>
       ) : null}
@@ -844,39 +938,70 @@ export function AdminAssessmentBuilderModal({
       ) : null}
 
       {step === 4 ? (
-        <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-4 text-sm">
-          <p>
-            <span className="font-semibold">Title:</span> {title || "—"}
-          </p>
-          <p>
-            <span className="font-semibold">Type:</span> {type}
-          </p>
-          <p>
-            <span className="font-semibold">Scope:</span> {scopeKind} · {scopeLabel}
-          </p>
-          {type === "MCQ" ? (
+        <div className="space-y-4">
+          <div className="space-y-2 rounded-xl border border-border bg-muted/40 p-4 text-sm">
             <p>
-              <span className="font-semibold">Questions:</span> {selectedQbIds.length} from
-              questionbank + {mappedQuestions.length} custom · {durationMinutes} min ·{" "}
-              {maxAttempts} attempts · pass {passingScore}%
+              <span className="font-semibold">Title:</span> {title || "—"}
             </p>
-          ) : (
             <p>
-              <span className="font-semibold">Marks:</span> {totalMarks || "—"}
+              <span className="font-semibold">Type:</span> {typeLabel(type)}
             </p>
-          )}
-          <p>
-            <span className="font-semibold">Window:</span>{" "}
-            {availableFrom ? new Date(availableFrom).toLocaleString() : "open"} →{" "}
-            {availableUntil ? new Date(availableUntil).toLocaleString() : "open"}
-          </p>
-          <p>
-            <span className="font-semibold">Due:</span>{" "}
-            {dueDate ? new Date(dueDate).toLocaleString() : "—"}
-          </p>
-          <p>
-            <span className="font-semibold">Results:</span> {resultReleaseMode}
-          </p>
+            <p>
+              <span className="font-semibold">Scope:</span> {scopeKind} · {scopeLabel}
+            </p>
+            {type === "MCQ" ? (
+              <>
+                <p>
+                  <span className="font-semibold">Questions:</span> {selectedQbIds.length} from
+                  questionbank + {mappedQuestions.length} custom ({questionCount} total)
+                </p>
+                <p>
+                  <span className="font-semibold">Rules:</span> {durationMinutes} min ·{" "}
+                  {maxAttempts} attempts · pass {passingScore}%
+                </p>
+              </>
+            ) : (
+              <p>
+                <span className="font-semibold">Marks:</span> {totalMarks || "—"}
+              </p>
+            )}
+            <p>
+              <span className="font-semibold">Window:</span>{" "}
+              {availableFrom ? new Date(availableFrom).toLocaleString() : "open"} →{" "}
+              {availableUntil ? new Date(availableUntil).toLocaleString() : "open"}
+            </p>
+            <p>
+              <span className="font-semibold">Due:</span>{" "}
+              {dueDate ? new Date(dueDate).toLocaleString() : "—"}
+            </p>
+            <p>
+              <span className="font-semibold">Results:</span> {resultReleaseMode}
+            </p>
+          </div>
+          <div className="rounded-xl border border-border p-4">
+            <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+              Readiness checklist
+            </h3>
+            <ul className="space-y-1.5 text-sm">
+              {readiness.map((item) => (
+                <li key={item.label} className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-bold",
+                      item.ok
+                        ? "bg-primary-muted text-primary"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {item.ok ? "✓" : "·"}
+                  </span>
+                  <span className={item.ok ? "text-foreground" : "text-muted-foreground"}>
+                    {item.label}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       ) : null}
 
@@ -903,8 +1028,9 @@ export function AdminAssessmentBuilderModal({
             </Button>
           </div>
           <p className="text-sm text-muted-foreground">
-            Publish runs the same readiness checks as the API (scope, MCQ questions + duration, schedule
-            order).
+            {publishStatus === "PUBLISHED"
+              ? "Publish runs readiness checks (scope, questions/marks, schedule). Students can attempt once it is live."
+              : "Draft keeps the exam hidden from students until you publish later."}
           </p>
         </div>
       ) : null}
