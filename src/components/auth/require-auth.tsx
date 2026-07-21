@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LoadingScreen } from "@/components/shared";
 import { env } from "@/config";
@@ -9,6 +9,7 @@ import { getAccessToken } from "@/lib/auth-tokens";
 import { canAccessRoute } from "@/permissions/role.permissions";
 import { authService } from "@/services/auth.service";
 import { logout, setUser, useAppDispatch, useAppStore } from "@/store";
+import type { UserRole } from "@/enums";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -16,24 +17,42 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   const dispatch = useAppDispatch();
   const store = useAppStore();
   const [ready, setReady] = useState(false);
+  // Full session verification happens once per mount; later route changes
+  // only re-check role access against the cached user (no API call, no
+  // full-screen loader), so switching dashboard tabs doesn't flash/reload.
+  const verifiedRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function verify() {
-      setReady(false);
+    function checkRoleAccess(role: UserRole) {
+      if (!canAccessRoute(role, pathname)) {
+        router.replace(roleHomeRoutes[role]);
+        return false;
+      }
+      return true;
+    }
 
+    async function verify() {
       if (env.useMockApi) {
         const current = store.getState().auth.user;
         if (!current) {
           router.replace(ROUTES.auth.login);
           return;
         }
-        if (!canAccessRoute(current.role, pathname)) {
-          router.replace(roleHomeRoutes[current.role]);
+        if (!checkRoleAccess(current.role)) return;
+        if (!cancelled) setReady(true);
+        return;
+      }
+
+      if (verifiedRef.current) {
+        const current = store.getState().auth.user;
+        if (!current || !getAccessToken()) {
+          dispatch(logout());
+          router.replace(ROUTES.auth.login);
           return;
         }
-        if (!cancelled) setReady(true);
+        checkRoleAccess(current.role);
         return;
       }
 
@@ -54,11 +73,9 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
       }
 
       dispatch(setUser(session));
+      verifiedRef.current = true;
 
-      if (!canAccessRoute(session.role, pathname)) {
-        router.replace(roleHomeRoutes[session.role]);
-        return;
-      }
+      if (!checkRoleAccess(session.role)) return;
 
       setReady(true);
     }
