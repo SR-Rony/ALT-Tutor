@@ -211,7 +211,12 @@ export function AdminEnrollmentsPage() {
         ) : null}
       </div>
 
-      <div className="overflow-x-auto">
+      <div
+        className={cn(
+          "overflow-x-auto transition-opacity duration-150",
+          isFetching ? "pointer-events-none opacity-60" : "opacity-100"
+        )}
+      >
         <table className="w-full min-w-[960px] text-left text-sm">
           <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
             <tr>

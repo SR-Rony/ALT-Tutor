@@ -1,7 +1,9 @@
-import { AdminSubjectsPage } from "@/components/admin/subjects";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants";
 
 export const metadata = { title: "Admin Subjects" };
 
+/** Legacy route — taxonomy now lives under Questionbank. */
 export default function AdminSubjectsRoute() {
-  return <AdminSubjectsPage />;
+  redirect(ROUTES.admin.qbSubjects);
 }

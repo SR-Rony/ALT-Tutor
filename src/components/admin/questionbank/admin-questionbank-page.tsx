@@ -1,6 +1,8 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronLeft,
@@ -23,6 +25,7 @@ import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { ROUTES } from "@/constants";
 import { serializeRichText } from "@/lib/rich-text";
 import { slugify } from "@/lib/slugify";
 import {
@@ -31,22 +34,13 @@ import {
   useCreateQbQuestion,
   useCreateQbSubtopic,
   useCreateQbTopic,
-  useCreateSubject,
-  useCreateSubjectCategory,
-  useCreateSubjectProgram,
   useDeleteQbQuestion,
   useDeleteQbSubtopic,
   useDeleteQbTopic,
-  useDeleteSubject,
-  useDeleteSubjectCategory,
-  useDeleteSubjectProgram,
   useImportQbQuestions,
   useUpdateQbQuestion,
   useUpdateQbSubtopic,
   useUpdateQbTopic,
-  useUpdateSubject,
-  useUpdateSubjectCategory,
-  useUpdateSubjectProgram,
 } from "@/hooks";
 import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
@@ -429,11 +423,28 @@ function AdminQuestionDropdown({
 }
 
 export function AdminQuestionbankPage() {
+  const searchParams = useSearchParams();
   const { data: subjectsTree = [] } = useAdminSubjectsTree();
 
   const [categoryId, setCategoryId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [programId, setProgramId] = useState("");
+
+  useEffect(() => {
+    const fromUrl = searchParams.get("programId");
+    if (!fromUrl || subjectsTree.length === 0) return;
+    for (const category of subjectsTree) {
+      for (const subject of category.subjects) {
+        const program = subject.programs.find((item) => item.id === fromUrl);
+        if (program) {
+          setCategoryId(category.id);
+          setSubjectId(subject.id);
+          setProgramId(program.id);
+          return;
+        }
+      }
+    }
+  }, [searchParams, subjectsTree]);
 
   const effectiveCategoryId = categoryId || subjectsTree[0]?.id || "";
   const subjects = useMemo(() => {
@@ -464,15 +475,6 @@ export function AdminQuestionbankPage() {
     setCollapsedSubtopics((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
-  const createCategory = useCreateSubjectCategory();
-  const updateCategory = useUpdateSubjectCategory();
-  const deleteCategory = useDeleteSubjectCategory();
-  const createSubject = useCreateSubject();
-  const updateSubject = useUpdateSubject();
-  const deleteSubject = useDeleteSubject();
-  const createProgram = useCreateSubjectProgram();
-  const updateProgram = useUpdateSubjectProgram();
-  const deleteProgram = useDeleteSubjectProgram();
   const createTopic = useCreateQbTopic();
   const updateTopic = useUpdateQbTopic();
   const deleteTopic = useDeleteQbTopic();
@@ -489,9 +491,6 @@ export function AdminQuestionbankPage() {
 
   const [modal, setModal] = useState<
     | null
-    | { kind: "category"; editId?: string }
-    | { kind: "subject"; editId?: string }
-    | { kind: "program"; editId?: string }
     | { kind: "topic"; editId?: string }
     | { kind: "subtopic"; topicId: string; editId?: string }
     | { kind: "question"; subtopicId: string; editId?: string }
@@ -513,15 +512,6 @@ export function AdminQuestionbankPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   const busy =
-    createCategory.isPending ||
-    updateCategory.isPending ||
-    deleteCategory.isPending ||
-    createSubject.isPending ||
-    updateSubject.isPending ||
-    deleteSubject.isPending ||
-    createProgram.isPending ||
-    updateProgram.isPending ||
-    deleteProgram.isPending ||
     createTopic.isPending ||
     updateTopic.isPending ||
     deleteTopic.isPending ||
@@ -543,48 +533,6 @@ export function AdminQuestionbankPage() {
     setMarkScheme("");
     setDiagramUrl("");
     setVideoUrl("");
-  };
-
-  const selectedCategory = subjectsTree.find((c) => c.id === effectiveCategoryId) ?? null;
-  const selectedSubject = subjects.find((s) => s.id === effectiveSubjectId) ?? null;
-  const selectedProgram = programs.find((p) => p.id === effectiveProgramId) ?? null;
-
-  const openTaxonomyModal = (
-    kind: "category" | "subject" | "program",
-    edit?: { id: string; name: string; slug: string }
-  ) => {
-    setActionError(null);
-    setModal({ kind, editId: edit?.id });
-    setTitle(edit?.name ?? "");
-    setSlug(edit?.slug ?? "");
-    setDescription("");
-  };
-
-  const onDeleteCategory = () => {
-    if (!selectedCategory) return;
-    if (!window.confirm(`Delete category "${selectedCategory.name}"? All subjects inside will be removed.`)) return;
-    void deleteCategory.mutateAsync(selectedCategory.id).then(() => {
-      setCategoryId("");
-      setSubjectId("");
-      setProgramId("");
-    });
-  };
-
-  const onDeleteSubject = () => {
-    if (!selectedSubject) return;
-    if (!window.confirm(`Delete subject "${selectedSubject.name}"? All programs inside will be removed.`)) return;
-    void deleteSubject.mutateAsync(selectedSubject.id).then(() => {
-      setSubjectId("");
-      setProgramId("");
-    });
-  };
-
-  const onDeleteProgram = () => {
-    if (!selectedProgram) return;
-    if (!window.confirm(`Delete program "${selectedProgram.name}"? Its questionbank will be removed.`)) return;
-    void deleteProgram.mutateAsync(selectedProgram.id).then(() => {
-      setProgramId("");
-    });
   };
 
   const openEditTopic = (topic: QbTopic) => {
@@ -675,39 +623,6 @@ export function AdminQuestionbankPage() {
     if (!modal) return;
     setActionError(null);
     try {
-      if (modal.kind === "category") {
-        const payload = { name: title.trim(), slug: slug.trim() || slugify(title) };
-        if (modal.editId) {
-          await updateCategory.mutateAsync({ id: modal.editId, payload });
-        } else {
-          await createCategory.mutateAsync({ ...payload, order: subjectsTree.length });
-        }
-      }
-      if (modal.kind === "subject") {
-        if (!effectiveCategoryId) throw new Error("Select a category first");
-        const payload = { name: title.trim(), slug: slug.trim() || slugify(title) };
-        if (modal.editId) {
-          await updateSubject.mutateAsync({ id: modal.editId, payload });
-        } else {
-          await createSubject.mutateAsync({
-            categoryId: effectiveCategoryId,
-            ...payload,
-            order: subjects.length,
-          });
-        }
-      }
-      if (modal.kind === "program") {
-        if (!effectiveSubjectId) throw new Error("Select a subject first");
-        const payload = { name: title.trim(), slug: slug.trim() || slugify(title) };
-        if (modal.editId) {
-          await updateProgram.mutateAsync({ id: modal.editId, payload });
-        } else {
-          await createProgram.mutateAsync({
-            subjectId: effectiveSubjectId,
-            payload: { ...payload, order: programs.length },
-          });
-        }
-      }
       if (modal.kind === "topic") {
         if (!effectiveProgramId) throw new Error("Select a program first");
         const payload = {
@@ -788,8 +703,8 @@ export function AdminQuestionbankPage() {
         <div className="border-b border-border px-5 py-6">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
-              title="Questionbank"
-              description="Admin full access — themes, study sets, Excel import, diagrams, and video solutions."
+              title="Questions"
+              description="Pick a program, then manage themes, study sets, Excel import, diagrams, and video solutions."
               className="mb-0"
             />
             <div className="flex flex-wrap items-center gap-2">
@@ -845,51 +760,24 @@ export function AdminQuestionbankPage() {
             </div>
           </div>
 
+          <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span>Manage structure:</span>
+            <Link href={ROUTES.admin.qbCategories} className="font-semibold text-primary hover:underline">
+              Categories
+            </Link>
+            <Link href={ROUTES.admin.qbSubjects} className="font-semibold text-primary hover:underline">
+              Subjects
+            </Link>
+            <Link href={ROUTES.admin.qbPrograms} className="font-semibold text-primary hover:underline">
+              Programs
+            </Link>
+          </div>
+
           <div className="grid gap-3 sm:grid-cols-3">
-            <div className="block space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Category
-                </span>
-                <div className="flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    className="rounded-md p-1 text-muted-foreground transition hover:bg-primary-muted hover:text-primary"
-                    title="Add category"
-                    aria-label="Add category"
-                    onClick={() => openTaxonomyModal("category")}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md p-1 text-muted-foreground transition hover:bg-primary-muted hover:text-primary disabled:opacity-40"
-                    title="Edit category"
-                    aria-label="Edit category"
-                    disabled={!selectedCategory}
-                    onClick={() =>
-                      selectedCategory &&
-                      openTaxonomyModal("category", {
-                        id: selectedCategory.id,
-                        name: selectedCategory.name,
-                        slug: selectedCategory.slug,
-                      })
-                    }
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md p-1 text-accent transition hover:bg-[#fff1ee] disabled:opacity-40"
-                    title="Delete category"
-                    aria-label="Delete category"
-                    disabled={!selectedCategory || deleteCategory.isPending}
-                    onClick={onDeleteCategory}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Category
+              </span>
               <select
                 value={effectiveCategoryId}
                 onChange={(e) => {
@@ -906,53 +794,12 @@ export function AdminQuestionbankPage() {
                   </option>
                 ))}
               </select>
-            </div>
+            </label>
 
-            <div className="block space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Subject
-                </span>
-                <div className="flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    className="rounded-md p-1 text-muted-foreground transition hover:bg-primary-muted hover:text-primary disabled:opacity-40"
-                    title="Add subject"
-                    aria-label="Add subject"
-                    disabled={!selectedCategory}
-                    onClick={() => openTaxonomyModal("subject")}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md p-1 text-muted-foreground transition hover:bg-primary-muted hover:text-primary disabled:opacity-40"
-                    title="Edit subject"
-                    aria-label="Edit subject"
-                    disabled={!selectedSubject}
-                    onClick={() =>
-                      selectedSubject &&
-                      openTaxonomyModal("subject", {
-                        id: selectedSubject.id,
-                        name: selectedSubject.name,
-                        slug: selectedSubject.slug,
-                      })
-                    }
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md p-1 text-accent transition hover:bg-[#fff1ee] disabled:opacity-40"
-                    title="Delete subject"
-                    aria-label="Delete subject"
-                    disabled={!selectedSubject || deleteSubject.isPending}
-                    onClick={onDeleteSubject}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Subject
+              </span>
               <select
                 value={effectiveSubjectId}
                 onChange={(e) => {
@@ -968,53 +815,12 @@ export function AdminQuestionbankPage() {
                   </option>
                 ))}
               </select>
-            </div>
+            </label>
 
-            <div className="block space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Program
-                </span>
-                <div className="flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    className="rounded-md p-1 text-muted-foreground transition hover:bg-primary-muted hover:text-primary disabled:opacity-40"
-                    title="Add program"
-                    aria-label="Add program"
-                    disabled={!selectedSubject}
-                    onClick={() => openTaxonomyModal("program")}
-                  >
-                    <Plus className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md p-1 text-muted-foreground transition hover:bg-primary-muted hover:text-primary disabled:opacity-40"
-                    title="Edit program"
-                    aria-label="Edit program"
-                    disabled={!selectedProgram}
-                    onClick={() =>
-                      selectedProgram &&
-                      openTaxonomyModal("program", {
-                        id: selectedProgram.id,
-                        name: selectedProgram.name,
-                        slug: selectedProgram.slug,
-                      })
-                    }
-                  >
-                    <Pencil className="h-3.5 w-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    className="rounded-md p-1 text-accent transition hover:bg-[#fff1ee] disabled:opacity-40"
-                    title="Delete program"
-                    aria-label="Delete program"
-                    disabled={!selectedProgram || deleteProgram.isPending}
-                    onClick={onDeleteProgram}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Program
+              </span>
               <select
                 value={effectiveProgramId}
                 onChange={(e) => setProgramId(e.target.value)}
@@ -1027,7 +833,7 @@ export function AdminQuestionbankPage() {
                   </option>
                 ))}
               </select>
-            </div>
+            </label>
           </div>
           {error ? (
             <p className="mt-2 text-sm text-accent">{(error as unknown as ApiError)?.message}</p>
@@ -1281,44 +1087,26 @@ export function AdminQuestionbankPage() {
       <AdminModal
         open={Boolean(modal)}
         title={
-          modal?.kind === "category"
+          modal?.kind === "topic"
             ? modal.editId
-              ? "Edit category"
-              : "Add category"
-            : modal?.kind === "subject"
+              ? "Edit theme"
+              : "Add theme"
+            : modal?.kind === "subtopic"
               ? modal.editId
-                ? "Edit subject"
-                : "Add subject"
-              : modal?.kind === "program"
-                ? modal.editId
-                  ? "Edit program"
-                  : "Add program"
-                : modal?.kind === "topic"
-                  ? modal.editId
-                    ? "Edit theme"
-                    : "Add theme"
-                  : modal?.kind === "subtopic"
-                    ? modal.editId
-                      ? "Edit study set"
-                      : "Add study set"
-                    : modal?.kind === "import"
-                      ? "Upload Excel"
-                      : modal?.kind === "question" && modal.editId
-                        ? "Edit question"
-                        : "Add question"
+                ? "Edit study set"
+                : "Add study set"
+              : modal?.kind === "import"
+                ? "Upload Excel"
+                : modal?.kind === "question" && modal.editId
+                  ? "Edit question"
+                  : "Add question"
         }
         description={
-          modal?.kind === "category"
-            ? "Top-level group shown in the Subjects mega menu (e.g. IB Mathematics)."
-            : modal?.kind === "subject"
-              ? `Subject under "${selectedCategory?.name ?? "category"}" (e.g. IB Math AA).`
-              : modal?.kind === "program"
-                ? `Program under "${selectedSubject?.name ?? "subject"}" (e.g. IB Math AA SL).`
-                : modal?.kind === "import"
-                  ? "Put image + video as public URLs in the sheet. Questions appear on the study page automatically."
-                  : modal?.kind === "question"
-                    ? "Add stimulus image URL, mark scheme, and short video solution."
-                    : "Visible on the public Questionbank with Easy / Medium / Hard filters."
+          modal?.kind === "import"
+            ? "Put image + video as public URLs in the sheet. Questions appear on the study page automatically."
+            : modal?.kind === "question"
+              ? "Add stimulus image URL, mark scheme, and short video solution."
+              : "Visible on the public Questionbank with Easy / Medium / Hard filters."
         }
         onClose={() => !busy && setModal(null)}
         className={modal?.kind === "question" || modal?.kind === "import" ? "sm:max-w-2xl" : "sm:max-w-xl"}
@@ -1526,11 +1314,7 @@ export function AdminQuestionbankPage() {
         ) : (
           <div className="space-y-3">
             <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">
-                {modal?.kind === "category" || modal?.kind === "subject" || modal?.kind === "program"
-                  ? "Name"
-                  : "Title"}
-              </span>
+              <span className="text-sm font-semibold">Title</span>
               <Input
                 value={title}
                 onChange={(e) => {

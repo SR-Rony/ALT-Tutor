@@ -1,6 +1,6 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/constants";
 import {
   adminCategoriesService,
@@ -110,6 +110,10 @@ export function useAdminEnrollments(filters: AdminEnrollmentsQuery = {}) {
   return useQuery({
     queryKey: queryKeys.admin.enrollments(filters),
     queryFn: () => adminEnrollmentsService.list(filters),
+    // Keep showing the previous page while a new filter/tab/page loads,
+    // so switching tabs doesn't flash a full-page loader.
+    placeholderData: keepPreviousData,
+    staleTime: 30_000,
   });
 }
 

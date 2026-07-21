@@ -3,9 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   Bell,
   BookOpen,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -58,19 +60,34 @@ interface DashboardSidebarProps {
   roleLabel: string;
 }
 
+function isNavActive(pathname: string, href?: string) {
+  if (!href) return false;
+  if (pathname === href) return true;
+  // `/admin/questionbank` must not stay active on `/admin/questionbank/categories` etc.
+  if (href === ROUTES.admin.questionbank) return false;
+  return pathname.startsWith(`${href}/`);
+}
+
+function isGroupActive(pathname: string, item: NavItem) {
+  if (item.href && isNavActive(pathname, item.href)) return true;
+  return Boolean(item.children?.some((child) => isNavActive(pathname, child.href)));
+}
+
 function NavItemLink({
   item,
   collapsed,
   onNavigate,
+  nested = false,
 }: {
   item: NavItem;
   collapsed: boolean;
   onNavigate?: () => void;
+  nested?: boolean;
 }) {
   const pathname = usePathname();
   if (!item.href) return null;
 
-  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const active = isNavActive(pathname, item.href);
   const Icon = item.iconName ? navIcons[item.iconName] : LayoutDashboard;
 
   const link = (
@@ -80,18 +97,29 @@ function NavItemLink({
       className={cn(
         "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
         collapsed && "justify-center px-2",
+        nested && !collapsed && "py-2 pl-10 pr-3 text-[13px]",
         active
           ? "bg-[#e8f2fe] text-[#1466db] shadow-[inset_0_0_0_1px_rgba(24,119,242,0.12)]"
           : "text-[#58688b] hover:bg-[#f0f5fc] hover:text-[#1a1a2e]"
       )}
     >
-      <Icon
-        className={cn(
-          "h-4 w-4 shrink-0 transition-colors",
-          active ? "text-[#1877f2]" : "text-[#7a8aab] group-hover:text-[#1877f2]"
-        )}
-        aria-hidden
-      />
+      {!nested || collapsed ? (
+        <Icon
+          className={cn(
+            "h-4 w-4 shrink-0 transition-colors",
+            active ? "text-[#1877f2]" : "text-[#7a8aab] group-hover:text-[#1877f2]"
+          )}
+          aria-hidden
+        />
+      ) : (
+        <span
+          className={cn(
+            "h-1.5 w-1.5 shrink-0 rounded-full",
+            active ? "bg-[#1877f2]" : "bg-[#c5d0e3]"
+          )}
+          aria-hidden
+        />
+      )}
       {!collapsed ? <span className="truncate">{item.title}</span> : null}
     </Link>
   );
@@ -104,6 +132,121 @@ function NavItemLink({
       <TooltipContent side="right">{item.title}</TooltipContent>
     </Tooltip>
   );
+}
+
+function NavGroup({
+  item,
+  collapsed,
+  onNavigate,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
+  const pathname = usePathname();
+  const children = item.children ?? [];
+  const groupActive = isGroupActive(pathname, item);
+  const [open, setOpen] = useState(groupActive);
+  const Icon = item.iconName ? navIcons[item.iconName] : LayoutDashboard;
+
+  useEffect(() => {
+    if (groupActive) setOpen(true);
+  }, [groupActive]);
+
+  if (collapsed) {
+    const href = item.href ?? children[0]?.href;
+    if (!href) return null;
+    return (
+      <Tooltip delayDuration={0}>
+        <TooltipTrigger asChild>
+          <Link
+            href={href}
+            onClick={onNavigate}
+            className={cn(
+              "group flex items-center justify-center rounded-xl px-2 py-2.5 transition-all duration-200",
+              groupActive
+                ? "bg-[#e8f2fe] text-[#1466db] shadow-[inset_0_0_0_1px_rgba(24,119,242,0.12)]"
+                : "text-[#58688b] hover:bg-[#f0f5fc] hover:text-[#1a1a2e]"
+            )}
+            aria-label={item.title}
+          >
+            <Icon
+              className={cn(
+                "h-4 w-4 shrink-0",
+                groupActive ? "text-[#1877f2]" : "text-[#7a8aab]"
+              )}
+              aria-hidden
+            />
+          </Link>
+        </TooltipTrigger>
+        <TooltipContent side="right" className="max-w-[200px]">
+          <p className="font-semibold">{item.title}</p>
+          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+            {children.map((child) => (
+              <li key={child.title}>{child.title}</li>
+            ))}
+          </ul>
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return (
+    <div className="space-y-0.5">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className={cn(
+          "group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+          groupActive
+            ? "bg-[#e8f2fe] text-[#1466db]"
+            : "text-[#58688b] hover:bg-[#f0f5fc] hover:text-[#1a1a2e]"
+        )}
+        aria-expanded={open}
+      >
+        <Icon
+          className={cn(
+            "h-4 w-4 shrink-0",
+            groupActive ? "text-[#1877f2]" : "text-[#7a8aab] group-hover:text-[#1877f2]"
+          )}
+          aria-hidden
+        />
+        <span className="min-w-0 flex-1 truncate text-left">{item.title}</span>
+        <ChevronDown
+          className={cn("h-3.5 w-3.5 shrink-0 transition-transform", open ? "rotate-0" : "-rotate-90")}
+          aria-hidden
+        />
+      </button>
+      {open ? (
+        <div className="space-y-0.5 pb-1">
+          {children.map((child) => (
+            <NavItemLink
+              key={child.title}
+              item={child}
+              collapsed={false}
+              onNavigate={onNavigate}
+              nested
+            />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function NavEntry({
+  item,
+  collapsed,
+  onNavigate,
+}: {
+  item: NavItem;
+  collapsed: boolean;
+  onNavigate?: () => void;
+}) {
+  if (item.children && item.children.length > 0) {
+    return <NavGroup item={item} collapsed={collapsed} onNavigate={onNavigate} />;
+  }
+  return <NavItemLink item={item} collapsed={collapsed} onNavigate={onNavigate} />;
 }
 
 function LogoutButton({
@@ -166,13 +309,13 @@ function SidebarNav({
     <TooltipProvider delayDuration={0}>
       <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-3">
         {items.map((item) => (
-          <NavItemLink key={item.title} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+          <NavEntry key={item.title} item={item} collapsed={collapsed} onNavigate={onNavigate} />
         ))}
       </nav>
 
       <div className="mt-auto border-t border-[#e8edf5] px-3 py-3">
         {footerItems.map((item) => (
-          <NavItemLink key={item.title} item={item} collapsed={collapsed} onNavigate={onNavigate} />
+          <NavEntry key={item.title} item={item} collapsed={collapsed} onNavigate={onNavigate} />
         ))}
         <LogoutButton collapsed={collapsed} onNavigate={onNavigate} />
       </div>
