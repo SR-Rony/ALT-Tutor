@@ -388,27 +388,30 @@ export function CourseCurriculumManager({ courseId, courseTitle }: Props) {
           {sortedChapters.map((chapter, index) => {
             const isOpen = expanded[chapter.id] ?? index === 0;
             const lessons = [...chapter.lessons].sort((a, b) => a.order - b.order);
+            const publishedLessons = lessons.filter((l) => l.isPublished !== false).length;
             return (
               <div
                 key={chapter.id}
                 className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_24px_rgba(15,23,42,0.04)]"
               >
-                <div className="flex items-center gap-2 border-b border-border px-4 py-3">
+                <div
+                  className={cn(
+                    "flex items-center gap-2 border-b border-border px-3 py-3 sm:px-4",
+                    "transition-colors hover:bg-muted/40"
+                  )}
+                >
                   <button
                     type="button"
-                    className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    aria-expanded={isOpen}
+                    className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 rounded-xl px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
                     onClick={() =>
                       setExpanded((prev) => ({ ...prev, [chapter.id]: !isOpen }))
                     }
                   >
-                    <ChevronDown
-                      className={cn(
-                        "h-4 w-4 shrink-0 text-muted-foreground transition-transform",
-                        isOpen && "rotate-180"
-                      )}
-                      aria-hidden
-                    />
-                    <div className="min-w-0">
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-xs font-bold text-primary">
+                      {index + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
                       <p className="truncate font-semibold text-foreground">
                         <span className="mr-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
                           Ch {index + 1}
@@ -417,23 +420,43 @@ export function CourseCurriculumManager({ courseId, courseTitle }: Props) {
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {lessons.length} lesson{lessons.length === 1 ? "" : "s"}
-                        {chapter.isPublished === false ? " · draft" : " · published"}
+                        {" · "}
+                        {publishedLessons} published
+                        {chapter.isPublished === false ? " · chapter draft" : ""}
+                        {" · "}
+                        {isOpen ? "Click to collapse" : "Click to expand"}
                       </p>
                     </div>
+                    <ChevronDown
+                      className={cn(
+                        "h-5 w-5 shrink-0 text-muted-foreground transition-transform",
+                        isOpen && "rotate-180"
+                      )}
+                      aria-hidden
+                    />
                   </button>
-                  <AdminIconAction label="Move up" onClick={() => void moveChapter(index, -1)} disabled={busy || index === 0} icon={ArrowUp} />
-                  <AdminIconAction label="Move down" onClick={() => void moveChapter(index, 1)} disabled={busy || index === sortedChapters.length - 1} icon={ArrowDown} />
-                  <AdminIconAction label="Edit chapter" onClick={() => openEditChapter(chapter)} icon={Pencil} />
-                  <AdminIconAction label="Add lesson" onClick={() => openCreateLesson(chapter)} icon={Plus} />
-                  <AdminIconAction label="Delete chapter" onClick={() => setConfirmDeleteChapter(chapter)} tone="danger" icon={Trash2} />
+                  <div
+                    className="flex shrink-0 items-center gap-0.5"
+                    onClick={(event) => event.stopPropagation()}
+                  >
+                    <AdminIconAction label="Move up" onClick={() => void moveChapter(index, -1)} disabled={busy || index === 0} icon={ArrowUp} />
+                    <AdminIconAction label="Move down" onClick={() => void moveChapter(index, 1)} disabled={busy || index === sortedChapters.length - 1} icon={ArrowDown} />
+                    <AdminIconAction label="Edit chapter" onClick={() => openEditChapter(chapter)} icon={Pencil} />
+                    <AdminIconAction label="Add lesson" onClick={() => openCreateLesson(chapter)} icon={Plus} />
+                    <AdminIconAction label="Delete chapter" onClick={() => setConfirmDeleteChapter(chapter)} tone="danger" icon={Trash2} />
+                  </div>
                 </div>
 
                 {isOpen ? (
-                  <div className="space-y-2 p-3">
+                  <div className="space-y-2 bg-[#f8faff]/70 p-3">
                     {!lessons.length ? (
-                      <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+                      <div className="rounded-xl border border-dashed border-border bg-white px-4 py-8 text-center text-sm text-muted-foreground">
                         No lessons yet.{" "}
-                        <button type="button" className="font-semibold text-primary underline" onClick={() => openCreateLesson(chapter)}>
+                        <button
+                          type="button"
+                          className="font-semibold text-primary underline"
+                          onClick={() => openCreateLesson(chapter)}
+                        >
                           Add a lesson
                         </button>
                       </div>
@@ -441,15 +464,32 @@ export function CourseCurriculumManager({ courseId, courseTitle }: Props) {
                       lessons.map((lesson, lessonIndex) => (
                         <div
                           key={lesson.id}
-                          className="flex items-center gap-3 rounded-xl border border-border/80 bg-muted/30 px-3 py-3"
-                        >
-                          {String(lesson.type).toUpperCase() === "VIDEO" ? (
-                            <PlayCircle className="h-4 w-4 shrink-0 text-accent" aria-hidden />
-                          ) : (
-                            <FileText className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openEditLesson(chapter.id, lesson)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openEditLesson(chapter.id, lesson);
+                            }
+                          }}
+                          className={cn(
+                            "group flex cursor-pointer items-center gap-3 rounded-xl border border-border/80 bg-white px-3 py-3",
+                            "transition-all hover:border-primary/30 hover:bg-primary/[0.03] hover:shadow-sm",
+                            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
                           )}
+                        >
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition group-hover:bg-primary/10 group-hover:text-primary">
+                            {String(lesson.type).toUpperCase() === "VIDEO" ? (
+                              <PlayCircle className="h-4 w-4" aria-hidden />
+                            ) : (
+                              <FileText className="h-4 w-4" aria-hidden />
+                            )}
+                          </span>
                           <div className="min-w-0 flex-1">
-                            <p className="truncate text-sm font-semibold text-foreground">{lesson.title}</p>
+                            <p className="truncate text-sm font-semibold text-foreground group-hover:text-primary">
+                              {lesson.title}
+                            </p>
                             <p className="text-xs text-muted-foreground">
                               {String(lesson.type)}
                               {lesson.duration ? ` · ${formatLessonDuration(lesson.duration)}` : ""}
@@ -459,12 +499,19 @@ export function CourseCurriculumManager({ courseId, courseTitle }: Props) {
                                 : ""}
                               {lesson.isPublished === false ? " · draft" : ""}
                               {lesson.isPreview ? " · free preview" : ""}
+                              {" · click to edit"}
                             </p>
                           </div>
-                          <AdminIconAction label="Move up" onClick={() => void moveLesson(chapter, lessonIndex, -1)} disabled={busy || lessonIndex === 0} icon={ArrowUp} />
-                          <AdminIconAction label="Move down" onClick={() => void moveLesson(chapter, lessonIndex, 1)} disabled={busy || lessonIndex === lessons.length - 1} icon={ArrowDown} />
-                          <AdminIconAction label="Edit lesson" onClick={() => openEditLesson(chapter.id, lesson)} icon={Pencil} />
-                          <AdminIconAction label="Delete lesson" onClick={() => setConfirmDeleteLesson(lesson)} tone="danger" icon={Trash2} />
+                          <div
+                            className="flex shrink-0 items-center gap-0.5"
+                            onClick={(event) => event.stopPropagation()}
+                            onKeyDown={(event) => event.stopPropagation()}
+                          >
+                            <AdminIconAction label="Move up" onClick={() => void moveLesson(chapter, lessonIndex, -1)} disabled={busy || lessonIndex === 0} icon={ArrowUp} />
+                            <AdminIconAction label="Move down" onClick={() => void moveLesson(chapter, lessonIndex, 1)} disabled={busy || lessonIndex === lessons.length - 1} icon={ArrowDown} />
+                            <AdminIconAction label="Edit lesson" onClick={() => openEditLesson(chapter.id, lesson)} icon={Pencil} />
+                            <AdminIconAction label="Delete lesson" onClick={() => setConfirmDeleteLesson(lesson)} tone="danger" icon={Trash2} />
+                          </div>
                         </div>
                       ))
                     )}

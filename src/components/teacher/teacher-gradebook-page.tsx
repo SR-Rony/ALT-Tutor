@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { PageHeader, PageLoader } from "@/components/shared";
@@ -10,6 +11,7 @@ import { downloadCsv } from "@/lib/export-csv";
 import type { ApiError } from "@/types";
 
 export function TeacherGradebookPage() {
+  const searchParams = useSearchParams();
   const { data: courseData } = useTeacherCourses();
   const courses = courseData?.all ?? [];
   const [courseId, setCourseId] = useState("");
@@ -18,6 +20,14 @@ export function TeacherGradebookPage() {
     courseId: effectiveCourseId,
   });
   const override = useGradeOverride();
+
+  useEffect(() => {
+    const fromQuery = searchParams.get("courseId");
+    if (!fromQuery || !courses.length) return;
+    if (courses.some((c) => c.id === fromQuery)) {
+      setCourseId(fromQuery);
+    }
+  }, [courses, searchParams]);
 
   const exportCsv = () => {
     if (!data) return;
