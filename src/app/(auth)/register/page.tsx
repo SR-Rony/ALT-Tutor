@@ -8,7 +8,7 @@ export default function RegisterPage() {
   return (
     <AuthPageShell
       title="Create your account"
-      subtitle="Join Alt Tutor and start learning with expert teachers today."
+      subtitle="Join Alt Tutor with phone OTP verification — start learning with expert teachers."
       footerPrompt="Already have an account?"
       footerLinkText="Login"
       footerHref={ROUTES.auth.login}

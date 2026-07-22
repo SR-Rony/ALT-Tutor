@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
@@ -8,6 +9,7 @@ import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { env } from "@/config";
+import { ROUTES } from "@/constants";
 import { getSafeNextParam } from "@/lib/next-param";
 import { authService, roleHomeRoutes } from "@/services/auth.service";
 import { setUser, useAppDispatch } from "@/store";
@@ -53,12 +55,14 @@ export function LoginForm() {
     handleSubmit,
     setValue,
     watch,
-    formState: { errors, isSubmitting },
+    formState: { errors, isSubmitting, isSubmitted },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
+    mode: "onBlur",
+    reValidateMode: "onChange",
     defaultValues: env.useMockApi
       ? { phone: "01700000003", password: "password" }
-      : { phone: "01700000001", password: DEMO_PASSWORD },
+      : { phone: "", password: "" },
   });
 
   const activePhone = watch("phone");
@@ -87,7 +91,7 @@ export function LoginForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
       {!env.useMockApi ? (
         <div className="space-y-2">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -127,24 +131,38 @@ export function LoginForm() {
           type="tel"
           inputMode="numeric"
           autoComplete="tel"
-          placeholder="01700000001"
+          placeholder="01712345678"
           disabled={busy}
-          className={cn("h-11", errors.phone && "border-[#ef3239]/50 focus:border-[#ef3239] focus:ring-[#ef3239]/15")}
+          aria-invalid={Boolean(errors.phone)}
+          className={cn(
+            "h-11",
+            (errors.phone || (isSubmitted && error)) &&
+              "border-[#ef3239]/50 focus:border-[#ef3239] focus:ring-[#ef3239]/15"
+          )}
           {...register("phone")}
         />
         <FieldError message={errors.phone?.message} />
       </div>
 
       <div>
-        <label htmlFor="login-password" className="mb-2 block text-sm font-semibold text-[#1a2b5e]">
-          Password
-        </label>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <label htmlFor="login-password" className="block text-sm font-semibold text-[#1a2b5e]">
+            Password
+          </label>
+          <Link
+            href={ROUTES.auth.forgotPassword}
+            className="text-xs font-semibold text-[#1877f2] hover:underline"
+          >
+            Forgot password?
+          </Link>
+        </div>
         <Input
           id="login-password"
           type="password"
           autoComplete="current-password"
           placeholder="Enter your password"
           disabled={busy}
+          aria-invalid={Boolean(errors.password)}
           className={cn(
             "h-11",
             errors.password && "border-[#ef3239]/50 focus:border-[#ef3239] focus:ring-[#ef3239]/15"
@@ -155,7 +173,10 @@ export function LoginForm() {
       </div>
 
       {error ? (
-        <div className="rounded-xl border border-[#ef3239]/20 bg-[#ef3239]/5 px-4 py-3 text-sm font-medium text-[#ef3239]">
+        <div
+          role="alert"
+          className="rounded-xl border border-[#ef3239]/20 bg-[#ef3239]/5 px-4 py-3 text-sm font-medium text-[#ef3239]"
+        >
           {error}
         </div>
       ) : null}
