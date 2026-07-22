@@ -898,14 +898,55 @@ export function QuestionbankStudyPage({
   if (isLoading) return <PageLoader label="Loading questions..." />;
 
   if (error || !data) {
+    const apiError = error as unknown as ApiError | undefined;
+    const isLocked = apiError?.status === 403;
+    const practicePassHref = isAuthenticated
+      ? ROUTES.student.practicePass
+      : `${ROUTES.auth.login}?next=${encodeURIComponent(ROUTES.student.practicePass)}`;
+    const studyNext = ROUTES.subjectQuestionbankStudy(programSlug, subtopicSlug);
+
     return (
-      <div className="mx-auto max-w-3xl px-4 py-16 text-center">
-        <p className="text-sm text-accent">
-          {(error as unknown as ApiError)?.message || "Study set not found."}
-        </p>
-        <Button asChild variant="outline" className="mt-4">
-          <Link href={ROUTES.subjectQuestionbank(programSlug)}>Back to questionbank</Link>
-        </Button>
+      <div className="mx-auto max-w-xl px-4 py-16 text-center">
+        {isLocked ? (
+          <>
+            <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#fff8ef] text-[#d4a017]">
+              <Lock className="h-6 w-6" aria-hidden />
+            </span>
+            <h1 className="mt-4 text-xl font-extrabold text-foreground">ALT Gold study set</h1>
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              {apiError?.message ||
+                "This study set requires a Practice Pass or enrollment in a linked course."}
+            </p>
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+              <Button asChild size="pill">
+                <Link href={practicePassHref}>Get Practice Pass</Link>
+              </Button>
+              {!isAuthenticated ? (
+                <Button asChild variant="outline" size="pill">
+                  <Link href={`${ROUTES.auth.login}?next=${encodeURIComponent(studyNext)}`}>
+                    Sign in
+                  </Link>
+                </Button>
+              ) : (
+                <Button asChild variant="outline" size="pill">
+                  <Link href={ROUTES.courses}>Browse courses</Link>
+                </Button>
+              )}
+            </div>
+            <Button asChild variant="ghost" className="mt-4">
+              <Link href={ROUTES.subjectQuestionbank(programSlug)}>Back to questionbank</Link>
+            </Button>
+          </>
+        ) : (
+          <>
+            <p className="text-sm text-accent">
+              {apiError?.message || "Study set not found."}
+            </p>
+            <Button asChild variant="outline" className="mt-4">
+              <Link href={ROUTES.subjectQuestionbank(programSlug)}>Back to questionbank</Link>
+            </Button>
+          </>
+        )}
       </div>
     );
   }
@@ -913,7 +954,8 @@ export function QuestionbankStudyPage({
   const hasActiveFilters = Boolean(
     filters.difficulty?.length || filters.paper?.length || filters.type?.length
   );
-  const solutionsUnlocked = !examMode || examSubmitted;
+  const canViewSolutions = Boolean(data.access?.canViewSolutions);
+  const solutionsUnlocked = canViewSolutions && (!examMode || examSubmitted);
 
   return (
     <div className="bg-background pb-16">
@@ -1084,7 +1126,15 @@ export function QuestionbankStudyPage({
             <Link href={`${ROUTES.auth.login}?next=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "")}`} className="font-semibold text-primary hover:underline">
               Sign in
             </Link>{" "}
-            to check answers and track your practice session.
+            to check answers, unlock mark schemes, and track your practice session.
+          </div>
+        ) : !canViewSolutions ? (
+          <div className="rounded-xl border border-[#f5d0a8] bg-[#fff8ef] px-4 py-3 text-sm text-[#9a3412]">
+            Mark schemes and video solutions stay locked until you unlock this set with a{" "}
+            <Link href={ROUTES.student.practicePass} className="font-semibold underline underline-offset-2">
+              Practice Pass
+            </Link>{" "}
+            or linked course enrollment.
           </div>
         ) : null}
         {sessionError ? (

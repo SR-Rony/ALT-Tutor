@@ -27,9 +27,10 @@ export const queryKeys = {
   },
   questionbank: {
     all: ["questionbank"] as const,
-    program: (slug: string) => ["questionbank", "program", slug] as const,
-    questions: (programSlug: string, subtopicSlug: string, filters: object) =>
-      ["questionbank", "questions", programSlug, subtopicSlug, filters] as const,
+    program: (slug: string, authKey = "anon") =>
+      ["questionbank", "program", slug, authKey] as const,
+    questions: (programSlug: string, subtopicSlug: string, filters: object, authKey = "anon") =>
+      ["questionbank", "questions", programSlug, subtopicSlug, filters, authKey] as const,
     admin: (programId?: string) => ["questionbank", "admin", programId ?? "all"] as const,
     practiceSession: (sessionId: string) => ["questionbank", "practice", sessionId] as const,
   },

@@ -34,9 +34,10 @@ export const questionbankService = {
       await sleep(200);
       throw { message: "Mock questionbank overview unavailable", status: 404 };
     }
+    // Send JWT when present so GOLD locks resolve for entitled students.
+    // Endpoint stays public via OptionalJwtAuthGuard.
     const response = await apiClient.get<QbProgramOverview>(
-      `/questionbank/programs/${programSlug}`,
-      { skipAuth: true }
+      `/questionbank/programs/${programSlug}`
     );
     return response.data;
   },
@@ -51,8 +52,7 @@ export const questionbankService = {
       throw { message: "Mock study set unavailable", status: 404 };
     }
     const response = await apiClient.get<QbStudyPayload>(
-      `/questionbank/programs/${programSlug}/subtopics/${subtopicSlug}/questions${buildQuery(filters)}`,
-      { skipAuth: true }
+      `/questionbank/programs/${programSlug}/subtopics/${subtopicSlug}/questions${buildQuery(filters)}`
     );
     return response.data;
   },

@@ -8,21 +8,34 @@ import type {
   CreateQbSubtopicInput,
   CreateQbTopicInput,
 } from "@/services/questionbank-admin.types";
+import { useAppSelector } from "@/store";
 import type { QbFilters } from "@/types/qb.types";
 
+function useQbAuthKey() {
+  const userId = useAppSelector((s) => s.auth.user?.id);
+  return userId ?? "anon";
+}
+
 export function useQbProgram(programSlug: string) {
+  const authKey = useQbAuthKey();
   return useQuery({
-    queryKey: queryKeys.questionbank.program(programSlug),
+    queryKey: queryKeys.questionbank.program(programSlug, authKey),
     queryFn: () => questionbankService.getProgram(programSlug),
     enabled: Boolean(programSlug),
   });
 }
 
 export function useQbQuestions(programSlug: string, subtopicSlug: string, filters: QbFilters) {
+  const authKey = useQbAuthKey();
   return useQuery({
-    queryKey: queryKeys.questionbank.questions(programSlug, subtopicSlug, filters),
+    queryKey: queryKeys.questionbank.questions(programSlug, subtopicSlug, filters, authKey),
     queryFn: () => questionbankService.getQuestions(programSlug, subtopicSlug, filters),
     enabled: Boolean(programSlug && subtopicSlug),
+    retry: (failureCount, error) => {
+      const status = (error as { status?: number } | undefined)?.status;
+      if (status === 403) return false;
+      return failureCount < 2;
+    },
   });
 }
 

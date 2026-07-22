@@ -31,8 +31,22 @@ export interface QbSubtopic {
   badge: QbAccessBadge | string;
   isActive: boolean;
   topicId: string;
+  /** True when badge is GOLD and the current user has no Practice Pass / linked course. */
+  locked?: boolean;
   _count?: { questions: number };
   questions?: QbQuestion[];
+}
+
+export interface QbProgramAccess {
+  hasProgramAccess: boolean;
+  canStudyFree: boolean;
+  canStudyGold: boolean;
+}
+
+export interface QbStudyAccess {
+  canAccess: boolean;
+  canViewSolutions: boolean;
+  reason?: string | null;
 }
 
 export interface QbTopic {
@@ -58,6 +72,7 @@ export interface QbProgramOverview {
     slug: string;
     category: { id: string; name: string; slug: string };
   };
+  access?: QbProgramAccess;
   qbTopics: QbTopic[];
 }
 
@@ -67,6 +82,7 @@ export interface QbStudyPayload {
       program: QbProgramOverview;
     };
   };
+  access?: QbStudyAccess;
   questions: QbQuestion[];
 }
 
