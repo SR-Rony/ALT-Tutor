@@ -16,10 +16,13 @@ import {
   useUpdateAccessProduct,
 } from "@/hooks";
 import { formatMoney } from "@/lib/format";
+import { paidProductTier, tierBadgeClass, tierLabel } from "@/lib/access-tier";
 import { richTextToPlain, serializeRichText } from "@/lib/rich-text";
 import type { ApiError } from "@/types";
 import type { AccessProduct } from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
+
+type ProductTier = "SILVER" | "GOLD" | "DIAMOND";
 
 function slugify(value: string) {
   return value
@@ -27,6 +30,12 @@ function slugify(value: string) {
     .trim()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function normalizeProductTier(value?: string | null): ProductTier {
+  const key = String(value ?? "GOLD").toUpperCase();
+  if (key === "SILVER" || key === "DIAMOND") return key;
+  return "GOLD";
 }
 
 export function AdminAccessProductsPage() {
@@ -57,6 +66,7 @@ export function AdminAccessProductsPage() {
   const [price, setPrice] = useState("0");
   const [durationDays, setDurationDays] = useState("");
   const [programId, setProgramId] = useState("");
+  const [tier, setTier] = useState<ProductTier>("GOLD");
   const [actionError, setActionError] = useState<string | null>(null);
 
   const busy =
@@ -70,6 +80,7 @@ export function AdminAccessProductsPage() {
     setPrice("499");
     setDurationDays("30");
     setProgramId("");
+    setTier("GOLD");
     setActionError(null);
     setModal("create");
   };
@@ -82,6 +93,7 @@ export function AdminAccessProductsPage() {
     setPrice(String(item.price ?? 0));
     setDurationDays(item.durationDays != null ? String(item.durationDays) : "");
     setProgramId(item.programId ?? item.program?.id ?? "");
+    setTier(normalizeProductTier(item.tier));
     setActionError(null);
     setModal("edit");
   };
@@ -99,6 +111,7 @@ export function AdminAccessProductsPage() {
       price: Number.parseFloat(price) || 0,
       durationDays: durationDays.trim() ? Number.parseInt(durationDays, 10) : null,
       programId: programId || null,
+      tier,
     };
     try {
       if (modal === "edit" && editItem) {
@@ -122,7 +135,7 @@ export function AdminAccessProductsPage() {
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-6">
           <PageHeader
             title="Access products"
-            description="Practice Pass catalog for questionbank access."
+            description="Practice Pass tiers unlock Silver / Gold / Diamond questionbank sets."
             className="mb-0"
           />
           <div className="flex gap-2">
@@ -153,6 +166,14 @@ export function AdminAccessProductsPage() {
                 <h3 className="font-semibold text-foreground">{p.title}</h3>
                 <p className="text-sm text-muted-foreground">{richTextToPlain(p.description) || p.slug}</p>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                  <span
+                    className={cn(
+                      "rounded-md px-2 py-0.5 font-bold uppercase tracking-wide text-white",
+                      tierBadgeClass(p.tier ?? "GOLD")
+                    )}
+                  >
+                    {tierLabel(p.tier ?? "GOLD")}
+                  </span>
                   <span className="rounded-md bg-muted px-2 py-0.5">{formatMoney(Number(p.price))}</span>
                   <span className="rounded-md bg-muted px-2 py-0.5">
                     {p.durationDays != null ? `${p.durationDays} days` : "Lifetime"}
@@ -238,6 +259,26 @@ export function AdminAccessProductsPage() {
               <Input value={durationDays} onChange={(e) => setDurationDays(e.target.value)} />
             </label>
           </div>
+          <label className="block space-y-1.5 text-sm">
+            <span className="font-semibold">Tier</span>
+            <div className="grid grid-cols-3 gap-2">
+              {paidProductTier().map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className={cn(
+                    "rounded-xl border px-3 py-2.5 text-center text-xs font-bold uppercase tracking-wide transition",
+                    tier === option
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                  )}
+                  onClick={() => setTier(option)}
+                >
+                  {option.charAt(0) + option.slice(1).toLowerCase()}
+                </button>
+              ))}
+            </div>
+          </label>
           <label className="block space-y-1 text-sm">
             <span className="font-semibold">Program scope</span>
             <select

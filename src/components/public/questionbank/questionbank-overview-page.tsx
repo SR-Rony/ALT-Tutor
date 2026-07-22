@@ -16,6 +16,7 @@ import {
   useSubjectBreadcrumbs,
 } from "@/components/public/subjects";
 import { useQbProgram } from "@/hooks/use-questionbank";
+import { normalizeAccessBadge, tierBadgeClass, tierLabel } from "@/lib/access-tier";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
@@ -24,6 +25,7 @@ type Props = { programSlug: string };
 
 type UnlockTarget = {
   subtopicTitle?: string | null;
+  requiredTier?: string;
 };
 
 export function QuestionbankOverviewPage({ programSlug }: Props) {
@@ -42,8 +44,8 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
     resourceHref: ROUTES.subjectQuestionbank(programSlug),
   });
 
-  const openUnlock = useCallback((subtopicTitle?: string | null) => {
-    setUnlockTarget({ subtopicTitle });
+  const openUnlock = useCallback((subtopicTitle?: string | null, requiredTier?: string) => {
+    setUnlockTarget({ subtopicTitle, requiredTier });
     setUnlockOpen(true);
   }, []);
 
@@ -107,7 +109,7 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
     <div className="bg-background">
       <ResourceHero
         title={`${data.name} Questionbank`}
-        description="ALT Free topics are open to practice. ALT Gold topics unlock with a Practice Pass or a linked course enrollment."
+        description="ALT Free topics are open to practice. Silver, Gold, and Diamond topics unlock with a matching Practice Pass or a linked course enrollment."
         icon={<Database className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
         footer={themeTabs}
@@ -128,7 +130,8 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
         ) : null}
         {data.access && !data.access.canStudyGold ? (
           <div className="rounded-xl border border-[#f5d0a8] bg-[#fff8ef] px-4 py-3 text-sm text-[#9a3412]">
-            <span className="font-semibold">ALT Gold locked.</span> Unlock Gold study sets with a{" "}
+            <span className="font-semibold">Paid sets locked.</span> Unlock Silver, Gold, or Diamond
+            study sets with a{" "}
             <button
               type="button"
               className="font-semibold underline underline-offset-2"
@@ -140,8 +143,8 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
           </div>
         ) : data.access?.canStudyGold ? (
           <div className="rounded-xl border border-[#abeec5] bg-[#ecfdf3] px-4 py-3 text-sm text-[#067647]">
-            <span className="font-semibold">Gold unlocked.</span> You can open every Gold study set
-            in this questionbank.
+            <span className="font-semibold">Paid access unlocked.</span> You can open study sets your
+            tier covers in this questionbank.
           </div>
         ) : null}
         {data.qbTopics.length === 0 ? (
@@ -158,9 +161,9 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
             ) : null}
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {topic.subtopics.map((sub) => {
-                const isGold = String(sub.badge).toUpperCase() === "GOLD";
-                const locked =
-                  Boolean(sub.locked) || (isGold && data.access && !data.access.canStudyGold);
+                const badge = normalizeAccessBadge(sub.badge);
+                const isPaid = badge !== "FREE";
+                const locked = Boolean(sub.locked);
                 const studyHref = ROUTES.subjectQuestionbankStudy(programSlug, sub.slug);
 
                 return (
@@ -185,11 +188,11 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
                       <span
                         className={cn(
                           "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold uppercase text-white",
-                          isGold ? "bg-[#d4a017]" : "bg-primary"
+                          tierBadgeClass(badge)
                         )}
                       >
-                        {isGold ? <Lock className="h-3 w-3" aria-hidden /> : null}
-                        {isGold ? "ALT Gold" : "ALT Free"}
+                        {isPaid ? <Lock className="h-3 w-3" aria-hidden /> : null}
+                        {tierLabel(badge)}
                       </span>
                     </div>
                     <RichTextContent
@@ -206,10 +209,10 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
                         variant="outline"
                         size="pill"
                         className="w-full border-[#d4a017]/50 text-[#9a3412]"
-                        onClick={() => openUnlock(sub.title)}
+                        onClick={() => openUnlock(sub.title, sub.badge)}
                       >
                         <Lock className="h-3.5 w-3.5" aria-hidden />
-                        Unlock with Practice Pass
+                        Unlock {tierLabel(sub.badge)}
                       </Button>
                     ) : (
                       <Button asChild variant="outline" size="pill" className="w-full border-primary/30">
@@ -242,6 +245,7 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
         programName={data.name}
         programSlug={programSlug}
         subtopicTitle={unlockTarget.subtopicTitle}
+        requiredTier={unlockTarget.requiredTier}
         onUnlocked={() => {
           void refetch();
         }}

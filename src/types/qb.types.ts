@@ -1,7 +1,9 @@
+import type { QbAccessBadge } from "@/lib/access-tier";
+
 export type QbDifficulty = "EASY" | "MEDIUM" | "HARD";
 export type QbPaper = "PAPER_1" | "PAPER_2" | "PAPER_3";
 export type QbQuestionType = "MULTIPLE_CHOICE" | "SHORT_ANSWER" | "DATA_BASED";
-export type QbAccessBadge = "FREE" | "GOLD";
+export type { QbAccessBadge } from "@/lib/access-tier";
 
 export interface QbQuestion {
   id: string;
@@ -31,16 +33,19 @@ export interface QbSubtopic {
   badge: QbAccessBadge | string;
   isActive: boolean;
   topicId: string;
-  /** True when badge is GOLD and the current user has no Practice Pass / linked course. */
+  /** True when the current user lacks the required Free/Silver/Gold/Diamond tier. */
   locked?: boolean;
   _count?: { questions: number };
   questions?: QbQuestion[];
 }
 
 export interface QbProgramAccess {
+  userTier?: QbAccessBadge | string;
   hasProgramAccess: boolean;
   canStudyFree: boolean;
+  canStudySilver?: boolean;
   canStudyGold: boolean;
+  canStudyDiamond?: boolean;
 }
 
 export interface QbStudyAccess {

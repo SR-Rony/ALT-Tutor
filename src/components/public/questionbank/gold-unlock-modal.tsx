@@ -8,6 +8,13 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
 import { ROUTES, queryKeys } from "@/constants";
 import { useAccessProducts, useCheckout } from "@/hooks";
+import {
+  accessTierRank,
+  canAccessWithTier,
+  normalizeAccessBadge,
+  tierBadgeClass,
+  tierLabel,
+} from "@/lib/access-tier";
 import { formatMoney } from "@/lib/format";
 import { setPaymentReturnTo } from "@/lib/payment-return";
 import { richTextToPlain } from "@/lib/rich-text";
@@ -23,15 +30,31 @@ type Props = {
   programName: string;
   programSlug: string;
   subtopicTitle?: string | null;
+  /** Minimum product tier that unlocks this study set. */
+  requiredTier?: string;
   /** Called after access is granted immediately (free / already entitled). */
   onUnlocked?: () => void;
 };
 
-function sortProductsForProgram(products: AccessProduct[], programId: string) {
-  const matching = products.filter((p) => p.programId === programId);
-  const global = products.filter((p) => !p.programId);
-  const other = products.filter((p) => p.programId && p.programId !== programId);
-  return [...matching, ...global, ...other];
+function sortProductsForProgram(
+  products: AccessProduct[],
+  programId: string,
+  requiredTier: string
+) {
+  // product.tier rank >= requiredTier rank means the product unlocks at least the required tier
+  const eligible = products.filter((p) => canAccessWithTier(p.tier, requiredTier));
+  const matching = eligible.filter((p) => p.programId === programId);
+  const global = eligible.filter((p) => !p.programId);
+  const other = eligible.filter((p) => p.programId && p.programId !== programId);
+
+  const byTier = (a: AccessProduct, b: AccessProduct) =>
+    accessTierRank(a.tier) - accessTierRank(b.tier);
+
+  return [
+    ...matching.sort(byTier),
+    ...global.sort(byTier),
+    ...other.sort(byTier),
+  ];
 }
 
 export function GoldUnlockModal({
@@ -41,6 +64,7 @@ export function GoldUnlockModal({
   programName,
   programSlug,
   subtopicTitle,
+  requiredTier = "GOLD",
   onUnlocked,
 }: Props) {
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
@@ -49,6 +73,9 @@ export function GoldUnlockModal({
   const checkout = useCheckout();
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const required = normalizeAccessBadge(requiredTier);
+  const requiredName = tierLabel(required);
 
   const returnPath = useMemo(() => {
     const base = ROUTES.subjectQuestionbank(programSlug);
@@ -60,8 +87,8 @@ export function GoldUnlockModal({
   )}`;
 
   const ranked = useMemo(
-    () => sortProductsForProgram(products, programId).slice(0, 4),
-    [products, programId]
+    () => sortProductsForProgram(products, programId, required).slice(0, 4),
+    [products, programId, required]
   );
 
   const buy = async (product: AccessProduct) => {
@@ -98,11 +125,11 @@ export function GoldUnlockModal({
     <AdminModal
       open={open}
       onClose={onClose}
-      title="Unlock ALT Gold"
+      title={`Unlock ${requiredName}`}
       description={
         subtopicTitle
-          ? `Get a Practice Pass to open “${subtopicTitle}” and other Gold topics in ${programName}.`
-          : `Get a Practice Pass to open Gold topics in ${programName}.`
+          ? `Get a Practice Pass to open “${subtopicTitle}” and other ${requiredName} topics in ${programName}.`
+          : `Get a Practice Pass to open ${requiredName} topics in ${programName}.`
       }
       className="sm:max-w-lg"
       footer={
@@ -123,7 +150,7 @@ export function GoldUnlockModal({
         <div className="rounded-xl border border-[#f5d0a8] bg-[#fff8ef] px-3 py-2.5 text-sm text-[#9a3412]">
           <p className="inline-flex items-center gap-1.5 font-semibold">
             <Lock className="h-3.5 w-3.5" aria-hidden />
-            Gold content stays on this page
+            {requiredName} content stays on this page
           </p>
           <p className="mt-1 text-xs leading-relaxed text-[#9a3412]/90">
             Buy a pass here — after payment you’ll return to this questionbank automatically.
@@ -134,7 +161,7 @@ export function GoldUnlockModal({
           <div className="rounded-xl border border-primary/20 bg-primary-muted/50 px-3 py-3 text-sm">
             <p className="font-semibold text-foreground">Sign in to purchase</p>
             <p className="mt-1 text-xs text-muted-foreground">
-              You’ll come back here to finish unlocking Gold topics.
+              You’ll come back here to finish unlocking {requiredName} topics.
             </p>
             <Button asChild className="mt-3 w-full" size="pill">
               <Link href={loginHref}>Sign in to continue</Link>
@@ -155,8 +182,8 @@ export function GoldUnlockModal({
           </div>
         ) : ranked.length === 0 ? (
           <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-            No Practice Pass products are available yet. You can still unlock Gold by enrolling in a
-            linked course.
+            No Practice Pass products are available yet. You can still unlock {requiredName} by
+            enrolling in a linked course.
             <div className="mt-3">
               <Button asChild variant="outline" size="sm">
                 <Link href={ROUTES.courses}>Browse courses</Link>
@@ -169,6 +196,7 @@ export function GoldUnlockModal({
               const isProgramMatch = product.programId === programId;
               const isGlobal = !product.programId;
               const busy = busyId === product.id;
+              const productTier = product.tier ?? "GOLD";
 
               return (
                 <li
@@ -180,7 +208,17 @@ export function GoldUnlockModal({
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-bold text-foreground">{product.title}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-bold text-foreground">{product.title}</p>
+                        <span
+                          className={cn(
+                            "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white",
+                            tierBadgeClass(productTier)
+                          )}
+                        >
+                          {tierLabel(productTier)}
+                        </span>
+                      </div>
                       <p className="mt-1 text-xs text-muted-foreground">
                         {richTextToPlain(product.description) ||
                           (isGlobal

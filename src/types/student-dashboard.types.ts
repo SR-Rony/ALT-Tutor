@@ -116,6 +116,7 @@ export interface AccessProduct {
   regularPrice?: number | string | null;
   durationDays?: number | null;
   isActive?: boolean;
+  tier?: "SILVER" | "GOLD" | "DIAMOND" | string;
   programId?: string | null;
   program?: { id: string; name: string; slug: string } | null;
 }

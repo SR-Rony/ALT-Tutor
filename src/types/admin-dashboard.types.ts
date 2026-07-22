@@ -139,10 +139,12 @@ export interface AdminPayment {
   status: PaymentStatus | string;
   transactionId?: string | null;
   studentId: string;
-  courseId: string;
+  courseId?: string | null;
+  accessProductId?: string | null;
   createdAt: string;
   student: { id: string; name: string };
-  course: { id: string; title: string };
+  course?: { id: string; title: string } | null;
+  accessProduct?: { id: string; title: string } | null;
 }
 
 export type ReviewStatus = "PENDING" | "APPROVED" | "HIDDEN";

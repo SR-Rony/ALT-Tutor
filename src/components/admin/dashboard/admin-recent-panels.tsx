@@ -139,7 +139,11 @@ export function AdminRecentPayments({
           {payments.map((payment) => (
             <li key={payment.id} className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-foreground">{payment.course.title}</p>
+                <p className="truncate text-sm font-semibold text-foreground">
+                  {payment.course?.title ??
+                    payment.accessProduct?.title ??
+                    "Payment"}
+                </p>
                 <p className="truncate text-xs text-muted-foreground">
                   {payment.student.name} · {formatShortDate(payment.createdAt)}
                 </p>

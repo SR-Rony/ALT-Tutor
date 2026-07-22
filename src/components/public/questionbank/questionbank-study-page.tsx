@@ -33,6 +33,7 @@ import { useQbProgram, useQbQuestions, useSavePracticeAnswer, useStartPracticeSe
 import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
 import { useAppSelector } from "@/store";
 import { questionbankService } from "@/services/questionbank.service";
+import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
 import type { ApiError } from "@/types";
 import type {
   PracticeAnswerFeedback,
@@ -905,6 +906,12 @@ export function QuestionbankStudyPage({
     const isLocked = apiError?.status === 403;
     const studyNext = ROUTES.subjectQuestionbankStudy(programSlug, subtopicSlug);
     const unlockHref = `${ROUTES.subjectQuestionbank(programSlug)}?unlock=1`;
+    const lockedSub = programOverview?.qbTopics
+      .flatMap((topic) => topic.subtopics)
+      .find((sub) => sub.slug === subtopicSlug);
+    const requiredTier = normalizeAccessBadge(lockedSub?.badge ?? "GOLD");
+    const lockedTitle =
+      requiredTier === "FREE" ? "Paid study set" : `${tierLabel(requiredTier)} study set`;
 
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
@@ -913,7 +920,7 @@ export function QuestionbankStudyPage({
             <span className="mx-auto inline-flex h-12 w-12 items-center justify-center rounded-full bg-[#fff8ef] text-[#d4a017]">
               <Lock className="h-6 w-6" aria-hidden />
             </span>
-            <h1 className="mt-4 text-xl font-extrabold text-foreground">ALT Gold study set</h1>
+            <h1 className="mt-4 text-xl font-extrabold text-foreground">{lockedTitle}</h1>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               {apiError?.message ||
                 "This study set requires a Practice Pass or enrollment in a linked course."}
@@ -921,7 +928,7 @@ export function QuestionbankStudyPage({
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               {programOverview ? (
                 <Button type="button" size="pill" onClick={() => setUnlockOpen(true)}>
-                  Unlock with Practice Pass
+                  Unlock {tierLabel(requiredTier)}
                 </Button>
               ) : (
                 <Button asChild size="pill">
@@ -950,7 +957,8 @@ export function QuestionbankStudyPage({
                 programId={programOverview.id}
                 programName={programOverview.name}
                 programSlug={programSlug}
-                subtopicTitle={subtopicSlug}
+                subtopicTitle={lockedSub?.title ?? subtopicSlug}
+                requiredTier={requiredTier}
               />
             ) : null}
           </>
@@ -1324,6 +1332,7 @@ export function QuestionbankStudyPage({
           programName={programOverview.name}
           programSlug={programSlug}
           subtopicTitle={data.subtopic.title}
+          requiredTier={data.subtopic.badge}
         />
       ) : null}
     </div>

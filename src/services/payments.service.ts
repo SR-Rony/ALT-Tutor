@@ -11,6 +11,7 @@ export type AccessProductInput = {
   regularPrice?: number;
   programId?: string | null;
   durationDays?: number | null;
+  tier?: "SILVER" | "GOLD" | "DIAMOND";
   isActive?: boolean;
 };
 
