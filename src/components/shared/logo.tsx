@@ -27,7 +27,7 @@ export function Logo({ className, showTagline = false, compact = false }: LogoPr
       height={150}
       priority
       className={cn(
-        "h-auto w-full max-w-[100px] shrink-0 object-contain object-left transition-transform ml-[-7px]",
+        "h-auto w-full max-w-[200px] shrink-0 object-contain object-left transition-transform ml-[-15px]",
         compact && "max-w-[180px]"
       )}
     />

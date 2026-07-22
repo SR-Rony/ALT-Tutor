@@ -734,6 +734,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
               learnHref={learnHref}
               loginNextHref={loginNextHref}
               userRole={user?.role}
+              userId={user?.id}
               onPreview={onSidebarPreview}
               onEnroll={() => void onEnroll()}
               onCheckout={() => void onCheckout()}
@@ -990,6 +991,104 @@ function CourseVideoModal({
   );
 }
 
+type StaffSidebarActions = {
+  roleLabel: string;
+  note: string;
+  manageCourseHref: string | null;
+  dashboardHref: string | null;
+  dashboardLabel: string | null;
+  questionbankHref: string | null;
+  questionbankLabel: string | null;
+};
+
+function getStaffSidebarActions(
+  userRole: string | undefined,
+  userId: string | undefined,
+  course: CourseDetail
+): StaffSidebarActions | null {
+  if (!userRole || userRole === "student") return null;
+
+  const dashboardHref =
+    userRole in roleHomeRoutes
+      ? roleHomeRoutes[userRole as keyof typeof roleHomeRoutes]
+      : ROUTES.home;
+
+  if (userRole === "admin") {
+    return {
+      roleLabel: "Admin",
+      note: "Enrollment is for students. Manage this course from your admin panel.",
+      manageCourseHref: ROUTES.admin.courseCurriculum(course.id),
+      dashboardHref: null,
+      dashboardLabel: null,
+      questionbankHref: ROUTES.admin.qbPrograms,
+      questionbankLabel: "Manage questionbank",
+    };
+  }
+
+  if (userRole === "teacher") {
+    const isCourseTeacher = Boolean(userId && course.teacher.id === userId);
+    return {
+      roleLabel: "Teacher",
+      note: isCourseTeacher
+        ? "You're viewing your course as the instructor."
+        : "Enrollment is for students. Open your teacher dashboard to manage your own courses.",
+      manageCourseHref: isCourseTeacher ? ROUTES.teacher.courseCurriculum(course.id) : null,
+      dashboardHref: ROUTES.teacher.root,
+      dashboardLabel: "Teacher dashboard",
+      questionbankHref: isCourseTeacher ? ROUTES.teacher.subjects : null,
+      questionbankLabel: isCourseTeacher ? "Manage subjects & questionbank" : null,
+    };
+  }
+
+  return {
+    roleLabel: userRole.charAt(0).toUpperCase() + userRole.slice(1),
+    note: "Enrollment is for students only.",
+    manageCourseHref: null,
+    dashboardHref,
+    dashboardLabel: "Go to dashboard",
+    questionbankHref: null,
+    questionbankLabel: null,
+  };
+}
+
+function StaffSidebarActions({
+  actions,
+  variant = "default",
+}: {
+  actions: StaffSidebarActions;
+  variant?: "default" | "outline";
+}) {
+  const isOutline = variant === "outline";
+
+  if (isOutline) {
+    if (!actions.questionbankHref || !actions.questionbankLabel) return null;
+    return (
+      <Button asChild variant="outline" size="lg" className="h-11 w-full">
+        <Link href={actions.questionbankHref}>{actions.questionbankLabel}</Link>
+      </Button>
+    );
+  }
+
+  return (
+    <div className="space-y-2.5">
+      <div className="rounded-lg border border-[#e8eef6] bg-[#f8fafc] px-3 py-2.5 text-center text-xs leading-relaxed text-[#64748b]">
+        <span className="font-semibold text-[#475569]">Signed in as {actions.roleLabel}.</span>{" "}
+        {actions.note}
+      </div>
+      {actions.manageCourseHref ? (
+        <Button asChild variant="default" size="lg" className="h-12 w-full">
+          <Link href={actions.manageCourseHref}>Manage course</Link>
+        </Button>
+      ) : null}
+      {actions.dashboardHref && actions.dashboardLabel ? (
+        <Button asChild variant={actions.manageCourseHref ? "outline" : "secondary"} size="lg" className="h-12 w-full">
+          <Link href={actions.dashboardHref}>{actions.dashboardLabel}</Link>
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
 function CourseSidebarCard({
   course,
   includes,
@@ -1006,6 +1105,7 @@ function CourseSidebarCard({
   learnHref,
   loginNextHref,
   userRole,
+  userId,
   onPreview,
   onEnroll,
   onCheckout,
@@ -1025,6 +1125,7 @@ function CourseSidebarCard({
   learnHref: string;
   loginNextHref: string;
   userRole?: string;
+  userId?: string;
   onPreview: () => void;
   onEnroll: () => void;
   onCheckout: () => void;
@@ -1032,6 +1133,8 @@ function CourseSidebarCard({
   const hasQuestionbank = (course.programLinks?.length ?? 0) > 0;
   const linkedProgramName = course.programLinks?.[0]?.program?.name;
   const questionbankLearnHref = `${learnHref}?tab=questionbank`;
+  const staffActions = getStaffSidebarActions(userRole, userId, course);
+  const isStaff = Boolean(staffActions);
 
   return (
     <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
@@ -1105,7 +1208,7 @@ function CourseSidebarCard({
                   disabled={enrollPending}
                   onClick={onEnroll}
                 >
-                  {enrollPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enroll"}
+                  {enrollPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enroll Now"}
                 </Button>
               ) : (
                 <Button
@@ -1116,9 +1219,11 @@ function CourseSidebarCard({
                   disabled={checkoutPending}
                   onClick={onCheckout}
                 >
-                  {checkoutPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enroll"}
+                  {checkoutPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enroll Now"}
                 </Button>
               )
+            ) : isStaff && staffActions ? (
+              <StaffSidebarActions actions={staffActions} />
             ) : isAuthenticated ? (
               <Button asChild variant="secondary" size="lg" className="h-12 w-full">
                 <Link
@@ -1160,14 +1265,16 @@ function CourseSidebarCard({
                   enrollPending ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    "Enroll to unlock questionbank"
+                    "Enroll Now to unlock questionbank"
                   )
                 ) : checkoutPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  "Enroll to unlock questionbank"
+                  "Enroll Now to unlock questionbank"
                 )}
               </Button>
+            ) : isStaff && staffActions ? (
+              <StaffSidebarActions actions={staffActions} variant="outline" />
             ) : isAuthenticated ? (
               <Button asChild variant="outline" size="lg" className="h-11 w-full">
                 <Link
@@ -1190,7 +1297,9 @@ function CourseSidebarCard({
                 ? linkedProgramName
                   ? `Practice ${linkedProgramName} questions included with your enrollment.`
                   : "Course-linked practice questions are ready in your dashboard."
-                : "Full questionbank access is included when you enroll in this course."}
+                : isStaff
+                  ? "Questionbank access is managed from your staff dashboard."
+                  : "Full questionbank access is included when you enroll in this course."}
             </p>
           </div>
         ) : null}
