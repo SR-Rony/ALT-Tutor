@@ -45,8 +45,22 @@ import {
 import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type { QbImportResult } from "@/services/questionbank-admin.types";
-import type { QbDifficulty, QbPaper, QbQuestion, QbTopic } from "@/types/qb.types";
+import type { QbAccessBadge, QbDifficulty, QbPaper, QbQuestion, QbTopic } from "@/types/qb.types";
 import { cn } from "@/utils";
+
+function AccessBadgePill({ badge }: { badge?: string | null }) {
+  const isGold = String(badge ?? "FREE").toUpperCase() === "GOLD";
+  return (
+    <span
+      className={cn(
+        "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white",
+        isGold ? "bg-[#d4a017]" : "bg-primary"
+      )}
+    >
+      {isGold ? "ALT Gold" : "ALT Free"}
+    </span>
+  );
+}
 
 const DIFFICULTIES: QbDifficulty[] = ["EASY", "MEDIUM", "HARD"];
 const PAPERS: QbPaper[] = ["PAPER_1", "PAPER_2", "PAPER_3"];
@@ -500,6 +514,7 @@ export function AdminQuestionbankPage() {
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
+  const [accessBadge, setAccessBadge] = useState<QbAccessBadge>("FREE");
   const [prompt, setPrompt] = useState("");
   const [optionsText, setOptionsText] = useState("Option A\nOption B\nOption C\nOption D");
   const [correctAnswer, setCorrectAnswer] = useState("A");
@@ -549,6 +564,9 @@ export function AdminQuestionbankPage() {
     setTitle(subtopic.title);
     setSlug(subtopic.slug);
     setDescription(subtopic.description ?? "");
+    setAccessBadge(
+      String(subtopic.badge).toUpperCase() === "GOLD" ? "GOLD" : "FREE"
+    );
   };
 
   const openEditQuestion = (question: QbQuestion) => {
@@ -582,6 +600,15 @@ export function AdminQuestionbankPage() {
     void updateSubtopic.mutateAsync({
       id: subtopic.id,
       payload: { isActive: !subtopic.isActive },
+    });
+  };
+
+  const toggleSubtopicAccessBadge = (subtopic: QbTopic["subtopics"][number]) => {
+    const next: QbAccessBadge =
+      String(subtopic.badge).toUpperCase() === "GOLD" ? "FREE" : "GOLD";
+    void updateSubtopic.mutateAsync({
+      id: subtopic.id,
+      payload: { badge: next },
     });
   };
 
@@ -646,6 +673,7 @@ export function AdminQuestionbankPage() {
           title: title.trim(),
           slug: slug.trim() || slugify(title),
           description: serializeRichText(description) || undefined,
+          badge: accessBadge,
         };
         if (modal.editId) {
           await updateSubtopic.mutateAsync({ id: modal.editId, payload });
@@ -704,7 +732,7 @@ export function AdminQuestionbankPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Questions"
-              description="Pick a program, then manage themes, study sets, Excel import, diagrams, and video solutions."
+              description="Manage themes, study sets, Free/Gold access, Excel import, diagrams, and video solutions."
               className="mb-0"
             />
             <div className="flex flex-wrap items-center gap-2">
@@ -771,6 +799,13 @@ export function AdminQuestionbankPage() {
             <Link href={ROUTES.admin.qbPrograms} className="font-semibold text-primary hover:underline">
               Programs
             </Link>
+            <span className="hidden text-border sm:inline">·</span>
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              Access:
+              <AccessBadgePill badge="FREE" />
+              <AccessBadgePill badge="GOLD" />
+              <span>— use Set Free / Set Gold on each study set</span>
+            </span>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-3">
@@ -892,6 +927,7 @@ export function AdminQuestionbankPage() {
                         setTitle("");
                         setSlug("");
                         setDescription("");
+                        setAccessBadge("FREE");
                       }}
                     >
                       Add study set
@@ -961,6 +997,7 @@ export function AdminQuestionbankPage() {
                                 )}
                               />
                               <p className="text-sm font-semibold text-foreground">{sub.title}</p>
+                              <AccessBadgePill badge={sub.badge} />
                               <span className="text-xs text-muted-foreground">
                                 ({sub.questions?.length ?? 0})
                               </span>
@@ -971,6 +1008,23 @@ export function AdminQuestionbankPage() {
                               ) : null}
                             </button>
                             <div className="flex flex-wrap gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className={cn(
+                                  String(sub.badge).toUpperCase() === "GOLD"
+                                    ? "border-[#d4a017]/50 text-[#9a3412]"
+                                    : "border-primary/30 text-primary"
+                                )}
+                                disabled={updateSubtopic.isPending}
+                                title="Toggle Free / Gold access"
+                                onClick={() => toggleSubtopicAccessBadge(sub)}
+                              >
+                                {String(sub.badge).toUpperCase() === "GOLD"
+                                  ? "Set Free"
+                                  : "Set Gold"}
+                              </Button>
                               <Button
                                 type="button"
                                 size="sm"
@@ -1106,7 +1160,9 @@ export function AdminQuestionbankPage() {
             ? "Put image + video as public URLs in the sheet. Questions appear on the study page automatically."
             : modal?.kind === "question"
               ? "Add stimulus image URL, mark scheme, and short video solution."
-              : "Visible on the public Questionbank with Easy / Medium / Hard filters."
+              : modal?.kind === "subtopic"
+                ? "ALT Free is open practice. ALT Gold needs Practice Pass or a linked course."
+                : "Visible on the public Questionbank with Easy / Medium / Hard filters."
         }
         onClose={() => !busy && setModal(null)}
         className={modal?.kind === "question" || modal?.kind === "import" ? "sm:max-w-2xl" : "sm:max-w-xl"}
@@ -1337,6 +1393,45 @@ export function AdminQuestionbankPage() {
                   minHeight="100px"
                 />
               </label>
+            ) : null}
+            {modal?.kind === "subtopic" ? (
+              <div className="space-y-2">
+                <span className="text-sm font-semibold">Access badge</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    className={cn(
+                      "rounded-xl border px-3 py-3 text-left transition",
+                      accessBadge === "FREE"
+                        ? "border-primary bg-primary/10"
+                        : "border-border hover:border-primary/40"
+                    )}
+                    onClick={() => setAccessBadge("FREE")}
+                  >
+                    <AccessBadgePill badge="FREE" />
+                    <p className="mt-2 text-xs font-semibold text-foreground">Open practice</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Anyone can open this study set. Solutions need login.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    className={cn(
+                      "rounded-xl border px-3 py-3 text-left transition",
+                      accessBadge === "GOLD"
+                        ? "border-[#d4a017] bg-[#fff8ef]"
+                        : "border-border hover:border-[#d4a017]/50"
+                    )}
+                    onClick={() => setAccessBadge("GOLD")}
+                  >
+                    <AccessBadgePill badge="GOLD" />
+                    <p className="mt-2 text-xs font-semibold text-foreground">Paid unlock</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">
+                      Needs Practice Pass or linked course enrollment.
+                    </p>
+                  </button>
+                </div>
+              </div>
             ) : null}
           </div>
         )}
