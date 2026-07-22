@@ -29,7 +29,8 @@ import {
   SubjectBreadcrumbNav,
   useSubjectBreadcrumbs,
 } from "@/components/public/subjects";
-import { useQbQuestions, useSavePracticeAnswer, useStartPracticeSession, useSubmitPracticeSession } from "@/hooks/use-questionbank";
+import { useQbProgram, useQbQuestions, useSavePracticeAnswer, useStartPracticeSession, useSubmitPracticeSession } from "@/hooks/use-questionbank";
+import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
 import { useAppSelector } from "@/store";
 import { questionbankService } from "@/services/questionbank.service";
 import type { ApiError } from "@/types";
@@ -658,6 +659,8 @@ export function QuestionbankStudyPage({
   const sessionStartedRef = useRef(false);
   const typeRef = useRef<HTMLDivElement>(null);
   const { data, isLoading, error, isFetching } = useQbQuestions(programSlug, subtopicSlug, filters);
+  const { data: programOverview } = useQbProgram(programSlug);
+  const [unlockOpen, setUnlockOpen] = useState(false);
   const startSession = useStartPracticeSession();
   const saveAnswer = useSavePracticeAnswer();
   const submitSession = useSubmitPracticeSession();
@@ -900,10 +903,8 @@ export function QuestionbankStudyPage({
   if (error || !data) {
     const apiError = error as unknown as ApiError | undefined;
     const isLocked = apiError?.status === 403;
-    const practicePassHref = isAuthenticated
-      ? ROUTES.student.practicePass
-      : `${ROUTES.auth.login}?next=${encodeURIComponent(ROUTES.student.practicePass)}`;
     const studyNext = ROUTES.subjectQuestionbankStudy(programSlug, subtopicSlug);
+    const unlockHref = `${ROUTES.subjectQuestionbank(programSlug)}?unlock=1`;
 
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
@@ -918,9 +919,15 @@ export function QuestionbankStudyPage({
                 "This study set requires a Practice Pass or enrollment in a linked course."}
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-              <Button asChild size="pill">
-                <Link href={practicePassHref}>Get Practice Pass</Link>
-              </Button>
+              {programOverview ? (
+                <Button type="button" size="pill" onClick={() => setUnlockOpen(true)}>
+                  Unlock with Practice Pass
+                </Button>
+              ) : (
+                <Button asChild size="pill">
+                  <Link href={unlockHref}>Unlock with Practice Pass</Link>
+                </Button>
+              )}
               {!isAuthenticated ? (
                 <Button asChild variant="outline" size="pill">
                   <Link href={`${ROUTES.auth.login}?next=${encodeURIComponent(studyNext)}`}>
@@ -936,6 +943,16 @@ export function QuestionbankStudyPage({
             <Button asChild variant="ghost" className="mt-4">
               <Link href={ROUTES.subjectQuestionbank(programSlug)}>Back to questionbank</Link>
             </Button>
+            {programOverview ? (
+              <GoldUnlockModal
+                open={unlockOpen}
+                onClose={() => setUnlockOpen(false)}
+                programId={programOverview.id}
+                programName={programOverview.name}
+                programSlug={programSlug}
+                subtopicTitle={subtopicSlug}
+              />
+            ) : null}
           </>
         ) : (
           <>
@@ -1131,9 +1148,13 @@ export function QuestionbankStudyPage({
         ) : !canViewSolutions ? (
           <div className="rounded-xl border border-[#f5d0a8] bg-[#fff8ef] px-4 py-3 text-sm text-[#9a3412]">
             Mark schemes and video solutions stay locked until you unlock this set with a{" "}
-            <Link href={ROUTES.student.practicePass} className="font-semibold underline underline-offset-2">
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => setUnlockOpen(true)}
+            >
               Practice Pass
-            </Link>{" "}
+            </button>{" "}
             or linked course enrollment.
           </div>
         ) : null}
@@ -1294,6 +1315,17 @@ export function QuestionbankStudyPage({
           </section>
         ) : null}
       </div>
+
+      {programOverview ? (
+        <GoldUnlockModal
+          open={unlockOpen}
+          onClose={() => setUnlockOpen(false)}
+          programId={programOverview.id}
+          programName={programOverview.name}
+          programSlug={programSlug}
+          subtopicTitle={data.subtopic.title}
+        />
+      ) : null}
     </div>
   );
 }

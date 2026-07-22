@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ArrowUp, Database, Lock, Sparkles } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/shared";
-import { ROUTES } from "@/constants";
+import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
+import { ROUTES, queryKeys } from "@/constants";
 import {
   ResourceHero,
   SubjectBreadcrumbNav,
@@ -19,10 +22,19 @@ import { cn } from "@/utils";
 
 type Props = { programSlug: string };
 
+type UnlockTarget = {
+  subtopicTitle?: string | null;
+};
+
 export function QuestionbankOverviewPage({ programSlug }: Props) {
-  const { data, isLoading, error, isFetching } = useQbProgram(programSlug);
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const { data, isLoading, error, isFetching, refetch } = useQbProgram(programSlug);
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const [showTop, setShowTop] = useState(false);
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [unlockTarget, setUnlockTarget] = useState<UnlockTarget>({});
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
     resourceSlug: "questionbank",
@@ -30,11 +42,34 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
     resourceHref: ROUTES.subjectQuestionbank(programSlug),
   });
 
+  const openUnlock = useCallback((subtopicTitle?: string | null) => {
+    setUnlockTarget({ subtopicTitle });
+    setUnlockOpen(true);
+  }, []);
+
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 480);
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Return from login (?unlock=1) or payment (?unlocked=1)
+  useEffect(() => {
+    const wantsUnlock = searchParams.get("unlock") === "1";
+    const justUnlocked = searchParams.get("unlocked") === "1";
+    if (!wantsUnlock && !justUnlocked) return;
+
+    if (wantsUnlock && isAuthenticated) {
+      setUnlockOpen(true);
+    }
+
+    if (justUnlocked) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.questionbank.all });
+      void refetch();
+    }
+
+    router.replace(ROUTES.subjectQuestionbank(programSlug), { scroll: false });
+  }, [searchParams, isAuthenticated, programSlug, queryClient, refetch, router]);
 
   if (isLoading) return <PageLoader label="Loading questionbank..." />;
 
@@ -50,10 +85,6 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
       </div>
     );
   }
-
-  const practicePassHref = isAuthenticated
-    ? ROUTES.student.practicePass
-    : `${ROUTES.auth.login}?next=${encodeURIComponent(ROUTES.student.practicePass)}`;
 
   const themeTabs = (
     <div className="mx-auto flex max-w-7xl gap-0 overflow-x-auto px-4 md:px-6">
@@ -81,12 +112,12 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
         footer={themeTabs}
       >
-        <Button asChild size="pill">
-          <Link href={practicePassHref}>
+        {data.access?.canStudyGold ? null : (
+          <Button type="button" size="pill" onClick={() => openUnlock()}>
             <Sparkles className="h-4 w-4" />
             Get Practice Pass
-          </Link>
-        </Button>
+          </Button>
+        )}
       </ResourceHero>
 
       <div className="mx-auto max-w-7xl space-y-14 px-4 py-12 md:px-6 md:py-16">
@@ -97,11 +128,20 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
         ) : null}
         {data.access && !data.access.canStudyGold ? (
           <div className="rounded-xl border border-[#f5d0a8] bg-[#fff8ef] px-4 py-3 text-sm text-[#9a3412]">
-            <span className="font-semibold">ALT Gold locked.</span> Unlock every Gold study set with a{" "}
-            <Link href={practicePassHref} className="font-semibold underline underline-offset-2">
+            <span className="font-semibold">ALT Gold locked.</span> Unlock Gold study sets with a{" "}
+            <button
+              type="button"
+              className="font-semibold underline underline-offset-2"
+              onClick={() => openUnlock()}
+            >
               Practice Pass
-            </Link>{" "}
+            </button>{" "}
             or by enrolling in a linked course.
+          </div>
+        ) : data.access?.canStudyGold ? (
+          <div className="rounded-xl border border-[#abeec5] bg-[#ecfdf3] px-4 py-3 text-sm text-[#067647]">
+            <span className="font-semibold">Gold unlocked.</span> You can open every Gold study set
+            in this questionbank.
           </div>
         ) : null}
         {data.qbTopics.length === 0 ? (
@@ -119,7 +159,8 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
             <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {topic.subtopics.map((sub) => {
                 const isGold = String(sub.badge).toUpperCase() === "GOLD";
-                const locked = Boolean(sub.locked) || (isGold && data.access && !data.access.canStudyGold);
+                const locked =
+                  Boolean(sub.locked) || (isGold && data.access && !data.access.canStudyGold);
                 const studyHref = ROUTES.subjectQuestionbankStudy(programSlug, sub.slug);
 
                 return (
@@ -160,11 +201,15 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
                       {locked ? " · Practice Pass / course required" : ""}
                     </p>
                     {locked ? (
-                      <Button asChild variant="outline" size="pill" className="w-full border-[#d4a017]/50 text-[#9a3412]">
-                        <Link href={practicePassHref}>
-                          <Lock className="h-3.5 w-3.5" aria-hidden />
-                          Unlock with Practice Pass
-                        </Link>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="pill"
+                        className="w-full border-[#d4a017]/50 text-[#9a3412]"
+                        onClick={() => openUnlock(sub.title)}
+                      >
+                        <Lock className="h-3.5 w-3.5" aria-hidden />
+                        Unlock with Practice Pass
                       </Button>
                     ) : (
                       <Button asChild variant="outline" size="pill" className="w-full border-primary/30">
@@ -189,6 +234,18 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
           <ArrowUp className="h-5 w-5" />
         </button>
       ) : null}
+
+      <GoldUnlockModal
+        open={unlockOpen}
+        onClose={() => setUnlockOpen(false)}
+        programId={data.id}
+        programName={data.name}
+        programSlug={programSlug}
+        subtopicTitle={unlockTarget.subtopicTitle}
+        onUnlocked={() => {
+          void refetch();
+        }}
+      />
     </div>
   );
 }

@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { useConfirmStubPayment, usePaymentByTransaction } from "@/hooks";
 import { formatMoney } from "@/lib/format";
+import { consumePaymentReturnTo, peekPaymentReturnTo } from "@/lib/payment-return";
 import type { ApiError } from "@/types";
 
 export function PaymentReturnPage() {
@@ -20,6 +21,11 @@ export function PaymentReturnPage() {
   );
   const confirmStub = useConfirmStubPayment();
   const [actionError, setActionError] = useState<string | null>(null);
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    setReturnTo(peekPaymentReturnTo());
+  }, []);
 
   useEffect(() => {
     if (!payment?.transactionId) return;
@@ -46,6 +52,19 @@ export function PaymentReturnPage() {
     resolvedStatus === "FAILED" ||
     resolvedStatus === "CANCELLED" ||
     resolvedStatus === "REFUNDED";
+
+  const continueHref = useMemo(() => {
+    if (!isSuccess) return null;
+    if (returnTo) return returnTo;
+    if (payment?.course?.slug) return ROUTES.student.courseLearn(payment.course.slug);
+    return ROUTES.student.practicePass;
+  }, [isSuccess, returnTo, payment?.course?.slug]);
+
+  const continueLabel = returnTo
+    ? "Back to questionbank"
+    : payment?.course?.slug
+      ? "Go to course"
+      : "Practice Pass";
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-4 py-12">
@@ -92,16 +111,24 @@ export function PaymentReturnPage() {
               <CheckCircle2 className="h-4 w-4" />
               Payment confirmed. Access granted.
             </div>
+            {returnTo ? (
+              <p className="text-sm text-muted-foreground">
+                Your Gold topics are ready — continue where you left off.
+              </p>
+            ) : null}
             <div className="flex flex-wrap gap-2">
-              {payment?.course?.slug ? (
+              {continueHref ? (
                 <Button asChild>
-                  <Link href={ROUTES.student.courseLearn(payment.course.slug)}>Go to course</Link>
+                  <Link
+                    href={continueHref}
+                    onClick={() => {
+                      consumePaymentReturnTo();
+                    }}
+                  >
+                    {continueLabel}
+                  </Link>
                 </Button>
-              ) : (
-                <Button asChild>
-                  <Link href={ROUTES.student.practicePass}>Practice Pass</Link>
-                </Button>
-              )}
+              ) : null}
               <Button asChild variant="outline">
                 <Link href={ROUTES.student.payments}>Payment history</Link>
               </Button>
@@ -115,9 +142,24 @@ export function PaymentReturnPage() {
               <XCircle className="h-4 w-4" />
               Payment was not completed.
             </div>
-            <Button asChild variant="outline">
-              <Link href={ROUTES.student.payments}>Back to payments</Link>
-            </Button>
+            <div className="flex flex-wrap gap-2">
+              {returnTo ? (
+                <Button asChild variant="outline">
+                  <Link
+                    href={returnTo}
+                    onClick={() => {
+                      consumePaymentReturnTo();
+                    }}
+                  >
+                    Back to questionbank
+                  </Link>
+                </Button>
+              ) : (
+                <Button asChild variant="outline">
+                  <Link href={ROUTES.student.payments}>Back to payments</Link>
+                </Button>
+              )}
+            </div>
           </div>
         ) : null}
 
