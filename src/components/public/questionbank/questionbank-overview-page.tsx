@@ -215,9 +215,16 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
                         Unlock {tierLabel(sub.badge)}
                       </Button>
                     ) : (
-                      <Button asChild variant="outline" size="pill" className="w-full border-primary/30">
-                        <Link href={studyHref}>Open Study</Link>
-                      </Button>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        <Button asChild variant="outline" size="pill" className="w-full border-primary/30">
+                          <Link href={studyHref}>Study</Link>
+                        </Button>
+                        <Button asChild size="pill" className="w-full">
+                          <Link href={ROUTES.subjectQuestionbankStudyExam(programSlug, sub.slug)}>
+                            Exam
+                          </Link>
+                        </Button>
+                      </div>
                     )}
                   </article>
                 );

@@ -146,6 +146,7 @@ export interface PracticeSessionResult {
 export interface PracticeHistoryItem extends PracticeSession {
   answeredCount: number;
   program: { id: string; name: string; slug: string };
+  subtopicId?: string | null;
 }
 
 export interface StartPracticeSessionInput {
@@ -156,4 +157,5 @@ export interface StartPracticeSessionInput {
   paper?: QbPaper[];
   questionType?: QbQuestionType[];
   durationMinutes?: number;
+  forceNew?: boolean;
 }

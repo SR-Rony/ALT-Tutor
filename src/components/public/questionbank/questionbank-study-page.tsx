@@ -221,6 +221,11 @@ function McqQuestionCard({
                 </span>
               ) : null}
               <DifficultyDots difficulty={String(question.difficulty)} />
+              {question.marks != null && question.marks > 0 ? (
+                <span className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-foreground">
+                  [{question.marks}]
+                </span>
+              ) : null}
             </div>
             <Expand className="h-4 w-4 text-muted-foreground" />
           </div>
@@ -453,7 +458,7 @@ function StructuredQuestionCard({
   const [draft, setDraft] = useState(selectedAnswer ?? "");
   const qLabel = `Question ${question.number || index + 1}`;
   const maxMarkMatch = question.body?.match(/\[Maximum mark:\s*(\d+)\]/i);
-  const maxMarks = maxMarkMatch?.[1];
+  const maxMarks = question.marks ?? (maxMarkMatch ? Number(maxMarkMatch[1]) : null);
 
   useEffect(() => {
     setDraft(selectedAnswer ?? "");
@@ -482,11 +487,16 @@ function StructuredQuestionCard({
               <span className="rounded-md border border-primary/20 bg-primary-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
                 Paper 2 · SQ
               </span>
+              {maxMarks != null && maxMarks > 0 ? (
+                <span className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-foreground">
+                  [{maxMarks}]
+                </span>
+              ) : null}
             </div>
             <Expand className="h-4 w-4 text-muted-foreground" />
           </div>
 
-          {maxMarks ? (
+          {maxMarks != null && maxMarks > 0 ? (
             <p className="mb-2 text-sm font-semibold text-foreground">[Maximum mark: {maxMarks}]</p>
           ) : null}
 
@@ -652,11 +662,14 @@ export function QuestionbankStudyPage({
   const [answerFeedback, setAnswerFeedback] = useState<Record<string, PracticeAnswerFeedback>>({});
   const [examSubmitted, setExamSubmitted] = useState(false);
   const [sessionScore, setSessionScore] = useState<number | null>(null);
+  const [sessionCorrectCount, setSessionCorrectCount] = useState<number | null>(null);
+  const [sessionTotalQuestions, setSessionTotalQuestions] = useState<number | null>(null);
   const [expiresAt, setExpiresAt] = useState<string | null>(null);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [practiceHistory, setPracticeHistory] = useState<PracticeHistoryItem[]>([]);
   const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
   const [sessionError, setSessionError] = useState<string | null>(null);
+  const [sessionBooting, setSessionBooting] = useState(false);
   const sessionStartedRef = useRef(false);
   const typeRef = useRef<HTMLDivElement>(null);
   const { data, isLoading, error, isFetching } = useQbQuestions(programSlug, subtopicSlug, filters);
@@ -682,6 +695,111 @@ export function QuestionbankStudyPage({
     void loadHistory();
   }, [loadHistory]);
 
+  const applySessionResult = useCallback(
+    (result: {
+      session: {
+        id: string;
+        status: string;
+        score?: number | null;
+        correctCount?: number | null;
+        totalQuestions?: number | null;
+        expiresAt?: string | null;
+      };
+      questions: Array<{
+        id: string;
+        studentAnswer?: string | null;
+        isCorrect?: boolean | null;
+        correctAnswer?: string;
+        markScheme?: string | null;
+        videoUrl?: string | null;
+      }>;
+    }) => {
+      setSessionId(result.session.id);
+      setExpiresAt(result.session.expiresAt ?? null);
+      setSessionTotalQuestions(result.session.totalQuestions ?? null);
+      setSessionCorrectCount(result.session.correctCount ?? null);
+      if (result.session.expiresAt && result.session.status !== "SUBMITTED") {
+        setRemainingSeconds(
+          Math.max(
+            0,
+            Math.floor((new Date(result.session.expiresAt).getTime() - Date.now()) / 1000)
+          )
+        );
+      } else if (result.session.status === "SUBMITTED") {
+        setRemainingSeconds(0);
+      }
+
+      const restoredAnswers: Record<string, string> = {};
+      for (const question of result.questions) {
+        if (question.studentAnswer) restoredAnswers[question.id] = question.studentAnswer;
+      }
+      setSelectedAnswers(restoredAnswers);
+
+      if (result.session.status === "SUBMITTED") {
+        setExamSubmitted(true);
+        setSessionScore(result.session.score ?? null);
+        const restoredFeedback: Record<string, PracticeAnswerFeedback> = {};
+        for (const question of result.questions) {
+          if (question.isCorrect != null && question.correctAnswer) {
+            restoredFeedback[question.id] = {
+              isCorrect: question.isCorrect,
+              correctAnswer: question.correctAnswer,
+              markScheme: question.markScheme,
+              videoUrl: question.videoUrl,
+            };
+          }
+        }
+        setAnswerFeedback(restoredFeedback);
+      } else {
+        setExamSubmitted(false);
+        setSessionScore(null);
+        setAnswerFeedback({});
+      }
+    },
+    []
+  );
+
+  const bootSession = useCallback(
+    async (forceNew = false) => {
+      if (!data?.questions.length || !isAuthenticated) return;
+      setSessionError(null);
+      setSessionBooting(true);
+      try {
+        const result = await startSession.mutateAsync({
+          programSlug,
+          subtopicSlug,
+          mode: examMode ? "EXAM" : "STUDY",
+          difficulty: filters.difficulty,
+          paper: filters.paper,
+          questionType: filters.type,
+          durationMinutes: examMode ? 60 : undefined,
+          forceNew,
+        });
+        applySessionResult(result);
+        sessionStartedRef.current = true;
+        void loadHistory();
+      } catch (err) {
+        setSessionError((err as ApiError).message || "Could not start practice session");
+        sessionStartedRef.current = false;
+      } finally {
+        setSessionBooting(false);
+      }
+    },
+    [
+      applySessionResult,
+      data?.questions.length,
+      examMode,
+      filters.difficulty,
+      filters.paper,
+      filters.type,
+      isAuthenticated,
+      loadHistory,
+      programSlug,
+      startSession,
+      subtopicSlug,
+    ]
+  );
+
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
     resourceSlug: "questionbank",
@@ -693,68 +811,56 @@ export function QuestionbankStudyPage({
   useEffect(() => {
     if (!data?.questions.length || !isAuthenticated || sessionStartedRef.current) return;
     sessionStartedRef.current = true;
-    void startSession
-      .mutateAsync({
-        programSlug,
-        subtopicSlug,
-        mode: examMode ? "EXAM" : "STUDY",
-        difficulty: filters.difficulty,
-        paper: filters.paper,
-        questionType: filters.type,
-        durationMinutes: examMode ? 60 : undefined,
-      })
-      .then((result) => {
-        setSessionId(result.session.id);
-        setExpiresAt(result.session.expiresAt ?? null);
-        if (result.session.expiresAt) {
-          setRemainingSeconds(
-            Math.max(
-              0,
-              Math.floor((new Date(result.session.expiresAt).getTime() - Date.now()) / 1000)
-            )
-          );
-        }
-        const restoredAnswers: Record<string, string> = {};
-        for (const question of result.questions) {
-          if ("studentAnswer" in question && question.studentAnswer) {
-            restoredAnswers[question.id] = question.studentAnswer;
-          }
-        }
-        setSelectedAnswers(restoredAnswers);
-        if (result.session.status === "SUBMITTED") {
-          setExamSubmitted(true);
-          setSessionScore(result.session.score ?? null);
-          const restoredFeedback: Record<string, PracticeAnswerFeedback> = {};
-          for (const question of result.questions) {
-            if (question.isCorrect != null && question.correctAnswer) {
-              restoredFeedback[question.id] = {
-                isCorrect: question.isCorrect,
-                correctAnswer: question.correctAnswer,
-                markScheme: question.markScheme,
-                videoUrl: question.videoUrl,
-              };
-            }
-          }
-          setAnswerFeedback(restoredFeedback);
-        }
-        void loadHistory();
-      })
-      .catch((err: ApiError) => {
-        setSessionError(err.message || "Could not start practice session");
+    void bootSession(false);
+  }, [data?.questions.length, isAuthenticated, bootSession]);
+
+  const filtersFrozen = examMode && Boolean(sessionId) && !examSubmitted;
+
+  const changeFilters = useCallback(
+    (updater: (prev: QbFilters) => QbFilters) => {
+      if (filtersFrozen) return;
+      setFilters((prev) => updater(prev));
+      sessionStartedRef.current = false;
+      setSessionId(null);
+      setSelectedAnswers({});
+      setAnswerFeedback({});
+      setExamSubmitted(false);
+      setSessionScore(null);
+      setSessionCorrectCount(null);
+      setSessionTotalQuestions(null);
+      setExpiresAt(null);
+      setRemainingSeconds(null);
+    },
+    [filtersFrozen]
+  );
+
+  const reviewIncorrect = () => {
+    const firstWrong = (data?.questions ?? []).find((q) => answerFeedback[q.id]?.isCorrect === false);
+    const target = firstWrong
+      ? document.getElementById(`q-${firstWrong.number}`)
+      : document.getElementById(`q-${data?.questions[0]?.number ?? 1}`);
+    target?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const openHistorySession = async (item: PracticeHistoryItem) => {
+    setSessionError(null);
+    setSessionBooting(true);
+    try {
+      if (item.status === "IN_PROGRESS") {
         sessionStartedRef.current = false;
-      });
-  }, [
-    data?.questions.length,
-    isAuthenticated,
-    examMode,
-    filters.difficulty,
-    filters.paper,
-    filters.type,
-    programSlug,
-    subtopicSlug,
-    startSession,
-    loadHistory,
-  ]);
+        await bootSession(false);
+      } else {
+        const result = await questionbankService.getPracticeSession(item.id);
+        applySessionResult(result);
+        sessionStartedRef.current = true;
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      }
+    } catch (err) {
+      setSessionError((err as ApiError).message || "Could not open that attempt");
+    } finally {
+      setSessionBooting(false);
+    }
+  };
 
   useEffect(() => {
     if (!examMode || examSubmitted || !expiresAt) return;
@@ -782,6 +888,8 @@ export function QuestionbankStudyPage({
       if (result.expired && result.result) {
         setExamSubmitted(true);
         setSessionScore(result.result.session.score ?? null);
+        setSessionCorrectCount(result.result.session.correctCount ?? null);
+        setSessionTotalQuestions(result.result.session.totalQuestions ?? null);
         setRemainingSeconds(0);
         const expiredFeedback: Record<string, PracticeAnswerFeedback> = {};
         const expiredAnswers: Record<string, string> = {};
@@ -828,6 +936,8 @@ export function QuestionbankStudyPage({
       const result = await submitSession.mutateAsync(sessionId);
       setExamSubmitted(true);
       setSessionScore(result.session.score ?? null);
+      setSessionCorrectCount(result.session.correctCount ?? null);
+      setSessionTotalQuestions(result.session.totalQuestions ?? null);
       const nextFeedback: Record<string, PracticeAnswerFeedback> = {};
       for (const q of result.questions) {
         if (q.isCorrect != null && q.correctAnswer) {
@@ -1044,7 +1154,8 @@ export function QuestionbankStudyPage({
                   </span>
                   <button
                     type="button"
-                    className="inline-flex min-w-[8rem] items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition hover:border-primary/30"
+                    disabled={filtersFrozen}
+                    className="inline-flex min-w-[8rem] items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition hover:border-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => setTypeOpen((v) => !v)}
                   >
                     <span className="truncate">{typeLabel}</span>
@@ -1069,11 +1180,12 @@ export function QuestionbankStudyPage({
                               className="h-4 w-4 rounded border-border text-primary accent-primary focus:ring-primary/30"
                               checked={checked}
                               onChange={() =>
-                                setFilters((f) => ({
+                                changeFilters((f) => ({
                                   ...f,
                                   type: toggleFilter(f.type, opt.value),
                                 }))
                               }
+                              disabled={filtersFrozen}
                             />
                             {opt.label}
                           </label>
@@ -1090,8 +1202,9 @@ export function QuestionbankStudyPage({
                       label={p === "PAPER_1" ? "Paper 1" : "Paper 2"}
                       checked={filters.paper?.includes(p) ?? false}
                       onChange={() =>
-                        setFilters((f) => ({ ...f, paper: toggleFilter(f.paper, p) }))
+                        changeFilters((f) => ({ ...f, paper: toggleFilter(f.paper, p) }))
                       }
+                      disabled={filtersFrozen}
                     />
                   ))}
                 </FilterChecks>
@@ -1103,11 +1216,12 @@ export function QuestionbankStudyPage({
                       label={d.charAt(0) + d.slice(1).toLowerCase()}
                       checked={filters.difficulty?.includes(d) ?? false}
                       onChange={() =>
-                        setFilters((f) => ({
+                        changeFilters((f) => ({
                           ...f,
                           difficulty: toggleFilter(f.difficulty, d),
                         }))
                       }
+                      disabled={filtersFrozen}
                     />
                   ))}
                 </FilterChecks>
@@ -1133,13 +1247,19 @@ export function QuestionbankStudyPage({
                 {hasActiveFilters ? (
                   <button
                     type="button"
-                    className="text-sm font-medium text-primary hover:underline"
-                    onClick={() => setFilters({})}
+                    disabled={filtersFrozen}
+                    className="text-sm font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                    onClick={() => changeFilters(() => ({}))}
                   >
                     Clear
                   </button>
                 ) : null}
               </div>
+              {filtersFrozen ? (
+                <p className="mt-3 text-xs text-muted-foreground">
+                  Filters are locked during an active exam. Submit first to change them.
+                </p>
+              ) : null}
             </div>
           ) : null}
         </div>
@@ -1181,10 +1301,21 @@ export function QuestionbankStudyPage({
             )}
           >
             {examSubmitted ? (
-              <p className="font-medium">
-                Exam submitted{sessionScore != null ? ` — score ${sessionScore}%` : ""}. Mark scheme and
-                video solutions are now unlocked.
-              </p>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium">
+                    Exam submitted
+                    {sessionCorrectCount != null && sessionTotalQuestions != null
+                      ? ` — ${sessionCorrectCount}/${sessionTotalQuestions} correct`
+                      : ""}
+                    {sessionScore != null ? ` (${sessionScore}%)` : ""}. Mark schemes and video
+                    solutions are now unlocked.
+                  </p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={reviewIncorrect}>
+                  Review answers
+                </Button>
+              </div>
             ) : (
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -1270,23 +1401,33 @@ export function QuestionbankStudyPage({
                     )} unanswered)`}
               </Button>
             ) : (
-              <Button
-                type="button"
-                variant="outline"
-                size="pill"
-                className="w-full sm:w-auto"
-                onClick={() => {
-                  setExamSubmitted(false);
-                  setSessionId(null);
-                  setSelectedAnswers({});
-                  setAnswerFeedback({});
-                  setExpiresAt(null);
-                  setRemainingSeconds(null);
-                  sessionStartedRef.current = false;
-                }}
-              >
-                Start new exam
-              </Button>
+              <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                <Button type="button" variant="outline" size="pill" onClick={reviewIncorrect}>
+                  Review answers
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="pill"
+                  className="w-full sm:w-auto"
+                  disabled={sessionBooting || startSession.isPending}
+                  onClick={() => {
+                    setExamSubmitted(false);
+                    setSessionId(null);
+                    setSelectedAnswers({});
+                    setAnswerFeedback({});
+                    setSessionScore(null);
+                    setSessionCorrectCount(null);
+                    setSessionTotalQuestions(null);
+                    setExpiresAt(null);
+                    setRemainingSeconds(null);
+                    sessionStartedRef.current = false;
+                    void bootSession(true);
+                  }}
+                >
+                  {sessionBooting || startSession.isPending ? "Starting…" : "Start new exam"}
+                </Button>
+              </div>
             )}
           </div>
         ) : null}
@@ -1295,28 +1436,44 @@ export function QuestionbankStudyPage({
           <section className="space-y-3">
             <h2 className="text-lg font-bold text-foreground">Practice exam history</h2>
             <div className="overflow-x-auto rounded-2xl border border-border bg-card">
-              <table className="w-full min-w-[34rem] text-sm">
+              <table className="w-full min-w-[40rem] text-sm">
                 <thead className="border-b bg-muted/50 text-xs uppercase text-muted-foreground">
                   <tr>
                     <th className="px-4 py-3 text-left">Started</th>
                     <th className="px-4 py-3 text-left">Status</th>
                     <th className="px-4 py-3 text-left">Answered</th>
                     <th className="px-4 py-3 text-left">Score</th>
+                    <th className="px-4 py-3 text-left">Action</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {practiceHistory.map((item) => (
-                    <tr key={item.id} className="border-b last:border-0">
-                      <td className="px-4 py-3">{new Date(item.createdAt).toLocaleString()}</td>
-                      <td className="px-4 py-3">{item.status}</td>
-                      <td className="px-4 py-3">
-                        {item.answeredCount}/{item.totalQuestions}
-                      </td>
-                      <td className="px-4 py-3">
-                        {item.status === "SUBMITTED" ? `${item.score ?? 0}%` : "In progress"}
-                      </td>
-                    </tr>
-                  ))}
+                  {practiceHistory
+                    .filter((item) => !item.subtopicId || item.subtopicId === data.subtopic.id)
+                    .map((item) => (
+                      <tr key={item.id} className="border-b last:border-0">
+                        <td className="px-4 py-3">{new Date(item.createdAt).toLocaleString()}</td>
+                        <td className="px-4 py-3">
+                          {item.status === "SUBMITTED" ? "Submitted" : "In progress"}
+                        </td>
+                        <td className="px-4 py-3">
+                          {item.answeredCount}/{item.totalQuestions}
+                        </td>
+                        <td className="px-4 py-3">
+                          {item.status === "SUBMITTED" ? `${item.score ?? 0}%` : "—"}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            disabled={sessionBooting}
+                            onClick={() => void openHistorySession(item)}
+                          >
+                            {item.status === "IN_PROGRESS" ? "Resume" : "Review"}
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
                 </tbody>
               </table>
             </div>
@@ -1417,17 +1574,25 @@ function NativeCheck({
   label,
   checked,
   onChange,
+  disabled = false,
 }: {
   label: string;
   checked: boolean;
   onChange: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <label className="inline-flex cursor-pointer items-center gap-1.5 text-sm text-foreground">
+    <label
+      className={cn(
+        "inline-flex items-center gap-1.5 text-sm text-foreground",
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+      )}
+    >
       <input
         type="checkbox"
         className="h-4 w-4 rounded border-border text-primary accent-primary focus:ring-primary/30"
         checked={checked}
+        disabled={disabled}
         onChange={onChange}
       />
       {label}
