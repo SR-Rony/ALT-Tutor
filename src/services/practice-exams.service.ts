@@ -41,6 +41,13 @@ export const practiceExamsService = {
     return response.data ?? [];
   },
 
+  async teacherList(programId: string): Promise<AdminPracticeExamList> {
+    const response = await apiClient.get<AdminPracticeExamList>(
+      `/practice-exams/teacher?programId=${encodeURIComponent(programId)}`
+    );
+    return response.data;
+  },
+
   async startAttempt(payload: StartPracticeExamInput): Promise<PracticeExamAttemptPayload> {
     const response = await apiClient.post<PracticeExamAttemptPayload>(
       "/practice-exams/attempts",

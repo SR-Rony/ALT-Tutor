@@ -105,6 +105,7 @@ export {
   usePracticeExamTemplates,
   usePracticeExamTemplate,
   usePracticeExamHistory,
+  useTeacherPracticeExams,
   usePracticeExamAttempt,
   useStartPracticeExamAttempt,
   useSavePracticeExamAnswer,

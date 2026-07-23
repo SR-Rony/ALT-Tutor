@@ -9,6 +9,7 @@ const titles: Record<string, string> = {
   [ROUTES.teacher.root]: "Overview",
   [ROUTES.teacher.courses]: "My Courses",
   [ROUTES.teacher.subjects]: "My Subjects",
+  [ROUTES.teacher.practiceExams]: "Practice Exams",
   [ROUTES.teacher.assessments]: "Assessments",
   [ROUTES.teacher.gradingQueue]: "Grading",
   [ROUTES.teacher.gradebook]: "Gradebook",

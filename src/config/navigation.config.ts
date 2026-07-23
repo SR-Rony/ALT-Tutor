@@ -48,6 +48,7 @@ export const teacherNav: NavItem[] = [
   { title: "Grading", href: ROUTES.teacher.gradingQueue, iconName: "clipboardCheck" },
   { title: "Gradebook", href: ROUTES.teacher.gradebook, iconName: "graduation" },
   { title: "My Subjects", href: ROUTES.teacher.subjects, iconName: "book" },
+  { title: "Practice Exams", href: ROUTES.teacher.practiceExams, iconName: "clipboard" },
 ];
 
 export const teacherFooterNav: NavItem[] = [

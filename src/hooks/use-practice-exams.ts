@@ -43,6 +43,14 @@ export function usePracticeExamHistory(programSlug: string) {
   });
 }
 
+export function useTeacherPracticeExams(programId?: string) {
+  return useQuery({
+    queryKey: queryKeys.practiceExams.teacher(programId),
+    queryFn: () => practiceExamsService.teacherList(programId!),
+    enabled: Boolean(programId),
+  });
+}
+
 export function usePracticeExamAttempt(attemptId?: string) {
   return useQuery({
     queryKey: queryKeys.practiceExams.attempt(attemptId ?? ""),
