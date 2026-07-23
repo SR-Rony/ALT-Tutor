@@ -23,6 +23,16 @@ export const ROUTES = {
     `/subjects/${programSlug}/practice-exams/mock-exams`,
   subjectPracticeExam: (programSlug: string, templateSlug: string) =>
     `/subjects/${programSlug}/practice-exams/${templateSlug}`,
+  subjectPracticeExamTake: (programSlug: string, templateSlug: string, opts?: { new?: boolean }) => {
+    const base = `/subjects/${programSlug}/practice-exams/${templateSlug}/take`;
+    if (opts?.new) return `${base}?new=1`;
+    return base;
+  },
+  subjectPracticeExamResult: (
+    programSlug: string,
+    templateSlug: string,
+    attemptId: string
+  ) => `/subjects/${programSlug}/practice-exams/${templateSlug}/attempts/${attemptId}/result`,
   about: "/about",
   contact: "/contact",
   help: "/help",

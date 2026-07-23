@@ -43,6 +43,7 @@ export const queryKeys = {
       ["practice-exams", "template", programSlug, templateSlug, authKey] as const,
     history: (programSlug: string, authKey = "anon") =>
       ["practice-exams", "history", programSlug, authKey] as const,
+    attempt: (attemptId: string) => ["practice-exams", "attempt", attemptId] as const,
   },
   assignments: {
     mine: ["assignments", "mine"] as const,

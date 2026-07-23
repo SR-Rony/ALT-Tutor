@@ -170,7 +170,7 @@ export function PracticeExamsPage({ programSlug }: Props) {
           <section>
             <h2 className="text-lg font-bold text-foreground">Your recent attempts</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Resume and full result review land with the timed runner next.
+              Resume in-progress exams or review submitted scores.
             </p>
             {history.length === 0 ? (
               <p className="mt-4 rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
@@ -178,30 +178,40 @@ export function PracticeExamsPage({ programSlug }: Props) {
               </p>
             ) : (
               <ul className="mt-4 divide-y divide-border rounded-2xl border border-border bg-card">
-                {history.slice(0, 8).map((item) => (
-                  <li
-                    key={item.id}
-                    className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-semibold text-foreground">{item.template.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.status}
-                        {item.score != null
-                          ? ` · ${item.correctCount ?? 0}/${item.totalQuestions} (${item.score}%)`
-                          : item.status === "IN_PROGRESS"
-                            ? ` · ${item.answeredCount}/${item.totalQuestions} answered`
-                            : ""}
-                      </p>
-                    </div>
-                    <Link
-                      href={ROUTES.subjectPracticeExam(programSlug, item.template.slug)}
-                      className="text-xs font-semibold text-primary hover:underline"
+                {history.slice(0, 8).map((item) => {
+                  const inProgress = item.status === "IN_PROGRESS";
+                  const href = inProgress
+                    ? ROUTES.subjectPracticeExamTake(programSlug, item.template.slug)
+                    : ROUTES.subjectPracticeExamResult(
+                        programSlug,
+                        item.template.slug,
+                        item.id
+                      );
+                  return (
+                    <li
+                      key={item.id}
+                      className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm"
                     >
-                      View template
-                    </Link>
-                  </li>
-                ))}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-foreground">{item.template.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {item.status}
+                          {item.status === "SUBMITTED" && item.score != null
+                            ? ` · ${item.correctCount ?? 0}/${item.totalQuestions} (${item.score}%)`
+                            : inProgress
+                              ? ` · ${item.answeredCount}/${item.totalQuestions} answered`
+                              : ""}
+                        </p>
+                      </div>
+                      <Link
+                        href={href}
+                        className="text-xs font-semibold text-primary hover:underline"
+                      >
+                        {inProgress ? "Resume" : "View result"}
+                      </Link>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>

@@ -58,7 +58,7 @@ export function PracticeExamDetailPage({ programSlug, templateSlug }: Props) {
   }
 
   const loginHref = `${ROUTES.auth.login}?next=${encodeURIComponent(
-    ROUTES.subjectPracticeExam(programSlug, templateSlug)
+    ROUTES.subjectPracticeExamTake(programSlug, templateSlug)
   )}`;
 
   return (
@@ -126,8 +126,8 @@ export function PracticeExamDetailPage({ programSlug, templateSlug }: Props) {
         <section className="rounded-2xl border border-border bg-card p-5">
           <h2 className="text-base font-bold text-foreground">Ready to start?</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            The timed exam runner (countdown, answer save, auto-submit, results) ships in the next
-            step. This template is live in the API — start will wire there next.
+            Timed attempt with countdown, autosave, and auto-submit when time runs out. Solutions
+            unlock after you submit.
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             {locked ? (
@@ -145,8 +145,10 @@ export function PracticeExamDetailPage({ programSlug, templateSlug }: Props) {
                 <Link href={loginHref}>Log in to start</Link>
               </Button>
             ) : (
-              <Button type="button" size="pill" disabled title="Timed runner lands in Step 2.6">
-                Start Exam (next step)
+              <Button asChild size="pill">
+                <Link href={ROUTES.subjectPracticeExamTake(programSlug, templateSlug)}>
+                  Start Exam
+                </Link>
               </Button>
             )}
             <Button asChild variant="outline" size="pill">

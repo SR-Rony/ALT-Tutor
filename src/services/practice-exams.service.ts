@@ -2,10 +2,13 @@ import { apiClient } from "./api-client";
 import type {
   AdminPracticeExamList,
   CreatePracticeExamTemplateInput,
+  PracticeExamAttemptPayload,
   PracticeExamHistoryItem,
   PracticeExamProgramList,
   PracticeExamTemplate,
   PracticeExamTemplateDetail,
+  SavePracticeExamAnswerResult,
+  StartPracticeExamInput,
   UpdatePracticeExamTemplateInput,
 } from "@/types/practice-exam.types";
 
@@ -36,6 +39,40 @@ export const practiceExamsService = {
       `/practice-exams/history?${params.toString()}`
     );
     return response.data ?? [];
+  },
+
+  async startAttempt(payload: StartPracticeExamInput): Promise<PracticeExamAttemptPayload> {
+    const response = await apiClient.post<PracticeExamAttemptPayload>(
+      "/practice-exams/attempts",
+      payload
+    );
+    return response.data;
+  },
+
+  async getAttempt(attemptId: string): Promise<PracticeExamAttemptPayload> {
+    const response = await apiClient.get<PracticeExamAttemptPayload>(
+      `/practice-exams/attempts/${encodeURIComponent(attemptId)}`
+    );
+    return response.data;
+  },
+
+  async saveAnswer(
+    attemptId: string,
+    questionId: string,
+    answer: string
+  ): Promise<SavePracticeExamAnswerResult> {
+    const response = await apiClient.patch<SavePracticeExamAnswerResult>(
+      `/practice-exams/attempts/${encodeURIComponent(attemptId)}/answers`,
+      { questionId, answer }
+    );
+    return response.data;
+  },
+
+  async submitAttempt(attemptId: string): Promise<PracticeExamAttemptPayload> {
+    const response = await apiClient.post<PracticeExamAttemptPayload>(
+      `/practice-exams/attempts/${encodeURIComponent(attemptId)}/submit`
+    );
+    return response.data;
   },
 
   async adminList(programId: string): Promise<AdminPracticeExamList> {

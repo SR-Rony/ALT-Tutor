@@ -6,6 +6,7 @@ import { practiceExamsService } from "@/services/practice-exams.service";
 import { useAppSelector } from "@/store";
 import type {
   CreatePracticeExamTemplateInput,
+  StartPracticeExamInput,
   UpdatePracticeExamTemplateInput,
 } from "@/types/practice-exam.types";
 
@@ -39,6 +40,45 @@ export function usePracticeExamHistory(programSlug: string) {
     queryKey: queryKeys.practiceExams.history(programSlug, authKey),
     queryFn: () => practiceExamsService.listHistory(programSlug),
     enabled: Boolean(programSlug && isAuthenticated && authKey !== "anon"),
+  });
+}
+
+export function usePracticeExamAttempt(attemptId?: string) {
+  return useQuery({
+    queryKey: queryKeys.practiceExams.attempt(attemptId ?? ""),
+    queryFn: () => practiceExamsService.getAttempt(attemptId!),
+    enabled: Boolean(attemptId),
+  });
+}
+
+export function useStartPracticeExamAttempt() {
+  return useMutation({
+    mutationFn: (payload: StartPracticeExamInput) => practiceExamsService.startAttempt(payload),
+  });
+}
+
+export function useSavePracticeExamAnswer() {
+  return useMutation({
+    mutationFn: ({
+      attemptId,
+      questionId,
+      answer,
+    }: {
+      attemptId: string;
+      questionId: string;
+      answer: string;
+    }) => practiceExamsService.saveAnswer(attemptId, questionId, answer),
+  });
+}
+
+export function useSubmitPracticeExamAttempt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (attemptId: string) => practiceExamsService.submitAttempt(attemptId),
+    onSuccess: (data) => {
+      void qc.invalidateQueries({ queryKey: queryKeys.practiceExams.all });
+      void qc.setQueryData(queryKeys.practiceExams.attempt(data.attempt.id), data);
+    },
   });
 }
 

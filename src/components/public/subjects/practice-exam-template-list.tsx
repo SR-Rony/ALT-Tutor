@@ -99,13 +99,22 @@ export function PracticeExamTemplateList({
                   Unlock {tierLabel(badge)}
                 </Button>
               ) : (
-                <Button asChild size="pill" className="w-full">
-                  <Link href={detailHref}>Open</Link>
-                </Button>
+                <>
+                  <Button asChild size="pill" className="w-full">
+                    <Link href={detailHref}>Open</Link>
+                  </Button>
+                  <Button asChild variant="outline" size="pill" className="w-full">
+                    <Link href={ROUTES.subjectPracticeExamTake(programSlug, template.slug)}>
+                      Start
+                    </Link>
+                  </Button>
+                </>
               )}
-              <Button asChild variant="ghost" size="sm" className="w-full text-muted-foreground">
-                <Link href={detailHref}>Details</Link>
-              </Button>
+              {locked ? (
+                <Button asChild variant="ghost" size="sm" className="w-full text-muted-foreground">
+                  <Link href={detailHref}>Details</Link>
+                </Button>
+              ) : null}
             </div>
           </article>
         );

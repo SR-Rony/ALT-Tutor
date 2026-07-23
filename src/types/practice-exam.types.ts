@@ -69,6 +69,63 @@ export type PracticeExamHistoryItem = {
   program: { id: string; name: string; slug: string };
 };
 
+export type PracticeExamAttemptQuestion = {
+  id: string;
+  number: number;
+  prompt: string;
+  body?: string | null;
+  diagramUrl?: string | null;
+  difficulty?: string | null;
+  paper?: string | null;
+  questionType: string;
+  calculatorAllowed?: boolean;
+  marks?: number | null;
+  options: string[];
+  order: number;
+  correctAnswer?: string;
+  markScheme?: string | null;
+  videoUrl?: string | null;
+  studentAnswer?: string | null;
+  isCorrect?: boolean | null;
+};
+
+export type PracticeExamAttemptPayload = {
+  restored: boolean;
+  attempt: {
+    id: string;
+    status: "IN_PROGRESS" | "SUBMITTED" | string;
+    score: number;
+    correctCount: number;
+    totalQuestions: number;
+    totalMarks: number;
+    earnedMarks: number;
+    startedAt: string;
+    expiresAt: string | null;
+    submittedAt: string | null;
+    passed: boolean | null;
+  };
+  template: {
+    id: string;
+    title: string;
+    slug: string;
+    type: PracticeExamType | string;
+    durationMin: number;
+    passMarkPercent: number | null;
+    accessTier: QbAccessBadge | string;
+  };
+  questions: PracticeExamAttemptQuestion[];
+};
+
+export type StartPracticeExamInput = {
+  programSlug: string;
+  templateSlug: string;
+  forceNew?: boolean;
+};
+
+export type SavePracticeExamAnswerResult =
+  | { saved: true; expired: false }
+  | { expired: true; result: PracticeExamAttemptPayload };
+
 export type CreatePracticeExamTemplateInput = {
   programId: string;
   title: string;

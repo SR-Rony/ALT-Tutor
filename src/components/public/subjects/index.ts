@@ -5,6 +5,8 @@ export { useSubjectBreadcrumbs } from "./use-subject-breadcrumbs";
 export { PastPapersPage } from "./past-papers-page";
 export { PracticeExamsPage } from "./practice-exams-page";
 export { PracticeExamDetailPage } from "./practice-exam-detail-page";
+export { PracticeExamTakePage } from "./practice-exam-take-page";
+export { PracticeExamResultPage } from "./practice-exam-result-page";
 export { MockExamsPage } from "./mock-exams-page";
 export { KeyConceptsPage } from "./key-concepts-page";
 export { useProgramContext } from "./use-program-context";
