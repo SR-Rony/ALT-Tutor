@@ -50,6 +50,7 @@ export const teacherNav: NavItem[] = [
   { title: "My Subjects", href: ROUTES.teacher.subjects, iconName: "book" },
   { title: "Practice Exams", href: ROUTES.teacher.practiceExams, iconName: "clipboard" },
   { title: "Key Concepts", href: ROUTES.teacher.keyConcepts, iconName: "book" },
+  { title: "Past Papers", href: ROUTES.teacher.pastPapers, iconName: "clipboard" },
 ];
 
 export const teacherFooterNav: NavItem[] = [

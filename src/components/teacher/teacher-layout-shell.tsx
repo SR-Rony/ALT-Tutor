@@ -11,6 +11,7 @@ const titles: Record<string, string> = {
   [ROUTES.teacher.subjects]: "My Subjects",
   [ROUTES.teacher.practiceExams]: "Practice Exams",
   [ROUTES.teacher.keyConcepts]: "Key Concepts",
+  [ROUTES.teacher.pastPapers]: "Past Papers",
   [ROUTES.teacher.assessments]: "Assessments",
   [ROUTES.teacher.gradingQueue]: "Grading",
   [ROUTES.teacher.gradebook]: "Gradebook",

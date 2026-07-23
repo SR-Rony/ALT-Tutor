@@ -59,6 +59,14 @@ export function useAdminPastPapers(programId?: string) {
   });
 }
 
+export function useTeacherPastPapers(programId?: string) {
+  return useQuery({
+    queryKey: queryKeys.pastPapers.teacher(programId),
+    queryFn: () => pastPapersService.teacherList(programId!),
+    enabled: Boolean(programId),
+  });
+}
+
 function useInvalidatePastPapers() {
   const qc = useQueryClient();
   return () => void qc.invalidateQueries({ queryKey: queryKeys.pastPapers.all });

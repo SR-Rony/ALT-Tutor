@@ -80,6 +80,13 @@ export const pastPapersService = {
     return response.data;
   },
 
+  async teacherList(programId: string): Promise<AdminPastPaperList> {
+    const response = await apiClient.get<AdminPastPaperList>(
+      `/past-papers/teacher?programId=${encodeURIComponent(programId)}`
+    );
+    return response.data;
+  },
+
   async createPaper(payload: CreatePastPaperInput): Promise<PastPaper> {
     const response = await apiClient.post<PastPaper>("/past-papers/admin/papers", payload);
     return response.data;

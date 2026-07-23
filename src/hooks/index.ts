@@ -130,6 +130,7 @@ export {
   usePastPaperHistory,
   usePastPaperAttempt,
   useAdminPastPapers,
+  useTeacherPastPapers,
   useCreatePastPaper,
   useUpdatePastPaper,
   useDeletePastPaper,

@@ -60,6 +60,8 @@ export const queryKeys = {
   pastPapers: {
     all: ["past-papers"] as const,
     admin: (programId?: string) => ["past-papers", "admin", programId ?? "all"] as const,
+    teacher: (programId?: string) =>
+      ["past-papers", "teacher", programId ?? "all"] as const,
     program: (slug: string, authKey = "anon") =>
       ["past-papers", "program", slug, authKey] as const,
     paper: (programSlug: string, paperSlug: string, authKey = "anon") =>

@@ -74,6 +74,7 @@ export const ROUTES = {
     subjects: "/teacher/subjects",
     practiceExams: "/teacher/practice-exams",
     keyConcepts: "/teacher/key-concepts",
+    pastPapers: "/teacher/past-papers",
     assessments: "/teacher/assessments",
     gradingQueue: "/teacher/grading",
     gradebook: "/teacher/gradebook",
