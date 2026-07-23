@@ -34,6 +34,10 @@ export const queryKeys = {
     admin: (programId?: string) => ["questionbank", "admin", programId ?? "all"] as const,
     practiceSession: (sessionId: string) => ["questionbank", "practice", sessionId] as const,
   },
+  practiceExams: {
+    all: ["practice-exams"] as const,
+    admin: (programId?: string) => ["practice-exams", "admin", programId ?? "all"] as const,
+  },
   assignments: {
     mine: ["assignments", "mine"] as const,
     byCourse: (courseId: string) => ["assignments", "course", courseId] as const,

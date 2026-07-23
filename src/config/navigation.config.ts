@@ -75,6 +75,7 @@ export const adminNav: NavItem[] = [
     title: "Exams",
     iconName: "clipboard",
     children: [
+      { title: "Practice Exams", href: ROUTES.admin.practiceExams, iconName: "clipboard" },
       { title: "MCQ Exams", href: ROUTES.admin.examsMcq, iconName: "clipboard" },
       { title: "Written Exams", href: ROUTES.admin.examsWritten, iconName: "clipboard" },
       { title: "Grading", href: ROUTES.admin.gradingQueue, iconName: "clipboard" },
