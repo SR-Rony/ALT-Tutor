@@ -40,6 +40,14 @@ export function useAdminKeyConcepts(programId?: string) {
   });
 }
 
+export function useTeacherKeyConcepts(programId?: string) {
+  return useQuery({
+    queryKey: queryKeys.keyConcepts.teacher(programId),
+    queryFn: () => keyConceptsService.teacherList(programId!),
+    enabled: Boolean(programId),
+  });
+}
+
 function useInvalidateKeyConcepts() {
   const qc = useQueryClient();
   return () => void qc.invalidateQueries({ queryKey: queryKeys.keyConcepts.all });

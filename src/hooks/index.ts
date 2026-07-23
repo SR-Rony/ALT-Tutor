@@ -119,6 +119,7 @@ export {
   useKeyConceptLessons,
   useKeyConceptLesson,
   useAdminKeyConcepts,
+  useTeacherKeyConcepts,
   useCreateKeyConceptLesson,
   useUpdateKeyConceptLesson,
   useDeleteKeyConceptLesson,

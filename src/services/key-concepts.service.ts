@@ -33,6 +33,13 @@ export const keyConceptsService = {
     return response.data;
   },
 
+  async teacherList(programId: string): Promise<AdminKeyConceptList> {
+    const response = await apiClient.get<AdminKeyConceptList>(
+      `/key-concepts/teacher?programId=${encodeURIComponent(programId)}`
+    );
+    return response.data;
+  },
+
   async createLesson(payload: CreateKeyConceptLessonInput): Promise<KeyConceptLesson> {
     const response = await apiClient.post<KeyConceptLesson>(
       "/key-concepts/admin/lessons",

@@ -50,6 +50,8 @@ export const queryKeys = {
   keyConcepts: {
     all: ["key-concepts"] as const,
     admin: (programId?: string) => ["key-concepts", "admin", programId ?? "all"] as const,
+    teacher: (programId?: string) =>
+      ["key-concepts", "teacher", programId ?? "all"] as const,
     program: (slug: string, authKey = "anon") =>
       ["key-concepts", "program", slug, authKey] as const,
     lesson: (programSlug: string, lessonSlug: string, authKey = "anon") =>
