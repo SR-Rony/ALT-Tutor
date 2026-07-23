@@ -590,14 +590,18 @@ function Field({
 
 function CourseProgramsTab({ courseId }: { courseId: string }) {
   const { data: tree = [], isLoading: treeLoading } = useAdminSubjectsTree();
-  const { data: links = [], isLoading: linksLoading } = useCourseProgramLinks(courseId);
+  const { data: links, isLoading: linksLoading } = useCourseProgramLinks(courseId);
   const setPrograms = useSetCourseProgramLinks(courseId);
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setSelected(links.map((l) => l.program.id));
+    if (!links) return;
+    const ids = links.map((l) => l.program.id);
+    setSelected((prev) =>
+      prev.length === ids.length && prev.every((id, index) => id === ids[index]) ? prev : ids
+    );
   }, [links]);
 
   const allPrograms = useMemo(
