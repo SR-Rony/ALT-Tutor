@@ -529,6 +529,9 @@ export function AdminQuestionbankPage() {
   const [markScheme, setMarkScheme] = useState("");
   const [diagramUrl, setDiagramUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
+  const [marks, setMarks] = useState("1");
+  const [yearHint, setYearHint] = useState("");
+  const [sourceLabel, setSourceLabel] = useState("");
   const [uploadingField, setUploadingField] = useState<"diagram" | "video" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -554,6 +557,9 @@ export function AdminQuestionbankPage() {
     setMarkScheme("");
     setDiagramUrl("");
     setVideoUrl("");
+    setMarks("1");
+    setYearHint("");
+    setSourceLabel("");
   };
 
   const openEditTopic = (topic: QbTopic) => {
@@ -584,6 +590,9 @@ export function AdminQuestionbankPage() {
     setMarkScheme(question.markScheme ?? "");
     setDiagramUrl(question.diagramUrl ?? "");
     setVideoUrl(question.videoUrl ?? "");
+    setMarks(String(question.marks ?? 1));
+    setYearHint(question.yearHint != null ? String(question.yearHint) : "");
+    setSourceLabel(question.sourceLabel ?? "");
   };
 
   const toggleQuestionVisibility = (question: QbQuestion) => {
@@ -692,12 +701,20 @@ export function AdminQuestionbankPage() {
           .split("\n")
           .map((l) => l.trim())
           .filter(Boolean);
+        const parsedMarks = Number.parseInt(marks, 10);
+        const parsedYear = yearHint.trim() ? Number.parseInt(yearHint.trim(), 10) : undefined;
         const questionPayload = {
           prompt: prompt.trim(),
           options,
           correctAnswer: correctAnswer.trim().toUpperCase(),
           difficulty,
           paper,
+          marks: Number.isFinite(parsedMarks) && parsedMarks >= 1 ? parsedMarks : 1,
+          yearHint:
+            parsedYear != null && Number.isFinite(parsedYear) && parsedYear >= 1900
+              ? parsedYear
+              : undefined,
+          sourceLabel: sourceLabel.trim() || undefined,
           markScheme: markScheme.trim() || undefined,
           diagramUrl: diagramUrl.trim() || undefined,
           videoUrl: videoUrl.trim() || undefined,
@@ -1195,7 +1212,8 @@ export function AdminQuestionbankPage() {
               </div>
               <p className="text-sm text-muted-foreground">
                 Columns: prompt, diagramUrl (stimulus image link), optionA–D, correctAnswer,
-                markScheme, videoUrl (solution video link), difficulty, paper.
+                markScheme, videoUrl (solution video link), difficulty, paper, marks, yearHint,
+                sourceLabel.
               </p>
               <p className="mt-2 text-xs text-muted-foreground">
                 Question numbers are assigned automatically in row order (Q1, Q2, Q3...). A later
@@ -1328,6 +1346,37 @@ export function AdminQuestionbankPage() {
                     </option>
                   ))}
                 </select>
+              </label>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Marks</span>
+                <Input
+                  type="number"
+                  min={1}
+                  value={marks}
+                  onChange={(e) => setMarks(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Year (optional)</span>
+                <Input
+                  type="number"
+                  min={1900}
+                  max={2100}
+                  placeholder="e.g. 2023"
+                  value={yearHint}
+                  onChange={(e) => setYearHint(e.target.value)}
+                />
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Source label</span>
+                <Input
+                  placeholder="SSC Board 2022 P1"
+                  value={sourceLabel}
+                  onChange={(e) => setSourceLabel(e.target.value)}
+                />
               </label>
             </div>
             <label className="block space-y-1.5">

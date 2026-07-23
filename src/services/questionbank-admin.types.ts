@@ -30,6 +30,9 @@ export type CreateQbQuestionInput = {
   paper?: QbPaper;
   questionType?: QbQuestionType;
   calculatorAllowed?: boolean;
+  marks?: number;
+  yearHint?: number;
+  sourceLabel?: string;
   options: string[];
   correctAnswer: string;
   markScheme?: string;

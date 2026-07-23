@@ -15,6 +15,9 @@ export interface QbQuestion {
   paper: QbPaper | string;
   questionType: QbQuestionType | string;
   calculatorAllowed: boolean;
+  marks?: number;
+  yearHint?: number | null;
+  sourceLabel?: string | null;
   options: string[];
   correctAnswer: string;
   markScheme?: string | null;
