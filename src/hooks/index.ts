@@ -116,6 +116,8 @@ export {
   useDeletePracticeExamTemplate,
 } from "./use-practice-exams";
 export {
+  useKeyConceptLessons,
+  useKeyConceptLesson,
   useAdminKeyConcepts,
   useCreateKeyConceptLesson,
   useUpdateKeyConceptLesson,

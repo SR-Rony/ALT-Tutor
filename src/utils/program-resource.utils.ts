@@ -2,13 +2,6 @@ import { ROUTES } from "@/constants";
 import type { McqExam } from "@/types/mcq.types";
 import type { QbProgramOverview } from "@/types/qb.types";
 
-const VIDEO_THUMBNAILS = [
-  "/images/video-lessons/video-lesson-1.png",
-  "/images/video-lessons/video-lesson-2.png",
-  "/images/video-lessons/video-lesson-3.png",
-  "/images/video-lessons/video-lesson-4.png",
-] as const;
-
 export type PastPaperItem = {
   id: string;
   label: string;
@@ -20,21 +13,6 @@ export type PastPaperSession = {
   year: number;
   session: string;
   papers: PastPaperItem[];
-};
-
-export type KeyConceptVideo = {
-  id: string;
-  title: string;
-  duration: string;
-  thumbnail: (typeof VIDEO_THUMBNAILS)[number];
-  href: string;
-};
-
-export type KeyConceptSection = {
-  id: string;
-  chapterTitle: string;
-  topicTitle: string;
-  videos: KeyConceptVideo[];
 };
 
 function studySubtopics(program?: QbProgramOverview) {
@@ -83,26 +61,4 @@ export function buildPastPaperSessions(
       papers: sqPapers.slice(0, Math.max(1, Math.min(3, sqPapers.length))),
     },
   ].filter((session) => session.papers.length > 0);
-}
-
-export function buildKeyConceptSections(
-  programSlug: string,
-  program?: QbProgramOverview
-): KeyConceptSection[] {
-  return (program?.qbTopics ?? [])
-    .map((topic, topicIndex) => ({
-      id: topic.id,
-      chapterTitle: `Chapter ${topic.number}: ${topic.title}`,
-      topicTitle: topic.description ?? topic.title,
-      videos: topic.subtopics
-        .filter((s) => !s.slug.endsWith("-all"))
-        .map((sub, subIndex) => ({
-          id: sub.id,
-          title: sub.title,
-          duration: `${8 + ((topicIndex + subIndex) % 7)} mins`,
-          thumbnail: VIDEO_THUMBNAILS[(topicIndex + subIndex) % VIDEO_THUMBNAILS.length],
-          href: ROUTES.subjectQuestionbankStudy(programSlug, sub.slug),
-        })),
-    }))
-    .filter((section) => section.videos.length > 0);
 }

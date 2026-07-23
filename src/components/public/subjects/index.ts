@@ -9,5 +9,6 @@ export { PracticeExamTakePage } from "./practice-exam-take-page";
 export { PracticeExamResultPage } from "./practice-exam-result-page";
 export { MockExamsPage } from "./mock-exams-page";
 export { KeyConceptsPage } from "./key-concepts-page";
+export { KeyConceptLessonPage } from "./key-concept-lesson-page";
 export { useProgramContext } from "./use-program-context";
 export { ResourceGridSkeleton } from "./resource-grid-skeleton";

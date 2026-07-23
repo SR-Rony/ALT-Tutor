@@ -21,6 +21,8 @@ export const ROUTES = {
   },
   subjectPracticeMockExams: (programSlug: string) =>
     `/subjects/${programSlug}/practice-exams/mock-exams`,
+  subjectKeyConceptLesson: (programSlug: string, lessonSlug: string) =>
+    `/subjects/${programSlug}/key-concepts/${lessonSlug}`,
   subjectPracticeExam: (programSlug: string, templateSlug: string) =>
     `/subjects/${programSlug}/practice-exams/${templateSlug}`,
   subjectPracticeExamTake: (programSlug: string, templateSlug: string, opts?: { new?: boolean }) => {

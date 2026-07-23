@@ -41,6 +41,18 @@ export type KeyConceptLesson = {
   subtopic?: KeyConceptSubtopicRef | null;
 };
 
+export type KeyConceptLessonDetail = {
+  program: { id: string; name: string; slug: string };
+  userTier?: QbAccessBadge | string;
+  lesson: KeyConceptLesson;
+};
+
+export type KeyConceptProgramList = {
+  program: { id: string; name: string; slug: string };
+  userTier: QbAccessBadge | string;
+  lessons: KeyConceptLesson[];
+};
+
 export type AdminKeyConceptList = {
   program: { id: string; name: string; slug: string };
   lessons: KeyConceptLesson[];

@@ -3,10 +3,29 @@ import type {
   AdminKeyConceptList,
   CreateKeyConceptLessonInput,
   KeyConceptLesson,
+  KeyConceptLessonDetail,
+  KeyConceptProgramList,
   UpdateKeyConceptLessonInput,
 } from "@/types/key-concept.types";
 
 export const keyConceptsService = {
+  async listLessons(programSlug: string): Promise<KeyConceptProgramList> {
+    const response = await apiClient.get<KeyConceptProgramList>(
+      `/key-concepts/programs/${encodeURIComponent(programSlug)}`
+    );
+    return response.data;
+  },
+
+  async getLesson(
+    programSlug: string,
+    lessonSlug: string
+  ): Promise<KeyConceptLessonDetail> {
+    const response = await apiClient.get<KeyConceptLessonDetail>(
+      `/key-concepts/programs/${encodeURIComponent(programSlug)}/lessons/${encodeURIComponent(lessonSlug)}`
+    );
+    return response.data;
+  },
+
   async adminList(programId: string): Promise<AdminKeyConceptList> {
     const response = await apiClient.get<AdminKeyConceptList>(
       `/key-concepts/admin?programId=${encodeURIComponent(programId)}`
