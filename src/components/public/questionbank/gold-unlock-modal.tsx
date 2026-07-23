@@ -113,6 +113,7 @@ export function GoldUnlockModal({
         await queryClient.invalidateQueries({ queryKey: queryKeys.questionbank.all });
         await queryClient.invalidateQueries({ queryKey: queryKeys.practiceExams.all });
         await queryClient.invalidateQueries({ queryKey: queryKeys.keyConcepts.all });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.pastPapers.all });
         onUnlocked?.();
         onClose();
         return;

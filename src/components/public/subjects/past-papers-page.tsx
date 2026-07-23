@@ -1,33 +1,50 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { FileText, MonitorPlay } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { useAppSelector } from "@/store";
-import { Button } from "@/components/ui/button";
+import { FileText, Lock } from "lucide-react";
+import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
 import { PageLoader } from "@/components/shared";
-import { queryKeys, ROUTES } from "@/constants";
-import { useQbProgram } from "@/hooks/use-questionbank";
-import { mcqService } from "@/services/mcq.service";
-import { buildPastPaperSessions } from "@/utils/program-resource.utils";
+import { Button } from "@/components/ui/button";
+import { ROUTES } from "@/constants";
+import { usePastPaperArchive, usePastPaperHistory } from "@/hooks";
+import { normalizeAccessBadge, tierBadgeClass, tierLabel } from "@/lib/access-tier";
+import { useAppSelector } from "@/store";
+import type { ApiError } from "@/types";
+import type { PastPaper } from "@/types/past-paper.types";
 import { cn } from "@/utils";
+import { ResourceGridSkeleton } from "./resource-grid-skeleton";
 import { ResourceHero, SubjectBreadcrumbNav, useSubjectBreadcrumbs } from "./";
 import { useProgramContext } from "./use-program-context";
 
 type Props = { programSlug: string };
 
+function sourceLabel(type: string) {
+  if (type === "PDF") return "PDF";
+  if (type === "HYBRID") return "Hybrid";
+  return "Interactive";
+}
+
 export function PastPapersPage({ programSlug }: Props) {
   const { programName, isLoading: menuLoading } = useProgramContext(programSlug);
+  const { data, isLoading, isFetching, error, refetch } = usePastPaperArchive(programSlug);
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
-  const { data: qbProgram, isLoading: qbLoading, isFetching } = useQbProgram(programSlug);
-  const { data: mcqExams = [] } = useQuery({
-    queryKey: queryKeys.mcq.mine,
-    queryFn: () => mcqService.listMyExams(),
-    enabled: isAuthenticated,
-    staleTime: 30_000,
-  });
+  const { data: history = [] } = usePastPaperHistory(programSlug);
+  const [unlockOpen, setUnlockOpen] = useState(false);
+  const [unlockTarget, setUnlockTarget] = useState<{
+    title: string;
+    requiredTier: string;
+  }>({ title: "", requiredTier: "GOLD" });
 
-  const sessions = buildPastPaperSessions(programSlug, qbProgram, mcqExams, isAuthenticated);
+  const years = data?.years ?? [];
+  const recentAttemptIds = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const row of history) {
+      const paperId = (row as { paper?: { id?: string }; id?: string }).paper?.id;
+      if (paperId && !map.has(paperId)) map.set(paperId, row.id);
+    }
+    return map;
+  }, [history]);
 
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
@@ -36,7 +53,15 @@ export function PastPapersPage({ programSlug }: Props) {
     resourceHref: ROUTES.subjectResource(programSlug, "past-papers"),
   });
 
-  if (menuLoading && qbLoading) {
+  const openUnlock = (paper: PastPaper) => {
+    setUnlockTarget({
+      title: paper.title,
+      requiredTier: String(paper.accessTier ?? "GOLD"),
+    });
+    setUnlockOpen(true);
+  };
+
+  if (menuLoading && isLoading) {
     return <PageLoader label="Loading past papers..." />;
   }
 
@@ -44,56 +69,116 @@ export function PastPapersPage({ programSlug }: Props) {
     <div className="bg-background pb-16">
       <ResourceHero
         title={`${programName} Past Papers`}
-        description="Worked solutions and videos from experienced teachers. MCQ papers open your enrolled exams; structured papers use the questionbank exam viewer."
+        description="Year-by-year archive with fixed question sets. Timed attempts freeze the paper so scores stay consistent."
         icon={<FileText className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
-      >
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md">
-            <span className="text-lg font-bold" aria-hidden>
-              ⚛
-            </span>
-          </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/20 bg-card text-primary shadow-sm">
-            <MonitorPlay className="h-6 w-6" aria-hidden />
-          </div>
-        </div>
-      </ResourceHero>
+      />
 
       <div className="mx-auto max-w-7xl space-y-12 px-4 py-10 md:px-6 md:py-14">
-        {isFetching ? (
-          <p className="text-sm text-muted-foreground" role="status">
-            Refreshing papers…
-          </p>
-        ) : null}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-bold text-foreground md:text-2xl">Archive</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Pick a year, then open a paper. Locked papers need a Practice Pass or course access.
+            </p>
+          </div>
+          {isFetching ? (
+            <p className="text-sm text-muted-foreground" role="status">
+              Updating…
+            </p>
+          ) : null}
+        </div>
 
-        {qbLoading ? (
-          <PageLoader label="Loading question sets..." className="min-h-[200px]" />
-        ) : sessions.length === 0 ? (
+        {error ? (
+          <div className="rounded-2xl border border-accent/30 bg-accent/5 px-5 py-6 text-center">
+            <p className="text-sm text-accent">
+              {(error as unknown as ApiError)?.message || "Failed to load past papers"}
+            </p>
+            <Button type="button" variant="outline" className="mt-3" onClick={() => void refetch()}>
+              Try again
+            </Button>
+          </div>
+        ) : isLoading ? (
+          <ResourceGridSkeleton count={4} />
+        ) : years.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
             <p className="text-sm text-muted-foreground">
-              No past papers available for this program yet.
+              No past papers published for this program yet.
             </p>
             <Button asChild variant="outline" className="mt-4">
               <Link href={ROUTES.subjectQuestionbank(programSlug)}>Open Questionbank</Link>
             </Button>
           </div>
         ) : (
-          sessions.map((block) => (
-            <section key={`${block.year}-${block.session}`}>
+          years.map((block) => (
+            <section key={block.year}>
               <p className="text-3xl font-bold text-primary sm:text-4xl md:text-5xl">{block.year}</p>
-              <h2 className="mt-1 text-base font-semibold text-primary/90 sm:text-lg">
-                {block.session}
-              </h2>
-              <div className="mt-5 flex flex-wrap gap-2 sm:gap-3">
-                {block.papers.map((paper) => (
-                  <PaperButton
-                    key={`${block.year}-${paper.id}`}
-                    label={paper.label}
-                    kind={paper.kind}
-                    href={paper.href}
-                  />
-                ))}
+              <div className="mt-5 space-y-3">
+                {block.papers.map((paper) => {
+                  const locked = Boolean(paper.locked);
+                  const badge = normalizeAccessBadge(paper.accessTier);
+                  const href = ROUTES.subjectPastPaper(programSlug, paper.slug);
+                  const attempted = recentAttemptIds.has(paper.id);
+
+                  return (
+                    <div
+                      key={paper.id}
+                      className={cn(
+                        "flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-4",
+                        locked && "opacity-95"
+                      )}
+                    >
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-foreground">{paper.title}</p>
+                          <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+                            {paper.paperCode}
+                          </span>
+                          <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+                            {paper.session}
+                          </span>
+                          <span
+                            className={cn(
+                              "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase text-white",
+                              tierBadgeClass(badge)
+                            )}
+                          >
+                            {tierLabel(badge)}
+                          </span>
+                          <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+                            {sourceLabel(paper.sourceType)}
+                          </span>
+                          {attempted ? (
+                            <span className="rounded-md bg-[#ecfdf3] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--accent-green)]">
+                              Attempted
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {paper.totalQuestions}Q · {paper.totalMarks} marks · {paper.durationMin}{" "}
+                          min
+                        </p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {locked ? (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="border-[#d4a017]/50 text-[#9a3412]"
+                            onClick={() => openUnlock(paper)}
+                          >
+                            <Lock className="h-3.5 w-3.5" aria-hidden />
+                            Unlock
+                          </Button>
+                        ) : null}
+                        <Button asChild size="sm" variant={locked ? "outline" : "default"}>
+                          <Link href={href}>{locked ? "View details" : "Open paper"}</Link>
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             </section>
           ))
@@ -104,35 +189,26 @@ export function PastPapersPage({ programSlug }: Props) {
             <Link href={ROUTES.auth.login} className="font-semibold text-primary hover:underline">
               Sign in
             </Link>{" "}
-            to access MCQ past papers from your enrolled courses.
+            to start timed past paper attempts and see your history.
           </p>
         ) : null}
       </div>
-    </div>
-  );
-}
 
-function PaperButton({
-  label,
-  kind,
-  href,
-}: {
-  label: string;
-  kind: "MCQ" | "SQ";
-  href: string;
-}) {
-  return (
-    <Button
-      asChild
-      variant="outline"
-      className={cn(
-        "h-auto min-w-0 flex-1 rounded-xl border-2 px-3 py-2.5 text-xs font-semibold shadow-sm transition hover:bg-primary-muted/50 sm:min-w-[9.5rem] sm:flex-none sm:px-5 sm:py-3 sm:text-sm",
-        kind === "MCQ"
-          ? "border-[var(--accent-green)] text-foreground hover:border-[var(--accent-green)]"
-          : "border-primary/40 text-foreground hover:border-primary"
-      )}
-    >
-      <Link href={href}>{label}</Link>
-    </Button>
+      {data?.program ? (
+        <GoldUnlockModal
+          open={unlockOpen}
+          onClose={() => setUnlockOpen(false)}
+          programId={data.program.id}
+          programName={data.program.name}
+          programSlug={programSlug}
+          subtopicTitle={unlockTarget.title}
+          requiredTier={unlockTarget.requiredTier}
+          onUnlocked={() => {
+            void refetch();
+          }}
+          returnPath={`${ROUTES.subjectResource(programSlug, "past-papers")}?unlocked=1`}
+        />
+      ) : null}
+    </div>
   );
 }

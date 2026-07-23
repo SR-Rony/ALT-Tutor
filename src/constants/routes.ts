@@ -23,6 +23,15 @@ export const ROUTES = {
     `/subjects/${programSlug}/practice-exams/mock-exams`,
   subjectKeyConceptLesson: (programSlug: string, lessonSlug: string) =>
     `/subjects/${programSlug}/key-concepts/${lessonSlug}`,
+  subjectPastPaper: (programSlug: string, paperSlug: string) =>
+    `/subjects/${programSlug}/past-papers/${paperSlug}`,
+  subjectPastPaperTake: (programSlug: string, paperSlug: string, opts?: { new?: boolean }) => {
+    const base = `/subjects/${programSlug}/past-papers/${paperSlug}/take`;
+    if (opts?.new) return `${base}?new=1`;
+    return base;
+  },
+  subjectPastPaperResult: (programSlug: string, paperSlug: string, attemptId: string) =>
+    `/subjects/${programSlug}/past-papers/${paperSlug}/attempts/${attemptId}/result`,
   subjectPracticeExam: (programSlug: string, templateSlug: string) =>
     `/subjects/${programSlug}/practice-exams/${templateSlug}`,
   subjectPracticeExamTake: (programSlug: string, templateSlug: string, opts?: { new?: boolean }) => {

@@ -41,10 +41,14 @@ export const pastPapersService = {
   },
 
   async saveAnswer(attemptId: string, questionId: string, answer: string) {
-    const response = await apiClient.patch<{ saved: boolean; expired: boolean }>(
-      `/past-papers/attempts/${encodeURIComponent(attemptId)}/answers`,
-      { questionId, answer }
-    );
+    const response = await apiClient.patch<{
+      saved?: boolean;
+      expired?: boolean;
+      result?: PastPaperAttemptPayload;
+    }>(`/past-papers/attempts/${encodeURIComponent(attemptId)}/answers`, {
+      questionId,
+      answer,
+    });
     return response.data;
   },
 

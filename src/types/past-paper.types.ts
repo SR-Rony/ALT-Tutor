@@ -139,6 +139,9 @@ export type PastPaperAttemptQuestion = {
   id: string;
   number: number;
   prompt: string;
+  body?: string | null;
+  diagramUrl?: string | null;
+  difficulty?: string;
   options: string[];
   marks: number;
   order: number;
