@@ -37,6 +37,12 @@ export const queryKeys = {
   practiceExams: {
     all: ["practice-exams"] as const,
     admin: (programId?: string) => ["practice-exams", "admin", programId ?? "all"] as const,
+    program: (slug: string, authKey = "anon") =>
+      ["practice-exams", "program", slug, authKey] as const,
+    template: (programSlug: string, templateSlug: string, authKey = "anon") =>
+      ["practice-exams", "template", programSlug, templateSlug, authKey] as const,
+    history: (programSlug: string, authKey = "anon") =>
+      ["practice-exams", "history", programSlug, authKey] as const,
   },
   assignments: {
     mine: ["assignments", "mine"] as const,

@@ -21,6 +21,8 @@ export const ROUTES = {
   },
   subjectPracticeMockExams: (programSlug: string) =>
     `/subjects/${programSlug}/practice-exams/mock-exams`,
+  subjectPracticeExam: (programSlug: string, templateSlug: string) =>
+    `/subjects/${programSlug}/practice-exams/${templateSlug}`,
   about: "/about",
   contact: "/contact",
   help: "/help",

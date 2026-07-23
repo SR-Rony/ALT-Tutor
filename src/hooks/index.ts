@@ -102,6 +102,9 @@ export {
   usePracticeSession,
 } from "./use-questionbank";
 export {
+  usePracticeExamTemplates,
+  usePracticeExamTemplate,
+  usePracticeExamHistory,
   useAdminPracticeExams,
   useCreatePracticeExamTemplate,
   useUpdatePracticeExamTemplate,

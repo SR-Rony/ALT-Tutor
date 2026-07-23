@@ -33,6 +33,42 @@ export type AdminPracticeExamList = {
   templates: PracticeExamTemplate[];
 };
 
+export type PracticeExamProgramList = {
+  program: { id: string; name: string; slug: string };
+  userTier: QbAccessBadge | string;
+  templates: PracticeExamTemplate[];
+};
+
+export type PracticeExamTemplateDetail = {
+  program: { id: string; name: string; slug: string };
+  template: PracticeExamTemplate & {
+    blueprintSummary?: PracticeExamBlueprintRule[];
+  };
+};
+
+export type PracticeExamHistoryItem = {
+  id: string;
+  status: "IN_PROGRESS" | "SUBMITTED" | "ABANDONED" | string;
+  score: number | null;
+  correctCount: number | null;
+  totalQuestions: number;
+  earnedMarks: number | null;
+  totalMarks: number | null;
+  startedAt: string;
+  submittedAt: string | null;
+  expiresAt: string | null;
+  answeredCount: number;
+  template: {
+    id: string;
+    title: string;
+    slug: string;
+    type: PracticeExamType;
+    durationMin: number;
+    accessTier: QbAccessBadge | string;
+  };
+  program: { id: string; name: string; slug: string };
+};
+
 export type CreatePracticeExamTemplateInput = {
   programId: string;
   title: string;

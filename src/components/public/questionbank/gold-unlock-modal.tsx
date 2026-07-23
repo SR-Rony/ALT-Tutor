@@ -34,6 +34,8 @@ type Props = {
   requiredTier?: string;
   /** Called after access is granted immediately (free / already entitled). */
   onUnlocked?: () => void;
+  /** Where to return after checkout (defaults to questionbank). */
+  returnPath?: string;
 };
 
 function sortProductsForProgram(
@@ -66,6 +68,7 @@ export function GoldUnlockModal({
   subtopicTitle,
   requiredTier = "GOLD",
   onUnlocked,
+  returnPath: returnPathProp,
 }: Props) {
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const queryClient = useQueryClient();
@@ -78,13 +81,12 @@ export function GoldUnlockModal({
   const requiredName = tierLabel(required);
 
   const returnPath = useMemo(() => {
+    if (returnPathProp) return returnPathProp;
     const base = ROUTES.subjectQuestionbank(programSlug);
     return `${base}?unlocked=1`;
-  }, [programSlug]);
+  }, [programSlug, returnPathProp]);
 
-  const loginHref = `${ROUTES.auth.login}?next=${encodeURIComponent(
-    `${ROUTES.subjectQuestionbank(programSlug)}?unlock=1`
-  )}`;
+  const loginHref = `${ROUTES.auth.login}?next=${encodeURIComponent(returnPath)}`;
 
   const ranked = useMemo(
     () => sortProductsForProgram(products, programId, required).slice(0, 4),
@@ -109,6 +111,7 @@ export function GoldUnlockModal({
       }
       if (result.granted) {
         await queryClient.invalidateQueries({ queryKey: queryKeys.questionbank.all });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.practiceExams.all });
         onUnlocked?.();
         onClose();
         return;

@@ -22,16 +22,6 @@ export type PastPaperSession = {
   papers: PastPaperItem[];
 };
 
-export type MockExamSet = {
-  id: string;
-  title: string;
-  paper: string;
-  questionCount: number;
-  durationMins: number;
-  totalMarks: number;
-  href: string;
-};
-
 export type KeyConceptVideo = {
   id: string;
   title: string;
@@ -47,23 +37,10 @@ export type KeyConceptSection = {
   videos: KeyConceptVideo[];
 };
 
-export type RevisionTypeCard = {
-  id: string;
-  title: string;
-  subtitle: string;
-  iconBg: string;
-  href?: string;
-  disabled?: boolean;
-};
-
 function studySubtopics(program?: QbProgramOverview) {
   return (program?.qbTopics ?? []).flatMap((topic) =>
     topic.subtopics.filter((s) => !s.slug.endsWith("-all") && (s._count?.questions ?? 0) > 0)
   );
-}
-
-function firstStudySubtopic(program?: QbProgramOverview) {
-  return studySubtopics(program)[0] ?? program?.qbTopics[0]?.subtopics[0] ?? null;
 }
 
 export function buildPastPaperSessions(
@@ -108,21 +85,6 @@ export function buildPastPaperSessions(
   ].filter((session) => session.papers.length > 0);
 }
 
-export function buildMockExamSets(programSlug: string, program?: QbProgramOverview): MockExamSet[] {
-  return studySubtopics(program).map((sub) => {
-    const count = sub._count?.questions ?? 0;
-    return {
-      id: sub.id,
-      title: sub.title,
-      paper: count > 0 ? "Paper 2" : "Paper 1 (MCQ)",
-      questionCount: count,
-      durationMins: Math.max(30, count * 12),
-      totalMarks: Math.max(count * 6, count),
-      href: ROUTES.subjectQuestionbankStudyExam(programSlug, sub.slug, { paper: "PAPER_2" }),
-    };
-  });
-}
-
 export function buildKeyConceptSections(
   programSlug: string,
   program?: QbProgramOverview
@@ -143,56 +105,4 @@ export function buildKeyConceptSections(
         })),
     }))
     .filter((section) => section.videos.length > 0);
-}
-
-export function buildPracticeExamCards(
-  programSlug: string,
-  program?: QbProgramOverview
-): RevisionTypeCard[] {
-  const first = firstStudySubtopic(program);
-
-  return [
-    {
-      id: "topic-quizzes",
-      title: "Topic Quizzes",
-      subtitle: "Test Yourself",
-      iconBg: "bg-accent/15 text-accent",
-      href: first
-        ? ROUTES.subjectQuestionbankStudy(programSlug, first.slug)
-        : ROUTES.subjectQuestionbank(programSlug),
-    },
-    {
-      id: "revision-ladder",
-      title: "Revision Ladder",
-      subtitle: "Exams by Difficulty",
-      iconBg: "bg-violet-100 text-violet-700",
-      href: ROUTES.subjectQuestionbank(programSlug),
-    },
-    {
-      id: "mock-exams",
-      title: "Mock Exam Papers",
-      subtitle: "Trial examinations by topic",
-      iconBg: "bg-[var(--accent-green)]/15 text-[var(--accent-green)]",
-      href: ROUTES.subjectPracticeMockExams(programSlug),
-    },
-    {
-      id: "prediction",
-      title: "Prediction Exam",
-      subtitle: "Coming in next release",
-      iconBg: "bg-muted text-muted-foreground",
-      disabled: true,
-    },
-  ];
-}
-
-export function mockExamSummary(program?: QbProgramOverview) {
-  const sets = buildMockExamSets("", program);
-  const totalQuestions = sets.reduce((sum, s) => sum + s.questionCount, 0);
-  const totalMins = sets.reduce((sum, s) => sum + s.durationMins, 0);
-  const totalMarks = sets.reduce((sum, s) => sum + s.totalMarks, 0);
-  return {
-    questionCount: totalQuestions || 6,
-    durationMins: totalMins || 90,
-    totalMarks: totalMarks || 51,
-  };
 }

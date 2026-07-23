@@ -3,10 +3,44 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/constants";
 import { practiceExamsService } from "@/services/practice-exams.service";
+import { useAppSelector } from "@/store";
 import type {
   CreatePracticeExamTemplateInput,
   UpdatePracticeExamTemplateInput,
 } from "@/types/practice-exam.types";
+
+function usePracticeExamAuthKey() {
+  const userId = useAppSelector((s) => s.auth.user?.id);
+  return userId ?? "anon";
+}
+
+export function usePracticeExamTemplates(programSlug: string) {
+  const authKey = usePracticeExamAuthKey();
+  return useQuery({
+    queryKey: queryKeys.practiceExams.program(programSlug, authKey),
+    queryFn: () => practiceExamsService.listTemplates(programSlug),
+    enabled: Boolean(programSlug),
+  });
+}
+
+export function usePracticeExamTemplate(programSlug: string, templateSlug: string) {
+  const authKey = usePracticeExamAuthKey();
+  return useQuery({
+    queryKey: queryKeys.practiceExams.template(programSlug, templateSlug, authKey),
+    queryFn: () => practiceExamsService.getTemplate(programSlug, templateSlug),
+    enabled: Boolean(programSlug && templateSlug),
+  });
+}
+
+export function usePracticeExamHistory(programSlug: string) {
+  const authKey = usePracticeExamAuthKey();
+  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
+  return useQuery({
+    queryKey: queryKeys.practiceExams.history(programSlug, authKey),
+    queryFn: () => practiceExamsService.listHistory(programSlug),
+    enabled: Boolean(programSlug && isAuthenticated && authKey !== "anon"),
+  });
+}
 
 export function useAdminPracticeExams(programId?: string) {
   return useQuery({
