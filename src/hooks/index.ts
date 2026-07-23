@@ -125,6 +125,19 @@ export {
   useDeleteKeyConceptLesson,
 } from "./use-key-concepts";
 export {
+  usePastPaperArchive,
+  usePastPaperDetail,
+  usePastPaperHistory,
+  usePastPaperAttempt,
+  useAdminPastPapers,
+  useCreatePastPaper,
+  useUpdatePastPaper,
+  useDeletePastPaper,
+  useStartPastPaperAttempt,
+  useSavePastPaperAnswer,
+  useSubmitPastPaperAttempt,
+} from "./use-past-papers";
+export {
   useMyAssignments,
   useCourseAssignments,
   useProgramAssignments,

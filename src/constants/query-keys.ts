@@ -57,6 +57,17 @@ export const queryKeys = {
     lesson: (programSlug: string, lessonSlug: string, authKey = "anon") =>
       ["key-concepts", "lesson", programSlug, lessonSlug, authKey] as const,
   },
+  pastPapers: {
+    all: ["past-papers"] as const,
+    admin: (programId?: string) => ["past-papers", "admin", programId ?? "all"] as const,
+    program: (slug: string, authKey = "anon") =>
+      ["past-papers", "program", slug, authKey] as const,
+    paper: (programSlug: string, paperSlug: string, authKey = "anon") =>
+      ["past-papers", "paper", programSlug, paperSlug, authKey] as const,
+    history: (programSlug: string, authKey = "anon") =>
+      ["past-papers", "history", programSlug, authKey] as const,
+    attempt: (attemptId: string) => ["past-papers", "attempt", attemptId] as const,
+  },
   assignments: {
     mine: ["assignments", "mine"] as const,
     byCourse: (courseId: string) => ["assignments", "course", courseId] as const,
