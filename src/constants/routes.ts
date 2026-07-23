@@ -99,6 +99,7 @@ export const ROUTES = {
     practiceExams: "/admin/practice-exams",
     keyConcepts: "/admin/key-concepts",
     pastPapers: "/admin/past-papers",
+    flashcards: "/admin/flashcards",
     accessProducts: "/admin/access-products",
     mcqExams: "/admin/mcq-exams",
     examsMcq: "/admin/exams/mcq",

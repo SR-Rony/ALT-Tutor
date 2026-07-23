@@ -73,6 +73,7 @@ export const adminNav: NavItem[] = [
       { title: "Subjects", href: ROUTES.admin.qbSubjects, iconName: "book" },
       { title: "Programs", href: ROUTES.admin.qbPrograms, iconName: "book" },
       { title: "Key Concepts", href: ROUTES.admin.keyConcepts, iconName: "book" },
+      { title: "Flashcards", href: ROUTES.admin.flashcards, iconName: "book" },
     ],
   },
   {

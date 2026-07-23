@@ -139,6 +139,19 @@ export {
   useSubmitPastPaperAttempt,
 } from "./use-past-papers";
 export {
+  useFlashcardDecks,
+  useFlashcardDeck,
+  useAdminFlashcards,
+  useReviewFlashcard,
+  useCreateFlashcardDeck,
+  useUpdateFlashcardDeck,
+  useDeleteFlashcardDeck,
+  useCreateFlashcardCard,
+  useBulkCreateFlashcards,
+  useUpdateFlashcardCard,
+  useDeleteFlashcardCard,
+} from "./use-flashcards";
+export {
   useMyAssignments,
   useCourseAssignments,
   useProgramAssignments,

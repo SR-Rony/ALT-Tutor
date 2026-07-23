@@ -70,6 +70,16 @@ export const queryKeys = {
       ["past-papers", "history", programSlug, authKey] as const,
     attempt: (attemptId: string) => ["past-papers", "attempt", attemptId] as const,
   },
+  flashcards: {
+    all: ["flashcards"] as const,
+    admin: (programId?: string) => ["flashcards", "admin", programId ?? "all"] as const,
+    teacher: (programId?: string) =>
+      ["flashcards", "teacher", programId ?? "all"] as const,
+    program: (slug: string, authKey = "anon") =>
+      ["flashcards", "program", slug, authKey] as const,
+    deck: (programSlug: string, deckSlug: string, authKey = "anon") =>
+      ["flashcards", "deck", programSlug, deckSlug, authKey] as const,
+  },
   assignments: {
     mine: ["assignments", "mine"] as const,
     byCourse: (courseId: string) => ["assignments", "course", courseId] as const,
