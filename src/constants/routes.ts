@@ -84,6 +84,7 @@ export const ROUTES = {
     qbSubjects: "/admin/questionbank/subjects",
     qbPrograms: "/admin/questionbank/programs",
     practiceExams: "/admin/practice-exams",
+    keyConcepts: "/admin/key-concepts",
     accessProducts: "/admin/access-products",
     mcqExams: "/admin/mcq-exams",
     examsMcq: "/admin/exams/mcq",
