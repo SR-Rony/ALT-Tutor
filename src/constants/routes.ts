@@ -23,6 +23,8 @@ export const ROUTES = {
     `/subjects/${programSlug}/practice-exams/mock-exams`,
   subjectKeyConceptLesson: (programSlug: string, lessonSlug: string) =>
     `/subjects/${programSlug}/key-concepts/${lessonSlug}`,
+  subjectFlashcardDeck: (programSlug: string, deckSlug: string) =>
+    `/subjects/${programSlug}/flashcards/${deckSlug}`,
   subjectPastPaper: (programSlug: string, paperSlug: string) =>
     `/subjects/${programSlug}/past-papers/${paperSlug}`,
   subjectPastPaperTake: (programSlug: string, paperSlug: string, opts?: { new?: boolean }) => {
@@ -75,6 +77,7 @@ export const ROUTES = {
     practiceExams: "/teacher/practice-exams",
     keyConcepts: "/teacher/key-concepts",
     pastPapers: "/teacher/past-papers",
+    flashcards: "/teacher/flashcards",
     assessments: "/teacher/assessments",
     gradingQueue: "/teacher/grading",
     gradebook: "/teacher/gradebook",

@@ -44,6 +44,14 @@ export function useAdminFlashcards(programId?: string) {
   });
 }
 
+export function useTeacherFlashcards(programId?: string) {
+  return useQuery({
+    queryKey: queryKeys.flashcards.teacher(programId),
+    queryFn: () => flashcardsService.teacherList(programId!),
+    enabled: Boolean(programId),
+  });
+}
+
 function useInvalidateFlashcards() {
   const qc = useQueryClient();
   return () => void qc.invalidateQueries({ queryKey: queryKeys.flashcards.all });

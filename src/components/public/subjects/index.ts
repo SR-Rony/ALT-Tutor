@@ -13,5 +13,7 @@ export { PracticeExamResultPage } from "./practice-exam-result-page";
 export { MockExamsPage } from "./mock-exams-page";
 export { KeyConceptsPage } from "./key-concepts-page";
 export { KeyConceptLessonPage } from "./key-concept-lesson-page";
+export { FlashcardsPage } from "./flashcards-page";
+export { FlashcardDeckPage } from "./flashcard-deck-page";
 export { useProgramContext } from "./use-program-context";
 export { ResourceGridSkeleton } from "./resource-grid-skeleton";

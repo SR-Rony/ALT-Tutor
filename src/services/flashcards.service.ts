@@ -47,6 +47,13 @@ export const flashcardsService = {
     return response.data;
   },
 
+  async teacherList(programId: string): Promise<AdminFlashcardList> {
+    const response = await apiClient.get<AdminFlashcardList>(
+      `/flashcards/teacher?programId=${encodeURIComponent(programId)}`
+    );
+    return response.data;
+  },
+
   async createDeck(payload: CreateFlashcardDeckInput): Promise<FlashcardDeck> {
     const response = await apiClient.post<FlashcardDeck>(
       "/flashcards/admin/decks",

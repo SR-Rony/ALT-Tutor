@@ -142,6 +142,7 @@ export {
   useFlashcardDecks,
   useFlashcardDeck,
   useAdminFlashcards,
+  useTeacherFlashcards,
   useReviewFlashcard,
   useCreateFlashcardDeck,
   useUpdateFlashcardDeck,
