@@ -8,6 +8,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  ExternalLink,
   Eye,
   EyeOff,
   FileSpreadsheet,
@@ -84,6 +85,9 @@ const EXCEL_TEMPLATE_HEADERS = [
   "difficulty",
   "paper",
   "questionType",
+  "marks",
+  "yearHint",
+  "sourceLabel",
   "markScheme",
   "videoUrl",
   "calculatorAllowed",
@@ -102,6 +106,9 @@ const EXCEL_TEMPLATE_SAMPLE = [
   "EASY",
   "PAPER_1",
   "MULTIPLE_CHOICE",
+  "1",
+  "2023",
+  "SSC-style 2023",
   "Correct answer B. Use s = ut + 1/2 at^2 with u=0.",
   "https://www.youtube.com/watch?v=example",
   "TRUE",
@@ -154,6 +161,9 @@ function questionToExcelRow(question: QbQuestion, serial: number): string[] {
     String(question.difficulty),
     String(question.paper),
     String(question.questionType),
+    String(question.marks ?? 1),
+    question.yearHint != null ? String(question.yearHint) : "",
+    question.sourceLabel ?? "",
     question.markScheme ?? "",
     question.videoUrl ?? "",
     question.calculatorAllowed ? "TRUE" : "FALSE",
@@ -259,7 +269,21 @@ function AdminQuestionDropdown({
             <span className="text-xs uppercase">
               {String(question.difficulty).toLowerCase()} ·{" "}
               {String(question.paper).replace("_", " ")}
+              {question.marks != null ? ` · [${question.marks}]` : ""}
             </span>
+            {question.yearHint != null ? (
+              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                {question.yearHint}
+              </span>
+            ) : null}
+            {question.sourceLabel ? (
+              <span
+                className="max-w-[8rem] truncate rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                title={question.sourceLabel}
+              >
+                {question.sourceLabel}
+              </span>
+            ) : null}
             <span className="truncate text-muted-foreground">
               — {question.prompt.slice(0, 72)}
               {question.prompt.length > 72 ? "…" : ""}
@@ -479,9 +503,39 @@ export function AdminQuestionbankPage() {
   }, [subjects, effectiveSubjectId]);
 
   const effectiveProgramId = programId || programs[0]?.id || "";
+  const selectedProgram = programs.find((p) => p.id === effectiveProgramId) ?? programs[0];
   const { data: topics = [], isLoading, error, refetch, isFetching } = useAdminQuestionbank(
     effectiveProgramId || undefined
   );
+
+  const programStats = useMemo(() => {
+    let subtopics = 0;
+    let questions = 0;
+    let hiddenQuestions = 0;
+    let freeSets = 0;
+    let paidSets = 0;
+    for (const topic of topics) {
+      for (const sub of topic.subtopics) {
+        subtopics += 1;
+        const badge = normalizeAccessBadge(sub.badge);
+        if (badge === "FREE") freeSets += 1;
+        else paidSets += 1;
+        for (const q of sub.questions ?? []) {
+          questions += 1;
+          if (!q.isActive) hiddenQuestions += 1;
+        }
+      }
+    }
+    return {
+      topics: topics.length,
+      subtopics,
+      questions,
+      hiddenQuestions,
+      freeSets,
+      paidSets,
+      hiddenTopics: topics.filter((t) => !t.isActive).length,
+    };
+  }, [topics]);
 
   /** ids marked true = collapsed (default is open) */
   const [collapsedTopics, setCollapsedTopics] = useState<Record<string, boolean>>({});
@@ -596,6 +650,15 @@ export function AdminQuestionbankPage() {
   };
 
   const toggleQuestionVisibility = (question: QbQuestion) => {
+    const hiding = question.isActive;
+    if (
+      hiding &&
+      !window.confirm(
+        "Hide this question from students? You can show it again anytime from the eye icon."
+      )
+    ) {
+      return;
+    }
     void updateQuestion.mutateAsync({
       id: question.id,
       payload: { isActive: !question.isActive },
@@ -603,6 +666,15 @@ export function AdminQuestionbankPage() {
   };
 
   const toggleTopicVisibility = (topic: QbTopic) => {
+    const hiding = topic.isActive;
+    if (
+      hiding &&
+      !window.confirm(
+        `Hide theme "${topic.title}" from students? Study sets inside stay saved.`
+      )
+    ) {
+      return;
+    }
     void updateTopic.mutateAsync({
       id: topic.id,
       payload: { isActive: !topic.isActive },
@@ -610,6 +682,15 @@ export function AdminQuestionbankPage() {
   };
 
   const toggleSubtopicVisibility = (subtopic: QbTopic["subtopics"][number]) => {
+    const hiding = subtopic.isActive;
+    if (
+      hiding &&
+      !window.confirm(
+        `Hide study set "${subtopic.title}" from students? Questions stay saved.`
+      )
+    ) {
+      return;
+    }
     void updateSubtopic.mutateAsync({
       id: subtopic.id,
       payload: { isActive: !subtopic.isActive },
@@ -894,6 +975,40 @@ export function AdminQuestionbankPage() {
           {error ? (
             <p className="mt-2 text-sm text-accent">{(error as unknown as ApiError)?.message}</p>
           ) : null}
+
+          {effectiveProgramId && selectedProgram ? (
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/15 bg-primary-muted/40 px-4 py-3">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                <span>
+                  <strong className="text-foreground">{programStats.topics}</strong> themes
+                </span>
+                <span>
+                  <strong className="text-foreground">{programStats.subtopics}</strong> study sets
+                </span>
+                <span>
+                  <strong className="text-foreground">{programStats.questions}</strong> questions
+                  {programStats.hiddenQuestions > 0
+                    ? ` (${programStats.hiddenQuestions} hidden)`
+                    : ""}
+                </span>
+                <span>
+                  Access:{" "}
+                  <strong className="text-foreground">{programStats.freeSets}</strong> free ·{" "}
+                  <strong className="text-foreground">{programStats.paidSets}</strong> paid
+                </span>
+              </div>
+              <Button asChild size="sm" variant="outline" className="border-primary/30">
+                <Link
+                  href={ROUTES.subjectQuestionbank(selectedProgram.slug)}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Preview as student
+                </Link>
+              </Button>
+            </div>
+          ) : null}
         </div>
 
         <div className="space-y-4 p-5">
@@ -1083,6 +1198,21 @@ export function AdminQuestionbankPage() {
                               >
                                 Add question
                               </Button>
+                              {selectedProgram?.slug ? (
+                                <Button asChild size="sm" variant="outline" className="border-primary/30">
+                                  <Link
+                                    href={ROUTES.subjectQuestionbankStudy(
+                                      selectedProgram.slug,
+                                      sub.slug
+                                    )}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    <ExternalLink className="h-3.5 w-3.5" />
+                                    Preview
+                                  </Link>
+                                </Button>
+                              ) : null}
                               <button
                                 type="button"
                                 className="rounded-md p-2 text-muted-foreground transition hover:bg-primary-muted hover:text-primary"
@@ -1124,8 +1254,37 @@ export function AdminQuestionbankPage() {
                           {isSubOpen ? (
                             <ul className="space-y-2 border-t border-border px-3 py-2">
                               {(sub.questions ?? []).length === 0 ? (
-                                <li className="py-3 text-center text-sm text-muted-foreground">
-                                  No questions yet.
+                                <li className="space-y-2 py-4 text-center text-sm text-muted-foreground">
+                                  <p>No questions yet. Add one or upload Excel.</p>
+                                  <div className="flex flex-wrap items-center justify-center gap-2">
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      onClick={() => {
+                                        setModal({ kind: "question", subtopicId: sub.id });
+                                        resetQuestionForm();
+                                      }}
+                                    >
+                                      Add question
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => {
+                                        setImportResult(null);
+                                        setActionError(null);
+                                        setModal({
+                                          kind: "import",
+                                          subtopicId: sub.id,
+                                          title: sub.title,
+                                        });
+                                      }}
+                                    >
+                                      <Upload className="h-4 w-4" />
+                                      Upload Excel
+                                    </Button>
+                                  </div>
                                 </li>
                               ) : null}
                               {(sub.questions ?? []).map((q, questionIndex) => (
@@ -1177,10 +1336,10 @@ export function AdminQuestionbankPage() {
           modal?.kind === "import"
             ? "Put image + video as public URLs in the sheet. Questions appear on the study page automatically."
             : modal?.kind === "question"
-              ? "Add stimulus image URL, mark scheme, and short video solution."
+              ? "Add stimulus image, marks, optional year/source, mark scheme, and video solution. Hidden questions stay out of the student Questionbank."
               : modal?.kind === "subtopic"
-                ? "ALT Free is open practice. Silver, Gold, and Diamond need a matching Practice Pass or linked course."
-                : "Visible on the public Questionbank with Easy / Medium / Hard filters."
+                ? "ALT Free is open practice. Silver, Gold, and Diamond need a matching Practice Pass or linked course. Use Preview to open the student study page."
+                : "Visible on the public Questionbank with Easy / Medium / Hard filters. Use Preview as student to verify."
         }
         onClose={() => !busy && setModal(null)}
         className={modal?.kind === "question" || modal?.kind === "import" ? "sm:max-w-2xl" : "sm:max-w-xl"}
