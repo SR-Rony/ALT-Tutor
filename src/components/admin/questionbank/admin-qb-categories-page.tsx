@@ -51,7 +51,7 @@ export function AdminQbCategoriesPage() {
       const payload = { name: name.trim(), slug: slug.trim() || slugify(name) };
       if (!payload.name || !payload.slug) throw { message: "Name and slug required" };
       if (form?.id) await updateCategory.mutateAsync({ id: form.id, payload });
-      else await createCategory.mutateAsync({ ...payload, order: tree.length });
+      else await createCategory.mutateAsync({ ...payload, order: tree.length, isActive: true });
       setForm(null);
     } catch (err) {
       setActionError((err as ApiError)?.message || "Failed to save");

@@ -670,7 +670,7 @@ export function AdminQuestionbankPage() {
     if (
       hiding &&
       !window.confirm(
-        `Hide theme "${topic.title}" from students? Study sets inside stay saved.`
+        `Hide topic "${topic.title}" from students? Study sets inside stay saved.`
       )
     ) {
       return;
@@ -833,7 +833,7 @@ export function AdminQuestionbankPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Questions"
-              description="Manage themes, study sets, Free/Silver/Gold/Diamond access, Excel import, diagrams, and video solutions."
+              description="Manage topics, study sets, Free/Silver/Gold/Diamond access, Excel import, diagrams, and video solutions."
               className="mb-0"
             />
             <div className="flex flex-wrap items-center gap-2">
@@ -884,7 +884,7 @@ export function AdminQuestionbankPage() {
                 }}
               >
                 <Plus className="h-4 w-4" />
-                Add theme
+                Add topic
               </Button>
             </div>
           </div>
@@ -907,7 +907,7 @@ export function AdminQuestionbankPage() {
             </span>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Category
@@ -950,24 +950,6 @@ export function AdminQuestionbankPage() {
                 ))}
               </select>
             </label>
-
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Program
-              </span>
-              <select
-                value={effectiveProgramId}
-                onChange={(e) => setProgramId(e.target.value)}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                {programs.length === 0 ? <option value="">No programs</option> : null}
-                {programs.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
           </div>
           {error ? (
             <p className="mt-2 text-sm text-accent">{(error as unknown as ApiError)?.message}</p>
@@ -977,7 +959,7 @@ export function AdminQuestionbankPage() {
             <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/15 bg-primary-muted/40 px-4 py-3">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
                 <span>
-                  <strong className="text-foreground">{programStats.topics}</strong> themes
+                  <strong className="text-foreground">{programStats.topics}</strong> topics
                 </span>
                 <span>
                   <strong className="text-foreground">{programStats.subtopics}</strong> study sets
@@ -1010,7 +992,7 @@ export function AdminQuestionbankPage() {
 
         <div className="space-y-4 p-5">
           {topics.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">No topics yet. Add a theme to start.</p>
+            <p className="py-8 text-center text-muted-foreground">No topics yet. Add a topic to start.</p>
           ) : null}
 
           {topics.map((topic) => {
@@ -1038,7 +1020,7 @@ export function AdminQuestionbankPage() {
                     />
                     <div>
                       <p className="text-xs font-semibold uppercase text-primary">
-                        Theme {topic.number}
+                        Topic {topic.number}
                       </p>
                       <h3 className="flex items-center gap-2 font-semibold text-foreground">
                         {topic.title}
@@ -1068,8 +1050,8 @@ export function AdminQuestionbankPage() {
                     <button
                       type="button"
                       className="rounded-md p-2 text-muted-foreground transition hover:bg-primary-muted hover:text-primary"
-                      title="Edit theme"
-                      aria-label="Edit theme"
+                      title="Edit topic"
+                      aria-label="Edit topic"
                       onClick={() => openEditTopic(topic)}
                     >
                       <Pencil className="h-4 w-4" />
@@ -1077,8 +1059,8 @@ export function AdminQuestionbankPage() {
                     <button
                       type="button"
                       className="rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
-                      title={topic.isActive ? "Hide theme" : "Show theme"}
-                      aria-label={topic.isActive ? "Hide theme" : "Show theme"}
+                      title={topic.isActive ? "Hide topic" : "Show topic"}
+                      aria-label={topic.isActive ? "Hide topic" : "Show topic"}
                       disabled={updateTopic.isPending}
                       onClick={() => toggleTopicVisibility(topic)}
                     >
@@ -1094,7 +1076,7 @@ export function AdminQuestionbankPage() {
                       variant="ghost"
                       className="text-accent"
                       onClick={() => {
-                        if (window.confirm(`Delete theme "${topic.title}"?`)) {
+                        if (window.confirm(`Delete topic "${topic.title}"?`)) {
                           void deleteTopic.mutateAsync(topic.id);
                         }
                       }}
@@ -1317,8 +1299,8 @@ export function AdminQuestionbankPage() {
         title={
           modal?.kind === "topic"
             ? modal.editId
-              ? "Edit theme"
-              : "Add theme"
+              ? "Edit topic"
+              : "Add topic"
             : modal?.kind === "subtopic"
               ? modal.editId
                 ? "Edit study set"

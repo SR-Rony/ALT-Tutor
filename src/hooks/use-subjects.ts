@@ -14,7 +14,8 @@ export function useSubjectsMenu() {
   return useQuery({
     queryKey: queryKeys.subjects.menu,
     queryFn: () => subjectsService.getMenu(),
-    staleTime: 60_000,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 }
 

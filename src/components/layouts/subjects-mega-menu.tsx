@@ -27,8 +27,61 @@ import type {
   SubjectMenuCategory,
   SubjectMenuProgram,
   SubjectMenuResource,
+  SubjectMenuSubject,
 } from "@/types/subjects.types";
 import { cn } from "@/utils";
+
+/** Fixed mega menu height on desktop — category/subject columns scroll inside */
+
+const SCROLL_LIST_CLASS =
+  "min-h-0 max-h-[11.5rem] flex-1 space-y-0.5 overflow-y-auto overscroll-contain pr-1 md:max-h-none [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/80 hover:[&::-webkit-scrollbar-thumb]:bg-muted-foreground/50";
+
+function MegaScrollList({ children }: { children: ReactNode }) {
+  return <div className={SCROLL_LIST_CLASS}>{children}</div>;
+}
+
+function MegaMenuColumn({
+  label,
+  children,
+  className,
+}: {
+  label: string;
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "flex min-h-0 flex-col p-4 md:h-full",
+        className
+      )}
+    >
+      <p className="mb-3 shrink-0 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+        {label}
+      </p>
+      <MegaScrollList>{children}</MegaScrollList>
+    </div>
+  );
+}
+
+/** Only these resources appear in the public mega menu */
+const MEGA_MENU_RESOURCE_TYPES = new Set([
+  "QUESTIONBANK",
+  "KEY_CONCEPTS",
+  "PRACTICE_EXAMS",
+  "PAST_PAPERS",
+]);
+
+const RESOURCE_TYPE_ORDER: Record<string, number> = {
+  QUESTIONBANK: 0,
+  KEY_CONCEPTS: 1,
+  PRACTICE_EXAMS: 2,
+  PAST_PAPERS: 3,
+};
+
+function isMegaMenuResource(resource: SubjectMenuResource) {
+  return MEGA_MENU_RESOURCE_TYPES.has(String(resource.resourceType).toUpperCase());
+}
 
 const TONE_CLASSES = [
   "bg-primary text-primary-foreground",
@@ -57,7 +110,7 @@ function resourceIcon(resource: SubjectMenuResource): LucideIcon {
   const t = String(resource.resourceType).toUpperCase();
   if (t === "QUESTIONBANK") return ClipboardList;
   if (t === "KEY_CONCEPTS") return Lightbulb;
-  if (t === "PAST_PAPERS" || t === "PRACTICE_EXAMS" || t === "PAPER_3") return FileText;
+  if (t === "PAST_PAPERS" || t === "PRACTICE_EXAMS") return FileText;
   return BookOpen;
 }
 
@@ -80,9 +133,11 @@ function isSubjectsPathActive(pathname: string) {
 
 function sortResources(resources: SubjectMenuResource[]) {
   return [...resources].sort((a, b) => {
-    const aQb = String(a.resourceType).toUpperCase() === "QUESTIONBANK" ? 0 : 1;
-    const bQb = String(b.resourceType).toUpperCase() === "QUESTIONBANK" ? 0 : 1;
-    if (aQb !== bQb) return aQb - bQb;
+    const aType = String(a.resourceType).toUpperCase();
+    const bType = String(b.resourceType).toUpperCase();
+    const aOrder = RESOURCE_TYPE_ORDER[aType] ?? 99;
+    const bOrder = RESOURCE_TYPE_ORDER[bType] ?? 99;
+    if (aOrder !== bOrder) return aOrder - bOrder;
     return (a.order ?? 0) - (b.order ?? 0);
   });
 }
@@ -99,7 +154,9 @@ function subjectResourceEntries(subject: SubjectMenuSubject | null) {
 
   for (const program of programs) {
     for (const resource of sortResources(
-      (program.resources ?? []).filter((item) => item.isActive !== false)
+      (program.resources ?? []).filter(
+        (item) => item.isActive !== false && isMegaMenuResource(item)
+      )
     )) {
       const key = resource.slug || String(resource.resourceType);
       if (seen.has(key)) continue;
@@ -159,6 +216,47 @@ function MegaRow({
         aria-hidden
       />
     </button>
+  );
+}
+
+function MegaResourceLink({
+  href,
+  icon,
+  label,
+  emphasized,
+  onNavigate,
+}: {
+  href: string;
+  icon: ReactNode;
+  label: string;
+  emphasized?: boolean;
+  onNavigate: () => void;
+}) {
+  return (
+    <Link
+      href={href}
+      onClick={onNavigate}
+      className={cn(
+        "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors",
+        emphasized
+          ? "bg-primary-muted/80 font-semibold text-primary hover:bg-primary-muted"
+          : "font-medium text-foreground/90 hover:bg-muted"
+      )}
+    >
+      <span
+        className={cn(
+          "inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg",
+          emphasized ? "bg-primary text-primary-foreground" : "bg-muted text-primary"
+        )}
+      >
+        {icon}
+      </span>
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      <ChevronRight
+        className={cn("h-4 w-4 shrink-0", emphasized ? "text-primary" : "text-muted-foreground")}
+        aria-hidden
+      />
+    </Link>
   );
 }
 
@@ -237,96 +335,78 @@ function MegaPanel({
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_20px_50px_-12px_rgba(24,119,242,0.2)]">
-      <div className="grid min-h-[22rem] grid-cols-1 md:grid-cols-[minmax(12rem,0.95fr)_minmax(12rem,0.95fr)_minmax(16rem,1.25fr)]">
-        {/* Categories */}
-        <div className="border-b border-border p-3 md:border-b-0 md:border-r">
-          <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Category
-          </p>
-          <div className="space-y-0.5">
-            {menu.map((category, index) => {
-              const Icon = categoryIcon(category, index);
-              return (
-                <MegaRow
-                  key={category.id}
-                  active={category.id === selectedCategory?.id}
-                  onSelect={() => {
-                    setCategoryId(category.id);
-                    setSubjectId(null);
-                  }}
-                  icon={<Icon className="h-4 w-4" aria-hidden />}
-                  iconClassName={categoryTone(index)}
-                  label={category.name}
-                />
-              );
-            })}
-          </div>
-        </div>
+    <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_24px_60px_-16px_rgba(15,23,42,0.18)]">
+      <div className="grid grid-cols-1 md:h-[22rem] md:grid-cols-[minmax(13rem,1fr)_minmax(13rem,1fr)_minmax(15rem,1.15fr)]">
+        <MegaMenuColumn
+          label="Category"
+          className="border-b border-border/80 bg-muted/20 md:border-b-0 md:border-r"
+        >
+          {menu.map((category, index) => {
+            const Icon = categoryIcon(category, index);
+            return (
+              <MegaRow
+                key={category.id}
+                active={category.id === selectedCategory?.id}
+                onSelect={() => {
+                  setCategoryId(category.id);
+                  setSubjectId(null);
+                }}
+                icon={<Icon className="h-4 w-4" aria-hidden />}
+                iconClassName={categoryTone(index)}
+                label={category.name}
+              />
+            );
+          })}
+        </MegaMenuColumn>
 
-        {/* Subjects */}
-        <div className="border-b border-border p-3 md:border-b-0 md:border-r">
-          <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Subject
-          </p>
-          <div className="space-y-0.5">
-            {subjects.length === 0 ? (
-              <p className="px-3 py-6 text-sm text-muted-foreground">No subjects.</p>
-            ) : (
-              subjects.map((subject) => (
-                <MegaRow
-                  key={subject.id}
-                  active={subject.id === selectedSubject?.id}
-                  onSelect={() => setSubjectId(subject.id)}
-                  icon={<BookOpen className="h-4 w-4" aria-hidden />}
-                  iconClassName={
-                    subject.id === selectedSubject?.id
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-primary-muted text-primary"
-                  }
-                  label={subject.name}
-                />
-              ))
-            )}
-          </div>
-        </div>
+        <MegaMenuColumn
+          label="Subject"
+          className="border-b border-border/80 bg-muted/20 md:border-b-0 md:border-r"
+        >
+          {subjects.length === 0 ? (
+            <p className="px-3 py-6 text-sm text-muted-foreground">No subjects.</p>
+          ) : (
+            subjects.map((subject) => (
+              <MegaRow
+                key={subject.id}
+                active={subject.id === selectedSubject?.id}
+                onSelect={() => setSubjectId(subject.id)}
+                icon={<BookOpen className="h-4 w-4" aria-hidden />}
+                iconClassName={
+                  subject.id === selectedSubject?.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-primary-muted text-primary"
+                }
+                label={subject.name}
+              />
+            ))
+          )}
+        </MegaMenuColumn>
 
-        {/* Resources */}
-        <div className="p-4 sm:p-5">
-          <p className="mb-3 text-sm font-bold text-foreground">
-            {selectedSubject?.name ?? "Resources"}
+        <div className="flex min-h-0 flex-col p-4 sm:p-5 md:h-full">
+          <p className="mb-1 shrink-0 px-1 text-[11px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
+            Resources
+          </p>
+          <p className="mb-4 shrink-0 px-1 text-base font-bold text-foreground">
+            {selectedSubject?.name ?? "Select a subject"}
           </p>
           {resourceEntries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No resources for this subject yet.</p>
+            <p className="px-1 text-sm text-muted-foreground">No resources for this subject yet.</p>
           ) : (
-            <ul className="space-y-1">
+            <ul className="min-h-0 flex-1 space-y-0.5 overflow-y-auto overscroll-contain pr-1 [scrollbar-width:thin] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-border/80">
               {resourceEntries.map(({ program, resource }) => {
                 const Icon = resourceIcon(resource);
                 const href = resourceHref(program, resource);
                 const isQb = String(resource.resourceType).toUpperCase() === "QUESTIONBANK";
                 return (
-                  <li key={resource.id}>
-                    <Link
+                  <li key={`${program.id}-${resource.slug}`}>
+                    <MegaResourceLink
                       href={href}
-                      onClick={onNavigate}
-                      className={cn(
-                        "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm transition",
-                        isQb
-                          ? "bg-primary-muted font-semibold text-primary hover:bg-primary/15"
-                          : "text-foreground hover:bg-muted"
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "inline-flex h-8 w-8 items-center justify-center rounded-lg",
-                          isQb ? "bg-primary text-primary-foreground" : "bg-muted text-primary"
-                        )}
-                      >
-                        <Icon className="h-4 w-4" aria-hidden />
-                      </span>
-                      <span className="min-w-0 flex-1 truncate">{resource.title}</span>
-                      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    </Link>
+                      icon={<Icon className="h-4 w-4" aria-hidden />}
+                      label={resource.title}
+                      emphasized={isQb}
+                      onNavigate={onNavigate}
+                    />
                   </li>
                 );
               })}
@@ -334,13 +414,16 @@ function MegaPanel({
           )}
 
           {defaultProgram ? (
-            <Link
-              href={ROUTES.subjectQuestionbank(defaultProgram.slug)}
-              onClick={onNavigate}
-              className="mt-4 inline-flex text-sm font-semibold text-primary hover:underline"
-            >
-              Open Questionbank →
-            </Link>
+            <div className="mt-auto shrink-0 border-t border-border/70 pt-4">
+              <Link
+                href={ROUTES.subjectQuestionbank(defaultProgram.slug)}
+                onClick={onNavigate}
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-primary transition hover:text-primary/80"
+              >
+                Open Questionbank
+                <ChevronRight className="h-4 w-4" aria-hidden />
+              </Link>
+            </div>
           ) : null}
         </div>
       </div>
@@ -512,56 +595,60 @@ export function SubjectsMobileMenu({
                 <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Category
                 </p>
-                {menu.map((category, index) => {
-                  const Icon = categoryIcon(category, index);
-                  return (
-                    <button
-                      key={category.id}
-                      type="button"
-                      onClick={() => {
-                        setCategoryId(category.id);
-                        setSubjectId(null);
-                      }}
-                      className={cn(
-                        "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm",
-                        category.id === selectedCategory?.id
-                          ? "bg-card font-semibold text-foreground shadow-sm"
-                          : "text-muted-foreground"
-                      )}
-                    >
-                      <span
+                <MegaScrollList>
+                  {menu.map((category, index) => {
+                    const Icon = categoryIcon(category, index);
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        onClick={() => {
+                          setCategoryId(category.id);
+                          setSubjectId(null);
+                        }}
                         className={cn(
-                          "inline-flex h-7 w-7 items-center justify-center rounded-md",
-                          categoryTone(index)
+                          "flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm",
+                          category.id === selectedCategory?.id
+                            ? "bg-card font-semibold text-foreground shadow-sm"
+                            : "text-muted-foreground"
                         )}
                       >
-                        <Icon className="h-3.5 w-3.5" />
-                      </span>
-                      {category.name}
-                    </button>
-                  );
-                })}
+                        <span
+                          className={cn(
+                            "inline-flex h-7 w-7 items-center justify-center rounded-md",
+                            categoryTone(index)
+                          )}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                        </span>
+                        {category.name}
+                      </button>
+                    );
+                  })}
+                </MegaScrollList>
               </div>
 
               <div className="space-y-1">
                 <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Subject
                 </p>
-                {subjects.map((subject) => (
-                  <button
-                    key={subject.id}
-                    type="button"
-                    onClick={() => setSubjectId(subject.id)}
-                    className={cn(
-                      "w-full rounded-lg px-3 py-2 text-left text-sm",
-                      subject.id === selectedSubject?.id
-                        ? "bg-card font-semibold text-foreground shadow-sm"
-                        : "text-muted-foreground"
-                    )}
-                  >
-                    {subject.name}
-                  </button>
-                ))}
+                <MegaScrollList>
+                  {subjects.map((subject) => (
+                    <button
+                      key={subject.id}
+                      type="button"
+                      onClick={() => setSubjectId(subject.id)}
+                      className={cn(
+                        "w-full rounded-lg px-3 py-2 text-left text-sm",
+                        subject.id === selectedSubject?.id
+                          ? "bg-card font-semibold text-foreground shadow-sm"
+                          : "text-muted-foreground"
+                      )}
+                    >
+                      {subject.name}
+                    </button>
+                  ))}
+                </MegaScrollList>
               </div>
 
               <div className="space-y-2">
