@@ -37,12 +37,12 @@ export function AuthPageShell({
           <div className="border-b border-[#eef2f7] bg-[linear-gradient(180deg,#fafcff_0%,#ffffff_100%)] px-6 pb-6 pt-8 text-center sm:px-8 sm:pt-10">
             <Link href="/" className="mx-auto inline-flex transition-opacity hover:opacity-90">
               <Image
-                src="/logo.jpeg"
+                src="/logo.png"
                 alt={siteConfig.name}
                 width={160}
                 height={48}
                 priority
-                className="mx-auto h-10 w-auto object-contain sm:h-11"
+                className="mx-auto object-contain"
               />
             </Link>
             <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-[#1a2b5e] sm:text-[1.65rem]">

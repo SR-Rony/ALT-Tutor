@@ -78,6 +78,47 @@ function isSubjectsPathActive(pathname: string) {
   );
 }
 
+function sortResources(resources: SubjectMenuResource[]) {
+  return [...resources].sort((a, b) => {
+    const aQb = String(a.resourceType).toUpperCase() === "QUESTIONBANK" ? 0 : 1;
+    const bQb = String(b.resourceType).toUpperCase() === "QUESTIONBANK" ? 0 : 1;
+    if (aQb !== bQb) return aQb - bQb;
+    return (a.order ?? 0) - (b.order ?? 0);
+  });
+}
+
+function subjectResourceEntries(subject: SubjectMenuSubject | null) {
+  if (!subject) return [];
+
+  const programs = [...(subject.programs ?? [])]
+    .filter((program) => program.isActive !== false)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const seen = new Set<string>();
+  const entries: { program: SubjectMenuProgram; resource: SubjectMenuResource }[] = [];
+
+  for (const program of programs) {
+    for (const resource of sortResources(
+      (program.resources ?? []).filter((item) => item.isActive !== false)
+    )) {
+      const key = resource.slug || String(resource.resourceType);
+      if (seen.has(key)) continue;
+      seen.add(key);
+      entries.push({ program, resource });
+    }
+  }
+
+  return entries;
+}
+
+function primaryProgram(subject: SubjectMenuSubject | null) {
+  return (
+    [...(subject?.programs ?? [])]
+      .filter((program) => program.isActive !== false)
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))[0] ?? null
+  );
+}
+
 function MegaRow({
   active,
   onSelect,
@@ -132,7 +173,6 @@ function MegaPanel({
 }) {
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [subjectId, setSubjectId] = useState<string | null>(null);
-  const [programId, setProgramId] = useState<string | null>(null);
 
   const selectedCategory = useMemo(
     () => menu.find((c) => c.id === categoryId) ?? menu[0] ?? null,
@@ -146,22 +186,12 @@ function MegaPanel({
     [subjects, subjectId]
   );
 
-  const programs = selectedSubject?.programs ?? [];
-
-  const selectedProgram = useMemo(
-    () => programs.find((p) => p.id === programId) ?? programs[0] ?? null,
-    [programs, programId]
+  const resourceEntries = useMemo(
+    () => subjectResourceEntries(selectedSubject),
+    [selectedSubject]
   );
 
-  const resources = useMemo(() => {
-    const list = (selectedProgram?.resources ?? []).filter((r) => r.isActive !== false);
-    return [...list].sort((a, b) => {
-      const aQb = String(a.resourceType).toUpperCase() === "QUESTIONBANK" ? 0 : 1;
-      const bQb = String(b.resourceType).toUpperCase() === "QUESTIONBANK" ? 0 : 1;
-      if (aQb !== bQb) return aQb - bQb;
-      return (a.order ?? 0) - (b.order ?? 0);
-    });
-  }, [selectedProgram]);
+  const defaultProgram = useMemo(() => primaryProgram(selectedSubject), [selectedSubject]);
 
   useEffect(() => {
     if (!menu.length) {
@@ -182,16 +212,6 @@ function MegaPanel({
       setSubjectId(subjects[0].id);
     }
   }, [subjects, subjectId]);
-
-  useEffect(() => {
-    if (!programs.length) {
-      setProgramId(null);
-      return;
-    }
-    if (!programId || !programs.some((p) => p.id === programId)) {
-      setProgramId(programs[0].id);
-    }
-  }, [programs, programId]);
 
   if (isLoading) {
     return (
@@ -218,7 +238,7 @@ function MegaPanel({
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_20px_50px_-12px_rgba(24,119,242,0.2)]">
-      <div className="grid min-h-[22rem] grid-cols-1 md:grid-cols-[minmax(12rem,0.9fr)_minmax(12rem,0.9fr)_minmax(11rem,0.85fr)_minmax(16rem,1.2fr)]">
+      <div className="grid min-h-[22rem] grid-cols-1 md:grid-cols-[minmax(12rem,0.95fr)_minmax(12rem,0.95fr)_minmax(16rem,1.25fr)]">
         {/* Categories */}
         <div className="border-b border-border p-3 md:border-b-0 md:border-r">
           <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
@@ -234,7 +254,6 @@ function MegaPanel({
                   onSelect={() => {
                     setCategoryId(category.id);
                     setSubjectId(null);
-                    setProgramId(null);
                   }}
                   icon={<Icon className="h-4 w-4" aria-hidden />}
                   iconClassName={categoryTone(index)}
@@ -258,10 +277,7 @@ function MegaPanel({
                 <MegaRow
                   key={subject.id}
                   active={subject.id === selectedSubject?.id}
-                  onSelect={() => {
-                    setSubjectId(subject.id);
-                    setProgramId(null);
-                  }}
+                  onSelect={() => setSubjectId(subject.id)}
                   icon={<BookOpen className="h-4 w-4" aria-hidden />}
                   iconClassName={
                     subject.id === selectedSubject?.id
@@ -275,47 +291,18 @@ function MegaPanel({
           </div>
         </div>
 
-        {/* Programs */}
-        <div className="border-b border-border p-3 md:border-b-0 md:border-r">
-          <p className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
-            Program
-          </p>
-          <div className="space-y-0.5">
-            {programs.length === 0 ? (
-              <p className="px-3 py-6 text-sm text-muted-foreground">No programs.</p>
-            ) : (
-              programs.map((program) => (
-                <MegaRow
-                  key={program.id}
-                  active={program.id === selectedProgram?.id}
-                  onSelect={() => setProgramId(program.id)}
-                  icon={<GraduationCap className="h-4 w-4" aria-hidden />}
-                  iconClassName={
-                    program.id === selectedProgram?.id
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-primary-muted text-primary"
-                  }
-                  label={program.name}
-                />
-              ))
-            )}
-          </div>
-        </div>
-
         {/* Resources */}
         <div className="p-4 sm:p-5">
           <p className="mb-3 text-sm font-bold text-foreground">
-            {selectedProgram?.name ?? "Resources"}
+            {selectedSubject?.name ?? "Resources"}
           </p>
-          {resources.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No resources for this program yet.</p>
+          {resourceEntries.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No resources for this subject yet.</p>
           ) : (
             <ul className="space-y-1">
-              {resources.map((resource) => {
+              {resourceEntries.map(({ program, resource }) => {
                 const Icon = resourceIcon(resource);
-                const href = selectedProgram
-                  ? resourceHref(selectedProgram, resource)
-                  : "#";
+                const href = resourceHref(program, resource);
                 const isQb = String(resource.resourceType).toUpperCase() === "QUESTIONBANK";
                 return (
                   <li key={resource.id}>
@@ -346,9 +333,9 @@ function MegaPanel({
             </ul>
           )}
 
-          {selectedProgram ? (
+          {defaultProgram ? (
             <Link
-              href={ROUTES.subjectQuestionbank(selectedProgram.slug)}
+              href={ROUTES.subjectQuestionbank(defaultProgram.slug)}
               onClick={onNavigate}
               className="mt-4 inline-flex text-sm font-semibold text-primary hover:underline"
             >
@@ -579,27 +566,27 @@ export function SubjectsMobileMenu({
 
               <div className="space-y-2">
                 <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Programs & resources
+                  Resources
                 </p>
-                {(selectedSubject?.programs ?? []).map((program) => (
-                  <div key={program.id} className="rounded-xl border border-border bg-card p-3">
-                    <p className="mb-2 text-sm font-bold text-foreground">{program.name}</p>
+                {selectedSubject ? (
+                  <div className="rounded-xl border border-border bg-card p-3">
+                    <p className="mb-2 text-sm font-bold text-foreground">{selectedSubject.name}</p>
                     <div className="space-y-1">
-                      {program.resources
-                        .filter((r) => r.isActive !== false)
-                        .map((resource) => (
-                          <Link
-                            key={resource.id}
-                            href={resourceHref(program, resource)}
-                            onClick={onNavigate}
-                            className="block rounded-lg px-2 py-1.5 text-sm text-primary hover:bg-primary-muted"
-                          >
-                            {resource.title}
-                          </Link>
-                        ))}
+                      {subjectResourceEntries(selectedSubject).map(({ program, resource }) => (
+                        <Link
+                          key={resource.id}
+                          href={resourceHref(program, resource)}
+                          onClick={onNavigate}
+                          className="block rounded-lg px-2 py-1.5 text-sm text-primary hover:bg-primary-muted"
+                        >
+                          {resource.title}
+                        </Link>
+                      ))}
                     </div>
                   </div>
-                ))}
+                ) : (
+                  <p className="px-2 py-2 text-sm text-muted-foreground">Select a subject.</p>
+                )}
               </div>
             </>
           )}
