@@ -13,7 +13,7 @@ export const ROUTES = {
   subjectQuestionbankStudyExam: (
     programSlug: string,
     subtopicSlug: string,
-    opts?: { paper?: "PAPER_1" | "PAPER_2" }
+    opts?: { paper?: "PAPER_1" | "PAPER_2" | "PAPER_3" }
   ) => {
     const params = new URLSearchParams({ mode: "exam" });
     if (opts?.paper) params.set("paper", opts.paper);

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, forwardRef, type ReactNode } from "react";
 import {
   Bookmark,
   Check,
@@ -12,6 +12,7 @@ import {
   ExternalLink,
   FileText,
   HelpCircle,
+  Info,
   ListOrdered,
   Lock,
   PlayCircle,
@@ -66,8 +67,25 @@ function formatTimer(totalSeconds: number) {
 const TYPE_OPTIONS: { value: QbQuestionType; label: string }[] = [
   { value: "DATA_BASED", label: "Data-based Questions" },
   { value: "MULTIPLE_CHOICE", label: "Multiple Choice Questions" },
-  { value: "SHORT_ANSWER", label: "Short Answer (P2 SQ)" },
+  { value: "SHORT_ANSWER", label: "Short Answer Questions" },
 ];
+
+const PAPER_FILTER_OPTIONS: { value: QbPaper; label: string }[] = [
+  { value: "PAPER_1", label: "Paper 1" },
+  { value: "PAPER_2", label: "Paper 2" },
+  { value: "PAPER_3", label: "Paper 3" },
+];
+
+function isMcqPaper(paper: string) {
+  return String(paper).toUpperCase() === "PAPER_1";
+}
+
+function paperDisplayLabel(paper: string) {
+  const key = String(paper).toUpperCase();
+  if (key === "PAPER_3") return "Paper 3";
+  if (key === "PAPER_2") return "Paper 2";
+  return "Paper 1";
+}
 
 function difficultyMeta(d: string) {
   const key = d.toUpperCase();
@@ -109,9 +127,16 @@ function toggleFilter<T extends string>(list: T[] | undefined, value: T): T[] {
   return current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
 }
 
-function isStructuredType(type: string) {
-  const t = type.toUpperCase();
-  return t === "SHORT_ANSWER" || t === "DATA_BASED";
+function filterSelectionLabel<T extends string>(
+  selected: T[] | undefined,
+  options: { value: T; label: string }[],
+  allLabel = "All"
+) {
+  if (!selected?.length || selected.length === options.length) return allLabel;
+  if (selected.length === 1) {
+    return options.find((option) => option.value === selected[0])?.label ?? allLabel;
+  }
+  return `${selected.length} selected`;
 }
 
 function QuestionCard({
@@ -137,9 +162,9 @@ function QuestionCard({
   onSelectAnswer?: (letter: string) => void;
   saving?: boolean;
 }) {
-  if (isStructuredType(String(question.questionType))) {
+  if (isMcqPaper(String(question.paper))) {
     return (
-      <StructuredQuestionCard
+      <McqQuestionCard
         question={question}
         index={index}
         completed={completed}
@@ -147,6 +172,7 @@ function QuestionCard({
         solutionsUnlocked={solutionsUnlocked}
         examMode={examMode}
         selectedAnswer={selectedAnswer}
+        feedback={feedback}
         onSelectAnswer={onSelectAnswer}
         saving={saving}
       />
@@ -154,7 +180,7 @@ function QuestionCard({
   }
 
   return (
-    <McqQuestionCard
+    <StructuredQuestionCard
       question={question}
       index={index}
       completed={completed}
@@ -162,7 +188,6 @@ function QuestionCard({
       solutionsUnlocked={solutionsUnlocked}
       examMode={examMode}
       selectedAnswer={selectedAnswer}
-      feedback={feedback}
       onSelectAnswer={onSelectAnswer}
       saving={saving}
     />
@@ -221,6 +246,9 @@ function McqQuestionCard({
                 </span>
               ) : null}
               <DifficultyDots difficulty={String(question.difficulty)} />
+              <span className="rounded-md border border-primary/15 bg-primary-muted/40 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+                {paperDisplayLabel(String(question.paper))} · MCQ
+              </span>
               {question.marks != null && question.marks > 0 ? (
                 <span className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-foreground">
                   [{question.marks}]
@@ -485,7 +513,7 @@ function StructuredQuestionCard({
               ) : null}
               <DifficultyDots difficulty={String(question.difficulty)} />
               <span className="rounded-md border border-primary/20 bg-primary-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                Paper 2 · SQ
+                {paperDisplayLabel(String(question.paper))} · Theory
               </span>
               {maxMarks != null && maxMarks > 0 ? (
                 <span className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-foreground">
@@ -972,8 +1000,8 @@ export function QuestionbankStudyPage({
 
   useEffect(() => {
     if (!typeOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (typeRef.current && !typeRef.current.contains(e.target as Node)) setTypeOpen(false);
+    const onDown = (event: MouseEvent) => {
+      if (typeRef.current && !typeRef.current.contains(event.target as Node)) setTypeOpen(false);
     };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
@@ -986,12 +1014,7 @@ export function QuestionbankStudyPage({
     return list;
   }, [data?.questions, viewMode, completedIds]);
 
-  const typeLabel =
-    !filters.type?.length || filters.type.length === TYPE_OPTIONS.length
-      ? "All"
-      : filters.type.length === 1
-        ? TYPE_OPTIONS.find((t) => t.value === filters.type![0])?.label ?? "All"
-        : `${filters.type.length} selected`;
+  const typeLabel = filterSelectionLabel(filters.type, TYPE_OPTIONS);
 
   const toggleComplete = (id: string) => {
     setCompletedIds((prev) => {
@@ -1106,8 +1129,8 @@ export function QuestionbankStudyPage({
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
       />
 
-      {/* Filter panel — PDF light-blue box */}
-      <div className="sticky top-16 z-30 border-b border-primary/10 bg-primary-muted/40 lg:top-[4.5rem]">
+      {/* Filter panel */}
+      <div className="border-b border-primary/10 bg-primary-muted/30">
         <div className="mx-auto max-w-7xl px-4 py-3 md:px-6">
           <div className="flex flex-wrap items-center gap-3">
             <button
@@ -1146,87 +1169,67 @@ export function QuestionbankStudyPage({
           </div>
 
           {filtersOpen ? (
-            <div className="mt-3 rounded-xl border border-primary/15 bg-primary-muted/70 p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.6)]">
-              <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-5 gap-y-3">
-                <div ref={typeRef} className="relative">
-                  <span className="mb-1 block text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Question Type
-                  </span>
-                  <button
-                    type="button"
-                    disabled={filtersFrozen}
-                    className="inline-flex min-w-[8rem] items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition hover:border-primary/30 disabled:cursor-not-allowed disabled:opacity-60"
-                    onClick={() => setTypeOpen((v) => !v)}
-                  >
-                    <span className="truncate">{typeLabel}</span>
-                    <ChevronDown
-                      className={cn(
-                        "h-3.5 w-3.5 shrink-0 text-muted-foreground transition",
-                        typeOpen && "rotate-180"
-                      )}
-                    />
-                  </button>
-                  {typeOpen ? (
-                    <div className="absolute left-0 top-full z-40 mt-1.5 min-w-[15rem] rounded-xl border border-border bg-card p-2 shadow-[0_16px_40px_-12px_rgba(24,119,242,0.3)]">
-                      {TYPE_OPTIONS.map((opt) => {
-                        const checked = filters.type?.includes(opt.value) ?? false;
-                        return (
-                          <label
-                            key={opt.value}
-                            className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm text-foreground hover:bg-primary-muted"
-                          >
-                            <input
-                              type="checkbox"
-                              className="h-4 w-4 rounded border-border text-primary accent-primary focus:ring-primary/30"
-                              checked={checked}
-                              onChange={() =>
-                                changeFilters((f) => ({
-                                  ...f,
-                                  type: toggleFilter(f.type, opt.value),
-                                }))
-                              }
-                              disabled={filtersFrozen}
-                            />
-                            {opt.label}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  ) : null}
-                </div>
-
-                <FilterChecks label="Paper">
-                  {(["PAPER_1", "PAPER_2"] as QbPaper[]).map((p) => (
-                    <NativeCheck
-                      key={p}
-                      label={p === "PAPER_1" ? "Paper 1" : "Paper 2"}
-                      checked={filters.paper?.includes(p) ?? false}
-                      onChange={() =>
-                        changeFilters((f) => ({ ...f, paper: toggleFilter(f.paper, p) }))
+            <div className="mt-3 rounded-lg border border-[#c5d9ef] bg-[#e8f0fa] px-3 py-3 md:px-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:divide-x lg:divide-[#c5d9ef]">
+                <QuestionTypeDropdown
+                  ref={typeRef}
+                  open={typeOpen}
+                  onOpenChange={setTypeOpen}
+                  displayLabel={typeLabel}
+                  selected={filters.type}
+                  disabled={filtersFrozen}
+                  onSelectAll={() => changeFilters((f) => ({ ...f, type: undefined }))}
+                  onToggle={(value) =>
+                    changeFilters((f) => {
+                      const current = f.type?.length
+                        ? f.type
+                        : TYPE_OPTIONS.map((option) => option.value);
+                      const next = current.includes(value)
+                        ? current.filter((item) => item !== value)
+                        : [...current, value];
+                      if (next.length === 0 || next.length === TYPE_OPTIONS.length) {
+                        return { ...f, type: undefined };
                       }
-                      disabled={filtersFrozen}
-                    />
-                  ))}
-                </FilterChecks>
+                      return { ...f, type: next };
+                    })
+                  }
+                />
 
-                <FilterChecks label="Difficulty">
-                  {(["EASY", "MEDIUM", "HARD"] as QbDifficulty[]).map((d) => (
+                <FilterInlineGroup label="Paper">
+                  {PAPER_FILTER_OPTIONS.map((paper) => (
                     <NativeCheck
-                      key={d}
-                      label={d.charAt(0) + d.slice(1).toLowerCase()}
-                      checked={filters.difficulty?.includes(d) ?? false}
+                      key={paper.value}
+                      label={paper.label}
+                      checked={filters.paper?.includes(paper.value) ?? false}
                       onChange={() =>
                         changeFilters((f) => ({
                           ...f,
-                          difficulty: toggleFilter(f.difficulty, d),
+                          paper: toggleFilter(f.paper, paper.value),
                         }))
                       }
                       disabled={filtersFrozen}
                     />
                   ))}
-                </FilterChecks>
+                </FilterInlineGroup>
 
-                <FilterChecks label="View">
+                <FilterInlineGroup label="Difficulty">
+                  {(["EASY", "MEDIUM", "HARD"] as QbDifficulty[]).map((difficulty) => (
+                    <NativeCheck
+                      key={difficulty}
+                      label={difficulty.charAt(0) + difficulty.slice(1).toLowerCase()}
+                      checked={filters.difficulty?.includes(difficulty) ?? false}
+                      onChange={() =>
+                        changeFilters((f) => ({
+                          ...f,
+                          difficulty: toggleFilter(f.difficulty, difficulty),
+                        }))
+                      }
+                      disabled={filtersFrozen}
+                    />
+                  ))}
+                </FilterInlineGroup>
+
+                <FilterInlineGroup label="View">
                   {(["ALL", "COMPLETE", "INCOMPLETE"] as ViewMode[]).map((mode) => (
                     <label
                       key={mode}
@@ -1235,24 +1238,26 @@ export function QuestionbankStudyPage({
                       <input
                         type="radio"
                         name="qb-view"
-                        className="h-4 w-4 border-border text-primary accent-primary focus:ring-primary/30"
+                        className="h-3.5 w-3.5 border-foreground/60 text-primary accent-primary focus:ring-primary/30"
                         checked={viewMode === mode}
                         onChange={() => setViewMode(mode)}
                       />
                       {mode === "ALL" ? "All" : mode === "COMPLETE" ? "Complete" : "Incomplete"}
                     </label>
                   ))}
-                </FilterChecks>
+                </FilterInlineGroup>
 
                 {hasActiveFilters ? (
-                  <button
-                    type="button"
-                    disabled={filtersFrozen}
-                    className="text-sm font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
-                    onClick={() => changeFilters(() => ({}))}
-                  >
-                    Clear
-                  </button>
+                  <div className="flex items-end lg:pl-4">
+                    <button
+                      type="button"
+                      disabled={filtersFrozen}
+                      className="text-sm font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-60"
+                      onClick={() => changeFilters(() => ({}))}
+                    >
+                      Clear
+                    </button>
+                  </div>
                 ) : null}
               </div>
               {filtersFrozen ? (
@@ -1516,6 +1521,144 @@ function youtubeEmbedUrl(url: string): string | null {
   return null;
 }
 
+const QuestionTypeDropdown = forwardRef<
+  HTMLDivElement,
+  {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    displayLabel: string;
+    selected: QbQuestionType[] | undefined;
+    disabled?: boolean;
+    onSelectAll: () => void;
+    onToggle: (value: QbQuestionType) => void;
+  }
+>(function QuestionTypeDropdown(
+  { open, onOpenChange, displayLabel, selected, disabled, onSelectAll, onToggle },
+  ref
+) {
+  const allSelected = !selected?.length || selected.length === TYPE_OPTIONS.length;
+
+  return (
+    <div ref={ref} className="relative min-w-[10.5rem] px-0 lg:pr-5">
+      <p
+        className={cn(
+          "mb-2 text-sm font-medium",
+          open ? "text-primary" : "text-[#5a7a9a]"
+        )}
+      >
+        Question Type
+      </p>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-expanded={open}
+        className={cn(
+          "inline-flex min-w-[6.5rem] items-center justify-between gap-3 rounded border border-foreground/80 bg-white px-2.5 py-1 text-sm font-medium text-foreground transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60",
+          open && "border-primary/70 ring-1 ring-primary/20"
+        )}
+        onClick={() => onOpenChange(!open)}
+      >
+        <span className="truncate">{displayLabel}</span>
+        <ChevronDown
+          className={cn(
+            "h-3.5 w-3.5 shrink-0 text-foreground/70 transition",
+            open && "rotate-180"
+          )}
+          aria-hidden
+        />
+      </button>
+
+      {open ? (
+        <div className="absolute left-0 top-full z-40 mt-1 min-w-[15.5rem] border border-foreground/85 bg-white py-1 shadow-[0_4px_14px_rgba(15,23,42,0.08)]">
+          <label
+            className={cn(
+              "flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-[#f4f8fc]",
+              disabled && "cursor-not-allowed opacity-60"
+            )}
+          >
+            <input
+              type="checkbox"
+              className="h-3.5 w-3.5 rounded-none border-foreground/70 text-primary accent-primary focus:ring-primary/30"
+              checked={allSelected}
+              disabled={disabled}
+              onChange={onSelectAll}
+            />
+            <span className="flex-1">All</span>
+            <span
+              className="inline-flex h-4 w-4 items-center justify-center rounded-full bg-foreground text-[10px] font-bold text-white"
+              title="Show all question types"
+              aria-label="Show all question types"
+            >
+              <Info className="h-2.5 w-2.5" aria-hidden />
+            </span>
+          </label>
+
+          {TYPE_OPTIONS.map((option) => {
+            const checked = selected?.includes(option.value) ?? allSelected;
+            return (
+              <label
+                key={option.value}
+                className={cn(
+                  "flex cursor-pointer items-center gap-2 px-3 py-1.5 text-sm text-foreground hover:bg-[#f4f8fc]",
+                  disabled && "cursor-not-allowed opacity-60"
+                )}
+              >
+                <input
+                  type="checkbox"
+                  className="h-3.5 w-3.5 rounded-none border-foreground/70 text-primary accent-primary focus:ring-primary/30"
+                  checked={checked}
+                  disabled={disabled}
+                  onChange={() => onToggle(option.value)}
+                />
+                {option.label}
+              </label>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+});
+
+function FilterInlineGroup({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="min-w-[8.5rem] px-0 lg:px-5">
+      <p className="mb-2 text-sm font-medium text-[#5a7a9a]">{label}</p>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">{children}</div>
+    </div>
+  );
+}
+
+function NativeCheck({
+  label,
+  checked,
+  onChange,
+  disabled = false,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <label
+      className={cn(
+        "inline-flex items-center gap-1.5 text-sm text-foreground",
+        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+      )}
+    >
+      <input
+        type="checkbox"
+        className="h-3.5 w-3.5 rounded-none border-foreground/70 text-primary accent-primary focus:ring-primary/30"
+        checked={checked}
+        disabled={disabled}
+        onChange={onChange}
+      />
+      {label}
+    </label>
+  );
+}
+
 function VideoEmbed({ url }: { url: string }) {
   const yt = youtubeEmbedUrl(url);
   if (yt) {
@@ -1558,44 +1701,5 @@ function VideoEmbed({ url }: { url: string }) {
         Watch video <ExternalLink className="h-3.5 w-3.5" />
       </a>
     </div>
-  );
-}
-
-function FilterChecks({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex flex-wrap items-center gap-3">
-      <span className="text-sm font-medium text-foreground">{label}</span>
-      <div className="flex flex-wrap items-center gap-3">{children}</div>
-    </div>
-  );
-}
-
-function NativeCheck({
-  label,
-  checked,
-  onChange,
-  disabled = false,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <label
-      className={cn(
-        "inline-flex items-center gap-1.5 text-sm text-foreground",
-        disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
-      )}
-    >
-      <input
-        type="checkbox"
-        className="h-4 w-4 rounded border-border text-primary accent-primary focus:ring-primary/30"
-        checked={checked}
-        disabled={disabled}
-        onChange={onChange}
-      />
-      {label}
-    </label>
   );
 }
