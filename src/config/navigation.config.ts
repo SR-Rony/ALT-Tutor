@@ -50,7 +50,6 @@ export const teacherNav: NavItem[] = [
   { title: "My Subjects", href: ROUTES.teacher.subjects, iconName: "book" },
   { title: "Practice Exams", href: ROUTES.teacher.practiceExams, iconName: "clipboard" },
   { title: "Key Concepts", href: ROUTES.teacher.keyConcepts, iconName: "book" },
-  { title: "Flashcards", href: ROUTES.teacher.flashcards, iconName: "book" },
   { title: "Past Papers", href: ROUTES.teacher.pastPapers, iconName: "clipboard" },
 ];
 
@@ -72,15 +71,13 @@ export const adminNav: NavItem[] = [
       { title: "Questions", href: ROUTES.admin.questionbank, iconName: "clipboard" },
       { title: "Categories", href: ROUTES.admin.qbCategories, iconName: "tags" },
       { title: "Subjects", href: ROUTES.admin.qbSubjects, iconName: "book" },
-      { title: "Programs", href: ROUTES.admin.qbPrograms, iconName: "book" },
-      { title: "Key Concepts", href: ROUTES.admin.keyConcepts, iconName: "book" },
-      { title: "Flashcards", href: ROUTES.admin.flashcards, iconName: "book" },
     ],
   },
   {
     title: "Exams",
     iconName: "clipboard",
     children: [
+      { title: "Key Concepts", href: ROUTES.admin.keyConcepts, iconName: "book" },
       { title: "Practice Exams", href: ROUTES.admin.practiceExams, iconName: "clipboard" },
       { title: "Past Papers", href: ROUTES.admin.pastPapers, iconName: "clipboard" },
       { title: "MCQ Exams", href: ROUTES.admin.examsMcq, iconName: "clipboard" },

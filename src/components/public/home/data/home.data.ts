@@ -97,20 +97,6 @@ export const academicProgram = {
       ],
     },
     {
-      id: "flashcards",
-      title: "Flashcards",
-      icon: "layers" as const,
-      iconColor: "#06b6d4",
-      description:
-        "Spaced-repetition flashcards for formulas, definitions, and key facts — so retention sticks when it matters.",
-      previewCards: [
-        { code: "FC1", title: "Formula Deck", progress: 92 },
-        { code: "FC2", title: "Definitions Deck", progress: 68 },
-        { code: "FC3", title: "Theorem Deck", progress: 44 },
-        { code: "FC4", title: "Exam Tips Deck", progress: 57 },
-      ],
-    },
-    {
       id: "bootcamps",
       title: "Bootcamps",
       icon: "zap" as const,

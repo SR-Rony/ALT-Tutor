@@ -34,7 +34,6 @@ const RESOURCE_TYPES: SubjectResourceType[] = [
   "PRACTICE_EXAMS",
   "PAST_PAPERS",
   "BOOTCAMPS",
-  "FLASHCARDS",
   "PAPER_3",
   "OTHER",
 ];
@@ -190,7 +189,7 @@ export function AdminSubjectsPage() {
           <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Subjects"
-              description="Full access — categories → subjects → SL/HL programs → resources (Questionbank, etc.)."
+              description="Categories → subjects → programs. Resources (Questionbank, Key Concepts, etc.) are created automatically."
               className="mb-0"
             />
             <div className="flex items-center gap-2">
@@ -346,21 +345,6 @@ export function AdminSubjectsPage() {
                                     type="button"
                                     size="sm"
                                     variant="ghost"
-                                    className="h-7 px-2 text-xs"
-                                    onClick={() => {
-                                      setForm({ kind: "resource", programId: program.id });
-                                      setName("");
-                                      setSlug("");
-                                      setResourceType("QUESTIONBANK");
-                                      setHref("");
-                                    }}
-                                  >
-                                    + Resource
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    size="sm"
-                                    variant="ghost"
                                     className="h-7 px-2 text-xs text-accent"
                                     onClick={() => {
                                       if (window.confirm(`Delete program "${program.name}"?`)) {
@@ -372,45 +356,13 @@ export function AdminSubjectsPage() {
                                   </Button>
                                 </div>
                               </div>
-                              <ul className="space-y-1">
+                              <ul className="flex flex-wrap gap-1.5">
                                 {program.resources.map((resource) => (
                                   <li
                                     key={resource.id}
-                                    className="flex items-center justify-between gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-muted/50"
+                                    className="rounded-full border border-border bg-muted/30 px-2.5 py-0.5 text-xs font-medium text-muted-foreground"
                                   >
-                                    <span className="text-muted-foreground">{resource.title}</span>
-                                    <div className="flex gap-1">
-                                      <button
-                                        type="button"
-                                        className="text-xs text-primary"
-                                        onClick={() => {
-                                          setForm({
-                                            kind: "resource",
-                                            programId: program.id,
-                                            id: resource.id,
-                                          });
-                                          setName(resource.title);
-                                          setSlug(resource.slug);
-                                          setResourceType(
-                                            (resource.resourceType as SubjectResourceType) || "OTHER"
-                                          );
-                                          setHref(resource.href ?? "");
-                                        }}
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="text-xs text-accent"
-                                        onClick={() => {
-                                          if (window.confirm(`Delete "${resource.title}"?`)) {
-                                            void deleteResource.mutateAsync(resource.id);
-                                          }
-                                        }}
-                                      >
-                                        Del
-                                      </button>
-                                    </div>
+                                    {resource.title}
                                   </li>
                                 ))}
                               </ul>

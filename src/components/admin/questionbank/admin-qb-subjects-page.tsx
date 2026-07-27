@@ -119,7 +119,7 @@ export function AdminQbSubjectsPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Subjects"
-              description="Subjects live under a category. Assign teachers and add programs next."
+              description="Create a category, then add subjects. Each subject automatically gets Questionbank, Key Concepts, Practice Exams, and Past Papers in the mega menu."
               className="mb-0"
             />
             <div className="flex items-center gap-2">

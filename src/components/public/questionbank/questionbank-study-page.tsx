@@ -1032,7 +1032,7 @@ export function QuestionbankStudyPage({
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  if (isLoading) return <PageLoader label="Loading questions..." />;
+  if (isLoading && !data) return <PageLoader label="Loading questions..." />;
 
   if (error || !data) {
     const apiError = error as unknown as ApiError | undefined;

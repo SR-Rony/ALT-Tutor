@@ -29,12 +29,6 @@ const defaultResources = (courseTitle: string): QuestionbankData["resources"] =>
     description: "Work through past paper-style sets with mark schemes and video walkthroughs.",
     hrefKey: "papers",
   },
-  {
-    id: "flashcards",
-    title: "Flashcards",
-    description: "Quick recall cards for formulas, definitions, and must-know facts.",
-    hrefKey: "flashcards",
-  },
 ];
 
 const bySlug: Record<string, QuestionbankData> = {

@@ -24,7 +24,6 @@ const RESOURCE_TYPES: SubjectResourceType[] = [
   "PRACTICE_EXAMS",
   "PAST_PAPERS",
   "BOOTCAMPS",
-  "FLASHCARDS",
   "PAPER_3",
   "OTHER",
 ];

@@ -1,6 +1,11 @@
 "use client";
 
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { queryKeys } from "@/constants";
 import { questionbankService } from "@/services/questionbank.service";
 import type {
@@ -31,6 +36,7 @@ export function useQbQuestions(programSlug: string, subtopicSlug: string, filter
     queryKey: queryKeys.questionbank.questions(programSlug, subtopicSlug, filters, authKey),
     queryFn: () => questionbankService.getQuestions(programSlug, subtopicSlug, filters),
     enabled: Boolean(programSlug && subtopicSlug),
+    placeholderData: keepPreviousData,
     retry: (failureCount, error) => {
       const status = (error as { status?: number } | undefined)?.status;
       if (status === 403) return false;

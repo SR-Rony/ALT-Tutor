@@ -897,9 +897,6 @@ export function AdminQuestionbankPage() {
             <Link href={ROUTES.admin.qbSubjects} className="font-semibold text-primary hover:underline">
               Subjects
             </Link>
-            <Link href={ROUTES.admin.qbPrograms} className="font-semibold text-primary hover:underline">
-              Programs
-            </Link>
             <span className="hidden text-border sm:inline">·</span>
             <span className="inline-flex flex-wrap items-center gap-1.5">
               Access:

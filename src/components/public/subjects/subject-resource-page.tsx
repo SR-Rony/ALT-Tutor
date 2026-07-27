@@ -5,7 +5,6 @@ import { useMemo } from "react";
 import { ArrowLeft } from "lucide-react";
 import { QuestionbankOverviewPage } from "@/components/public/questionbank/questionbank-overview-page";
 import { KeyConceptsPage } from "@/components/public/subjects/key-concepts-page";
-import { FlashcardsPage } from "@/components/public/subjects/flashcards-page";
 import { MockExamsPage } from "@/components/public/subjects/mock-exams-page";
 import { PastPapersPage } from "@/components/public/subjects/past-papers-page";
 import { PracticeExamsPage } from "@/components/public/subjects/practice-exams-page";
@@ -49,10 +48,6 @@ export function SubjectResourcePage({ programSlug, resourceSlug }: Props) {
     return <KeyConceptsPage programSlug={programSlug} />;
   }
 
-  if (resourceSlug === "flashcards") {
-    return <FlashcardsPage programSlug={programSlug} />;
-  }
-
   if (resourceSlug === "practice-exams") {
     return <PracticeExamsPage programSlug={programSlug} />;
   }
@@ -82,10 +77,6 @@ export function SubjectResourcePage({ programSlug, resourceSlug }: Props) {
 
   if (match.resource.resourceType === "KEY_CONCEPTS") {
     return <KeyConceptsPage programSlug={programSlug} />;
-  }
-
-  if (match.resource.resourceType === "FLASHCARDS") {
-    return <FlashcardsPage programSlug={programSlug} />;
   }
 
   if (match.resource.resourceType === "PRACTICE_EXAMS") {

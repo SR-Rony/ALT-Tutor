@@ -28,7 +28,6 @@ const RESOURCE_TYPES: SubjectResourceType[] = [
   "PRACTICE_EXAMS",
   "PAST_PAPERS",
   "BOOTCAMPS",
-  "FLASHCARDS",
   "PAPER_3",
   "OTHER",
 ];
@@ -148,7 +147,7 @@ export function AdminQbProgramsPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Programs"
-              description="Programs hold the questionbank content. Add resources for the public subjects menu."
+              description="Each subject gets a program automatically. Standard resources (Questionbank, Key Concepts, Practice Exams, Past Papers) are added for you."
               className="mb-0"
             />
             <div className="flex items-center gap-2">
@@ -245,22 +244,6 @@ export function AdminQbProgramsPage() {
                       Open questions
                     </Link>
                   </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setForm({ kind: "resource", programId: program.id });
-                      setName("");
-                      setSlug("");
-                      setResourceType("QUESTIONBANK");
-                      setHref("");
-                      setActionError(null);
-                    }}
-                  >
-                    <Plus className="h-3.5 w-3.5" aria-hidden />
-                    Resource
-                  </Button>
                   <AdminIconAction
                     label="Edit program"
                     icon={Pencil}
@@ -280,52 +263,20 @@ export function AdminQbProgramsPage() {
               </div>
 
               {program.resources.length > 0 ? (
-                <ul className="mt-3 space-y-1 rounded-xl border border-border bg-muted/20 p-3">
+                <ul className="mt-3 flex flex-wrap gap-2">
                   {program.resources.map((resource) => (
                     <li
                       key={resource.id}
-                      className="flex flex-wrap items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-card"
+                      className="rounded-full border border-border bg-muted/30 px-3 py-1 text-xs font-medium text-foreground"
                     >
-                      <div>
-                        <span className="font-medium text-foreground">{resource.title}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">
-                          {resource.resourceType}
-                        </span>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          className="text-xs font-semibold text-primary"
-                          onClick={() => {
-                            setForm({ kind: "resource", programId: program.id, id: resource.id });
-                            setName(resource.title);
-                            setSlug(resource.slug);
-                            setResourceType(
-                              (resource.resourceType as SubjectResourceType) || "OTHER"
-                            );
-                            setHref(resource.href ?? "");
-                            setActionError(null);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          className="text-xs font-semibold text-accent"
-                          onClick={() => {
-                            if (window.confirm(`Delete resource "${resource.title}"?`)) {
-                              void deleteResource.mutateAsync(resource.id);
-                            }
-                          }}
-                        >
-                          Delete
-                        </button>
-                      </div>
+                      {resource.title}
                     </li>
                   ))}
                 </ul>
               ) : (
-                <p className="mt-2 text-xs text-muted-foreground">No public resources yet.</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Resources will appear automatically after refresh.
+                </p>
               )}
             </div>
           ))}
