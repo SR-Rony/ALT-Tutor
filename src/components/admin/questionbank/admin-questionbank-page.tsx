@@ -891,7 +891,7 @@ export function AdminQuestionbankPage() {
 
           <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span>Manage structure:</span>
-            <Link href={ROUTES.admin.qbCategories} className="font-semibold text-primary hover:underline">
+            <Link href={ROUTES.admin.categories} className="font-semibold text-primary hover:underline">
               Categories
             </Link>
             <Link href={ROUTES.admin.qbSubjects} className="font-semibold text-primary hover:underline">

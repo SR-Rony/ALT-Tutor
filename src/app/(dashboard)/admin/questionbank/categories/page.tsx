@@ -1,7 +1,6 @@
-import { AdminQbCategoriesPage } from "@/components/admin/questionbank";
-
-export const metadata = { title: "QB Categories" };
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants";
 
 export default function AdminQbCategoriesRoute() {
-  return <AdminQbCategoriesPage />;
+  redirect(ROUTES.admin.categories);
 }

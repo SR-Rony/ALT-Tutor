@@ -167,7 +167,7 @@ export function AdminQbSubjectsPage() {
               </button>
             ))}
             <Link
-              href={ROUTES.admin.qbCategories}
+              href={ROUTES.admin.categories}
               className="ml-auto text-xs font-semibold text-primary hover:underline"
             >
               Manage categories
