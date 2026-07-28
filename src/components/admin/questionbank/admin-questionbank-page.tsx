@@ -72,6 +72,31 @@ function AccessBadgePill({ badge }: { badge?: string | null }) {
 const DIFFICULTIES: QbDifficulty[] = ["EASY", "MEDIUM", "HARD"];
 const PAPERS: QbPaper[] = ["PAPER_1", "PAPER_2", "PAPER_3"];
 
+function paperShortLabel(paper: string) {
+  const key = String(paper).toUpperCase();
+  if (key === "PAPER_3" || key === "3") return "Paper 3";
+  if (key === "PAPER_2" || key === "2") return "Paper 2";
+  if (key === "PAPER_1" || key === "1") return "Paper 1";
+  return key.replace("PAPER_", "Paper ");
+}
+
+function countByPaper(questions: QbQuestion[] | undefined) {
+  const counts: Record<QbPaper, number> = { PAPER_1: 0, PAPER_2: 0, PAPER_3: 0 };
+  for (const q of questions ?? []) {
+    const key = String(q.paper).toUpperCase() as QbPaper;
+    if (key in counts) counts[key] += 1;
+  }
+  return counts;
+}
+
+function questionsForPaper(questions: QbQuestion[] | undefined, paper: QbPaper) {
+  return (questions ?? []).filter((q) => String(q.paper).toUpperCase() === paper);
+}
+
+function paperCollapseKey(subtopicId: string, paper: QbPaper) {
+  return `${subtopicId}:${paper}`;
+}
+
 const EXCEL_TEMPLATE_HEADERS = [
   "number",
   "prompt",
@@ -540,6 +565,8 @@ export function AdminQuestionbankPage() {
   /** ids marked true = collapsed (default is open) */
   const [collapsedTopics, setCollapsedTopics] = useState<Record<string, boolean>>({});
   const [collapsedSubtopics, setCollapsedSubtopics] = useState<Record<string, boolean>>({});
+  /** `${subtopicId}:PAPER_n` marked true = collapsed (default open) */
+  const [collapsedPapers, setCollapsedPapers] = useState<Record<string, boolean>>({});
 
   const toggleTopic = (id: string) => {
     setCollapsedTopics((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -547,6 +574,11 @@ export function AdminQuestionbankPage() {
 
   const toggleSubtopic = (id: string) => {
     setCollapsedSubtopics((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const togglePaper = (subtopicId: string, paper: QbPaper) => {
+    const key = paperCollapseKey(subtopicId, paper);
+    setCollapsedPapers((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const createTopic = useCreateQbTopic();
@@ -602,12 +634,12 @@ export function AdminQuestionbankPage() {
     importQuestions.isPending ||
     uploadingField !== null;
 
-  const resetQuestionForm = () => {
+  const resetQuestionForm = (defaultPaper: QbPaper = "PAPER_1") => {
     setPrompt("");
     setOptionsText("Option A\nOption B\nOption C\nOption D");
     setCorrectAnswer("A");
     setDifficulty("EASY");
-    setPaper("PAPER_1");
+    setPaper(defaultPaper);
     setMarkScheme("");
     setDiagramUrl("");
     setVideoUrl("");
@@ -1090,6 +1122,9 @@ export function AdminQuestionbankPage() {
                   <div className="space-y-3 border-t border-border bg-muted/20 p-3">
                     {topic.subtopics.map((sub) => {
                       const isSubOpen = !collapsedSubtopics[sub.id];
+                      const paperCounts = countByPaper(sub.questions);
+                      const totalQuestions = sub.questions?.length ?? 0;
+
                       return (
                         <div
                           key={sub.id}
@@ -1114,7 +1149,11 @@ export function AdminQuestionbankPage() {
                               <p className="text-sm font-semibold text-foreground">{sub.title}</p>
                               <AccessBadgePill badge={sub.badge} />
                               <span className="text-xs text-muted-foreground">
-                                ({sub.questions?.length ?? 0})
+                                ({totalQuestions})
+                              </span>
+                              <span className="hidden text-[10px] font-medium text-muted-foreground sm:inline">
+                                P1 {paperCounts.PAPER_1} · P2 {paperCounts.PAPER_2} · P3{" "}
+                                {paperCounts.PAPER_3}
                               </span>
                               {!sub.isActive ? (
                                 <span className="rounded-md bg-[#fff1ee] px-1.5 py-0.5 text-[10px] font-bold uppercase text-accent">
@@ -1122,7 +1161,7 @@ export function AdminQuestionbankPage() {
                                 </span>
                               ) : null}
                             </button>
-                            <div className="flex flex-wrap gap-2">
+                            <div className="flex flex-wrap items-center gap-2">
                               <Button
                                 type="button"
                                 size="sm"
@@ -1141,7 +1180,7 @@ export function AdminQuestionbankPage() {
                                 type="button"
                                 size="sm"
                                 variant="outline"
-                                disabled={!(sub.questions?.length ?? 0)}
+                                disabled={totalQuestions === 0}
                                 onClick={() =>
                                   downloadStudySetQuestions(sub.title, sub.questions ?? [])
                                 }
@@ -1172,7 +1211,7 @@ export function AdminQuestionbankPage() {
                                 variant="outline"
                                 onClick={() => {
                                   setModal({ kind: "question", subtopicId: sub.id });
-                                  resetQuestionForm();
+                                  resetQuestionForm("PAPER_1");
                                 }}
                               >
                                 Add question
@@ -1230,10 +1269,11 @@ export function AdminQuestionbankPage() {
                               </Button>
                             </div>
                           </div>
+
                           {isSubOpen ? (
-                            <ul className="space-y-2 border-t border-border px-3 py-2">
-                              {(sub.questions ?? []).length === 0 ? (
-                                <li className="space-y-2 py-4 text-center text-sm text-muted-foreground">
+                            <div className="space-y-2 border-t border-border bg-muted/10 p-2.5">
+                              {totalQuestions === 0 ? (
+                                <div className="space-y-2 rounded-lg border border-dashed border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
                                   <p>No questions yet. Add one or upload Excel.</p>
                                   <div className="flex flex-wrap items-center justify-center gap-2">
                                     <Button
@@ -1241,7 +1281,7 @@ export function AdminQuestionbankPage() {
                                       size="sm"
                                       onClick={() => {
                                         setModal({ kind: "question", subtopicId: sub.id });
-                                        resetQuestionForm();
+                                        resetQuestionForm("PAPER_1");
                                       }}
                                     >
                                       Add question
@@ -1264,31 +1304,114 @@ export function AdminQuestionbankPage() {
                                       Upload Excel
                                     </Button>
                                   </div>
-                                </li>
-                              ) : null}
-                              {(sub.questions ?? []).map((q, questionIndex) => {
-                                const paper = String(q.paper).toUpperCase();
-                                const displayNumber = (sub.questions ?? [])
-                                  .slice(0, questionIndex + 1)
-                                  .filter((item) => String(item.paper).toUpperCase() === paper)
-                                  .length;
-                                return (
-                                <AdminQuestionDropdown
-                                  key={q.id}
-                                  question={q}
-                                  displayNumber={displayNumber}
-                                  onEdit={() => openEditQuestion(q)}
-                                  onToggleHide={() => toggleQuestionVisibility(q)}
-                                  togglePending={updateQuestion.isPending}
-                                  onDelete={() => {
-                                    if (window.confirm("Delete question?")) {
-                                      void deleteQuestion.mutateAsync(q.id);
-                                    }
-                                  }}
-                                />
-                                );
-                              })}
-                            </ul>
+                                </div>
+                              ) : (
+                                PAPERS.map((paperKey) => {
+                                  const paperQuestions = questionsForPaper(sub.questions, paperKey);
+                                  const paperOpenKey = paperCollapseKey(sub.id, paperKey);
+                                  const isPaperOpen = !collapsedPapers[paperOpenKey];
+
+                                  return (
+                                    <div
+                                      key={paperKey}
+                                      className="overflow-hidden rounded-lg border border-border/70 bg-card"
+                                    >
+                                      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
+                                        <button
+                                          type="button"
+                                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                          onClick={() => togglePaper(sub.id, paperKey)}
+                                          aria-expanded={isPaperOpen}
+                                        >
+                                          <ChevronDown
+                                            className={cn(
+                                              "h-4 w-4 shrink-0 text-primary transition",
+                                              isPaperOpen ? "rotate-0" : "-rotate-90"
+                                            )}
+                                          />
+                                          <p className="text-sm font-semibold text-foreground">
+                                            {paperShortLabel(paperKey)}
+                                          </p>
+                                          <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+                                            {paperKey.replace("PAPER_", "P")}
+                                          </span>
+                                          <span className="text-xs text-muted-foreground">
+                                            ({paperQuestions.length})
+                                          </span>
+                                        </button>
+                                        <div className="flex flex-wrap gap-2">
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            disabled={paperQuestions.length === 0}
+                                            onClick={() =>
+                                              downloadStudySetQuestions(
+                                                `${sub.title} — ${paperShortLabel(paperKey)}`,
+                                                paperQuestions
+                                              )
+                                            }
+                                          >
+                                            <Download className="h-4 w-4" />
+                                            Download
+                                          </Button>
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            onClick={() => {
+                                              setModal({ kind: "question", subtopicId: sub.id });
+                                              resetQuestionForm(paperKey);
+                                            }}
+                                          >
+                                            Add question
+                                          </Button>
+                                        </div>
+                                      </div>
+
+                                      {isPaperOpen ? (
+                                        <ul className="space-y-2 border-t border-border px-3 py-2">
+                                          {paperQuestions.length === 0 ? (
+                                            <li className="py-4 text-center text-sm text-muted-foreground">
+                                              No {paperShortLabel(paperKey)} questions yet.{" "}
+                                              <button
+                                                type="button"
+                                                className="font-semibold text-primary hover:underline"
+                                                onClick={() => {
+                                                  setModal({
+                                                    kind: "question",
+                                                    subtopicId: sub.id,
+                                                  });
+                                                  resetQuestionForm(paperKey);
+                                                }}
+                                              >
+                                                Add one
+                                              </button>
+                                            </li>
+                                          ) : (
+                                            paperQuestions.map((q, questionIndex) => (
+                                              <AdminQuestionDropdown
+                                                key={q.id}
+                                                question={q}
+                                                displayNumber={questionIndex + 1}
+                                                onEdit={() => openEditQuestion(q)}
+                                                onToggleHide={() => toggleQuestionVisibility(q)}
+                                                togglePending={updateQuestion.isPending}
+                                                onDelete={() => {
+                                                  if (window.confirm("Delete question?")) {
+                                                    void deleteQuestion.mutateAsync(q.id);
+                                                  }
+                                                }}
+                                              />
+                                            ))
+                                          )}
+                                        </ul>
+                                      ) : null}
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
                           ) : null}
                         </div>
                       );
@@ -1487,7 +1610,7 @@ export function AdminQuestionbankPage() {
                 >
                   {PAPERS.map((p) => (
                     <option key={p} value={p}>
-                      {p}
+                      {paperShortLabel(p)}
                     </option>
                   ))}
                 </select>
