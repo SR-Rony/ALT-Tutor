@@ -103,11 +103,12 @@ export const questionbankService = {
     return apiClient.delete(`/questionbank/questions/${id}`).then((r) => r.data);
   },
 
-  importQuestions(subtopicId: string, file: File): Promise<QbImportResult> {
+  importQuestions(subtopicId: string, file: File, paper?: string): Promise<QbImportResult> {
     const form = new FormData();
     form.append("file", file);
+    const q = paper ? `?paper=${encodeURIComponent(paper)}` : "";
     return apiClient
-      .post<QbImportResult>(`/questionbank/subtopics/${subtopicId}/import`, form)
+      .post<QbImportResult>(`/questionbank/subtopics/${subtopicId}/import${q}`, form)
       .then((r) => r.data);
   },
 

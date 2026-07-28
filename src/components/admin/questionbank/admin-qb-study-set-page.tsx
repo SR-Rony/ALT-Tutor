@@ -66,7 +66,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
 
   const [activePaper, setActivePaper] = useState<QbPaper>("PAPER_1");
   const [modal, setModal] = useState<
-    null | { kind: "question"; editId?: string } | { kind: "import" }
+    null | { kind: "question"; editId?: string } | { kind: "import"; paper: QbPaper }
   >(null);
   const [importResult, setImportResult] = useState<QbImportResult | null>(null);
   const [prompt, setPrompt] = useState("");
@@ -229,13 +229,24 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
     }
   };
 
+  const openImportForPaper = (forPaper: QbPaper = activePaper) => {
+    setImportResult(null);
+    setActionError(null);
+    setModal({ kind: "import", paper: forPaper });
+  };
+
   const onImportFile = async (file: File | undefined) => {
     if (!file || modal?.kind !== "import") return;
     setActionError(null);
     setImportResult(null);
     try {
-      const result = await importQuestions.mutateAsync({ subtopicId, file });
+      const result = await importQuestions.mutateAsync({
+        subtopicId,
+        file,
+        paper: modal.paper,
+      });
       setImportResult(result);
+      setActivePaper(modal.paper);
       void refetch();
     } catch (err) {
       setActionError((err as ApiError)?.message || "Failed to import Excel");
@@ -384,19 +395,6 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
               <Button
                 type="button"
                 size="sm"
-                variant="outline"
-                onClick={() => {
-                  setImportResult(null);
-                  setActionError(null);
-                  setModal({ kind: "import" });
-                }}
-              >
-                <Upload className="h-4 w-4" />
-                Upload Excel
-              </Button>
-              <Button
-                type="button"
-                size="sm"
                 disabled={busy}
                 onClick={() => void handleAddPaper()}
               >
@@ -462,6 +460,16 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 <Download className="h-4 w-4" />
                 Download {paperShortLabel(activePaper)}
               </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => openImportForPaper(activePaper)}
+              >
+                <Upload className="h-4 w-4" />
+                Upload {paperShortLabel(activePaper)}
+              </Button>
               <Button type="button" size="sm" variant="outline" onClick={() => openAddQuestion(activePaper)}>
                 <Plus className="h-4 w-4" />
                 Add question
@@ -485,10 +493,16 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
               <p className="text-sm text-muted-foreground">
                 No {paperShortLabel(activePaper)} questions yet.
               </p>
-              <Button type="button" size="sm" className="mt-3" onClick={() => openAddQuestion(activePaper)}>
-                <Plus className="h-4 w-4" />
-                Add question
-              </Button>
+              <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
+                <Button type="button" size="sm" variant="outline" onClick={() => openImportForPaper(activePaper)}>
+                  <Upload className="h-4 w-4" />
+                  Upload Excel
+                </Button>
+                <Button type="button" size="sm" onClick={() => openAddQuestion(activePaper)}>
+                  <Plus className="h-4 w-4" />
+                  Add question
+                </Button>
+              </div>
             </div>
           ) : (
             <ul className="space-y-2">
@@ -516,14 +530,14 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
         open={Boolean(modal)}
         title={
           modal?.kind === "import"
-            ? "Upload Excel"
+            ? `Upload ${paperShortLabel(modal.paper)}`
             : modal?.kind === "question" && modal.editId
               ? "Edit question"
               : "Add question"
         }
         description={
           modal?.kind === "import"
-            ? "Put image + video as public URLs in the sheet."
+            ? `Bulk-add questions to ${paperShortLabel(modal.paper)}. Use the Template button above for the Excel format. All rows import into this paper.`
             : "Questions appear on the student study page for this paper."
         }
         onClose={() => !busy && setModal(null)}

@@ -692,7 +692,7 @@ export function QuestionbankStudyPage({
   const topic = data?.subtopic.topic;
 
   const paperFilterOptions = useMemo(() => {
-    const count = Math.max(3, data?.subtopic.paperCount ?? 3);
+    const count = Math.max(1, data?.subtopic.paperCount ?? 3);
     return Array.from({ length: count }, (_, i) => {
       const value = `PAPER_${i + 1}` as QbPaper;
       return { value, label: `Paper ${i + 1}` };

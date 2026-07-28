@@ -153,8 +153,15 @@ export function useDeleteQbQuestion() {
 export function useImportQbQuestions() {
   const invalidate = useInvalidateQb();
   return useMutation({
-    mutationFn: ({ subtopicId, file }: { subtopicId: string; file: File }) =>
-      questionbankService.importQuestions(subtopicId, file),
+    mutationFn: ({
+      subtopicId,
+      file,
+      paper,
+    }: {
+      subtopicId: string;
+      file: File;
+      paper?: string;
+    }) => questionbankService.importQuestions(subtopicId, file, paper),
     onSuccess: invalidate,
   });
 }

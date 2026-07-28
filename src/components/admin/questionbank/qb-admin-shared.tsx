@@ -49,7 +49,9 @@ export function resolvePaperTabs(
     (max, q) => Math.max(max, parsePaperNumber(String(q.paper))),
     0
   );
-  return papersUpTo(Math.max(3, paperCount ?? 3, fromQuestions));
+  // Respect stored paperCount (default 3 for new sets). Do not force a minimum of 3
+  // or deleted papers (e.g. Paper 3) will keep reappearing in the UI.
+  return papersUpTo(Math.max(1, paperCount ?? 3, fromQuestions));
 }
 
 export function AccessBadgePill({ badge }: { badge?: string | null }) {
