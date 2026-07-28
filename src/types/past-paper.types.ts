@@ -141,7 +141,10 @@ export type PastPaperAttemptQuestion = {
   prompt: string;
   body?: string | null;
   diagramUrl?: string | null;
-  difficulty?: string;
+  difficulty?: string | null;
+  paper?: string | null;
+  questionType?: string;
+  calculatorAllowed?: boolean;
   options: string[];
   marks: number;
   order: number;
@@ -149,6 +152,7 @@ export type PastPaperAttemptQuestion = {
   isCorrect?: boolean | null;
   correctAnswer?: string;
   markScheme?: string | null;
+  videoUrl?: string | null;
 };
 
 export type PastPaperAttemptPayload = {
@@ -176,6 +180,8 @@ export type PastPaperAttemptPayload = {
     totalMarks: number;
     accessTier: QbAccessBadge | string;
     sourceType: PastPaperSourceType;
+    pdfUrl?: string | null;
+    markSchemeUrl?: string | null;
   };
   questions: PastPaperAttemptQuestion[];
 };

@@ -37,11 +37,14 @@ export function PastPapersPage({ programSlug }: Props) {
   }>({ title: "", requiredTier: "GOLD" });
 
   const years = data?.years ?? [];
-  const recentAttemptIds = useMemo(() => {
-    const map = new Map<string, string>();
+  const recentByPaper = useMemo(() => {
+    const map = new Map<string, { id: string; status: string }>();
     for (const row of history) {
-      const paperId = (row as { paper?: { id?: string }; id?: string }).paper?.id;
-      if (paperId && !map.has(paperId)) map.set(paperId, row.id);
+      const paperId = (row as { paper?: { id?: string } }).paper?.id;
+      const status = String((row as { status?: string }).status ?? "");
+      if (paperId && !map.has(paperId)) {
+        map.set(paperId, { id: row.id, status });
+      }
     }
     return map;
   }, [history]);
@@ -79,7 +82,8 @@ export function PastPapersPage({ programSlug }: Props) {
           <div>
             <h2 className="text-xl font-bold text-foreground md:text-2xl">Archive</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Pick a year, then open a paper. Locked papers need a Practice Pass or course access.
+              Pick a year, then open details or start the exam directly. Locked papers need a
+              Practice Pass or course access.
             </p>
           </div>
           {isFetching ? (
@@ -117,8 +121,20 @@ export function PastPapersPage({ programSlug }: Props) {
                 {block.papers.map((paper) => {
                   const locked = Boolean(paper.locked);
                   const badge = normalizeAccessBadge(paper.accessTier);
-                  const href = ROUTES.subjectPastPaper(programSlug, paper.slug);
-                  const attempted = recentAttemptIds.has(paper.id);
+                  const detailHref = ROUTES.subjectPastPaper(programSlug, paper.slug);
+                  const recent = recentByPaper.get(paper.id);
+                  const inProgress = recent?.status === "IN_PROGRESS";
+                  const attempted = Boolean(recent);
+                  const takeHref = ROUTES.subjectPastPaperTake(programSlug, paper.slug, {
+                    new: attempted && !inProgress ? true : undefined,
+                  });
+                  const startLabel = locked
+                    ? null
+                    : inProgress
+                      ? "Continue exam"
+                      : attempted
+                        ? "Retry exam"
+                        : "Start exam";
 
                   return (
                     <div
@@ -150,7 +166,7 @@ export function PastPapersPage({ programSlug }: Props) {
                           </span>
                           {attempted ? (
                             <span className="rounded-md bg-[#ecfdf3] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--accent-green)]">
-                              Attempted
+                              {inProgress ? "In progress" : "Attempted"}
                             </span>
                           ) : null}
                         </div>
@@ -172,9 +188,22 @@ export function PastPapersPage({ programSlug }: Props) {
                             Unlock
                           </Button>
                         ) : null}
-                        <Button asChild size="sm" variant={locked ? "outline" : "default"}>
-                          <Link href={href}>{locked ? "View details" : "Open paper"}</Link>
+                        <Button asChild size="sm" variant="outline">
+                          <Link href={detailHref}>{locked ? "View details" : "Open paper"}</Link>
                         </Button>
+                        {!locked && startLabel ? (
+                          <Button asChild size="sm">
+                            <Link
+                              href={
+                                isAuthenticated
+                                  ? takeHref
+                                  : `${ROUTES.auth.login}?next=${encodeURIComponent(takeHref)}`
+                              }
+                            >
+                              {startLabel}
+                            </Link>
+                          </Button>
+                        ) : null}
                       </div>
                     </div>
                   );
