@@ -7,6 +7,8 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Download,
   Expand,
@@ -81,6 +83,8 @@ const PAPER_FILTER_OPTIONS: { value: QbPaper; label: string }[] = [
 
 const QUESTION_COUNT_OPTIONS = [10, 20, 30] as const;
 type QuestionCountLimit = (typeof QUESTION_COUNT_OPTIONS)[number];
+/** Default browse page size when not using a Paper 2/3 exam pack filter. */
+const STUDY_PAGE_SIZE = 10;
 
 function isMcqPaper(paper: string) {
   return String(paper).toUpperCase() === "PAPER_1";
@@ -664,6 +668,7 @@ export function QuestionbankStudyPage({
   );
   const [viewMode, setViewMode] = useState<ViewMode>("ALL");
   const [questionCountLimit, setQuestionCountLimit] = useState<QuestionCountLimit>(10);
+  const [currentPage, setCurrentPage] = useState(1);
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
   const [answerUploadName, setAnswerUploadName] = useState<string | null>(null);
   const [answerUploadError, setAnswerUploadError] = useState<string | null>(null);
@@ -1022,6 +1027,39 @@ export function QuestionbankStudyPage({
     return [...theoryPackQuestions, ...mcqAlongside];
   }, [filteredQuestions, showTheoryPaperTools, theoryPackQuestions]);
 
+  /**
+   * Paper 2/3 exam pack (10/20/30 filter): one page with the full pack for download/submit.
+   * Otherwise browse with 10 questions per page. Exam mode keeps the full set on one screen.
+   */
+  const useSinglePagePack = Boolean(showTheoryPaperTools && !examMode);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters, viewMode, questionCountLimit, showTheoryPaperTools, subtopicSlug, examMode]);
+
+  const totalPages = useMemo(() => {
+    if (examMode || useSinglePagePack || visibleQuestions.length === 0) return 1;
+    return Math.max(1, Math.ceil(visibleQuestions.length / STUDY_PAGE_SIZE));
+  }, [examMode, useSinglePagePack, visibleQuestions.length]);
+
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+
+  const pagedQuestions = useMemo(() => {
+    if (examMode || useSinglePagePack) return visibleQuestions;
+    const start = (safePage - 1) * STUDY_PAGE_SIZE;
+    return visibleQuestions.slice(start, start + STUDY_PAGE_SIZE);
+  }, [examMode, useSinglePagePack, visibleQuestions, safePage]);
+
+  const pageRangeLabel = useMemo(() => {
+    if (visibleQuestions.length === 0) return null;
+    if (examMode || useSinglePagePack) {
+      return `1–${visibleQuestions.length}`;
+    }
+    const start = (safePage - 1) * STUDY_PAGE_SIZE + 1;
+    const end = Math.min(safePage * STUDY_PAGE_SIZE, visibleQuestions.length);
+    return `${start}–${end}`;
+  }, [examMode, useSinglePagePack, visibleQuestions.length, safePage]);
+
   /** Serial number restarts at 1 inside each paper (Paper 1: 1..n, Paper 2: 1..n, …). */
   const displayNumberById = useMemo(() => {
     const counters: Record<string, number> = {};
@@ -1092,6 +1130,16 @@ export function QuestionbankStudyPage({
     const num = Number.parseInt(n, 10);
     if (!Number.isFinite(num)) return;
     const match = visibleQuestions.find((q) => displayNumberById[q.id] === num);
+    if (match && !examMode && !useSinglePagePack) {
+      const idx = visibleQuestions.findIndex((q) => q.id === match.id);
+      if (idx >= 0) {
+        setCurrentPage(Math.floor(idx / STUDY_PAGE_SIZE) + 1);
+      }
+      window.setTimeout(() => {
+        document.getElementById(`q-${match.id}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 50);
+      return;
+    }
     const el = match
       ? document.getElementById(`q-${match.id}`)
       : document.querySelector(`[data-q-num="${num}"]`);
@@ -1220,7 +1268,9 @@ export function QuestionbankStudyPage({
               <span className="flex-1 text-sm text-muted-foreground">
                 {isFetching
                   ? "Updating…"
-                  : `${visibleQuestions.length} of ${data.questions.length} questions`}
+                  : pageRangeLabel
+                    ? `Showing ${pageRangeLabel} of ${visibleQuestions.length} questions`
+                    : `${visibleQuestions.length} of ${data.questions.length} questions`}
               </span>
             ) : null}
 
@@ -1518,22 +1568,65 @@ export function QuestionbankStudyPage({
             No questions match these filters.
           </p>
         ) : (
-          visibleQuestions.map((question, index) => (
-            <QuestionCard
-              key={question.id}
-              question={question}
-              index={index}
-              displayNumber={displayNumberById[question.id] ?? index + 1}
-              completed={completedIds.has(question.id)}
-              onToggleComplete={() => toggleComplete(question.id)}
-              solutionsUnlocked={solutionsUnlocked}
-              examMode={examMode}
-              selectedAnswer={selectedAnswers[question.id] ?? null}
-              feedback={answerFeedback[question.id] ?? null}
-              onSelectAnswer={(letter) => void handleSelectAnswer(question.id, letter)}
-              saving={savingQuestionId === question.id}
-            />
-          ))
+          <>
+            {pagedQuestions.map((question, index) => (
+              <QuestionCard
+                key={question.id}
+                question={question}
+                index={(safePage - 1) * STUDY_PAGE_SIZE + index}
+                displayNumber={displayNumberById[question.id] ?? index + 1}
+                completed={completedIds.has(question.id)}
+                onToggleComplete={() => toggleComplete(question.id)}
+                solutionsUnlocked={solutionsUnlocked}
+                examMode={examMode}
+                selectedAnswer={selectedAnswers[question.id] ?? null}
+                feedback={answerFeedback[question.id] ?? null}
+                onSelectAnswer={(letter) => void handleSelectAnswer(question.id, letter)}
+                saving={savingQuestionId === question.id}
+              />
+            ))}
+
+            {!examMode && !useSinglePagePack && totalPages > 1 ? (
+              <nav
+                className="flex flex-col items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row"
+                aria-label="Question pagination"
+              >
+                <p className="text-sm text-muted-foreground">
+                  Showing {pageRangeLabel} of {visibleQuestions.length}
+                  <span className="mx-1.5 text-border">·</span>
+                  Page {safePage} of {totalPages}
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={safePage <= 1}
+                    onClick={() => {
+                      setCurrentPage((p) => Math.max(1, p - 1));
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                  >
+                    <ChevronLeft className="mr-1 h-4 w-4" />
+                    Previous
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={safePage >= totalPages}
+                    onClick={() => {
+                      setCurrentPage((p) => Math.min(totalPages, p + 1));
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                  >
+                    Next
+                    <ChevronRight className="ml-1 h-4 w-4" />
+                  </Button>
+                </div>
+              </nav>
+            ) : null}
+          </>
         )}
 
         {examMode ? (
