@@ -243,6 +243,7 @@ export function useCreateCategory() {
     mutationFn: (payload: CategoryInput) => adminCategoriesService.create(payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.categories });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.subjects.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.home.categories });
       void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
     },
@@ -257,6 +258,7 @@ export function useUpdateCategory() {
       adminCategoriesService.update(id, payload),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.categories });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.subjects.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.home.categories });
       void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
     },
@@ -270,6 +272,7 @@ export function useDeleteCategory() {
     mutationFn: (id: string) => adminCategoriesService.remove(id),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.categories });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.subjects.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.home.categories });
       void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });

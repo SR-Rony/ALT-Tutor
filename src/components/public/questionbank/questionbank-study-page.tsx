@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Clock,
+  Download,
   Expand,
   ExternalLink,
   FileText,
@@ -19,8 +20,10 @@ import {
   SlidersHorizontal,
   ThumbsDown,
   ThumbsUp,
+  Upload,
   XCircle,
 } from "lucide-react";
+import { uploadService } from "@/services/upload.service";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/shared";
@@ -76,8 +79,16 @@ const PAPER_FILTER_OPTIONS: { value: QbPaper; label: string }[] = [
   { value: "PAPER_3", label: "Paper 3" },
 ];
 
+const QUESTION_COUNT_OPTIONS = [10, 20, 30] as const;
+type QuestionCountLimit = (typeof QUESTION_COUNT_OPTIONS)[number];
+
 function isMcqPaper(paper: string) {
   return String(paper).toUpperCase() === "PAPER_1";
+}
+
+function isTheoryPaper(paper: string) {
+  const key = String(paper).toUpperCase();
+  return key === "PAPER_2" || key === "PAPER_3";
 }
 
 function paperDisplayLabel(paper: string) {
@@ -142,6 +153,7 @@ function filterSelectionLabel<T extends string>(
 function QuestionCard({
   question,
   index,
+  displayNumber,
   completed,
   onToggleComplete,
   solutionsUnlocked = true,
@@ -153,6 +165,7 @@ function QuestionCard({
 }: {
   question: QbQuestion;
   index: number;
+  displayNumber: number;
   completed?: boolean;
   onToggleComplete?: () => void;
   solutionsUnlocked?: boolean;
@@ -167,6 +180,7 @@ function QuestionCard({
       <McqQuestionCard
         question={question}
         index={index}
+        displayNumber={displayNumber}
         completed={completed}
         onToggleComplete={onToggleComplete}
         solutionsUnlocked={solutionsUnlocked}
@@ -183,6 +197,7 @@ function QuestionCard({
     <StructuredQuestionCard
       question={question}
       index={index}
+      displayNumber={displayNumber}
       completed={completed}
       onToggleComplete={onToggleComplete}
       solutionsUnlocked={solutionsUnlocked}
@@ -197,6 +212,7 @@ function QuestionCard({
 function McqQuestionCard({
   question,
   index,
+  displayNumber,
   completed,
   onToggleComplete,
   solutionsUnlocked = true,
@@ -208,6 +224,7 @@ function McqQuestionCard({
 }: {
   question: QbQuestion;
   index: number;
+  displayNumber: number;
   completed?: boolean;
   onToggleComplete?: () => void;
   solutionsUnlocked?: boolean;
@@ -222,12 +239,12 @@ function McqQuestionCard({
   const answered = selected !== null;
   const correctAnswer = feedback?.correctAnswer?.toUpperCase() ?? "";
   const correct = feedback ? feedback.isCorrect : false;
-  const qLabel = `Question ${question.number || index + 1}`;
+  const qLabel = `Question ${displayNumber || index + 1}`;
   const markScheme = feedback?.markScheme ?? question.markScheme;
   const videoUrl = feedback?.videoUrl ?? question.videoUrl;
 
   return (
-    <section id={`q-${question.number}`} className="scroll-mt-28">
+    <section id={`q-${question.id}`} className="scroll-mt-28" data-q-num={displayNumber}>
       <div className="mb-2 flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold text-foreground">{qLabel}</h2>
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -464,16 +481,15 @@ function McqQuestionCard({
 function StructuredQuestionCard({
   question,
   index,
+  displayNumber,
   completed,
   onToggleComplete,
   solutionsUnlocked = true,
   examMode = false,
-  selectedAnswer,
-  onSelectAnswer,
-  saving = false,
 }: {
   question: QbQuestion;
   index: number;
+  displayNumber: number;
   completed?: boolean;
   onToggleComplete?: () => void;
   solutionsUnlocked?: boolean;
@@ -483,17 +499,12 @@ function StructuredQuestionCard({
   saving?: boolean;
 }) {
   const [modal, setModal] = useState<"scheme" | "video" | null>(null);
-  const [draft, setDraft] = useState(selectedAnswer ?? "");
-  const qLabel = `Question ${question.number || index + 1}`;
+  const qLabel = `Question ${displayNumber || index + 1}`;
   const maxMarkMatch = question.body?.match(/\[Maximum mark:\s*(\d+)\]/i);
   const maxMarks = question.marks ?? (maxMarkMatch ? Number(maxMarkMatch[1]) : null);
 
-  useEffect(() => {
-    setDraft(selectedAnswer ?? "");
-  }, [selectedAnswer]);
-
   return (
-    <section id={`q-${question.number}`} className="scroll-mt-28">
+    <section id={`q-${question.id}`} className="scroll-mt-28" data-q-num={displayNumber}>
       <div className="mb-2 flex items-center justify-between gap-3">
         <h2 className="text-lg font-bold text-foreground">{qLabel}</h2>
         <div className="flex items-center gap-2 text-muted-foreground">
@@ -513,19 +524,14 @@ function StructuredQuestionCard({
               ) : null}
               <DifficultyDots difficulty={String(question.difficulty)} />
               <span className="rounded-md border border-primary/20 bg-primary-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                {paperDisplayLabel(String(question.paper))} · Theory
+                {paperDisplayLabel(String(question.paper))}
               </span>
-              {maxMarks != null && maxMarks > 0 ? (
-                <span className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-foreground">
-                  [{maxMarks}]
-                </span>
-              ) : null}
             </div>
             <Expand className="h-4 w-4 text-muted-foreground" />
           </div>
 
           {maxMarks != null && maxMarks > 0 ? (
-            <p className="mb-2 text-sm font-semibold text-foreground">[Maximum mark: {maxMarks}]</p>
+            <p className="mb-3 text-sm font-semibold text-foreground">[Maximum mark: {maxMarks}]</p>
           ) : null}
 
           <p className="text-sm leading-relaxed text-foreground md:text-base">{question.prompt}</p>
@@ -545,33 +551,6 @@ function StructuredQuestionCard({
               />
             </div>
           ) : null}
-
-          <div className="mt-5 rounded-xl border border-dashed border-border bg-muted/20 p-4">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Your written response
-            </p>
-            <textarea
-              value={draft}
-              disabled={saving || (examMode && solutionsUnlocked)}
-              onChange={(event) => setDraft(event.target.value)}
-              className="mt-3 min-h-28 w-full rounded-lg border border-border bg-card p-3 text-sm text-foreground outline-none focus:border-primary"
-              placeholder="Write your structured response here…"
-            />
-            <div className="mt-2 flex items-center justify-between gap-2">
-              <p className="text-xs text-muted-foreground">
-                Structured responses are saved but not auto-scored; review them against the mark scheme.
-              </p>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={saving || !draft.trim() || draft === selectedAnswer}
-                onClick={() => onSelectAnswer?.(draft.trim())}
-              >
-                {saving ? "Saving…" : "Save response"}
-              </Button>
-            </div>
-          </div>
         </article>
 
         <aside className="flex flex-row flex-wrap gap-2 lg:flex-col lg:flex-nowrap">
@@ -684,7 +663,12 @@ export function QuestionbankStudyPage({
     initialPaper ? { paper: [initialPaper] } : {}
   );
   const [viewMode, setViewMode] = useState<ViewMode>("ALL");
+  const [questionCountLimit, setQuestionCountLimit] = useState<QuestionCountLimit>(10);
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
+  const [answerUploadName, setAnswerUploadName] = useState<string | null>(null);
+  const [answerUploadError, setAnswerUploadError] = useState<string | null>(null);
+  const [answerUploading, setAnswerUploading] = useState(false);
+  const answerFileRef = useRef<HTMLInputElement>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
   const [answerFeedback, setAnswerFeedback] = useState<Record<string, PracticeAnswerFeedback>>({});
@@ -865,8 +849,8 @@ export function QuestionbankStudyPage({
   const reviewIncorrect = () => {
     const firstWrong = (data?.questions ?? []).find((q) => answerFeedback[q.id]?.isCorrect === false);
     const target = firstWrong
-      ? document.getElementById(`q-${firstWrong.number}`)
-      : document.getElementById(`q-${data?.questions[0]?.number ?? 1}`);
+      ? document.getElementById(`q-${firstWrong.id}`)
+      : document.getElementById(`q-${data?.questions[0]?.id ?? ""}`);
     target?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -1007,14 +991,91 @@ export function QuestionbankStudyPage({
     return () => document.removeEventListener("mousedown", onDown);
   }, [typeOpen]);
 
-  const visibleQuestions = useMemo(() => {
+  const filteredQuestions = useMemo(() => {
     const list = data?.questions ?? [];
     if (viewMode === "COMPLETE") return list.filter((q) => completedIds.has(q.id));
     if (viewMode === "INCOMPLETE") return list.filter((q) => !completedIds.has(q.id));
     return list;
   }, [data?.questions, viewMode, completedIds]);
 
+  const showTheoryPaperTools = useMemo(() => {
+    if (filters.paper?.length) {
+      return filters.paper.some((paper) => isTheoryPaper(paper));
+    }
+    if (initialPaper && isTheoryPaper(initialPaper)) return true;
+    return (
+      filteredQuestions.length > 0 &&
+      filteredQuestions.every((question) => isTheoryPaper(String(question.paper)))
+    );
+  }, [filters.paper, filteredQuestions, initialPaper]);
+
+  const theoryPackQuestions = useMemo(() => {
+    if (!showTheoryPaperTools) return [];
+    return filteredQuestions
+      .filter((question) => isTheoryPaper(String(question.paper)))
+      .slice(0, questionCountLimit);
+  }, [filteredQuestions, questionCountLimit, showTheoryPaperTools]);
+
+  const visibleQuestions = useMemo(() => {
+    if (!showTheoryPaperTools) return filteredQuestions;
+    const mcqAlongside = filteredQuestions.filter((question) => isMcqPaper(String(question.paper)));
+    return [...theoryPackQuestions, ...mcqAlongside];
+  }, [filteredQuestions, showTheoryPaperTools, theoryPackQuestions]);
+
+  /** Serial number restarts at 1 inside each paper (Paper 1: 1..n, Paper 2: 1..n, …). */
+  const displayNumberById = useMemo(() => {
+    const counters: Record<string, number> = {};
+    const map: Record<string, number> = {};
+    for (const question of visibleQuestions) {
+      const paper = String(question.paper).toUpperCase();
+      counters[paper] = (counters[paper] ?? 0) + 1;
+      map[question.id] = counters[paper];
+    }
+    return map;
+  }, [visibleQuestions]);
+
   const typeLabel = filterSelectionLabel(filters.type, TYPE_OPTIONS);
+
+  const handleDownloadQuestions = () => {
+    const pack = theoryPackQuestions.length > 0 ? theoryPackQuestions : visibleQuestions;
+    downloadQuestionPaperPdf({
+      title: `${program?.name ?? "Questionbank"} — ${data?.subtopic.title ?? "Questions"}`,
+      subtitle: `${topic?.title ?? ""} · ${pack.length} questions`,
+      questions: pack,
+    });
+  };
+
+  const handleUploadAnswers = async (file: File | null) => {
+    if (!file) return;
+    if (!isAuthenticated) {
+      setAnswerUploadError("Sign in to upload your answer script.");
+      return;
+    }
+    setAnswerUploadError(null);
+    setAnswerUploading(true);
+    try {
+      const result = await uploadService.upload(file, "assignments");
+      const payload = {
+        programSlug,
+        subtopicSlug,
+        questionCount: theoryPackQuestions.length,
+        questionIds: theoryPackQuestions.map((q) => q.id),
+        fileName: file.name,
+        fileUrl: result.url,
+        publicId: result.publicId,
+        uploadedAt: new Date().toISOString(),
+      };
+      const key = `qb-answer-script:${programSlug}:${subtopicSlug}`;
+      const previous = JSON.parse(localStorage.getItem(key) ?? "[]") as unknown[];
+      localStorage.setItem(key, JSON.stringify([payload, ...previous].slice(0, 20)));
+      setAnswerUploadName(file.name);
+    } catch (err) {
+      setAnswerUploadError((err as ApiError)?.message || "Could not upload answer file");
+    } finally {
+      setAnswerUploading(false);
+      if (answerFileRef.current) answerFileRef.current.value = "";
+    }
+  };
 
   const toggleComplete = (id: string) => {
     setCompletedIds((prev) => {
@@ -1028,7 +1089,12 @@ export function QuestionbankStudyPage({
   const goToQuestion = () => {
     const n = window.prompt("Go to question number:");
     if (!n) return;
-    const el = document.getElementById(`q-${n}`);
+    const num = Number.parseInt(n, 10);
+    if (!Number.isFinite(num)) return;
+    const match = visibleQuestions.find((q) => displayNumberById[q.id] === num);
+    const el = match
+      ? document.getElementById(`q-${match.id}`)
+      : document.querySelector(`[data-q-num="${num}"]`);
     el?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
@@ -1247,6 +1313,27 @@ export function QuestionbankStudyPage({
                   ))}
                 </FilterInlineGroup>
 
+                {showTheoryPaperTools ? (
+                  <FilterInlineGroup label="Questions">
+                    {QUESTION_COUNT_OPTIONS.map((count) => (
+                      <label
+                        key={count}
+                        className="inline-flex cursor-pointer items-center gap-1.5 text-sm text-foreground"
+                      >
+                        <input
+                          type="radio"
+                          name="qb-question-count"
+                          className="h-3.5 w-3.5 border-foreground/60 text-primary accent-primary focus:ring-primary/30"
+                          checked={questionCountLimit === count}
+                          disabled={filtersFrozen}
+                          onChange={() => setQuestionCountLimit(count)}
+                        />
+                        {count}
+                      </label>
+                    ))}
+                  </FilterInlineGroup>
+                ) : null}
+
                 {hasActiveFilters ? (
                   <div className="flex items-end lg:pl-4">
                     <button
@@ -1296,6 +1383,66 @@ export function QuestionbankStudyPage({
             {sessionError}
           </p>
         ) : null}
+
+        {showTheoryPaperTools ? (
+          <div className="rounded-xl border border-[#c5d9ef] bg-[#e8f0fa] px-4 py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">
+                  Paper 2 / Paper 3 exam pack
+                </p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Showing {theoryPackQuestions.length} question
+                  {theoryPackQuestions.length === 1 ? "" : "s"}
+                  {filteredQuestions.filter((q) => isTheoryPaper(String(q.paper))).length >
+                  theoryPackQuestions.length
+                    ? ` of ${filteredQuestions.filter((q) => isTheoryPaper(String(q.paper))).length} matched`
+                    : ""}
+                  . Download the set, write answers offline, then upload your answer file for
+                  teacher / admin review.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-primary/30 bg-card"
+                  disabled={theoryPackQuestions.length === 0}
+                  onClick={handleDownloadQuestions}
+                >
+                  <Download className="mr-1.5 h-4 w-4" />
+                  Download questions
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={answerUploading || theoryPackQuestions.length === 0}
+                  onClick={() => answerFileRef.current?.click()}
+                >
+                  <Upload className="mr-1.5 h-4 w-4" />
+                  {answerUploading ? "Uploading…" : "Upload answers"}
+                </Button>
+                <input
+                  ref={answerFileRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip"
+                  className="hidden"
+                  onChange={(event) => void handleUploadAnswers(event.target.files?.[0] ?? null)}
+                />
+              </div>
+            </div>
+            {answerUploadName ? (
+              <p className="mt-3 text-xs font-medium text-accent-green">
+                Uploaded: {answerUploadName}. Teachers and admins can review this answer script.
+              </p>
+            ) : null}
+            {answerUploadError ? (
+              <p className="mt-3 text-xs font-medium text-accent">{answerUploadError}</p>
+            ) : null}
+          </div>
+        ) : null}
+
         {examMode ? (
           <div
             className={cn(
@@ -1376,6 +1523,7 @@ export function QuestionbankStudyPage({
               key={question.id}
               question={question}
               index={index}
+              displayNumber={displayNumberById[question.id] ?? index + 1}
               completed={completedIds.has(question.id)}
               onToggleComplete={() => toggleComplete(question.id)}
               solutionsUnlocked={solutionsUnlocked}

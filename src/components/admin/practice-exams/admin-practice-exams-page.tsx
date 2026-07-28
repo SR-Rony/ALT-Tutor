@@ -49,7 +49,6 @@ export function AdminPracticeExamsPage() {
   const { data: subjectsTree = [] } = useAdminSubjectsTree();
   const [categoryId, setCategoryId] = useState("");
   const [subjectId, setSubjectId] = useState("");
-  const [programId, setProgramId] = useState("");
 
   const effectiveCategoryId = categoryId || subjectsTree[0]?.id || "";
   const subjects = useMemo(() => {
@@ -59,8 +58,8 @@ export function AdminPracticeExamsPage() {
   const programs = useMemo(() => {
     return subjects.find((s) => s.id === effectiveSubjectId)?.programs ?? [];
   }, [subjects, effectiveSubjectId]);
-  const effectiveProgramId = programId || programs[0]?.id || "";
-  const selectedProgram = programs.find((p) => p.id === effectiveProgramId);
+  const effectiveProgramId = programs[0]?.id || "";
+  const selectedProgram = programs[0];
 
   const { data, isLoading, error, refetch, isFetching } = useAdminPracticeExams(
     effectiveProgramId || undefined
@@ -263,7 +262,7 @@ export function AdminPracticeExamsPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Category
@@ -273,7 +272,6 @@ export function AdminPracticeExamsPage() {
                 onChange={(e) => {
                   setCategoryId(e.target.value);
                   setSubjectId("");
-                  setProgramId("");
                 }}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
@@ -290,31 +288,12 @@ export function AdminPracticeExamsPage() {
               </span>
               <select
                 value={effectiveSubjectId}
-                onChange={(e) => {
-                  setSubjectId(e.target.value);
-                  setProgramId("");
-                }}
+                onChange={(e) => setSubjectId(e.target.value)}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
                 {subjects.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Program
-              </span>
-              <select
-                value={effectiveProgramId}
-                onChange={(e) => setProgramId(e.target.value)}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                {programs.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
                   </option>
                 ))}
               </select>

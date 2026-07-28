@@ -37,6 +37,9 @@ function useInvalidateSubjects() {
   const queryClient = useQueryClient();
   return () => {
     void queryClient.invalidateQueries({ queryKey: queryKeys.subjects.all });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.admin.categories });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.home.categories });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.home.all });
   };
 }
 

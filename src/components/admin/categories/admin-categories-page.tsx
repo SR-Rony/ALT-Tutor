@@ -11,148 +11,75 @@ import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants";
 import {
   useAdminCategories,
-  useAdminSubjectsTree,
   useCreateCategory,
-  useCreateSubjectCategory,
   useDeleteCategory,
-  useDeleteSubjectCategory,
   useUpdateCategory,
-  useUpdateSubjectCategory,
 } from "@/hooks";
 import { formatShortDate } from "@/lib/format";
 import { slugify } from "@/lib/slugify";
-import type { ApiError, SubjectMenuCategory } from "@/types";
+import type { ApiError } from "@/types";
 import type { AdminCategory } from "@/services/admin/admin-categories.service";
-import { cn } from "@/utils";
 
-type CategoryKind = "question" | "course";
-type ListTab = CategoryKind;
+type CategoryFormState = {
+  name: string;
+  slug: string;
+};
 
-type EditTarget =
-  | { kind: "question"; category: SubjectMenuCategory }
-  | { kind: "course"; category: AdminCategory };
-
-function TabButton({
-  active,
-  label,
-  onClick,
-}: {
-  active: boolean;
-  label: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "rounded-full px-4 py-1.5 text-sm font-semibold transition-colors",
-        active
-          ? "bg-primary text-primary-foreground"
-          : "bg-muted text-muted-foreground hover:text-foreground"
-      )}
-    >
-      {label}
-    </button>
-  );
-}
+const emptyForm: CategoryFormState = { name: "", slug: "" };
 
 export function AdminCategoriesPage() {
-  const {
-    data: courseCategories = [],
-    isLoading: courseLoading,
-    error: courseError,
-    refetch: refetchCourses,
-    isFetching: courseFetching,
-  } = useAdminCategories();
-  const {
-    data: qbTree = [],
-    isLoading: qbLoading,
-    error: qbError,
-    refetch: refetchQb,
-    isFetching: qbFetching,
-  } = useAdminSubjectsTree();
+  const { data = [], isLoading, error, refetch, isFetching } = useAdminCategories();
+  const createCategory = useCreateCategory();
+  const updateCategory = useUpdateCategory();
+  const deleteCategory = useDeleteCategory();
 
-  const createCourseCategory = useCreateCategory();
-  const updateCourseCategory = useUpdateCategory();
-  const deleteCourseCategory = useDeleteCategory();
-  const createQbCategory = useCreateSubjectCategory();
-  const updateQbCategory = useUpdateSubjectCategory();
-  const deleteQbCategory = useDeleteSubjectCategory();
-
-  const [listTab, setListTab] = useState<ListTab>("question");
   const [search, setSearch] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [formKind, setFormKind] = useState<CategoryKind>("question");
-  const [editing, setEditing] = useState<EditTarget | null>(null);
-  const [name, setName] = useState("");
-  const [slug, setSlug] = useState("");
+  const [editing, setEditing] = useState<AdminCategory | null>(null);
+  const [form, setForm] = useState<CategoryFormState>(emptyForm);
   const [autoSlug, setAutoSlug] = useState(true);
   const [pendingId, setPendingId] = useState<string | null>(null);
 
-  const busy =
-    createCourseCategory.isPending ||
-    updateCourseCategory.isPending ||
-    deleteCourseCategory.isPending ||
-    createQbCategory.isPending ||
-    updateQbCategory.isPending ||
-    deleteQbCategory.isPending;
-
-  const isFetching = courseFetching || qbFetching;
-  const isLoading = courseLoading || qbLoading;
-
-  const filteredQuestionCategories = useMemo(() => {
+  const visible = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return qbTree;
-    return qbTree.filter(
+    if (!q) return data;
+    return data.filter(
       (item) => item.name.toLowerCase().includes(q) || item.slug.toLowerCase().includes(q)
     );
-  }, [qbTree, search]);
+  }, [data, search]);
 
-  const filteredCourseCategories = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    if (!q) return courseCategories;
-    return courseCategories.filter(
-      (item) => item.name.toLowerCase().includes(q) || item.slug.toLowerCase().includes(q)
-    );
-  }, [courseCategories, search]);
+  const busy = createCategory.isPending || updateCategory.isPending || deleteCategory.isPending;
 
-  const totalQbSubjects = useMemo(
-    () => qbTree.reduce((sum, category) => sum + category.subjects.length, 0),
-    [qbTree]
+  const totalSubjects = useMemo(
+    () => data.reduce((sum, item) => sum + (item.subjectCount ?? 0), 0),
+    [data]
+  );
+
+  const totalCourses = useMemo(
+    () => data.reduce((sum, item) => sum + (item.courseCount ?? 0), 0),
+    [data]
   );
 
   useEffect(() => {
     if (!modalOpen) return;
     if (editing) {
-      setFormKind(editing.kind);
-      setName(editing.category.name);
-      setSlug(editing.category.slug);
+      setForm({ name: editing.name, slug: editing.slug });
       setAutoSlug(false);
-      return;
+    } else {
+      setForm(emptyForm);
+      setAutoSlug(true);
     }
-    setFormKind(listTab);
-    setName("");
-    setSlug("");
-    setAutoSlug(true);
-  }, [modalOpen, editing, listTab]);
+  }, [modalOpen, editing]);
 
   const openCreate = () => {
     setEditing(null);
-    setFormKind(listTab);
     setActionError(null);
     setModalOpen(true);
   };
 
-  const openEditQuestion = (category: SubjectMenuCategory) => {
-    setEditing({ kind: "question", category });
-    setActionError(null);
-    setModalOpen(true);
-  };
-
-  const openEditCourse = (category: AdminCategory) => {
-    setEditing({ kind: "course", category });
+  const openEdit = (category: AdminCategory) => {
+    setEditing(category);
     setActionError(null);
     setModalOpen(true);
   };
@@ -163,51 +90,28 @@ export function AdminCategoriesPage() {
     setEditing(null);
   };
 
-  const onNameChange = (value: string) => {
-    setName(value);
-    if (autoSlug) setSlug(slugify(value));
-  };
-
-  const refreshAll = () => {
-    void refetchCourses();
-    void refetchQb();
+  const onNameChange = (name: string) => {
+    setForm((prev) => ({
+      name,
+      slug: autoSlug ? slugify(name) : prev.slug,
+    }));
   };
 
   const onSubmit = async () => {
-    const trimmedName = name.trim();
-    const trimmedSlug = slug.trim() || slugify(trimmedName);
-    if (!trimmedName || !trimmedSlug) {
+    const name = form.name.trim();
+    const slug = form.slug.trim();
+    if (!name || !slug) {
       setActionError("Name and slug are required");
       return;
     }
 
     setActionError(null);
-    const kind = editing?.kind ?? formKind;
-
     try {
-      if (kind === "question") {
-        if (editing?.kind === "question") {
-          setPendingId(editing.category.id);
-          await updateQbCategory.mutateAsync({
-            id: editing.category.id,
-            payload: { name: trimmedName, slug: trimmedSlug },
-          });
-        } else {
-          await createQbCategory.mutateAsync({
-            name: trimmedName,
-            slug: trimmedSlug,
-            order: qbTree.length,
-            isActive: true,
-          });
-        }
-      } else if (editing?.kind === "course") {
-        setPendingId(editing.category.id);
-        await updateCourseCategory.mutateAsync({
-          id: editing.category.id,
-          payload: { name: trimmedName, slug: trimmedSlug },
-        });
+      if (editing) {
+        setPendingId(editing.id);
+        await updateCategory.mutateAsync({ id: editing.id, payload: { name, slug } });
       } else {
-        await createCourseCategory.mutateAsync({ name: trimmedName, slug: trimmedSlug });
+        await createCategory.mutateAsync({ name, slug });
       }
       setModalOpen(false);
       setEditing(null);
@@ -218,16 +122,16 @@ export function AdminCategoriesPage() {
     }
   };
 
-  const onDeleteQuestion = async (category: SubjectMenuCategory) => {
-    if (
-      !window.confirm(`Delete questionbank category "${category.name}"? All subjects inside will be removed.`)
-    ) {
-      return;
-    }
+  const onDelete = async (category: AdminCategory) => {
+    const confirmed = window.confirm(
+      `Delete category "${category.name}"? Linked subjects and courses may be affected.`
+    );
+    if (!confirmed) return;
+
     setActionError(null);
     setPendingId(category.id);
     try {
-      await deleteQbCategory.mutateAsync(category.id);
+      await deleteCategory.mutateAsync(category.id);
     } catch (err) {
       setActionError((err as ApiError)?.message || "Failed to delete category");
     } finally {
@@ -235,35 +139,18 @@ export function AdminCategoriesPage() {
     }
   };
 
-  const onDeleteCourse = async (category: AdminCategory) => {
-    if (!window.confirm(`Delete course category "${category.name}"? Courses using it may be affected.`)) {
-      return;
-    }
-    setActionError(null);
-    setPendingId(category.id);
-    try {
-      await deleteCourseCategory.mutateAsync(category.id);
-    } catch (err) {
-      setActionError((err as ApiError)?.message || "Failed to delete category");
-    } finally {
-      setPendingId(null);
-    }
-  };
-
-  if (isLoading && qbTree.length === 0 && courseCategories.length === 0) {
+  if (isLoading && data.length === 0) {
     return (
       <div className="space-y-6">
         <PageHeader
           title="Categories"
-          description="Manage questionbank and course categories."
+          description="One category list for questionbank subjects and courses."
           className="mb-0"
         />
         <PageLoader label="Loading categories..." />
       </div>
     );
   }
-
-  const listError = listTab === "question" ? qbError : courseError;
 
   return (
     <>
@@ -272,7 +159,7 @@ export function AdminCategoriesPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Categories"
-              description="Two types — Questionbank categories (SSC, HSC…) and course categories for the public course catalog."
+              description="Shared categories — use the same group for questionbank subjects and courses (e.g. SSC, Web Development)."
               className="mb-0"
             />
             <div className="flex items-center gap-2">
@@ -281,7 +168,7 @@ export function AdminCategoriesPage() {
                 icon={RefreshCw}
                 tone="primary"
                 disabled={isFetching}
-                onClick={refreshAll}
+                onClick={() => void refetch()}
                 className={isFetching ? "animate-spin" : undefined}
               />
               <Button type="button" size="sm" onClick={openCreate}>
@@ -289,15 +176,6 @@ export function AdminCategoriesPage() {
                 Add category
               </Button>
             </div>
-          </div>
-
-          <div className="mb-4 flex flex-wrap items-center gap-2">
-            <TabButton
-              active={listTab === "question"}
-              label="Question"
-              onClick={() => setListTab("question")}
-            />
-            <TabButton active={listTab === "course"} label="Course" onClick={() => setListTab("course")} />
           </div>
 
           <Input
@@ -308,140 +186,85 @@ export function AdminCategoriesPage() {
           />
 
           <p className="mt-3 text-sm text-muted-foreground">
-            {listTab === "question" ? (
-              <>
-                {qbTree.length} questionbank categories · {totalQbSubjects} subjects ·{" "}
-                <Link href={ROUTES.admin.qbSubjects} className="font-medium text-primary hover:underline">
-                  Manage subjects
-                </Link>
-              </>
-            ) : (
-              <>{courseCategories.length} course categories for organizing public courses.</>
-            )}
+            {data.length} categories · {totalSubjects} subjects · {totalCourses} courses ·{" "}
+            <Link href={ROUTES.admin.qbSubjects} className="font-medium text-primary hover:underline">
+              Manage subjects
+            </Link>
+            {" · "}
+            <Link href={ROUTES.admin.courses} className="font-medium text-primary hover:underline">
+              Manage courses
+            </Link>
           </p>
 
-          {actionError || listError ? (
+          {actionError || error ? (
             <p className="mt-3 text-sm text-accent">
-              {actionError || (listError as unknown as ApiError)?.message || "Something went wrong"}
+              {actionError || (error as unknown as ApiError)?.message || "Something went wrong"}
             </p>
           ) : null}
         </div>
 
-        {listTab === "question" ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[720px] text-left text-sm">
+            <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+              <tr>
+                <th className="px-5 py-3 font-semibold">Name</th>
+                <th className="px-5 py-3 font-semibold">Slug</th>
+                <th className="px-5 py-3 font-semibold">Subjects</th>
+                <th className="px-5 py-3 font-semibold">Courses</th>
+                <th className="px-5 py-3 font-semibold">Updated</th>
+                <th className="px-5 py-3 font-semibold text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visible.length === 0 ? (
                 <tr>
-                  <th className="px-5 py-3 font-semibold">Name</th>
-                  <th className="px-5 py-3 font-semibold">Slug</th>
-                  <th className="px-5 py-3 font-semibold">Subjects</th>
-                  <th className="px-5 py-3 font-semibold text-right">Actions</th>
+                  <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
+                    No categories found. Create one to organize subjects and courses together.
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filteredQuestionCategories.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-5 py-10 text-center text-muted-foreground">
-                      No questionbank categories yet. Add SSC, HSC, or Cambridge groups.
+              ) : null}
+
+              {visible.map((category) => {
+                const rowBusy = busy && pendingId === category.id;
+                return (
+                  <tr key={category.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+                    <td className="px-5 py-4 font-semibold text-foreground">{category.name}</td>
+                    <td className="px-5 py-4 text-muted-foreground">{category.slug}</td>
+                    <td className="px-5 py-4 text-muted-foreground">{category.subjectCount ?? 0}</td>
+                    <td className="px-5 py-4 text-muted-foreground">{category.courseCount ?? 0}</td>
+                    <td className="px-5 py-4 text-muted-foreground">
+                      {category.updatedAt ? formatShortDate(category.updatedAt) : "—"}
+                    </td>
+                    <td className="px-5 py-4 text-right">
+                      <AdminActionsBar>
+                        <AdminIconAction
+                          label="Edit category"
+                          icon={Pencil}
+                          tone="primary"
+                          disabled={rowBusy}
+                          onClick={() => openEdit(category)}
+                        />
+                        <AdminIconAction
+                          label="Delete category"
+                          icon={Trash2}
+                          tone="danger"
+                          disabled={rowBusy}
+                          onClick={() => void onDelete(category)}
+                        />
+                      </AdminActionsBar>
                     </td>
                   </tr>
-                ) : null}
-                {filteredQuestionCategories.map((category) => {
-                  const rowBusy = busy && pendingId === category.id;
-                  return (
-                    <tr key={category.id} className="border-b border-border/70 last:border-0 hover:bg-muted/30">
-                      <td className="px-5 py-4 font-semibold text-foreground">{category.name}</td>
-                      <td className="px-5 py-4 text-muted-foreground">{category.slug}</td>
-                      <td className="px-5 py-4 text-muted-foreground">{category.subjects.length}</td>
-                      <td className="px-5 py-4 text-right">
-                        <AdminActionsBar>
-                          <AdminIconAction
-                            label="Edit category"
-                            icon={Pencil}
-                            tone="primary"
-                            disabled={rowBusy}
-                            onClick={() => openEditQuestion(category)}
-                          />
-                          <AdminIconAction
-                            label="Delete category"
-                            icon={Trash2}
-                            tone="danger"
-                            disabled={rowBusy}
-                            onClick={() => void onDeleteQuestion(category)}
-                          />
-                        </AdminActionsBar>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Name</th>
-                  <th className="px-5 py-3 font-semibold">Slug</th>
-                  <th className="px-5 py-3 font-semibold">Updated</th>
-                  <th className="px-5 py-3 font-semibold text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredCourseCategories.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-5 py-10 text-center text-muted-foreground">
-                      No course categories yet. Create one to organize courses.
-                    </td>
-                  </tr>
-                ) : null}
-                {filteredCourseCategories.map((category) => {
-                  const rowBusy = busy && pendingId === category.id;
-                  return (
-                    <tr key={category.id} className="border-b border-border last:border-0 hover:bg-muted/30">
-                      <td className="px-5 py-4 font-semibold text-foreground">{category.name}</td>
-                      <td className="px-5 py-4 text-muted-foreground">{category.slug}</td>
-                      <td className="px-5 py-4 text-muted-foreground">
-                        {category.updatedAt ? formatShortDate(category.updatedAt) : "—"}
-                      </td>
-                      <td className="px-5 py-4 text-right">
-                        <AdminActionsBar>
-                          <AdminIconAction
-                            label="Edit category"
-                            icon={Pencil}
-                            tone="primary"
-                            disabled={rowBusy}
-                            onClick={() => openEditCourse(category)}
-                          />
-                          <AdminIconAction
-                            label="Delete category"
-                            icon={Trash2}
-                            tone="danger"
-                            disabled={rowBusy}
-                            onClick={() => void onDeleteCourse(category)}
-                          />
-                        </AdminActionsBar>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <AdminModal
         open={modalOpen}
-        title={editing ? "Edit category" : "Add category"}
-        description={
-          editing
-            ? editing.kind === "question"
-              ? "Questionbank category — shown in the Subjects mega menu and question filters."
-              : "Course category — used to group courses on the public site."
-            : "Choose whether this category is for the questionbank or for courses."
-        }
+        title={editing ? "Update category" : "Create category"}
+        description="Used for both questionbank subjects and courses — no separate types."
         onClose={closeModal}
         footer={
           <div className="flex justify-end gap-2">
@@ -455,39 +278,24 @@ export function AdminCategoriesPage() {
         }
       >
         <div className="space-y-4">
-          {!editing ? (
-            <div className="flex flex-wrap gap-2">
-              <TabButton
-                active={formKind === "question"}
-                label="Question"
-                onClick={() => setFormKind("question")}
-              />
-              <TabButton active={formKind === "course"} label="Course" onClick={() => setFormKind("course")} />
-            </div>
-          ) : (
-            <p className="rounded-lg bg-muted/50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {editing.kind === "question" ? "Questionbank category" : "Course category"}
-            </p>
-          )}
-
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold text-foreground">Name</span>
             <Input
-              value={name}
+              value={form.name}
               onChange={(e) => onNameChange(e.target.value)}
-              placeholder={formKind === "question" ? "e.g. SSC" : "e.g. Web Development"}
+              placeholder="e.g. SSC or Web Development"
               autoFocus
             />
           </label>
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold text-foreground">Slug</span>
             <Input
-              value={slug}
+              value={form.slug}
               onChange={(e) => {
                 setAutoSlug(false);
-                setSlug(slugify(e.target.value));
+                setForm((prev) => ({ ...prev, slug: slugify(e.target.value) }));
               }}
-              placeholder={formKind === "question" ? "ssc" : "web-development"}
+              placeholder="ssc"
             />
           </label>
           {actionError ? <p className="text-sm text-accent">{actionError}</p> : null}

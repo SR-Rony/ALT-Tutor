@@ -3,12 +3,31 @@ import type { HomeCategory } from "@/types/home.types";
 import { sleep } from "@/utils";
 import { apiClient } from "../api-client";
 
-export type AdminCategory = HomeCategory;
+export type AdminCategory = HomeCategory & {
+  subjectCount?: number;
+  courseCount?: number;
+};
 
 export type CategoryInput = {
   name: string;
   slug: string;
 };
+
+type ApiCategoryRow = AdminCategory & {
+  _count?: { subjects?: number; courses?: number };
+};
+
+function normalizeCategory(row: ApiCategoryRow): AdminCategory {
+  return {
+    id: row.id,
+    name: row.name,
+    slug: row.slug,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
+    subjectCount: row._count?.subjects ?? row.subjectCount ?? 0,
+    courseCount: row._count?.courses ?? row.courseCount ?? 0,
+  };
+}
 
 const mockCategories: AdminCategory[] = [
   {
@@ -17,6 +36,8 @@ const mockCategories: AdminCategory[] = [
     slug: "web-development",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    subjectCount: 0,
+    courseCount: 2,
   },
 ];
 
@@ -26,8 +47,8 @@ export const adminCategoriesService = {
       await sleep(200);
       return [...mockCategories];
     }
-    const response = await apiClient.get<AdminCategory[]>("/categories");
-    return response.data ?? [];
+    const response = await apiClient.get<ApiCategoryRow[]>("/categories");
+    return (response.data ?? []).map(normalizeCategory);
   },
 
   async create(payload: CategoryInput): Promise<AdminCategory> {
@@ -39,12 +60,14 @@ export const adminCategoriesService = {
         slug: payload.slug,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        subjectCount: 0,
+        courseCount: 0,
       };
       mockCategories.unshift(created);
       return created;
     }
-    const response = await apiClient.post<AdminCategory>("/categories", payload);
-    return response.data;
+    const response = await apiClient.post<ApiCategoryRow>("/categories", payload);
+    return normalizeCategory(response.data!);
   },
 
   async update(id: string, payload: Partial<CategoryInput>): Promise<AdminCategory> {
@@ -55,8 +78,8 @@ export const adminCategoriesService = {
       Object.assign(item, payload, { updatedAt: new Date().toISOString() });
       return { ...item };
     }
-    const response = await apiClient.patch<AdminCategory>(`/categories/${id}`, payload);
-    return response.data;
+    const response = await apiClient.patch<ApiCategoryRow>(`/categories/${id}`, payload);
+    return normalizeCategory(response.data!);
   },
 
   async remove(id: string): Promise<{ message: string }> {

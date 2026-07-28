@@ -1266,11 +1266,17 @@ export function AdminQuestionbankPage() {
                                   </div>
                                 </li>
                               ) : null}
-                              {(sub.questions ?? []).map((q, questionIndex) => (
+                              {(sub.questions ?? []).map((q, questionIndex) => {
+                                const paper = String(q.paper).toUpperCase();
+                                const displayNumber = (sub.questions ?? [])
+                                  .slice(0, questionIndex + 1)
+                                  .filter((item) => String(item.paper).toUpperCase() === paper)
+                                  .length;
+                                return (
                                 <AdminQuestionDropdown
                                   key={q.id}
                                   question={q}
-                                  displayNumber={questionIndex + 1}
+                                  displayNumber={displayNumber}
                                   onEdit={() => openEditQuestion(q)}
                                   onToggleHide={() => toggleQuestionVisibility(q)}
                                   togglePending={updateQuestion.isPending}
@@ -1280,7 +1286,8 @@ export function AdminQuestionbankPage() {
                                     }
                                   }}
                                 />
-                              ))}
+                                );
+                              })}
                             </ul>
                           ) : null}
                         </div>
