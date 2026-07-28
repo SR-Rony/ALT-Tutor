@@ -94,11 +94,23 @@ export function HomeAnimatedLessons() {
   const { data, isLoading, isError } = useHomeData();
   const [activeTab, setActiveTab] = useState("all");
   const scrollerRef = useRef<HTMLDivElement>(null);
+  const tabsRef = useRef<HTMLDivElement>(null);
   const [canPrev, setCanPrev] = useState(false);
   const [canNext, setCanNext] = useState(true);
+  const [canTabPrev, setCanTabPrev] = useState(false);
+  const [canTabNext, setCanTabNext] = useState(false);
+  const [tabsOverflow, setTabsOverflow] = useState(false);
 
-  const categories = data?.categories ?? [];
   const courses = data?.featuredCourses ?? [];
+
+  /** Categories with published courses only (API filters; client also hides empty tabs). */
+  const categories = useMemo(() => {
+    const fromApi = data?.categories ?? [];
+    const withCourses = new Set(
+      courses.map((course) => course.category?.slug).filter(Boolean) as string[]
+    );
+    return fromApi.filter((category) => withCourses.has(category.slug));
+  }, [data?.categories, courses]);
 
   const tabs = useMemo(
     () => [{ id: "all", label: "All Courses" }, ...categories.map((c) => ({ id: c.slug, label: c.name }))],
@@ -118,6 +130,21 @@ export function HomeAnimatedLessons() {
     setCanNext(el.scrollLeft < maxScroll - 8);
   }
 
+  function updateTabArrows() {
+    const el = tabsRef.current;
+    if (!el) {
+      setTabsOverflow(false);
+      setCanTabPrev(false);
+      setCanTabNext(false);
+      return;
+    }
+    const maxScroll = el.scrollWidth - el.clientWidth;
+    const overflow = maxScroll > 8;
+    setTabsOverflow(overflow);
+    setCanTabPrev(overflow && el.scrollLeft > 8);
+    setCanTabNext(overflow && el.scrollLeft < maxScroll - 8);
+  }
+
   function scrollByCard(direction: -1 | 1) {
     const el = scrollerRef.current;
     if (!el) return;
@@ -125,6 +152,19 @@ export function HomeAnimatedLessons() {
     const amount = (card?.offsetWidth ?? 280) + 16;
     el.scrollBy({ left: direction * amount, behavior: "smooth" });
   }
+
+  function scrollTabs(direction: -1 | 1) {
+    const el = tabsRef.current;
+    if (!el) return;
+    el.scrollBy({ left: direction * Math.min(240, el.clientWidth * 0.6), behavior: "smooth" });
+  }
+
+  useEffect(() => {
+    if (activeTab === "all") return;
+    if (!tabs.some((tab) => tab.id === activeTab)) {
+      setActiveTab("all");
+    }
+  }, [activeTab, tabs]);
 
   useEffect(() => {
     const el = scrollerRef.current;
@@ -145,6 +185,20 @@ export function HomeAnimatedLessons() {
     };
   }, [filtered.length]);
 
+  useEffect(() => {
+    const el = tabsRef.current;
+    if (!el) return;
+    updateTabArrows();
+    el.addEventListener("scroll", updateTabArrows, { passive: true });
+    window.addEventListener("resize", updateTabArrows);
+    return () => {
+      el.removeEventListener("scroll", updateTabArrows);
+      window.removeEventListener("resize", updateTabArrows);
+    };
+  }, [tabs.length]);
+
+  const showTabSlider = tabsOverflow;
+
   return (
     <section className="relative w-full overflow-x-clip bg-white">
       <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-16 lg:py-20">
@@ -157,11 +211,44 @@ export function HomeAnimatedLessons() {
           </p>
         </div>
 
-        <div className="mt-8 border-b border-[#e8edf5] sm:mt-10">
+        <div className="relative mt-8 border-b border-[#e8edf5] sm:mt-10">
+          {showTabSlider ? (
+            <>
+              <button
+                type="button"
+                aria-label="Previous categories"
+                disabled={!canTabPrev}
+                onClick={() => scrollTabs(-1)}
+                className={cn(
+                  "absolute left-0 top-1/2 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#e8edf5] bg-white text-[#64748b] shadow-sm transition hover:border-[#ef3239]/40 hover:text-[#ef3239] sm:h-9 sm:w-9",
+                  !canTabPrev && "pointer-events-none opacity-35"
+                )}
+              >
+                <ChevronLeft className="h-4 w-4" aria-hidden />
+              </button>
+              <button
+                type="button"
+                aria-label="Next categories"
+                disabled={!canTabNext}
+                onClick={() => scrollTabs(1)}
+                className={cn(
+                  "absolute right-0 top-1/2 z-10 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-[#e8edf5] bg-white text-[#64748b] shadow-sm transition hover:border-[#ef3239]/40 hover:text-[#ef3239] sm:h-9 sm:w-9",
+                  !canTabNext && "pointer-events-none opacity-35"
+                )}
+              >
+                <ChevronRight className="h-4 w-4" aria-hidden />
+              </button>
+            </>
+          ) : null}
+
           <div
+            ref={tabsRef}
             role="tablist"
             aria-label="Course categories"
-            className="flex items-center justify-start gap-1 overflow-x-auto scrollbar-none sm:justify-center sm:gap-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className={cn(
+              "flex items-center gap-1 overflow-x-auto scroll-smooth scrollbar-none sm:gap-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+              showTabSlider ? "justify-start px-10 sm:px-12" : "justify-start sm:justify-center"
+            )}
           >
             {tabs.map((tab) => {
               const isActive = activeTab === tab.id;
@@ -171,7 +258,12 @@ export function HomeAnimatedLessons() {
                   type="button"
                   role="tab"
                   aria-selected={isActive}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => {
+                    setActiveTab(tab.id);
+                    const btn = tabsRef.current?.querySelector<HTMLElement>(`[data-tab-id="${tab.id}"]`);
+                    btn?.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+                  }}
+                  data-tab-id={tab.id}
                   className={cn(
                     "relative shrink-0 cursor-pointer px-3 py-3 text-sm font-semibold transition-colors duration-300 sm:px-5 sm:text-base",
                     isActive ? "text-[#ef3239]" : "text-[#475569] hover:text-[#1a2b5e]"

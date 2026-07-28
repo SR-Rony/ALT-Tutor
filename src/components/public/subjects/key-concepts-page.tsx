@@ -3,12 +3,20 @@
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { BookOpen, Clock3, Lock, PlayCircle } from "lucide-react";
+import {
+  BookOpen,
+  Clock3,
+  ExternalLink,
+  Loader2,
+  Lock,
+  PlayCircle,
+} from "lucide-react";
+import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
 import { PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
-import { useKeyConceptLessons } from "@/hooks";
+import { useKeyConceptLesson, useKeyConceptLessons } from "@/hooks";
 import { normalizeAccessBadge, tierBadgeClass, tierLabel } from "@/lib/access-tier";
 import type { ApiError } from "@/types";
 import type { KeyConceptLesson } from "@/types/key-concept.types";
@@ -33,6 +41,185 @@ function contentLabel(type: string) {
   return "Article";
 }
 
+function youtubeEmbedUrl(url?: string | null) {
+  if (!url) return null;
+  try {
+    const u = new URL(url);
+    if (u.hostname.includes("youtu.be")) {
+      const id = u.pathname.replace("/", "");
+      return id ? `https://www.youtube.com/embed/${id}` : null;
+    }
+    if (u.hostname.includes("youtube.com")) {
+      const id = u.searchParams.get("v");
+      if (id) return `https://www.youtube.com/embed/${id}`;
+      if (u.pathname.startsWith("/embed/")) return url;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+function VideoEmbed({ url, title }: { url: string; title: string }) {
+  const yt = youtubeEmbedUrl(url);
+  if (yt) {
+    return (
+      <div className="aspect-video w-full overflow-hidden rounded-xl border border-border bg-black shadow-sm">
+        <iframe
+          src={yt}
+          title={title}
+          className="h-full w-full"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+          allowFullScreen
+        />
+      </div>
+    );
+  }
+
+  const lower = url.toLowerCase();
+  if (/\.(mp4|webm|ogg)(\?|$)/.test(lower)) {
+    return (
+      <video
+        controls
+        className="aspect-video w-full rounded-xl border border-border bg-black shadow-sm"
+        src={url}
+      >
+        Your browser does not support the video tag.
+      </video>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
+      <PlayCircle className="mx-auto mb-2 h-8 w-8 text-primary" />
+      <p className="text-sm text-muted-foreground">Inline preview is unavailable for this link.</p>
+      <a
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
+      >
+        Watch video <ExternalLink className="h-3.5 w-3.5" />
+      </a>
+    </div>
+  );
+}
+
+function MarkdownBody({ text }: { text: string }) {
+  const blocks = useMemo(() => {
+    return text
+      .trim()
+      .split(/\n{2,}/)
+      .map((block) => block.trim())
+      .filter(Boolean);
+  }, [text]);
+
+  return (
+    <div className="space-y-3 text-sm leading-relaxed text-foreground">
+      {blocks.map((block, index) => {
+        if (block.startsWith("### ")) {
+          return (
+            <h3 key={index} className="text-base font-bold">
+              {block.slice(4)}
+            </h3>
+          );
+        }
+        if (block.startsWith("## ")) {
+          return (
+            <h2 key={index} className="text-lg font-bold">
+              {block.slice(3)}
+            </h2>
+          );
+        }
+        if (block.startsWith("# ")) {
+          return (
+            <h1 key={index} className="text-xl font-bold">
+              {block.slice(2)}
+            </h1>
+          );
+        }
+        return (
+          <p key={index} className="whitespace-pre-wrap text-muted-foreground">
+            {block}
+          </p>
+        );
+      })}
+    </div>
+  );
+}
+
+function LessonVideoModal({
+  open,
+  onClose,
+  programSlug,
+  lesson,
+}: {
+  open: boolean;
+  onClose: () => void;
+  programSlug: string;
+  lesson: KeyConceptLesson | null;
+}) {
+  const slug = lesson?.slug ?? "";
+  const { data, isLoading, error } = useKeyConceptLesson(programSlug, slug);
+  const detail = data?.lesson;
+  const videoUrl = detail?.videoUrl || lesson?.videoUrl || null;
+  const body = detail?.bodyMarkdown || null;
+
+  return (
+    <AdminModal
+      open={open && Boolean(lesson)}
+      title={lesson?.title ?? "Lesson"}
+      description={lesson?.summary || undefined}
+      onClose={onClose}
+      className="sm:max-w-3xl"
+      footer={
+        <div className="flex justify-end">
+          <Button type="button" variant="outline" size="pill" onClick={onClose}>
+            Close
+          </Button>
+        </div>
+      }
+    >
+      {isLoading && !detail && !videoUrl ? (
+        <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
+          Loading lesson…
+        </div>
+      ) : null}
+
+      {error ? (
+        <p className="text-sm text-accent">
+          {(error as unknown as ApiError)?.message || "Could not load this lesson."}
+        </p>
+      ) : null}
+
+      {!error && videoUrl ? <VideoEmbed url={videoUrl} title={lesson?.title ?? "Lesson video"} /> : null}
+
+      {!error && !isLoading && !videoUrl && body ? <MarkdownBody text={body} /> : null}
+
+      {!error && !isLoading && !videoUrl && !body ? (
+        <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
+          <PlayCircle className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden />
+          <p className="mt-3 text-sm text-muted-foreground">
+            {lesson?.hasVideo
+              ? "Video is unavailable right now."
+              : "No video is attached to this lesson."}
+          </p>
+          {lesson?.summary ? (
+            <p className="mt-4 text-left text-sm text-foreground">{lesson.summary}</p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {!error && body && videoUrl ? (
+        <div className="mt-4 border-t border-border pt-4">
+          <MarkdownBody text={body} />
+        </div>
+      ) : null}
+    </AdminModal>
+  );
+}
+
 export function KeyConceptsPage({ programSlug }: Props) {
   const { programName, isLoading: menuLoading } = useProgramContext(programSlug);
   const { data, isLoading, isFetching, error, refetch } = useKeyConceptLessons(programSlug);
@@ -41,6 +228,7 @@ export function KeyConceptsPage({ programSlug }: Props) {
     title: string;
     requiredTier: string;
   }>({ title: "", requiredTier: "GOLD" });
+  const [activeLesson, setActiveLesson] = useState<KeyConceptLesson | null>(null);
 
   const lessons = data?.lessons ?? [];
 
@@ -55,9 +243,7 @@ export function KeyConceptsPage({ programSlug }: Props) {
       if (!map.has(key)) {
         map.set(key, {
           id: key,
-          chapterTitle: topic
-            ? `Chapter ${topic.number}: ${topic.title}`
-            : "Lessons",
+          chapterTitle: topic ? `Chapter ${topic.number}: ${topic.title}` : "Lessons",
           topicTitle: topic?.title ?? "Key Concepts",
           lessons: [],
         });
@@ -131,7 +317,6 @@ export function KeyConceptsPage({ programSlug }: Props) {
                 {section.lessons.map((lesson) => {
                   const locked = Boolean(lesson.locked);
                   const badge = normalizeAccessBadge(lesson.accessTier);
-                  const href = ROUTES.subjectKeyConceptLesson(programSlug, lesson.slug);
                   const duration = formatDuration(lesson.durationSec);
                   const thumb = lesson.thumbnailUrl || FALLBACK_THUMB;
 
@@ -205,8 +390,15 @@ export function KeyConceptsPage({ programSlug }: Props) {
                               Unlock {tierLabel(badge)}
                             </Button>
                           ) : (
-                            <Button asChild size="pill" className="w-full">
-                              <Link href={href}>Open lesson</Link>
+                            <Button
+                              type="button"
+                              size="pill"
+                              variant="outline"
+                              className="w-full"
+                              onClick={() => setActiveLesson(lesson)}
+                            >
+                              <PlayCircle className="h-3.5 w-3.5" aria-hidden />
+                              Open lesson
                             </Button>
                           )}
                         </div>
@@ -219,6 +411,13 @@ export function KeyConceptsPage({ programSlug }: Props) {
           ))
         )}
       </div>
+
+      <LessonVideoModal
+        open={Boolean(activeLesson)}
+        onClose={() => setActiveLesson(null)}
+        programSlug={programSlug}
+        lesson={activeLesson}
+      />
 
       {data?.program ? (
         <GoldUnlockModal
