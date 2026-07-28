@@ -2,23 +2,19 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ChevronDown,
-  ChevronLeft,
   ChevronRight,
   Download,
   ExternalLink,
   Eye,
   EyeOff,
   FileSpreadsheet,
-  ImageIcon,
   Pencil,
   Plus,
   RefreshCw,
   Trash2,
-  Upload,
-  Video,
 } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
@@ -32,464 +28,28 @@ import { slugify } from "@/lib/slugify";
 import {
   useAdminQuestionbank,
   useAdminSubjectsTree,
-  useCreateQbQuestion,
   useCreateQbSubtopic,
   useCreateQbTopic,
-  useDeleteQbQuestion,
   useDeleteQbSubtopic,
   useDeleteQbTopic,
-  useImportQbQuestions,
-  useUpdateQbQuestion,
   useUpdateQbSubtopic,
   useUpdateQbTopic,
 } from "@/hooks";
-import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
-import type { QbImportResult } from "@/services/questionbank-admin.types";
 import {
   ACCESS_TIER_ORDER,
   nextAccessBadge,
   normalizeAccessBadge,
-  tierBadgeClass,
   tierLabel,
 } from "@/lib/access-tier";
-import type { QbAccessBadge, QbDifficulty, QbPaper, QbQuestion, QbTopic } from "@/types/qb.types";
+import type { QbAccessBadge, QbTopic } from "@/types/qb.types";
 import { cn } from "@/utils";
-
-function AccessBadgePill({ badge }: { badge?: string | null }) {
-  return (
-    <span
-      className={cn(
-        "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white",
-        tierBadgeClass(badge)
-      )}
-    >
-      {tierLabel(badge)}
-    </span>
-  );
-}
-
-const DIFFICULTIES: QbDifficulty[] = ["EASY", "MEDIUM", "HARD"];
-const PAPERS: QbPaper[] = ["PAPER_1", "PAPER_2", "PAPER_3"];
-
-function paperShortLabel(paper: string) {
-  const key = String(paper).toUpperCase();
-  if (key === "PAPER_3" || key === "3") return "Paper 3";
-  if (key === "PAPER_2" || key === "2") return "Paper 2";
-  if (key === "PAPER_1" || key === "1") return "Paper 1";
-  return key.replace("PAPER_", "Paper ");
-}
-
-function countByPaper(questions: QbQuestion[] | undefined) {
-  const counts: Record<QbPaper, number> = { PAPER_1: 0, PAPER_2: 0, PAPER_3: 0 };
-  for (const q of questions ?? []) {
-    const key = String(q.paper).toUpperCase() as QbPaper;
-    if (key in counts) counts[key] += 1;
-  }
-  return counts;
-}
-
-function questionsForPaper(questions: QbQuestion[] | undefined, paper: QbPaper) {
-  return (questions ?? []).filter((q) => String(q.paper).toUpperCase() === paper);
-}
-
-function paperCollapseKey(subtopicId: string, paper: QbPaper) {
-  return `${subtopicId}:${paper}`;
-}
-
-const EXCEL_TEMPLATE_HEADERS = [
-  "number",
-  "prompt",
-  "body",
-  "diagramUrl",
-  "optionA",
-  "optionB",
-  "optionC",
-  "optionD",
-  "correctAnswer",
-  "difficulty",
-  "paper",
-  "questionType",
-  "marks",
-  "yearHint",
-  "sourceLabel",
-  "markScheme",
-  "videoUrl",
-  "calculatorAllowed",
-] as const;
-
-const EXCEL_TEMPLATE_SAMPLE = [
-  "1",
-  "The diagram below shows a car of mass m descending a slope. The magnitude of the acceleration is given by",
-  "Choose the correct acceleration.",
-  "https://example.com/car-slope-diagram.png",
-  "3.0 m s^-2",
-  "6.0 m s^-2",
-  "9.0 m s^-2",
-  "81 m s^-2",
-  "B",
-  "EASY",
-  "PAPER_1",
-  "MULTIPLE_CHOICE",
-  "1",
-  "2023",
-  "SSC-style 2023",
-  "Correct answer B. Use s = ut + 1/2 at^2 with u=0.",
-  "https://www.youtube.com/watch?v=example",
-  "TRUE",
-];
-
-function downloadExcelTemplate() {
-  downloadExcelFile(
-    "questionbank-import-template.xls",
-    [...EXCEL_TEMPLATE_HEADERS],
-    [[...EXCEL_TEMPLATE_SAMPLE]]
-  );
-}
-
-function downloadExcelFile(filename: string, headers: string[], dataRows: string[][]) {
-  const rows = [headers, ...dataRows];
-  const sheetRows = rows
-    .map(
-      (row) =>
-        `<Row>${row
-          .map((value) => `<Cell><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`)
-          .join("")}</Row>`
-    )
-    .join("");
-  const workbook = `<?xml version="1.0"?>
-<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
- xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">
- <Worksheet ss:Name="Questions"><Table>${sheetRows}</Table></Worksheet>
-</Workbook>`;
-  const blob = new Blob([workbook], { type: "application/vnd.ms-excel;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-function questionToExcelRow(question: QbQuestion, serial: number): string[] {
-  return [
-    String(serial),
-    question.prompt,
-    question.body ?? "",
-    question.diagramUrl ?? "",
-    question.options[0] ?? "",
-    question.options[1] ?? "",
-    question.options[2] ?? "",
-    question.options[3] ?? "",
-    question.correctAnswer,
-    String(question.difficulty),
-    String(question.paper),
-    String(question.questionType),
-    String(question.marks ?? 1),
-    question.yearHint != null ? String(question.yearHint) : "",
-    question.sourceLabel ?? "",
-    question.markScheme ?? "",
-    question.videoUrl ?? "",
-    question.calculatorAllowed ? "TRUE" : "FALSE",
-  ];
-}
-
-function safeExcelFilename(value: string) {
-  const safe = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "");
-  return safe || "questionbank";
-}
-
-function downloadStudySetQuestions(title: string, questions: QbQuestion[]) {
-  downloadExcelFile(
-    `${safeExcelFilename(title)}-questions.xls`,
-    [...EXCEL_TEMPLATE_HEADERS],
-    questions.map((question, index) => questionToExcelRow(question, index + 1))
-  );
-}
-
-function downloadProgramQuestions(programName: string, topics: QbTopic[]) {
-  const headers = ["theme", "studySet", ...EXCEL_TEMPLATE_HEADERS];
-  const rows = topics.flatMap((topic) =>
-    topic.subtopics.flatMap((subtopic) =>
-      (subtopic.questions ?? []).map((question, index) => [
-        topic.title,
-        subtopic.title,
-        ...questionToExcelRow(question, index + 1),
-      ])
-    )
-  );
-  downloadExcelFile(`${safeExcelFilename(programName)}-all-questions.xls`, headers, rows);
-}
-
-function xmlEscape(value: string) {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
-const OPTION_LABELS = ["A1", "A2", "A3", "A4"] as const;
-const LETTERS = ["A", "B", "C", "D"] as const;
-
-function AdminQuestionDropdown({
-  question,
-  displayNumber,
-  onDelete,
-  onEdit,
-  onToggleHide,
-  togglePending,
-}: {
-  question: QbQuestion;
-  displayNumber: number;
-  onDelete: () => void;
-  onEdit: () => void;
-  onToggleHide: () => void;
-  togglePending: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  /** -1 = problem view, 0+ = option A1/A2/... */
-  const [step, setStep] = useState(-1);
-  const maxStep = Math.max(question.options.length - 1, -1);
-  const optionLetter =
-    step >= 0 ? (LETTERS[step] ?? String(step + 1)) : null;
-  const isCorrect =
-    optionLetter !== null &&
-    optionLetter.toUpperCase() === question.correctAnswer.toUpperCase();
-
-  const goPrev = () => setStep((s) => Math.max(-1, s - 1));
-  const goNext = () => setStep((s) => Math.min(maxStep, s + 1));
-
-  return (
-    <li
-      className={cn(
-        "overflow-hidden rounded-xl border border-border/80 bg-card",
-        !question.isActive && "border-dashed opacity-70"
-      )}
-    >
-      <div className="flex items-stretch gap-1">
-        <button
-          type="button"
-          onClick={() => {
-            setOpen((v) => !v);
-            setStep(-1);
-          }}
-          className="flex min-w-0 flex-1 items-center gap-2 px-3 py-2.5 text-left text-sm transition hover:bg-muted/40"
-          aria-expanded={open}
-        >
-          <ChevronDown
-            className={cn(
-              "h-4 w-4 shrink-0 text-primary transition",
-              open ? "rotate-0" : "-rotate-90"
-            )}
-          />
-          <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-muted-foreground">
-            <span className="font-semibold text-foreground">Q{displayNumber}</span>
-            <span className="text-xs uppercase">
-              {String(question.difficulty).toLowerCase()} ·{" "}
-              {String(question.paper).replace("_", " ")}
-              {question.marks != null ? ` · [${question.marks}]` : ""}
-            </span>
-            {question.yearHint != null ? (
-              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                {question.yearHint}
-              </span>
-            ) : null}
-            {question.sourceLabel ? (
-              <span
-                className="max-w-[8rem] truncate rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
-                title={question.sourceLabel}
-              >
-                {question.sourceLabel}
-              </span>
-            ) : null}
-            <span className="truncate text-muted-foreground">
-              — {question.prompt.slice(0, 72)}
-              {question.prompt.length > 72 ? "…" : ""}
-            </span>
-            {question.diagramUrl ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
-                <ImageIcon className="h-3 w-3" /> Img
-              </span>
-            ) : null}
-            {question.videoUrl ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-primary px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">
-                <Video className="h-3 w-3" /> Video
-              </span>
-            ) : null}
-            {question.markScheme ? (
-              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-                Scheme
-              </span>
-            ) : null}
-            {!question.isActive ? (
-              <span className="inline-flex items-center gap-1 rounded-md bg-[#fff1ee] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent">
-                <EyeOff className="h-3 w-3" /> Hidden
-              </span>
-            ) : null}
-          </span>
-        </button>
-        <div className="flex shrink-0 items-center gap-0.5 pr-2">
-          <button
-            type="button"
-            className="rounded-md p-1.5 text-muted-foreground transition hover:bg-primary-muted hover:text-primary"
-            title="Edit question"
-            aria-label="Edit question"
-            onClick={onEdit}
-          >
-            <Pencil className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            className="rounded-md p-1.5 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
-            title={question.isActive ? "Hide from students" : "Show to students"}
-            aria-label={question.isActive ? "Hide question" : "Show question"}
-            disabled={togglePending}
-            onClick={onToggleHide}
-          >
-            {question.isActive ? (
-              <Eye className="h-3.5 w-3.5" />
-            ) : (
-              <EyeOff className="h-3.5 w-3.5 text-accent" />
-            )}
-          </button>
-          <button
-            type="button"
-            className="rounded-md p-1.5 text-accent transition hover:bg-[#fff1ee]"
-            title="Delete question"
-            aria-label="Delete question"
-            onClick={onDelete}
-          >
-            <Trash2 className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {open ? (
-        <div className="border-t border-border bg-muted/20 px-3 py-3">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setStep(-1)}
-              className={cn(
-                "rounded-lg border px-2.5 py-1 text-xs font-semibold transition",
-                step === -1
-                  ? "border-primary bg-primary text-primary-foreground"
-                  : "border-border bg-card text-foreground hover:border-primary/40"
-              )}
-            >
-              Problem
-            </button>
-            {question.options.map((_, i) => (
-              <button
-                key={OPTION_LABELS[i] ?? i}
-                type="button"
-                onClick={() => setStep(i)}
-                className={cn(
-                  "rounded-lg border px-2.5 py-1 text-xs font-semibold transition",
-                  step === i
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-card text-foreground hover:border-primary/40"
-                )}
-              >
-                {OPTION_LABELS[i] ?? `A${i + 1}`}
-              </button>
-            ))}
-            <div className="ml-auto flex items-center gap-1">
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={step <= -1}
-                onClick={goPrev}
-                className="h-8 px-2"
-              >
-                <ChevronLeft className="h-4 w-4" />
-                Prev
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                disabled={step >= maxStep}
-                onClick={goNext}
-                className="h-8 px-2"
-              >
-                Next
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {step === -1 ? (
-            <div className="space-y-3 rounded-xl border border-border bg-card p-4">
-              <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                Full problem
-              </p>
-              <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">
-                {question.prompt}
-              </p>
-              {question.body ? (
-                <p className="text-sm text-muted-foreground whitespace-pre-wrap">{question.body}</p>
-              ) : null}
-              {question.diagramUrl ? (
-                <div className="overflow-hidden rounded-lg border border-border bg-muted/30 p-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={question.diagramUrl}
-                    alt={`Q${displayNumber} stimulus`}
-                    className="mx-auto max-h-56 object-contain"
-                  />
-                </div>
-              ) : null}
-              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                <span>
-                  Answer:{" "}
-                  <strong className="text-foreground">{question.correctAnswer.toUpperCase()}</strong>
-                </span>
-                {question.markScheme ? <span>Mark scheme available</span> : null}
-                {question.videoUrl ? <span>Video solution available</span> : null}
-              </div>
-              <Button type="button" size="sm" onClick={() => setStep(0)} disabled={maxStep < 0}>
-                Next: A1
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3 rounded-xl border border-border bg-card p-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                  Option {OPTION_LABELS[step] ?? `A${step + 1}`}{" "}
-                  <span className="text-muted-foreground">({optionLetter})</span>
-                </p>
-                {isCorrect ? (
-                  <span className="rounded-md bg-[#ecfdf3] px-2 py-0.5 text-[11px] font-bold uppercase text-accent-green">
-                    Correct answer
-                  </span>
-                ) : null}
-              </div>
-              <p className="text-sm leading-relaxed text-foreground">
-                {question.options[step]}
-              </p>
-              {question.markScheme && isCorrect ? (
-                <div className="rounded-lg border border-primary/20 bg-primary-muted/40 p-3 text-sm text-foreground">
-                  <p className="mb-1 text-xs font-semibold uppercase text-primary">Mark scheme</p>
-                  <p className="whitespace-pre-wrap">{question.markScheme}</p>
-                </div>
-              ) : null}
-            </div>
-          )}
-        </div>
-      ) : null}
-    </li>
-  );
-}
+import {
+  AccessBadgePill,
+  countByPaper,
+  downloadExcelTemplate,
+  downloadProgramQuestions,
+} from "./qb-admin-shared";
 
 export function AdminQuestionbankPage() {
   const searchParams = useSearchParams();
@@ -562,23 +122,10 @@ export function AdminQuestionbankPage() {
     };
   }, [topics]);
 
-  /** ids marked true = collapsed (default is open) */
   const [collapsedTopics, setCollapsedTopics] = useState<Record<string, boolean>>({});
-  const [collapsedSubtopics, setCollapsedSubtopics] = useState<Record<string, boolean>>({});
-  /** `${subtopicId}:PAPER_n` marked true = collapsed (default open) */
-  const [collapsedPapers, setCollapsedPapers] = useState<Record<string, boolean>>({});
 
   const toggleTopic = (id: string) => {
     setCollapsedTopics((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const toggleSubtopic = (id: string) => {
-    setCollapsedSubtopics((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const togglePaper = (subtopicId: string, paper: QbPaper) => {
-    const key = paperCollapseKey(subtopicId, paper);
-    setCollapsedPapers((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const createTopic = useCreateQbTopic();
@@ -587,38 +134,16 @@ export function AdminQuestionbankPage() {
   const createSubtopic = useCreateQbSubtopic();
   const updateSubtopic = useUpdateQbSubtopic();
   const deleteSubtopic = useDeleteQbSubtopic();
-  const createQuestion = useCreateQbQuestion();
-  const updateQuestion = useUpdateQbQuestion();
-  const deleteQuestion = useDeleteQbQuestion();
-  const importQuestions = useImportQbQuestions();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const diagramUploadRef = useRef<HTMLInputElement>(null);
-  const videoUploadRef = useRef<HTMLInputElement>(null);
 
   const [modal, setModal] = useState<
     | null
     | { kind: "topic"; editId?: string }
     | { kind: "subtopic"; topicId: string; editId?: string }
-    | { kind: "question"; subtopicId: string; editId?: string }
-    | { kind: "import"; subtopicId: string; title: string }
   >(null);
-  const [importResult, setImportResult] = useState<QbImportResult | null>(null);
   const [title, setTitle] = useState("");
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [accessBadge, setAccessBadge] = useState<QbAccessBadge>("FREE");
-  const [prompt, setPrompt] = useState("");
-  const [optionsText, setOptionsText] = useState("Option A\nOption B\nOption C\nOption D");
-  const [correctAnswer, setCorrectAnswer] = useState("A");
-  const [difficulty, setDifficulty] = useState<QbDifficulty>("EASY");
-  const [paper, setPaper] = useState<QbPaper>("PAPER_1");
-  const [markScheme, setMarkScheme] = useState("");
-  const [diagramUrl, setDiagramUrl] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
-  const [marks, setMarks] = useState("1");
-  const [yearHint, setYearHint] = useState("");
-  const [sourceLabel, setSourceLabel] = useState("");
-  const [uploadingField, setUploadingField] = useState<"diagram" | "video" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const busy =
@@ -627,26 +152,7 @@ export function AdminQuestionbankPage() {
     deleteTopic.isPending ||
     createSubtopic.isPending ||
     updateSubtopic.isPending ||
-    deleteSubtopic.isPending ||
-    createQuestion.isPending ||
-    updateQuestion.isPending ||
-    deleteQuestion.isPending ||
-    importQuestions.isPending ||
-    uploadingField !== null;
-
-  const resetQuestionForm = (defaultPaper: QbPaper = "PAPER_1") => {
-    setPrompt("");
-    setOptionsText("Option A\nOption B\nOption C\nOption D");
-    setCorrectAnswer("A");
-    setDifficulty("EASY");
-    setPaper(defaultPaper);
-    setMarkScheme("");
-    setDiagramUrl("");
-    setVideoUrl("");
-    setMarks("1");
-    setYearHint("");
-    setSourceLabel("");
-  };
+    deleteSubtopic.isPending;
 
   const openEditTopic = (topic: QbTopic) => {
     setActionError(null);
@@ -663,38 +169,6 @@ export function AdminQuestionbankPage() {
     setSlug(subtopic.slug);
     setDescription(subtopic.description ?? "");
     setAccessBadge(normalizeAccessBadge(subtopic.badge));
-  };
-
-  const openEditQuestion = (question: QbQuestion) => {
-    setActionError(null);
-    setModal({ kind: "question", subtopicId: question.subtopicId, editId: question.id });
-    setPrompt(question.prompt);
-    setOptionsText(question.options.join("\n"));
-    setCorrectAnswer(question.correctAnswer.toUpperCase());
-    setDifficulty((question.difficulty as QbDifficulty) || "EASY");
-    setPaper((question.paper as QbPaper) || "PAPER_1");
-    setMarkScheme(question.markScheme ?? "");
-    setDiagramUrl(question.diagramUrl ?? "");
-    setVideoUrl(question.videoUrl ?? "");
-    setMarks(String(question.marks ?? 1));
-    setYearHint(question.yearHint != null ? String(question.yearHint) : "");
-    setSourceLabel(question.sourceLabel ?? "");
-  };
-
-  const toggleQuestionVisibility = (question: QbQuestion) => {
-    const hiding = question.isActive;
-    if (
-      hiding &&
-      !window.confirm(
-        "Hide this question from students? You can show it again anytime from the eye icon."
-      )
-    ) {
-      return;
-    }
-    void updateQuestion.mutateAsync({
-      id: question.id,
-      payload: { isActive: !question.isActive },
-    });
   };
 
   const toggleTopicVisibility = (topic: QbTopic) => {
@@ -737,40 +211,6 @@ export function AdminQuestionbankPage() {
     });
   };
 
-  const onUploadMedia = async (field: "diagram" | "video", file: File | undefined) => {
-    if (!file) return;
-    setActionError(null);
-    setUploadingField(field);
-    try {
-      const result = await uploadService.upload(file, "questionbank");
-      if (field === "diagram") setDiagramUrl(result.url);
-      else setVideoUrl(result.url);
-    } catch (err) {
-      setActionError((err as ApiError)?.message || "Upload failed. You can still paste a URL.");
-    } finally {
-      setUploadingField(null);
-      if (field === "diagram" && diagramUploadRef.current) diagramUploadRef.current.value = "";
-      if (field === "video" && videoUploadRef.current) videoUploadRef.current.value = "";
-    }
-  };
-
-  const onImportFile = async (file: File | undefined) => {
-    if (!file || modal?.kind !== "import") return;
-    setActionError(null);
-    setImportResult(null);
-    try {
-      const result = await importQuestions.mutateAsync({
-        subtopicId: modal.subtopicId,
-        file,
-      });
-      setImportResult(result);
-    } catch (err) {
-      setActionError((err as ApiError)?.message || "Failed to import Excel");
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
   const onSave = async () => {
     if (!modal) return;
     setActionError(null);
@@ -809,40 +249,6 @@ export function AdminQuestionbankPage() {
           });
         }
       }
-      if (modal.kind === "question") {
-        const options = optionsText
-          .split("\n")
-          .map((l) => l.trim())
-          .filter(Boolean);
-        const parsedMarks = Number.parseInt(marks, 10);
-        const parsedYear = yearHint.trim() ? Number.parseInt(yearHint.trim(), 10) : undefined;
-        const questionPayload = {
-          prompt: prompt.trim(),
-          options,
-          correctAnswer: correctAnswer.trim().toUpperCase(),
-          difficulty,
-          paper,
-          marks: Number.isFinite(parsedMarks) && parsedMarks >= 1 ? parsedMarks : 1,
-          yearHint:
-            parsedYear != null && Number.isFinite(parsedYear) && parsedYear >= 1900
-              ? parsedYear
-              : undefined,
-          sourceLabel: sourceLabel.trim() || undefined,
-          markScheme: markScheme.trim() || undefined,
-          diagramUrl: diagramUrl.trim() || undefined,
-          videoUrl: videoUrl.trim() || undefined,
-        };
-        if (modal.editId) {
-          await updateQuestion.mutateAsync({ id: modal.editId, payload: questionPayload });
-        } else {
-          await createQuestion.mutateAsync({
-            subtopicId: modal.subtopicId,
-            number: Date.now() % 1000,
-            ...questionPayload,
-            calculatorAllowed: true,
-          });
-        }
-      }
       setModal(null);
     } catch (err) {
       setActionError((err as ApiError)?.message || "Failed to save");
@@ -852,7 +258,11 @@ export function AdminQuestionbankPage() {
   if (isLoading && topics.length === 0 && programs.length > 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Questionbank" description="Manage topics and Easy/Medium/Hard questions." className="mb-0" />
+        <PageHeader
+          title="Questionbank"
+          description="Manage topics and study sets."
+          className="mb-0"
+        />
         <PageLoader label="Loading questionbank..." />
       </div>
     );
@@ -864,8 +274,8 @@ export function AdminQuestionbankPage() {
         <div className="border-b border-border px-5 py-6">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
-              title="Questions"
-              description="Manage topics, study sets, Free/Silver/Gold/Diamond access, Excel import, diagrams, and video solutions."
+              title="Questionbank"
+              description="Pick a subject, manage topics & study sets, then open a study set to manage Paper 1 / 2 / 3 questions."
               className="mb-0"
             />
             <div className="flex flex-wrap items-center gap-2">
@@ -877,12 +287,7 @@ export function AdminQuestionbankPage() {
                 onClick={() => void refetch()}
                 className={isFetching ? "animate-spin" : undefined}
               />
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={downloadExcelTemplate}
-              >
+              <Button type="button" size="sm" variant="outline" onClick={downloadExcelTemplate}>
                 <FileSpreadsheet className="h-4 w-4" />
                 Download Template
               </Button>
@@ -894,11 +299,7 @@ export function AdminQuestionbankPage() {
                   topic.subtopics.every((subtopic) => !(subtopic.questions?.length ?? 0))
                 )}
                 onClick={() =>
-                  downloadProgramQuestions(
-                    programs.find((program) => program.id === effectiveProgramId)?.name ??
-                      "questionbank",
-                    topics
-                  )
+                  downloadProgramQuestions(selectedProgram?.name ?? "questionbank", topics)
                 }
               >
                 <Download className="h-4 w-4" />
@@ -935,7 +336,6 @@ export function AdminQuestionbankPage() {
               {ACCESS_TIER_ORDER.map((tier) => (
                 <AccessBadgePill key={tier} badge={tier} />
               ))}
-              <span>— cycle access on each study set</span>
             </span>
           </div>
 
@@ -983,6 +383,7 @@ export function AdminQuestionbankPage() {
               </select>
             </label>
           </div>
+
           {error ? (
             <p className="mt-2 text-sm text-accent">{(error as unknown as ApiError)?.message}</p>
           ) : null}
@@ -1003,8 +404,7 @@ export function AdminQuestionbankPage() {
                     : ""}
                 </span>
                 <span>
-                  Access:{" "}
-                  <strong className="text-foreground">{programStats.freeSets}</strong> free ·{" "}
+                  Access: <strong className="text-foreground">{programStats.freeSets}</strong> free ·{" "}
                   <strong className="text-foreground">{programStats.paidSets}</strong> paid
                 </span>
               </div>
@@ -1022,26 +422,28 @@ export function AdminQuestionbankPage() {
           ) : null}
         </div>
 
-        <div className="space-y-4 p-5">
+        <div className="space-y-3 p-4 md:p-5">
           {topics.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">No topics yet. Add a topic to start.</p>
+            <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
+              No topics yet. Add a topic to create study sets.
+            </div>
           ) : null}
 
-          {topics.map((topic) => {
+          {topics.map((topic, topicIndex) => {
             const isTopicOpen = !collapsedTopics[topic.id];
             return (
               <div
                 key={topic.id}
                 className={cn(
-                  "overflow-hidden rounded-xl border border-border",
-                  !topic.isActive && "border-dashed opacity-70"
+                  "overflow-hidden rounded-xl border border-border bg-primary-muted/20",
+                  !topic.isActive && "border-dashed opacity-80"
                 )}
               >
-                <div className="flex flex-wrap items-center justify-between gap-2 bg-card px-4 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
                   <button
                     type="button"
-                    onClick={() => toggleTopic(topic.id)}
                     className="flex min-w-0 flex-1 items-center gap-2 text-left"
+                    onClick={() => toggleTopic(topic.id)}
                     aria-expanded={isTopicOpen}
                   >
                     <ChevronDown
@@ -1050,21 +452,19 @@ export function AdminQuestionbankPage() {
                         isTopicOpen ? "rotate-0" : "-rotate-90"
                       )}
                     />
-                    <div>
-                      <p className="text-xs font-semibold uppercase text-primary">
-                        Topic {topic.number}
-                      </p>
-                      <h3 className="flex items-center gap-2 font-semibold text-foreground">
-                        {topic.title}
-                        {!topic.isActive ? (
-                          <span className="rounded-md bg-[#fff1ee] px-1.5 py-0.5 text-[10px] font-bold uppercase text-accent">
-                            Hidden
-                          </span>
-                        ) : null}
-                      </h3>
-                    </div>
+                    <p className="text-sm font-bold text-foreground md:text-base">
+                      Topic {topic.number || topicIndex + 1}: {topic.title}
+                    </p>
+                    <span className="text-xs text-muted-foreground">
+                      ({topic.subtopics.length} study sets)
+                    </span>
+                    {!topic.isActive ? (
+                      <span className="rounded-md bg-[#fff1ee] px-1.5 py-0.5 text-[10px] font-bold uppercase text-accent">
+                        Hidden
+                      </span>
+                    ) : null}
                   </button>
-                  <div className="flex items-center gap-1">
+                  <div className="flex flex-wrap gap-2">
                     <Button
                       type="button"
                       size="sm"
@@ -1077,30 +477,24 @@ export function AdminQuestionbankPage() {
                         setAccessBadge("FREE");
                       }}
                     >
+                      <Plus className="h-4 w-4" />
                       Add study set
                     </Button>
                     <button
                       type="button"
                       className="rounded-md p-2 text-muted-foreground transition hover:bg-primary-muted hover:text-primary"
                       title="Edit topic"
-                      aria-label="Edit topic"
                       onClick={() => openEditTopic(topic)}
                     >
                       <Pencil className="h-4 w-4" />
                     </button>
                     <button
                       type="button"
-                      className="rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
+                      className="rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
                       title={topic.isActive ? "Hide topic" : "Show topic"}
-                      aria-label={topic.isActive ? "Hide topic" : "Show topic"}
-                      disabled={updateTopic.isPending}
                       onClick={() => toggleTopicVisibility(topic)}
                     >
-                      {topic.isActive ? (
-                        <Eye className="h-4 w-4" />
-                      ) : (
-                        <EyeOff className="h-4 w-4 text-accent" />
-                      )}
+                      {topic.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4 text-accent" />}
                     </button>
                     <Button
                       type="button"
@@ -1119,300 +513,118 @@ export function AdminQuestionbankPage() {
                 </div>
 
                 {isTopicOpen ? (
-                  <div className="space-y-3 border-t border-border bg-muted/20 p-3">
+                  <div className="space-y-2 border-t border-border bg-card/60 p-3">
+                    {topic.subtopics.length === 0 ? (
+                      <p className="px-2 py-4 text-center text-sm text-muted-foreground">
+                        No study sets yet.
+                      </p>
+                    ) : null}
+
                     {topic.subtopics.map((sub) => {
-                      const isSubOpen = !collapsedSubtopics[sub.id];
                       const paperCounts = countByPaper(sub.questions);
-                      const totalQuestions = sub.questions?.length ?? 0;
+                      const total = sub.questions?.length ?? 0;
+                      const manageHref = ROUTES.admin.qbStudySet(sub.id, effectiveProgramId);
 
                       return (
                         <div
                           key={sub.id}
                           className={cn(
-                            "overflow-hidden rounded-lg border border-border/70 bg-card",
+                            "flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border/70 bg-card px-3 py-3",
                             !sub.isActive && "border-dashed opacity-70"
                           )}
                         >
-                          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5">
+                          <Link
+                            href={manageHref}
+                            className="group flex min-w-0 flex-1 items-center gap-2 text-left"
+                          >
+                            <ChevronRight className="h-4 w-4 shrink-0 text-primary transition group-hover:translate-x-0.5" />
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="text-sm font-semibold text-foreground group-hover:text-primary">
+                                  {sub.title}
+                                </p>
+                                <AccessBadgePill badge={sub.badge} />
+                                <span className="text-xs text-muted-foreground">({total})</span>
+                                {!sub.isActive ? (
+                                  <span className="rounded-md bg-[#fff1ee] px-1.5 py-0.5 text-[10px] font-bold uppercase text-accent">
+                                    Hidden
+                                  </span>
+                                ) : null}
+                              </div>
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">
+                                P1 {paperCounts.PAPER_1} · P2 {paperCounts.PAPER_2} · P3{" "}
+                                {paperCounts.PAPER_3} — click to manage questions
+                              </p>
+                            </div>
+                          </Link>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="border-primary/30 text-primary"
+                              disabled={updateSubtopic.isPending}
+                              title={`Cycle access → ${tierLabel(nextAccessBadge(sub.badge))}`}
+                              onClick={() => toggleSubtopicAccessBadge(sub)}
+                            >
+                              <AccessBadgePill badge={sub.badge} />
+                              <span className="ml-1">
+                                Set {tierLabel(nextAccessBadge(sub.badge)).replace(/^ALT\s+/, "")}
+                              </span>
+                            </Button>
+                            <Button asChild size="sm">
+                              <Link href={manageHref}>Manage questions</Link>
+                            </Button>
+                            {selectedProgram?.slug ? (
+                              <Button asChild size="sm" variant="outline">
+                                <Link
+                                  href={ROUTES.subjectQuestionbankStudy(
+                                    selectedProgram.slug,
+                                    sub.slug
+                                  )}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  Preview
+                                </Link>
+                              </Button>
+                            ) : null}
                             <button
                               type="button"
-                              className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                              onClick={() => toggleSubtopic(sub.id)}
-                              aria-expanded={isSubOpen}
+                              className="rounded-md p-2 text-muted-foreground transition hover:bg-primary-muted hover:text-primary"
+                              title="Edit study set"
+                              onClick={() => openEditSubtopic(topic.id, sub)}
                             >
-                              <ChevronDown
-                                className={cn(
-                                  "h-4 w-4 shrink-0 text-primary transition",
-                                  isSubOpen ? "rotate-0" : "-rotate-90"
-                                )}
-                              />
-                              <p className="text-sm font-semibold text-foreground">{sub.title}</p>
-                              <AccessBadgePill badge={sub.badge} />
-                              <span className="text-xs text-muted-foreground">
-                                ({totalQuestions})
-                              </span>
-                              <span className="hidden text-[10px] font-medium text-muted-foreground sm:inline">
-                                P1 {paperCounts.PAPER_1} · P2 {paperCounts.PAPER_2} · P3{" "}
-                                {paperCounts.PAPER_3}
-                              </span>
-                              {!sub.isActive ? (
-                                <span className="rounded-md bg-[#fff1ee] px-1.5 py-0.5 text-[10px] font-bold uppercase text-accent">
-                                  Hidden
-                                </span>
-                              ) : null}
+                              <Pencil className="h-4 w-4" />
                             </button>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                className="border-primary/30 text-primary"
-                                disabled={updateSubtopic.isPending}
-                                title={`Cycle access → ${tierLabel(nextAccessBadge(sub.badge))}`}
-                                onClick={() => toggleSubtopicAccessBadge(sub)}
-                              >
-                                <AccessBadgePill badge={sub.badge} />
-                                <span className="ml-1">
-                                  Set {tierLabel(nextAccessBadge(sub.badge)).replace(/^ALT\s+/, "")}
-                                </span>
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                disabled={totalQuestions === 0}
-                                onClick={() =>
-                                  downloadStudySetQuestions(sub.title, sub.questions ?? [])
-                                }
-                              >
-                                <Download className="h-4 w-4" />
-                                Download Questions
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setImportResult(null);
-                                  setActionError(null);
-                                  setModal({
-                                    kind: "import",
-                                    subtopicId: sub.id,
-                                    title: sub.title,
-                                  });
-                                }}
-                              >
-                                <Upload className="h-4 w-4" />
-                                Upload Excel
-                              </Button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setModal({ kind: "question", subtopicId: sub.id });
-                                  resetQuestionForm("PAPER_1");
-                                }}
-                              >
-                                Add question
-                              </Button>
-                              {selectedProgram?.slug ? (
-                                <Button asChild size="sm" variant="outline" className="border-primary/30">
-                                  <Link
-                                    href={ROUTES.subjectQuestionbankStudy(
-                                      selectedProgram.slug,
-                                      sub.slug
-                                    )}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    <ExternalLink className="h-3.5 w-3.5" />
-                                    Preview
-                                  </Link>
-                                </Button>
-                              ) : null}
-                              <button
-                                type="button"
-                                className="rounded-md p-2 text-muted-foreground transition hover:bg-primary-muted hover:text-primary"
-                                title="Edit study set"
-                                aria-label="Edit study set"
-                                onClick={() => openEditSubtopic(topic.id, sub)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </button>
-                              <button
-                                type="button"
-                                className="rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground disabled:opacity-50"
-                                title={sub.isActive ? "Hide study set" : "Show study set"}
-                                aria-label={sub.isActive ? "Hide study set" : "Show study set"}
-                                disabled={updateSubtopic.isPending}
-                                onClick={() => toggleSubtopicVisibility(sub)}
-                              >
-                                {sub.isActive ? (
-                                  <Eye className="h-4 w-4" />
-                                ) : (
-                                  <EyeOff className="h-4 w-4 text-accent" />
-                                )}
-                              </button>
-                              <Button
-                                type="button"
-                                size="sm"
-                                variant="ghost"
-                                className="text-accent"
-                                onClick={() => {
-                                  if (window.confirm(`Delete "${sub.title}"?`)) {
-                                    void deleteSubtopic.mutateAsync(sub.id);
-                                  }
-                                }}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-
-                          {isSubOpen ? (
-                            <div className="space-y-2 border-t border-border bg-muted/10 p-2.5">
-                              {totalQuestions === 0 ? (
-                                <div className="space-y-2 rounded-lg border border-dashed border-border bg-card px-3 py-6 text-center text-sm text-muted-foreground">
-                                  <p>No questions yet. Add one or upload Excel.</p>
-                                  <div className="flex flex-wrap items-center justify-center gap-2">
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      onClick={() => {
-                                        setModal({ kind: "question", subtopicId: sub.id });
-                                        resetQuestionForm("PAPER_1");
-                                      }}
-                                    >
-                                      Add question
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => {
-                                        setImportResult(null);
-                                        setActionError(null);
-                                        setModal({
-                                          kind: "import",
-                                          subtopicId: sub.id,
-                                          title: sub.title,
-                                        });
-                                      }}
-                                    >
-                                      <Upload className="h-4 w-4" />
-                                      Upload Excel
-                                    </Button>
-                                  </div>
-                                </div>
+                            <button
+                              type="button"
+                              className="rounded-md p-2 text-muted-foreground transition hover:bg-muted hover:text-foreground"
+                              title={sub.isActive ? "Hide study set" : "Show study set"}
+                              onClick={() => toggleSubtopicVisibility(sub)}
+                            >
+                              {sub.isActive ? (
+                                <Eye className="h-4 w-4" />
                               ) : (
-                                PAPERS.map((paperKey) => {
-                                  const paperQuestions = questionsForPaper(sub.questions, paperKey);
-                                  const paperOpenKey = paperCollapseKey(sub.id, paperKey);
-                                  const isPaperOpen = !collapsedPapers[paperOpenKey];
-
-                                  return (
-                                    <div
-                                      key={paperKey}
-                                      className="overflow-hidden rounded-lg border border-border/70 bg-card"
-                                    >
-                                      <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
-                                        <button
-                                          type="button"
-                                          className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                                          onClick={() => togglePaper(sub.id, paperKey)}
-                                          aria-expanded={isPaperOpen}
-                                        >
-                                          <ChevronDown
-                                            className={cn(
-                                              "h-4 w-4 shrink-0 text-primary transition",
-                                              isPaperOpen ? "rotate-0" : "-rotate-90"
-                                            )}
-                                          />
-                                          <p className="text-sm font-semibold text-foreground">
-                                            {paperShortLabel(paperKey)}
-                                          </p>
-                                          <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
-                                            {paperKey.replace("PAPER_", "P")}
-                                          </span>
-                                          <span className="text-xs text-muted-foreground">
-                                            ({paperQuestions.length})
-                                          </span>
-                                        </button>
-                                        <div className="flex flex-wrap gap-2">
-                                          <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            disabled={paperQuestions.length === 0}
-                                            onClick={() =>
-                                              downloadStudySetQuestions(
-                                                `${sub.title} — ${paperShortLabel(paperKey)}`,
-                                                paperQuestions
-                                              )
-                                            }
-                                          >
-                                            <Download className="h-4 w-4" />
-                                            Download
-                                          </Button>
-                                          <Button
-                                            type="button"
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => {
-                                              setModal({ kind: "question", subtopicId: sub.id });
-                                              resetQuestionForm(paperKey);
-                                            }}
-                                          >
-                                            Add question
-                                          </Button>
-                                        </div>
-                                      </div>
-
-                                      {isPaperOpen ? (
-                                        <ul className="space-y-2 border-t border-border px-3 py-2">
-                                          {paperQuestions.length === 0 ? (
-                                            <li className="py-4 text-center text-sm text-muted-foreground">
-                                              No {paperShortLabel(paperKey)} questions yet.{" "}
-                                              <button
-                                                type="button"
-                                                className="font-semibold text-primary hover:underline"
-                                                onClick={() => {
-                                                  setModal({
-                                                    kind: "question",
-                                                    subtopicId: sub.id,
-                                                  });
-                                                  resetQuestionForm(paperKey);
-                                                }}
-                                              >
-                                                Add one
-                                              </button>
-                                            </li>
-                                          ) : (
-                                            paperQuestions.map((q, questionIndex) => (
-                                              <AdminQuestionDropdown
-                                                key={q.id}
-                                                question={q}
-                                                displayNumber={questionIndex + 1}
-                                                onEdit={() => openEditQuestion(q)}
-                                                onToggleHide={() => toggleQuestionVisibility(q)}
-                                                togglePending={updateQuestion.isPending}
-                                                onDelete={() => {
-                                                  if (window.confirm("Delete question?")) {
-                                                    void deleteQuestion.mutateAsync(q.id);
-                                                  }
-                                                }}
-                                              />
-                                            ))
-                                          )}
-                                        </ul>
-                                      ) : null}
-                                    </div>
-                                  );
-                                })
+                                <EyeOff className="h-4 w-4 text-accent" />
                               )}
-                            </div>
-                          ) : null}
+                            </button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="text-accent"
+                              onClick={() => {
+                                if (window.confirm(`Delete "${sub.title}"?`)) {
+                                  void deleteSubtopic.mutateAsync(sub.id);
+                                }
+                              }}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </div>
                       );
                     })}
@@ -1431,343 +643,65 @@ export function AdminQuestionbankPage() {
             ? modal.editId
               ? "Edit topic"
               : "Add topic"
-            : modal?.kind === "subtopic"
-              ? modal.editId
-                ? "Edit study set"
-                : "Add study set"
-              : modal?.kind === "import"
-                ? "Upload Excel"
-                : modal?.kind === "question" && modal.editId
-                  ? "Edit question"
-                  : "Add question"
+            : modal?.editId
+              ? "Edit study set"
+              : "Add study set"
         }
         description={
-          modal?.kind === "import"
-            ? "Put image + video as public URLs in the sheet. Questions appear on the study page automatically."
-            : modal?.kind === "question"
-              ? "Add stimulus image, marks, optional year/source, mark scheme, and video solution. Hidden questions stay out of the student Questionbank."
-              : modal?.kind === "subtopic"
-                ? "ALT Free is open practice. Silver, Gold, and Diamond need a matching Practice Pass or linked course. Use Preview to open the student study page."
-                : "Visible on the public Questionbank with Easy / Medium / Hard filters. Use Preview as student to verify."
+          modal?.kind === "subtopic"
+            ? "ALT Free is open practice. Silver, Gold, and Diamond need a matching Practice Pass."
+            : "Visible on the public Questionbank."
         }
         onClose={() => !busy && setModal(null)}
-        className={modal?.kind === "question" || modal?.kind === "import" ? "sm:max-w-2xl" : "sm:max-w-xl"}
+        className="sm:max-w-xl"
         footer={
-          modal?.kind === "import" ? (
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" disabled={busy} onClick={() => setModal(null)}>
-                Close
-              </Button>
-            </div>
-          ) : (
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" disabled={busy} onClick={() => setModal(null)}>
-                Cancel
-              </Button>
-              <Button type="button" disabled={busy} onClick={() => void onSave()}>
-                {busy ? "Saving..." : "Save"}
-              </Button>
-            </div>
-          )
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" disabled={busy} onClick={() => setModal(null)}>
+              Cancel
+            </Button>
+            <Button type="button" disabled={busy} onClick={() => void onSave()}>
+              {busy ? "Saving…" : "Save"}
+            </Button>
+          </div>
         }
       >
-        {modal?.kind === "import" ? (
-          <div className="space-y-4">
-            <div className="rounded-xl border border-dashed border-border bg-muted/20 p-4">
-              <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-foreground">
-                <FileSpreadsheet className="h-4 w-4 text-primary" />
-                {modal.title}
-              </div>
-              <p className="text-sm text-muted-foreground">
-                Columns: prompt, diagramUrl (stimulus image link), optionA–D, correctAnswer,
-                markScheme, videoUrl (solution video link), difficulty, paper, marks, yearHint,
-                sourceLabel.
-              </p>
-              <p className="mt-2 text-xs text-muted-foreground">
-                Question numbers are assigned automatically in row order (Q1, Q2, Q3...). A later
-                upload continues from the last question number. Paste public https links for bulk
-                image/video import.
-              </p>
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,text/csv"
-              className="hidden"
-              onChange={(e) => void onImportFile(e.target.files?.[0])}
+        {actionError ? <p className="mb-3 text-sm text-accent">{actionError}</p> : null}
+        <div className="space-y-4">
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold">Title</span>
+            <Input
+              value={title}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                if (!modal?.editId) setSlug(slugify(e.target.value));
+              }}
             />
-            <Button
-              type="button"
-              disabled={busy}
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full"
-            >
-              <Upload className="h-4 w-4" />
-              {importQuestions.isPending ? "Importing..." : "Choose Excel / CSV file"}
-            </Button>
-            <Button type="button" variant="outline" className="w-full" onClick={downloadExcelTemplate}>
-              <Download className="h-4 w-4" />
-              Download Excel template
-            </Button>
-            {importResult ? (
-              <div className="rounded-xl border border-accent-green/30 bg-[#ecfdf3] p-3 text-sm text-foreground">
-                <p className="font-semibold text-accent-green">
-                  Imported {importResult.imported} question{importResult.imported === 1 ? "" : "s"}
-                </p>
-                {importResult.skipped > 0 ? (
-                  <p className="mt-1 text-muted-foreground">
-                    Skipped {importResult.skipped} row(s)
-                    {importResult.errors?.length
-                      ? `: ${importResult.errors
-                          .slice(0, 3)
-                          .map((e) => `row ${e.row} (${e.message})`)
-                          .join("; ")}`
-                      : ""}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-          </div>
-        ) : modal?.kind === "question" ? (
-          <div className="space-y-3">
+          </label>
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold">Slug</span>
+            <Input value={slug} onChange={(e) => setSlug(e.target.value)} />
+          </label>
+          {modal?.kind === "subtopic" ? (
             <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Prompt</span>
-              <textarea
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={3}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
-              />
+              <span className="text-sm font-semibold">Access</span>
+              <select
+                value={accessBadge}
+                onChange={(e) => setAccessBadge(e.target.value as QbAccessBadge)}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {ACCESS_TIER_ORDER.map((tier) => (
+                  <option key={tier} value={tier}>
+                    {tierLabel(tier)}
+                  </option>
+                ))}
+              </select>
             </label>
-
-            <div className="space-y-1.5">
-              <span className="text-sm font-semibold">Stimulus image (diagramUrl)</span>
-              <div className="flex gap-2">
-                <Input
-                  value={diagramUrl}
-                  onChange={(e) => setDiagramUrl(e.target.value)}
-                  placeholder="https://... image URL"
-                />
-                <input
-                  ref={diagramUploadRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => void onUploadMedia("diagram", e.target.files?.[0])}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => diagramUploadRef.current?.click()}
-                >
-                  <ImageIcon className="h-4 w-4" />
-                  {uploadingField === "diagram" ? "..." : "Upload"}
-                </Button>
-              </div>
-              {diagramUrl ? (
-                <div className="overflow-hidden rounded-lg border border-border bg-muted/20 p-2">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={diagramUrl} alt="Diagram preview" className="mx-auto max-h-40 object-contain" />
-                </div>
-              ) : null}
-            </div>
-
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Options (one per line)</span>
-              <textarea
-                value={optionsText}
-                onChange={(e) => setOptionsText(e.target.value)}
-                rows={4}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
-              />
-            </label>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Answer</span>
-                <Input value={correctAnswer} onChange={(e) => setCorrectAnswer(e.target.value)} />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Difficulty</span>
-                <select
-                  value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value as QbDifficulty)}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-                >
-                  {DIFFICULTIES.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Paper</span>
-                <select
-                  value={paper}
-                  onChange={(e) => setPaper(e.target.value as QbPaper)}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-                >
-                  {PAPERS.map((p) => (
-                    <option key={p} value={p}>
-                      {paperShortLabel(p)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Marks</span>
-                <Input
-                  type="number"
-                  min={1}
-                  value={marks}
-                  onChange={(e) => setMarks(e.target.value)}
-                />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Year (optional)</span>
-                <Input
-                  type="number"
-                  min={1900}
-                  max={2100}
-                  placeholder="e.g. 2023"
-                  value={yearHint}
-                  onChange={(e) => setYearHint(e.target.value)}
-                />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Source label</span>
-                <Input
-                  placeholder="SSC Board 2022 P1"
-                  value={sourceLabel}
-                  onChange={(e) => setSourceLabel(e.target.value)}
-                />
-              </label>
-            </div>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Mark scheme</span>
-              <textarea
-                value={markScheme}
-                onChange={(e) => setMarkScheme(e.target.value)}
-                rows={3}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
-                placeholder="Step-by-step solution shown in the Mark Scheme modal"
-              />
-            </label>
-
-            <div className="space-y-1.5">
-              <span className="text-sm font-semibold">Video solution (videoUrl)</span>
-              <div className="flex gap-2">
-                <Input
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="https://youtube.com/... or .mp4 URL"
-                />
-                <input
-                  ref={videoUploadRef}
-                  type="file"
-                  accept="video/*"
-                  className="hidden"
-                  onChange={(e) => void onUploadMedia("video", e.target.files?.[0])}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => videoUploadRef.current?.click()}
-                >
-                  <Video className="h-4 w-4" />
-                  {uploadingField === "video" ? "..." : "Upload"}
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Title</span>
-              <Input
-                value={title}
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  setSlug(slugify(e.target.value));
-                }}
-              />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Slug</span>
-              <Input value={slug} onChange={(e) => setSlug(slugify(e.target.value))} />
-            </label>
-            {modal?.kind === "topic" || modal?.kind === "subtopic" ? (
-              <label className="block space-y-1.5 sm:col-span-2">
-                <span className="text-sm font-semibold">Description</span>
-                <RichTextEditor
-                  value={description}
-                  onChange={setDescription}
-                  placeholder="Optional topic overview"
-                  minHeight="100px"
-                />
-              </label>
-            ) : null}
-            {modal?.kind === "subtopic" ? (
-              <div className="space-y-2">
-                <span className="text-sm font-semibold">Access badge</span>
-                <div className="grid grid-cols-2 gap-2">
-                  {(
-                    [
-                      {
-                        tier: "FREE" as const,
-                        title: "Open practice",
-                        blurb: "Anyone can open this study set. Solutions need login.",
-                        selected: "border-primary bg-primary/10",
-                        hover: "border-border hover:border-primary/40",
-                      },
-                      {
-                        tier: "SILVER" as const,
-                        title: "Silver unlock",
-                        blurb: "Needs Silver Practice Pass or linked course enrollment.",
-                        selected: "border-[#94a3b8] bg-slate-50",
-                        hover: "border-border hover:border-[#94a3b8]/50",
-                      },
-                      {
-                        tier: "GOLD" as const,
-                        title: "Gold unlock",
-                        blurb: "Needs Gold Practice Pass or linked course enrollment.",
-                        selected: "border-[#d4a017] bg-[#fff8ef]",
-                        hover: "border-border hover:border-[#d4a017]/50",
-                      },
-                      {
-                        tier: "DIAMOND" as const,
-                        title: "Diamond unlock",
-                        blurb: "Needs Diamond Practice Pass or linked course enrollment.",
-                        selected: "border-[#6366f1] bg-indigo-50",
-                        hover: "border-border hover:border-[#6366f1]/50",
-                      },
-                    ] as const
-                  ).map((option) => (
-                    <button
-                      key={option.tier}
-                      type="button"
-                      className={cn(
-                        "rounded-xl border px-3 py-3 text-left transition",
-                        accessBadge === option.tier ? option.selected : option.hover
-                      )}
-                      onClick={() => setAccessBadge(option.tier)}
-                    >
-                      <AccessBadgePill badge={option.tier} />
-                      <p className="mt-2 text-xs font-semibold text-foreground">{option.title}</p>
-                      <p className="mt-0.5 text-[11px] text-muted-foreground">{option.blurb}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-          </div>
-        )}
-        {actionError ? <p className="mt-3 text-sm text-accent">{actionError}</p> : null}
+          ) : null}
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold">Description</span>
+            <RichTextEditor value={description} onChange={setDescription} />
+          </label>
+        </div>
       </AdminModal>
     </>
   );

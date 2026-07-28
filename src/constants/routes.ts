@@ -99,6 +99,10 @@ export const ROUTES = {
     qbCategories: "/admin/questionbank/categories",
     qbSubjects: "/admin/questionbank/subjects",
     qbPrograms: "/admin/questionbank/programs",
+    qbStudySet: (subtopicId: string, programId?: string) => {
+      const base = `/admin/questionbank/study-sets/${subtopicId}`;
+      return programId ? `${base}?programId=${encodeURIComponent(programId)}` : base;
+    },
     practiceExams: "/admin/practice-exams",
     keyConcepts: "/admin/key-concepts",
     pastPapers: "/admin/past-papers",
