@@ -16,6 +16,7 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { ROUTES } from "@/constants";
 import {
   useAdminQuestionbank,
@@ -28,10 +29,11 @@ import {
   useUpdateQbQuestion,
 } from "@/hooks";
 import { normalizeAccessBadge } from "@/lib/access-tier";
+import { isRichTextEmpty, serializeRichText } from "@/lib/rich-text";
 import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type { QbImportResult } from "@/services/questionbank-admin.types";
-import type { QbDifficulty, QbPaper, QbQuestion } from "@/types/qb.types";
+import type { QbDifficulty, QbPaper, QbQuestion, QbQuestionType } from "@/types/qb.types";
 import { cn } from "@/utils";
 import {
   AccessBadgePill,
@@ -46,6 +48,11 @@ import {
   questionsForPaper,
   resolvePaperTabs,
 } from "./qb-admin-shared";
+
+type QuestionKind = "MCQ" | "WRITTEN";
+
+const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
+const EMPTY_OPTIONS = ["", "", "", ""] as [string, string, string, string];
 
 type Props = { subtopicId: string };
 
@@ -70,8 +77,10 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
   >(null);
   const [importResult, setImportResult] = useState<QbImportResult | null>(null);
   const [prompt, setPrompt] = useState("");
-  const [optionsText, setOptionsText] = useState("Option A\nOption B\nOption C\nOption D");
+  const [questionKind, setQuestionKind] = useState<QuestionKind>("MCQ");
+  const [optionHtmls, setOptionHtmls] = useState<[string, string, string, string]>(EMPTY_OPTIONS);
   const [correctAnswer, setCorrectAnswer] = useState("A");
+  const [bodyText, setBodyText] = useState("");
   const [difficulty, setDifficulty] = useState<QbDifficulty>("EASY");
   const [paper, setPaper] = useState<QbPaper>("PAPER_1");
   const [markScheme, setMarkScheme] = useState("");
@@ -123,10 +132,12 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
     ? `${ROUTES.admin.questionbank}?programId=${encodeURIComponent(programId)}`
     : ROUTES.admin.questionbank;
 
-  const resetQuestionForm = (defaultPaper: QbPaper = activePaper) => {
+  const resetQuestionForm = (defaultPaper: QbPaper = activePaper, kind: QuestionKind = "MCQ") => {
     setPrompt("");
-    setOptionsText("Option A\nOption B\nOption C\nOption D");
-    setCorrectAnswer("A");
+    setQuestionKind(kind);
+    setOptionHtmls([...EMPTY_OPTIONS] as [string, string, string, string]);
+    setCorrectAnswer(kind === "MCQ" ? "A" : "");
+    setBodyText("");
     setDifficulty("EASY");
     setPaper(defaultPaper);
     setMarkScheme("");
@@ -137,9 +148,9 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
     setSourceLabel("");
   };
 
-  const openAddQuestion = (forPaper: QbPaper = activePaper) => {
+  const openAddQuestion = (forPaper: QbPaper = activePaper, kind: QuestionKind = "MCQ") => {
     setActionError(null);
-    resetQuestionForm(forPaper);
+    resetQuestionForm(forPaper, kind);
     setModal({ kind: "question" });
   };
 
@@ -184,9 +195,20 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
   const openEditQuestion = (question: QbQuestion) => {
     setActionError(null);
     setModal({ kind: "question", editId: question.id });
+    const type = String(question.questionType).toUpperCase();
+    const kind: QuestionKind =
+      type === "SHORT_ANSWER" || type === "DATA_BASED" || (question.options?.length ?? 0) < 2
+        ? "WRITTEN"
+        : "MCQ";
+    setQuestionKind(kind);
     setPrompt(question.prompt);
-    setOptionsText(question.options.join("\n"));
-    setCorrectAnswer(question.correctAnswer.toUpperCase());
+    const opts = [...(question.options ?? [])];
+    while (opts.length < 4) opts.push("");
+    setOptionHtmls([opts[0] ?? "", opts[1] ?? "", opts[2] ?? "", opts[3] ?? ""]);
+    setCorrectAnswer(
+      kind === "MCQ" ? question.correctAnswer.toUpperCase() : question.correctAnswer ?? ""
+    );
+    setBodyText(question.body ?? "");
     setDifficulty((question.difficulty as QbDifficulty) || "EASY");
     setPaper((question.paper as QbPaper) || "PAPER_1");
     setMarkScheme(question.markScheme ?? "");
@@ -259,16 +281,29 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
     if (modal?.kind !== "question") return;
     setActionError(null);
     try {
-      const options = optionsText
-        .split("\n")
-        .map((l) => l.trim())
-        .filter(Boolean);
+      const isMcq = questionKind === "MCQ";
+      const options = isMcq
+        ? optionHtmls.map((html) => serializeRichText(html)).filter((html) => !isRichTextEmpty(html))
+        : [];
+      if (isMcq && options.length < 2) {
+        setActionError("MCQ needs at least 2 options.");
+        return;
+      }
+      if (isRichTextEmpty(prompt)) {
+        setActionError("Prompt is required.");
+        return;
+      }
       const parsedMarks = Number.parseInt(marks, 10);
       const parsedYear = yearHint.trim() ? Number.parseInt(yearHint.trim(), 10) : undefined;
+      const questionType: QbQuestionType = isMcq ? "MULTIPLE_CHOICE" : "SHORT_ANSWER";
       const questionPayload = {
-        prompt: prompt.trim(),
+        prompt: serializeRichText(prompt),
+        body: serializeRichText(bodyText) || undefined,
         options,
-        correctAnswer: correctAnswer.trim().toUpperCase(),
+        correctAnswer: isMcq
+          ? correctAnswer.trim().toUpperCase() || "A"
+          : correctAnswer.trim() || "SEE_MARK_SCHEME",
+        questionType,
         difficulty,
         paper,
         marks: Number.isFinite(parsedMarks) && parsedMarks >= 1 ? parsedMarks : 1,
@@ -277,7 +312,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
             ? parsedYear
             : undefined,
         sourceLabel: sourceLabel.trim() || undefined,
-        markScheme: markScheme.trim() || undefined,
+        markScheme: serializeRichText(markScheme) || undefined,
         diagramUrl: diagramUrl.trim() || undefined,
         videoUrl: videoUrl.trim() || undefined,
       };
@@ -470,9 +505,13 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 <Upload className="h-4 w-4" />
                 Upload {paperShortLabel(activePaper)}
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => openAddQuestion(activePaper)}>
+              <Button type="button" size="sm" variant="outline" onClick={() => openAddQuestion(activePaper, "MCQ")}>
                 <Plus className="h-4 w-4" />
-                Add question
+                Add MCQ
+              </Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => openAddQuestion(activePaper, "WRITTEN")}>
+                <Plus className="h-4 w-4" />
+                Add written
               </Button>
               <Button
                 type="button"
@@ -498,9 +537,13 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                   <Upload className="h-4 w-4" />
                   Upload Excel
                 </Button>
-                <Button type="button" size="sm" onClick={() => openAddQuestion(activePaper)}>
+                <Button type="button" size="sm" variant="outline" onClick={() => openAddQuestion(activePaper, "MCQ")}>
                   <Plus className="h-4 w-4" />
-                  Add question
+                  Add MCQ
+                </Button>
+                <Button type="button" size="sm" onClick={() => openAddQuestion(activePaper, "WRITTEN")}>
+                  <Plus className="h-4 w-4" />
+                  Add written
                 </Button>
               </div>
             </div>
@@ -541,7 +584,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
             : "Questions appear on the student study page for this paper."
         }
         onClose={() => !busy && setModal(null)}
-        className="sm:max-w-2xl"
+        className="sm:max-w-3xl"
         footer={
           modal?.kind === "import" ? (
             <div className="flex justify-end gap-2">
@@ -589,23 +632,79 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
 
         {modal?.kind === "question" ? (
           <div className="space-y-4">
-            <label className="block space-y-1.5">
+            <div className="space-y-2">
+              <span className="text-sm font-semibold">Question type</span>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuestionKind("MCQ");
+                    if (!correctAnswer || correctAnswer.length > 1) setCorrectAnswer("A");
+                  }}
+                  className={cn(
+                    "rounded-xl border px-3 py-2.5 text-left text-sm transition",
+                    questionKind === "MCQ"
+                      ? "border-primary bg-primary/5 font-semibold text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                  )}
+                >
+                  MCQ
+                  <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                    Multiple choice (A–D)
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setQuestionKind("WRITTEN");
+                    if (correctAnswer.length <= 1) setCorrectAnswer("");
+                  }}
+                  className={cn(
+                    "rounded-xl border px-3 py-2.5 text-left text-sm transition",
+                    questionKind === "WRITTEN"
+                      ? "border-primary bg-primary/5 font-semibold text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                  )}
+                >
+                  Written
+                  <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
+                    Non-MCQ / structured answer
+                  </span>
+                </button>
+              </div>
+            </div>
+
+            <div className="block space-y-1.5">
               <span className="text-sm font-semibold">Prompt</span>
-              <textarea
+              <RichTextEditor
                 value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                rows={3}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
+                onChange={setPrompt}
+                placeholder="Question stem — text, math, and diagrams…"
+                minHeight="140px"
+                disabled={busy}
               />
-            </label>
+            </div>
+
+            {questionKind === "WRITTEN" ? (
+              <div className="block space-y-1.5">
+                <span className="text-sm font-semibold">Body / parts (optional)</span>
+                <RichTextEditor
+                  value={bodyText}
+                  onChange={setBodyText}
+                  placeholder="(a) … [2]  (b) … [3]"
+                  minHeight="160px"
+                  disabled={busy}
+                />
+              </div>
+            ) : null}
 
             <div className="space-y-2">
-              <span className="text-sm font-semibold">Diagram URL</span>
+              <span className="text-sm font-semibold">Cover diagram URL (optional)</span>
               <div className="flex flex-wrap gap-2">
                 <Input
                   value={diagramUrl}
                   onChange={(e) => setDiagramUrl(e.target.value)}
-                  placeholder="https://…"
+                  placeholder="https://… — or insert images in the editor above"
                 />
                 <Button
                   type="button"
@@ -626,25 +725,54 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
               </div>
             </div>
 
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Options (one per line)</span>
-              <textarea
-                value={optionsText}
-                onChange={(e) => setOptionsText(e.target.value)}
-                rows={4}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
-              />
-            </label>
-
-            <div className="grid gap-3 sm:grid-cols-3">
+            {questionKind === "MCQ" ? (
+              <div className="space-y-3">
+                <span className="text-sm font-semibold">Options (text and/or images)</span>
+                {OPTION_LETTERS.map((letter, index) => (
+                  <div key={letter} className="space-y-1.5">
+                    <span className="text-xs font-semibold text-muted-foreground">Option {letter}</span>
+                    <RichTextEditor
+                      value={optionHtmls[index]}
+                      onChange={(html) =>
+                        setOptionHtmls((prev) => {
+                          const next = [...prev] as [string, string, string, string];
+                          next[index] = html;
+                          return next;
+                        })
+                      }
+                      placeholder={`Option ${letter}`}
+                      minHeight="72px"
+                      disabled={busy}
+                    />
+                  </div>
+                ))}
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-semibold">Correct option</span>
+                  <select
+                    value={correctAnswer}
+                    onChange={(e) => setCorrectAnswer(e.target.value)}
+                    className="flex h-10 w-full max-w-[8rem] rounded-xl border border-border bg-card px-3 text-sm"
+                  >
+                    {OPTION_LETTERS.map((letter) => (
+                      <option key={letter} value={letter}>
+                        {letter}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            ) : (
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Correct</span>
+                <span className="text-sm font-semibold">Model answer key (optional)</span>
                 <Input
                   value={correctAnswer}
-                  onChange={(e) => setCorrectAnswer(e.target.value.toUpperCase())}
-                  maxLength={1}
+                  onChange={(e) => setCorrectAnswer(e.target.value)}
+                  placeholder="Short key — full answer goes in Mark scheme"
                 />
               </label>
+            )}
+
+            <div className="grid gap-3 sm:grid-cols-3">
               <label className="block space-y-1.5">
                 <span className="text-sm font-semibold">Difficulty</span>
                 <select
@@ -717,15 +845,16 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
               </div>
             </div>
 
-            <label className="block space-y-1.5">
+            <div className="block space-y-1.5">
               <span className="text-sm font-semibold">Mark scheme</span>
-              <textarea
+              <RichTextEditor
                 value={markScheme}
-                onChange={(e) => setMarkScheme(e.target.value)}
-                rows={3}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
+                onChange={setMarkScheme}
+                placeholder="Worked solution / marking notes…"
+                minHeight="120px"
+                disabled={busy}
               />
-            </label>
+            </div>
           </div>
         ) : null}
       </AdminModal>

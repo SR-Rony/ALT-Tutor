@@ -1,19 +1,28 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
+import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
+import Subscript from "@tiptap/extension-subscript";
+import Superscript from "@tiptap/extension-superscript";
 import {
   Bold,
+  ImageIcon,
   Italic,
   List,
   ListOrdered,
   Redo2,
+  Sigma,
   Strikethrough,
+  Subscript as SubscriptIcon,
+  Superscript as SuperscriptIcon,
   Undo2,
 } from "lucide-react";
 import { normalizeRichTextContent } from "@/lib/rich-text";
+import { MathInline } from "@/lib/tiptap-math";
+import { uploadService } from "@/services/upload.service";
 import { cn } from "@/utils";
 
 type RichTextEditorProps = {
@@ -24,6 +33,8 @@ type RichTextEditorProps = {
   id?: string;
   minHeight?: string;
   className?: string;
+  /** Folder used when uploading inline images. */
+  uploadFolder?: "questionbank" | "lessons" | "courses" | "assignments" | "blogs" | "avatars";
 };
 
 function ToolbarButton({
@@ -65,13 +76,27 @@ export function RichTextEditor({
   id,
   minHeight = "120px",
   className,
+  uploadFolder = "questionbank",
 }: RichTextEditorProps) {
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
   const editor = useEditor({
     extensions: [
       StarterKit.configure({
         heading: { levels: [2, 3] },
       }),
       Placeholder.configure({ placeholder }),
+      Image.configure({
+        inline: true,
+        allowBase64: false,
+        HTMLAttributes: {
+          class: "qb-inline-image",
+        },
+      }),
+      Superscript,
+      Subscript,
+      MathInline,
     ],
     content: normalizeRichTextContent(value),
     editable: !disabled,
@@ -103,6 +128,27 @@ export function RichTextEditor({
     if (!editor) return;
     editor.setEditable(!disabled);
   }, [editor, disabled]);
+
+  const insertImageFile = async (file: File | undefined) => {
+    if (!file || !editor) return;
+    setUploading(true);
+    try {
+      const result = await uploadService.upload(file, uploadFolder);
+      editor.chain().focus().setImage({ src: result.url, alt: file.name }).run();
+    } catch {
+      window.alert("Image upload failed. Try again or paste an image URL.");
+    } finally {
+      setUploading(false);
+      if (imageInputRef.current) imageInputRef.current.value = "";
+    }
+  };
+
+  const insertMath = () => {
+    if (!editor) return;
+    const latex = window.prompt("Enter LaTeX (e.g. \\theta, v_x, m\\,s^{-1})", "");
+    if (latex == null) return;
+    editor.chain().focus().insertMath(latex).run();
+  };
 
   if (!editor) {
     return (
@@ -151,6 +197,22 @@ export function RichTextEditor({
         >
           <Strikethrough className="h-4 w-4" />
         </ToolbarButton>
+        <ToolbarButton
+          label="Superscript"
+          disabled={disabled}
+          active={editor.isActive("superscript")}
+          onClick={() => editor.chain().focus().toggleSuperscript().run()}
+        >
+          <SuperscriptIcon className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Subscript"
+          disabled={disabled}
+          active={editor.isActive("subscript")}
+          onClick={() => editor.chain().focus().toggleSubscript().run()}
+        >
+          <SubscriptIcon className="h-4 w-4" />
+        </ToolbarButton>
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
         <ToolbarButton
           label="Bullet list"
@@ -170,6 +232,17 @@ export function RichTextEditor({
         </ToolbarButton>
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
         <ToolbarButton
+          label="Insert image"
+          disabled={disabled || uploading}
+          onClick={() => imageInputRef.current?.click()}
+        >
+          <ImageIcon className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton label="Insert math" disabled={disabled} onClick={insertMath}>
+          <Sigma className="h-4 w-4" />
+        </ToolbarButton>
+        <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+        <ToolbarButton
           label="Undo"
           disabled={disabled || !editor.can().chain().focus().undo().run()}
           onClick={() => editor.chain().focus().undo().run()}
@@ -183,10 +256,20 @@ export function RichTextEditor({
         >
           <Redo2 className="h-4 w-4" />
         </ToolbarButton>
+        {uploading ? (
+          <span className="ml-2 text-xs text-muted-foreground">Uploading…</span>
+        ) : null}
       </div>
       <div className="px-3 py-2">
         <EditorContent editor={editor} />
       </div>
+      <input
+        ref={imageInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => void insertImageFile(e.target.files?.[0])}
+      />
     </div>
   );
 }

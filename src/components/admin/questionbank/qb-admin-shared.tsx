@@ -13,7 +13,9 @@ import {
   Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { tierBadgeClass, tierLabel } from "@/lib/access-tier";
+import { richTextExcerpt } from "@/lib/rich-text";
 import type { QbDifficulty, QbPaper, QbQuestion, QbTopic } from "@/types/qb.types";
 import { cn } from "@/utils";
 
@@ -289,6 +291,14 @@ export function AdminQuestionDropdown({
               {String(question.paper).replace("_", " ")}
               {question.marks != null ? ` · [${question.marks}]` : ""}
             </span>
+            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {String(question.questionType).toUpperCase() === "MULTIPLE_CHOICE" ||
+              ((question.options?.length ?? 0) >= 2 &&
+                String(question.questionType).toUpperCase() !== "SHORT_ANSWER" &&
+                String(question.questionType).toUpperCase() !== "DATA_BASED")
+                ? "MCQ"
+                : "Written"}
+            </span>
             {question.yearHint != null ? (
               <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
                 {question.yearHint}
@@ -303,8 +313,7 @@ export function AdminQuestionDropdown({
               </span>
             ) : null}
             <span className="truncate text-muted-foreground">
-              — {question.prompt.slice(0, 72)}
-              {question.prompt.length > 72 ? "…" : ""}
+              — {richTextExcerpt(question.prompt, 72)}
             </span>
             {question.diagramUrl ? (
               <span className="inline-flex items-center gap-1 rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">
@@ -425,11 +434,15 @@ export function AdminQuestionDropdown({
               <p className="text-xs font-semibold uppercase tracking-wide text-primary">
                 Full problem
               </p>
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-                {question.prompt}
-              </p>
+              <RichTextContent
+                html={question.prompt}
+                className="text-sm leading-relaxed text-foreground"
+              />
               {question.body ? (
-                <p className="whitespace-pre-wrap text-sm text-muted-foreground">{question.body}</p>
+                <RichTextContent
+                  html={question.body}
+                  className="text-sm text-muted-foreground"
+                />
               ) : null}
               {question.diagramUrl ? (
                 <div className="overflow-hidden rounded-lg border border-border bg-muted/30 p-2">
@@ -467,11 +480,14 @@ export function AdminQuestionDropdown({
                   </span>
                 ) : null}
               </div>
-              <p className="text-sm leading-relaxed text-foreground">{question.options[step]}</p>
+              <RichTextContent
+                html={question.options[step]}
+                className="text-sm leading-relaxed text-foreground"
+              />
               {question.markScheme && isCorrect ? (
                 <div className="rounded-lg border border-primary/20 bg-primary-muted/40 p-3 text-sm text-foreground">
                   <p className="mb-1 text-xs font-semibold uppercase text-primary">Mark scheme</p>
-                  <p className="whitespace-pre-wrap">{question.markScheme}</p>
+                  <RichTextContent html={question.markScheme} />
                 </div>
               ) : null}
             </div>

@@ -28,7 +28,9 @@ import {
 import { uploadService } from "@/services/upload.service";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { PageLoader } from "@/components/shared";
+import { richTextToPlain } from "@/lib/rich-text";
 import { ROUTES } from "@/constants";
 import {
   ResourceHero,
@@ -86,6 +88,15 @@ function isMcqPaper(paper: string) {
 
 function isTheoryPaper(paper: string) {
   return !isMcqPaper(paper);
+}
+
+function isMcqQuestion(question: { questionType?: string | null; paper?: string | null; options?: string[] }) {
+  const type = String(question.questionType ?? "").toUpperCase();
+  if (type === "SHORT_ANSWER" || type === "DATA_BASED") return false;
+  if (type === "MULTIPLE_CHOICE") return true;
+  if ((question.options?.length ?? 0) >= 2) return true;
+  // Legacy rows: Paper 1 was MCQ by convention.
+  return isMcqPaper(String(question.paper ?? "PAPER_1"));
 }
 
 function paperDisplayLabel(paper: string) {
@@ -171,7 +182,7 @@ function QuestionCard({
   onSelectAnswer?: (letter: string) => void;
   saving?: boolean;
 }) {
-  if (isMcqPaper(String(question.paper))) {
+  if (isMcqQuestion(question)) {
     return (
       <McqQuestionCard
         question={question}
@@ -271,9 +282,15 @@ function McqQuestionCard({
             <Expand className="h-4 w-4 text-muted-foreground" />
           </div>
 
-          <p className="text-sm leading-relaxed text-foreground md:text-base">{question.prompt}</p>
+          <RichTextContent
+            html={question.prompt}
+            className="text-sm leading-relaxed text-foreground md:text-base"
+          />
           {question.body ? (
-            <p className="mt-2 text-sm text-muted-foreground">{question.body}</p>
+            <RichTextContent
+              html={question.body}
+              className="mt-2 text-sm text-muted-foreground"
+            />
           ) : null}
 
           {question.diagramUrl ? (
@@ -287,10 +304,11 @@ function McqQuestionCard({
             </div>
           ) : null}
 
-          <ul className="mt-4 space-y-1.5 text-sm text-foreground">
+          <ul className="mt-4 space-y-3 text-sm text-foreground">
             {question.options.map((opt, i) => (
-              <li key={`${i}-${opt}`}>
-                <span className="font-semibold">{LETTERS[i] ?? i + 1}.</span> {opt}
+              <li key={`${question.id}-opt-${i}`} className="flex gap-2">
+                <span className="shrink-0 font-semibold">{LETTERS[i] ?? i + 1}.</span>
+                <RichTextContent html={opt} className="min-w-0 flex-1" />
               </li>
             ))}
           </ul>
@@ -424,7 +442,7 @@ function McqQuestionCard({
             Solution notes
           </div>
           <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed text-foreground md:text-[15px]">
-            <p className="whitespace-pre-wrap">{markScheme}</p>
+            <RichTextContent html={markScheme} />
           </div>
           {correctAnswer ? (
             <p className="text-xs text-muted-foreground">
@@ -496,7 +514,7 @@ function StructuredQuestionCard({
 }) {
   const [modal, setModal] = useState<"scheme" | "video" | null>(null);
   const qLabel = `Question ${displayNumber || index + 1}`;
-  const maxMarkMatch = question.body?.match(/\[Maximum mark:\s*(\d+)\]/i);
+  const maxMarkMatch = richTextToPlain(question.body).match(/\[Maximum mark:\s*(\d+)\]/i);
   const maxMarks = question.marks ?? (maxMarkMatch ? Number(maxMarkMatch[1]) : null);
 
   return (
@@ -530,11 +548,15 @@ function StructuredQuestionCard({
             <p className="mb-3 text-sm font-semibold text-foreground">[Maximum mark: {maxMarks}]</p>
           ) : null}
 
-          <p className="text-sm leading-relaxed text-foreground md:text-base">{question.prompt}</p>
+          <RichTextContent
+            html={question.prompt}
+            className="text-sm leading-relaxed text-foreground md:text-base"
+          />
           {question.body ? (
-            <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground md:text-[15px]">
-              {question.body}
-            </div>
+            <RichTextContent
+              html={question.body}
+              className="mt-3 text-sm leading-relaxed text-foreground md:text-[15px]"
+            />
           ) : null}
 
           {question.diagramUrl ? (
@@ -622,7 +644,7 @@ function StructuredQuestionCard({
         }
       >
         <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed text-foreground md:text-[15px]">
-          <p className="whitespace-pre-wrap">{question.markScheme}</p>
+          <RichTextContent html={question.markScheme} />
         </div>
       </AdminModal>
 
@@ -1017,13 +1039,13 @@ export function QuestionbankStudyPage({
   const theoryPackQuestions = useMemo(() => {
     if (!showTheoryPaperTools) return [];
     return filteredQuestions
-      .filter((question) => isTheoryPaper(String(question.paper)))
+      .filter((question) => !isMcqQuestion(question))
       .slice(0, questionCountLimit);
   }, [filteredQuestions, questionCountLimit, showTheoryPaperTools]);
 
   const visibleQuestions = useMemo(() => {
     if (!showTheoryPaperTools) return filteredQuestions;
-    const mcqAlongside = filteredQuestions.filter((question) => isMcqPaper(String(question.paper)));
+    const mcqAlongside = filteredQuestions.filter((question) => isMcqQuestion(question));
     return [...theoryPackQuestions, ...mcqAlongside];
   }, [filteredQuestions, showTheoryPaperTools, theoryPackQuestions]);
 

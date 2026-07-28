@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "katex/dist/katex.min.css";
 
 @theme inline {
   --color-background: var(--background);
@@ -370,4 +371,25 @@
 
 .rich-text-content strong {
   @apply font-semibold;
+}
+
+.rich-text-editor__content img.qb-inline-image,
+.rich-text-content img.qb-inline-image,
+.rich-text-content img {
+  @apply my-3 max-h-[420px] max-w-full rounded-lg border border-border object-contain;
+}
+
+.rich-text-editor__content .qb-math,
+.rich-text-content .qb-math {
+  @apply mx-0.5 inline-block align-middle text-[1.05em];
+}
+
+.rich-text-editor__content sup,
+.rich-text-content sup {
+  @apply align-super text-[0.75em];
+}
+
+.rich-text-editor__content sub,
+.rich-text-content sub {
+  @apply align-sub text-[0.75em];
 }

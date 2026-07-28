@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo } from "react";
 import DOMPurify from "dompurify";
 import { looksLikeHtml } from "@/lib/rich-text";
+import { hydrateKatexHtml } from "@/lib/tiptap-math";
 import { cn } from "@/utils";
 
 type RichTextContentProps = {
@@ -11,17 +13,28 @@ type RichTextContentProps = {
 };
 
 export function RichTextContent({ html, className, as: Tag = "div" }: RichTextContentProps) {
-  if (!html?.trim()) return null;
+  const rendered = useMemo(() => {
+    if (!html?.trim()) return null;
+    if (!looksLikeHtml(html)) return { kind: "plain" as const, text: html };
+    const clean = DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true },
+      ADD_TAGS: ["img", "span", "sup", "sub"],
+      ADD_ATTR: ["src", "alt", "title", "class", "data-latex", "width", "height"],
+    });
+    const withMath = hydrateKatexHtml(clean);
+    return { kind: "html" as const, html: withMath };
+  }, [html]);
 
-  if (!looksLikeHtml(html)) {
-    return <Tag className={cn("whitespace-pre-line", className)}>{html}</Tag>;
+  if (!rendered) return null;
+
+  if (rendered.kind === "plain") {
+    return <Tag className={cn("whitespace-pre-line", className)}>{rendered.text}</Tag>;
   }
 
-  const clean = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
   return (
     <Tag
       className={cn("rich-text-content", className)}
-      dangerouslySetInnerHTML={{ __html: clean }}
+      dangerouslySetInnerHTML={{ __html: rendered.html }}
     />
   );
 }
