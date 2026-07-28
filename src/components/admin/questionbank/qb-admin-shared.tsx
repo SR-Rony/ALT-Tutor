@@ -18,7 +18,39 @@ import type { QbDifficulty, QbPaper, QbQuestion, QbTopic } from "@/types/qb.type
 import { cn } from "@/utils";
 
 export const DIFFICULTIES: QbDifficulty[] = ["EASY", "MEDIUM", "HARD"];
+/** Default papers before a study set grows via Add paper. */
 export const PAPERS: QbPaper[] = ["PAPER_1", "PAPER_2", "PAPER_3"];
+
+export function parsePaperNumber(paper: string | null | undefined): number {
+  const key = String(paper ?? "PAPER_1").toUpperCase();
+  const match =
+    key.match(/^PAPER_(\d+)$/) ||
+    key.match(/^P(\d+)$/) ||
+    key.match(/^(\d+)$/) ||
+    key.match(/PAPER_?(\d+)/);
+  const n = match ? Number.parseInt(match[1], 10) : 1;
+  return Number.isFinite(n) && n >= 1 ? n : 1;
+}
+
+export function paperKey(n: number): QbPaper {
+  return `PAPER_${Math.max(1, Math.floor(n))}`;
+}
+
+export function papersUpTo(count: number): QbPaper[] {
+  const n = Math.max(1, Math.floor(count));
+  return Array.from({ length: n }, (_, i) => paperKey(i + 1));
+}
+
+export function resolvePaperTabs(
+  paperCount: number | null | undefined,
+  questions: QbQuestion[] | undefined
+): QbPaper[] {
+  const fromQuestions = (questions ?? []).reduce(
+    (max, q) => Math.max(max, parsePaperNumber(String(q.paper))),
+    0
+  );
+  return papersUpTo(Math.max(3, paperCount ?? 3, fromQuestions));
+}
 
 export function AccessBadgePill({ badge }: { badge?: string | null }) {
   return (
@@ -34,24 +66,24 @@ export function AccessBadgePill({ badge }: { badge?: string | null }) {
 }
 
 export function paperShortLabel(paper: string) {
-  const key = String(paper).toUpperCase();
-  if (key === "PAPER_3" || key === "3") return "Paper 3";
-  if (key === "PAPER_2" || key === "2") return "Paper 2";
-  if (key === "PAPER_1" || key === "1") return "Paper 1";
-  return key.replace("PAPER_", "Paper ");
+  const n = parsePaperNumber(paper);
+  return `Paper ${n}`;
 }
 
 export function countByPaper(questions: QbQuestion[] | undefined) {
-  const counts: Record<QbPaper, number> = { PAPER_1: 0, PAPER_2: 0, PAPER_3: 0 };
+  const counts: Record<string, number> = {};
   for (const q of questions ?? []) {
-    const key = String(q.paper).toUpperCase() as QbPaper;
-    if (key in counts) counts[key] += 1;
+    const key = paperKey(parsePaperNumber(String(q.paper)));
+    counts[key] = (counts[key] ?? 0) + 1;
   }
   return counts;
 }
 
 export function questionsForPaper(questions: QbQuestion[] | undefined, paper: QbPaper) {
-  return (questions ?? []).filter((q) => String(q.paper).toUpperCase() === paper);
+  const target = paperKey(parsePaperNumber(paper));
+  return (questions ?? []).filter(
+    (q) => paperKey(parsePaperNumber(String(q.paper))) === target
+  );
 }
 
 const EXCEL_TEMPLATE_HEADERS = [

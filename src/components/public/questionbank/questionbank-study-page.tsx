@@ -75,12 +75,6 @@ const TYPE_OPTIONS: { value: QbQuestionType; label: string }[] = [
   { value: "SHORT_ANSWER", label: "Short Answer Questions" },
 ];
 
-const PAPER_FILTER_OPTIONS: { value: QbPaper; label: string }[] = [
-  { value: "PAPER_1", label: "Paper 1" },
-  { value: "PAPER_2", label: "Paper 2" },
-  { value: "PAPER_3", label: "Paper 3" },
-];
-
 const QUESTION_COUNT_OPTIONS = [10, 20, 30] as const;
 type QuestionCountLimit = (typeof QUESTION_COUNT_OPTIONS)[number];
 /** Default browse page size when not using a Paper 2/3 exam pack filter. */
@@ -91,15 +85,13 @@ function isMcqPaper(paper: string) {
 }
 
 function isTheoryPaper(paper: string) {
-  const key = String(paper).toUpperCase();
-  return key === "PAPER_2" || key === "PAPER_3";
+  return !isMcqPaper(paper);
 }
 
 function paperDisplayLabel(paper: string) {
-  const key = String(paper).toUpperCase();
-  if (key === "PAPER_3") return "Paper 3";
-  if (key === "PAPER_2") return "Paper 2";
-  return "Paper 1";
+  const match = String(paper).toUpperCase().match(/PAPER_?(\d+)/);
+  const n = match ? match[1] : "1";
+  return `Paper ${n}`;
 }
 
 function difficultyMeta(d: string) {
@@ -698,6 +690,14 @@ export function QuestionbankStudyPage({
 
   const program = data?.subtopic.topic.program;
   const topic = data?.subtopic.topic;
+
+  const paperFilterOptions = useMemo(() => {
+    const count = Math.max(3, data?.subtopic.paperCount ?? 3);
+    return Array.from({ length: count }, (_, i) => {
+      const value = `PAPER_${i + 1}` as QbPaper;
+      return { value, label: `Paper ${i + 1}` };
+    });
+  }, [data?.subtopic.paperCount]);
 
   const loadHistory = useCallback(async () => {
     if (!isAuthenticated || !examMode) return;
@@ -1312,7 +1312,7 @@ export function QuestionbankStudyPage({
                 />
 
                 <FilterInlineGroup label="Paper">
-                  {PAPER_FILTER_OPTIONS.map((paper) => (
+                  {paperFilterOptions.map((paper) => (
                     <NativeCheck
                       key={paper.value}
                       label={paper.label}

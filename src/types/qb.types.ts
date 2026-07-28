@@ -1,7 +1,8 @@
 import type { QbAccessBadge } from "@/lib/access-tier";
 
 export type QbDifficulty = "EASY" | "MEDIUM" | "HARD";
-export type QbPaper = "PAPER_1" | "PAPER_2" | "PAPER_3";
+/** Dynamic paper key, e.g. PAPER_1 … PAPER_N */
+export type QbPaper = string;
 export type QbQuestionType = "MULTIPLE_CHOICE" | "SHORT_ANSWER" | "DATA_BASED";
 export type { QbAccessBadge } from "@/lib/access-tier";
 
@@ -34,6 +35,8 @@ export interface QbSubtopic {
   description?: string | null;
   order: number;
   badge: QbAccessBadge | string;
+  /** Number of Paper tabs (Paper 1 … Paper N). */
+  paperCount?: number;
   isActive: boolean;
   topicId: string;
   /** True when the current user lacks the required Free/Silver/Gold/Diamond tier. */

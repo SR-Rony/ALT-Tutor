@@ -17,6 +17,7 @@ export type CreateQbSubtopicInput = {
   description?: string;
   badge?: QbAccessBadge;
   order?: number;
+  paperCount?: number;
   isActive?: boolean;
 };
 

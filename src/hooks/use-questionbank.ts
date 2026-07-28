@@ -100,6 +100,23 @@ export function useUpdateQbSubtopic() {
   });
 }
 
+export function useAddQbPaper() {
+  const invalidate = useInvalidateQb();
+  return useMutation({
+    mutationFn: (subtopicId: string) => questionbankService.addPaper(subtopicId),
+    onSuccess: invalidate,
+  });
+}
+
+export function useRemoveQbPaper() {
+  const invalidate = useInvalidateQb();
+  return useMutation({
+    mutationFn: ({ subtopicId, paper }: { subtopicId: string; paper: string }) =>
+      questionbankService.removePaper(subtopicId, paper),
+    onSuccess: invalidate,
+  });
+}
+
 export function useDeleteQbSubtopic() {
   const invalidate = useInvalidateQb();
   return useMutation({

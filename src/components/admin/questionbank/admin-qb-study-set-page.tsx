@@ -9,6 +9,7 @@ import {
   ExternalLink,
   FileSpreadsheet,
   Plus,
+  Trash2,
   Upload,
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
@@ -19,9 +20,11 @@ import { ROUTES } from "@/constants";
 import {
   useAdminQuestionbank,
   useAdminSubjectsTree,
+  useAddQbPaper,
   useCreateQbQuestion,
   useDeleteQbQuestion,
   useImportQbQuestions,
+  useRemoveQbPaper,
   useUpdateQbQuestion,
 } from "@/hooks";
 import { normalizeAccessBadge } from "@/lib/access-tier";
@@ -34,12 +37,14 @@ import {
   AccessBadgePill,
   AdminQuestionDropdown,
   DIFFICULTIES,
-  PAPERS,
   countByPaper,
   downloadExcelTemplate,
   downloadStudySetQuestions,
+  paperKey,
   paperShortLabel,
+  parsePaperNumber,
   questionsForPaper,
+  resolvePaperTabs,
 } from "./qb-admin-shared";
 
 type Props = { subtopicId: string };
@@ -56,6 +61,8 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
   const updateQuestion = useUpdateQbQuestion();
   const deleteQuestion = useDeleteQbQuestion();
   const importQuestions = useImportQbQuestions();
+  const addPaperMutation = useAddQbPaper();
+  const removePaperMutation = useRemoveQbPaper();
 
   const [activePaper, setActivePaper] = useState<QbPaper>("PAPER_1");
   const [modal, setModal] = useState<
@@ -99,6 +106,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
   }, [subjectsTree, programId]);
 
   const questions = located?.sub.questions ?? [];
+  const paperTabs = resolvePaperTabs(located?.sub.paperCount, questions);
   const paperCounts = countByPaper(questions);
   const visibleQuestions = questionsForPaper(questions, activePaper);
 
@@ -107,6 +115,8 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
     updateQuestion.isPending ||
     deleteQuestion.isPending ||
     importQuestions.isPending ||
+    addPaperMutation.isPending ||
+    removePaperMutation.isPending ||
     uploadingField !== null;
 
   const backHref = programId
@@ -131,6 +141,44 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
     setActionError(null);
     resetQuestionForm(forPaper);
     setModal({ kind: "question" });
+  };
+
+  const handleAddPaper = async () => {
+    setActionError(null);
+    try {
+      const updated = await addPaperMutation.mutateAsync(subtopicId);
+      const nextPaper = `PAPER_${updated.paperCount}` as QbPaper;
+      setActivePaper(nextPaper);
+    } catch (err) {
+      setActionError((err as ApiError)?.message || "Could not add paper");
+    }
+  };
+
+  const handleRemovePaper = async () => {
+    if (paperTabs.length <= 1) return;
+    const count = paperCounts[activePaper] ?? 0;
+    const label = paperShortLabel(activePaper);
+    const ok = window.confirm(
+      count > 0
+        ? `Delete ${label}? This permanently removes its ${count} question${count === 1 ? "" : "s"}. Higher papers will be renumbered.`
+        : `Delete ${label}? Higher papers will be renumbered.`
+    );
+    if (!ok) return;
+    setActionError(null);
+    try {
+      const updated = await removePaperMutation.mutateAsync({
+        subtopicId,
+        paper: activePaper,
+      });
+      const removedN = parsePaperNumber(activePaper);
+      const nextActive =
+        removedN > 1 ? paperKey(removedN - 1) : paperKey(1);
+      // Prefer previous paper; clamp to new paperCount after delete.
+      const maxLeft = updated.paperCount ?? Math.max(1, paperTabs.length - 1);
+      setActivePaper(paperKey(Math.min(parsePaperNumber(nextActive), maxLeft)));
+    } catch (err) {
+      setActionError((err as ApiError)?.message || "Could not delete paper");
+    }
   };
 
   const openEditQuestion = (question: QbQuestion) => {
@@ -272,6 +320,9 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
 
   return (
     <>
+      {actionError && !modal ? (
+        <p className="mb-3 text-sm text-accent">{actionError}</p>
+      ) : null}
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
         <div className="border-b border-border px-5 py-5">
           <Link
@@ -292,8 +343,13 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <AccessBadgePill badge={badge} />
                 <span className="text-xs text-muted-foreground">
-                  {questions.length} questions · P1 {paperCounts.PAPER_1} · P2 {paperCounts.PAPER_2}{" "}
-                  · P3 {paperCounts.PAPER_3}
+                  {questions.length} questions ·{" "}
+                  {paperTabs.map((p, i) => (
+                    <span key={p}>
+                      {i > 0 ? " · " : ""}
+                      P{p.replace("PAPER_", "")} {paperCounts[p] ?? 0}
+                    </span>
+                  ))}
                 </span>
               </div>
             </div>
@@ -338,9 +394,14 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 <Upload className="h-4 w-4" />
                 Upload Excel
               </Button>
-              <Button type="button" size="sm" onClick={() => openAddQuestion(activePaper)}>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                onClick={() => void handleAddPaper()}
+              >
                 <Plus className="h-4 w-4" />
-                Add question
+                Add paper
               </Button>
             </div>
           </div>
@@ -348,7 +409,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
 
         <div className="border-b border-border px-5">
           <div className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Papers">
-            {PAPERS.map((p) => {
+            {paperTabs.map((p) => {
               const active = activePaper === p;
               return (
                 <button
@@ -364,7 +425,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 >
                   {paperShortLabel(p)}
                   <span className="ml-1.5 text-xs font-medium text-muted-foreground">
-                    ({paperCounts[p]})
+                    ({paperCounts[p] ?? 0})
                   </span>
                   <span
                     aria-hidden
@@ -403,7 +464,18 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
               </Button>
               <Button type="button" size="sm" variant="outline" onClick={() => openAddQuestion(activePaper)}>
                 <Plus className="h-4 w-4" />
-                Add to {paperShortLabel(activePaper)}
+                Add question
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="text-accent hover:text-accent"
+                disabled={busy || paperTabs.length <= 1}
+                onClick={() => void handleRemovePaper()}
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete paper
               </Button>
             </div>
           </div>
@@ -415,7 +487,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
               </p>
               <Button type="button" size="sm" className="mt-3" onClick={() => openAddQuestion(activePaper)}>
                 <Plus className="h-4 w-4" />
-                Add {paperShortLabel(activePaper)} question
+                Add question
               </Button>
             </div>
           ) : (
@@ -580,7 +652,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                   onChange={(e) => setPaper(e.target.value as QbPaper)}
                   className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
                 >
-                  {PAPERS.map((p) => (
+                  {[...new Set([...paperTabs, paper])].map((p) => (
                     <option key={p} value={p}>
                       {paperShortLabel(p)}
                     </option>

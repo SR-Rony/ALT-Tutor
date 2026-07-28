@@ -91,6 +91,8 @@ export {
   useDeleteQbTopic,
   useCreateQbSubtopic,
   useUpdateQbSubtopic,
+  useAddQbPaper,
+  useRemoveQbPaper,
   useDeleteQbSubtopic,
   useCreateQbQuestion,
   useUpdateQbQuestion,

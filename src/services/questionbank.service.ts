@@ -78,6 +78,18 @@ export const questionbankService = {
   updateSubtopic(id: string, payload: Partial<CreateQbSubtopicInput>) {
     return apiClient.patch(`/questionbank/subtopics/${id}`, payload).then((r) => r.data);
   },
+  addPaper(subtopicId: string) {
+    return apiClient
+      .post<{ paperCount: number }>(`/questionbank/subtopics/${subtopicId}/papers`)
+      .then((r) => r.data);
+  },
+  removePaper(subtopicId: string, paper: string) {
+    return apiClient
+      .delete<{ paperCount: number }>(
+        `/questionbank/subtopics/${subtopicId}/papers/${encodeURIComponent(paper)}`
+      )
+      .then((r) => r.data);
+  },
   deleteSubtopic(id: string) {
     return apiClient.delete(`/questionbank/subtopics/${id}`).then((r) => r.data);
   },

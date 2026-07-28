@@ -51,6 +51,20 @@ import {
   downloadProgramQuestions,
 } from "./qb-admin-shared";
 
+/** Strip leading "1. " / "1:" from stored titles so "Topic 1: Algebra" stays clean. */
+function topicDisplayName(title: string) {
+  return title.replace(/^\s*\d+\s*[.:)\-–—]\s*/, "").trim() || title;
+}
+
+/** Strip leading "1.1 " style serial from study-set titles (serial is shown separately). */
+function studySetBaseTitle(title: string) {
+  return title.replace(/^\s*\d+(\.\d+)?\s*[.:)\-–—]?\s*/, "").trim() || title;
+}
+
+function studySetSerialLabel(topicNumber: number, studySetIndex: number) {
+  return `${topicNumber}.${studySetIndex + 1}`;
+}
+
 export function AdminQuestionbankPage() {
   const searchParams = useSearchParams();
   const { data: subjectsTree = [] } = useAdminSubjectsTree();
@@ -234,9 +248,11 @@ export function AdminQuestionbankPage() {
         }
       }
       if (modal.kind === "subtopic") {
+        const parentTopic = topics.find((t) => t.id === modal.topicId);
+        const cleanTitle = studySetBaseTitle(title.trim()) || title.trim();
         const payload = {
-          title: title.trim(),
-          slug: slug.trim() || slugify(title),
+          title: cleanTitle,
+          slug: slug.trim() || slugify(cleanTitle),
           description: serializeRichText(description) || undefined,
           badge: accessBadge,
         };
@@ -246,6 +262,8 @@ export function AdminQuestionbankPage() {
           await createSubtopic.mutateAsync({
             topicId: modal.topicId,
             ...payload,
+            // Backend also forces last order; send length as a hint for older APIs.
+            order: parentTopic?.subtopics.length ?? 0,
           });
         }
       }
@@ -453,7 +471,7 @@ export function AdminQuestionbankPage() {
                       )}
                     />
                     <p className="text-sm font-bold text-foreground md:text-base">
-                      Topic {topic.number || topicIndex + 1}: {topic.title}
+                      Topic {topicIndex + 1}: {topicDisplayName(topic.title)}
                     </p>
                     <span className="text-xs text-muted-foreground">
                       ({topic.subtopics.length} study sets)
@@ -520,10 +538,13 @@ export function AdminQuestionbankPage() {
                       </p>
                     ) : null}
 
-                    {topic.subtopics.map((sub) => {
+                    {topic.subtopics.map((sub, subIndex) => {
                       const paperCounts = countByPaper(sub.questions);
                       const total = sub.questions?.length ?? 0;
                       const manageHref = ROUTES.admin.qbStudySet(sub.id, effectiveProgramId);
+                      const topicNumber = topicIndex + 1;
+                      const serial = studySetSerialLabel(topicNumber, subIndex);
+                      const displayTitle = `${serial} ${studySetBaseTitle(sub.title)}`;
 
                       return (
                         <div
@@ -541,7 +562,7 @@ export function AdminQuestionbankPage() {
                             <div className="min-w-0">
                               <div className="flex flex-wrap items-center gap-2">
                                 <p className="text-sm font-semibold text-foreground group-hover:text-primary">
-                                  {sub.title}
+                                  {displayTitle}
                                 </p>
                                 <AccessBadgePill badge={sub.badge} />
                                 <span className="text-xs text-muted-foreground">({total})</span>
@@ -552,8 +573,12 @@ export function AdminQuestionbankPage() {
                                 ) : null}
                               </div>
                               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                P1 {paperCounts.PAPER_1} · P2 {paperCounts.PAPER_2} · P3{" "}
-                                {paperCounts.PAPER_3} — click to manage questions
+                                P1 {paperCounts.PAPER_1 ?? 0} · P2 {paperCounts.PAPER_2 ?? 0} · P3{" "}
+                                {paperCounts.PAPER_3 ?? 0}
+                                {(sub.paperCount ?? 3) > 3
+                                  ? ` · +${(sub.paperCount ?? 3) - 3} more`
+                                  : ""}{" "}
+                                — click to manage questions
                               </p>
                             </div>
                           </Link>
@@ -649,7 +674,9 @@ export function AdminQuestionbankPage() {
         }
         description={
           modal?.kind === "subtopic"
-            ? "ALT Free is open practice. Silver, Gold, and Diamond need a matching Practice Pass."
+            ? modal.editId
+              ? "ALT Free is open practice. Silver, Gold, and Diamond need a matching Practice Pass."
+              : "Serial number is assigned automatically (e.g. 1.4) and the new study set is added last."
             : "Visible on the public Questionbank."
         }
         onClose={() => !busy && setModal(null)}
@@ -667,6 +694,21 @@ export function AdminQuestionbankPage() {
       >
         {actionError ? <p className="mb-3 text-sm text-accent">{actionError}</p> : null}
         <div className="space-y-4">
+          {modal?.kind === "subtopic" && !modal.editId ? (
+            <p className="rounded-lg border border-primary/20 bg-primary-muted/40 px-3 py-2 text-xs text-muted-foreground">
+              Next serial:{" "}
+              <strong className="text-foreground">
+                {(() => {
+                  const parent = topics.find((t) => t.id === modal.topicId);
+                  const topicNumber =
+                    (parent ? topics.findIndex((t) => t.id === parent.id) : -1) + 1 || 1;
+                  const nextIndex = parent?.subtopics.length ?? 0;
+                  return studySetSerialLabel(topicNumber, nextIndex);
+                })()}
+              </strong>{" "}
+              — enter title only (e.g. Linear Equations). Number is automatic.
+            </p>
+          ) : null}
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold">Title</span>
             <Input
@@ -675,6 +717,9 @@ export function AdminQuestionbankPage() {
                 setTitle(e.target.value);
                 if (!modal?.editId) setSlug(slugify(e.target.value));
               }}
+              placeholder={
+                modal?.kind === "subtopic" ? "e.g. Linear Equations" : undefined
+              }
             />
           </label>
           <label className="block space-y-1.5">
