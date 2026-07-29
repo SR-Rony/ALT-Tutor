@@ -2,7 +2,17 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, Eye, EyeOff, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
@@ -24,12 +34,22 @@ import type { PastPaper, PastPaperSourceType } from "@/types/past-paper.types";
 import type { QbAccessBadge } from "@/types/qb.types";
 import { cn } from "@/utils";
 
-type WizardStep = 0 | 1 | 2;
+type QuestionPickerTab = "selected" | "available";
+type ListStatusFilter = "ALL" | "PUBLISHED" | "DRAFT";
 
-const STEPS = ["Basics", "Fixed questions", "Preview & publish"] as const;
+type PickerQuestionRow = {
+  id: string;
+  number: number;
+  prompt: string;
+  difficulty: string;
+  marks: number;
+  topicTitle: string;
+  subtopicTitle: string;
+};
+
 const SOURCE_TYPES: PastPaperSourceType[] = ["INTERACTIVE", "PDF", "HYBRID"];
 const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
-const PAPER_CODES = ["P1", "P2"];
+const PAPER_CODES = ["P1", "P2", "P3"];
 
 function sourceLabel(type: PastPaperSourceType) {
   if (type === "PDF") return "PDF";
@@ -37,10 +57,28 @@ function sourceLabel(type: PastPaperSourceType) {
   return "Interactive";
 }
 
+function findProgramPath(
+  tree: Array<{
+    id: string;
+    subjects: Array<{ id: string; programs: Array<{ id: string }> }>;
+  }>,
+  programId: string
+): { categoryId: string; subjectId: string; programId: string } | null {
+  for (const category of tree) {
+    for (const subject of category.subjects) {
+      if (subject.programs.some((p) => p.id === programId)) {
+        return { categoryId: category.id, subjectId: subject.id, programId };
+      }
+    }
+  }
+  return null;
+}
+
 export function AdminPastPapersPage() {
   const { data: subjectsTree = [] } = useAdminSubjectsTree();
   const [categoryId, setCategoryId] = useState("");
   const [subjectId, setSubjectId] = useState("");
+  const [programId, setProgramId] = useState("");
 
   const effectiveCategoryId = categoryId || subjectsTree[0]?.id || "";
   const subjects = useMemo(() => {
@@ -50,42 +88,14 @@ export function AdminPastPapersPage() {
   const programs = useMemo(() => {
     return subjects.find((s) => s.id === effectiveSubjectId)?.programs ?? [];
   }, [subjects, effectiveSubjectId]);
-  const effectiveProgramId = programs[0]?.id || "";
-  const selectedProgram = programs[0];
+  const effectiveProgramId = programId || programs[0]?.id || "";
+  const selectedProgram = programs.find((p) => p.id === effectiveProgramId) ?? programs[0];
 
   const { data, isLoading, error, refetch, isFetching } = useAdminPastPapers(
     effectiveProgramId || undefined
   );
-  const { data: qbTopics = [] } = useAdminQuestionbank(effectiveProgramId || undefined);
-  const createPaper = useCreatePastPaper();
-  const updatePaper = useUpdatePastPaper();
-  const deletePaper = useDeletePastPaper();
-
-  const papers = data?.papers ?? [];
-
-  const qbQuestions = useMemo(() => {
-    return qbTopics.flatMap((topic) =>
-      (topic.subtopics ?? []).flatMap((sub) =>
-        (sub.questions ?? []).map((q) => ({
-          ...q,
-          subtopicTitle: sub.title,
-          topicTitle: topic.title,
-        }))
-      )
-    );
-  }, [qbTopics]);
-
-  const papersByYear = useMemo(() => {
-    const map = new Map<number, PastPaper[]>();
-    for (const paper of papers) {
-      if (!map.has(paper.year)) map.set(paper.year, []);
-      map.get(paper.year)!.push(paper);
-    }
-    return [...map.entries()].sort((a, b) => b[0] - a[0]);
-  }, [papers]);
 
   const [modalOpen, setModalOpen] = useState(false);
-  const [step, setStep] = useState<WizardStep>(0);
   const [editId, setEditId] = useState<string | null>(null);
   const [editMeta, setEditMeta] = useState<{ isPublished: boolean; attemptCount: number }>({
     isPublished: false,
@@ -93,6 +103,34 @@ export function AdminPastPapersPage() {
   });
   const [initialQuestionIds, setInitialQuestionIds] = useState<string[]>([]);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PastPaper | null>(null);
+
+  const [modalCategoryId, setModalCategoryId] = useState("");
+  const [modalSubjectId, setModalSubjectId] = useState("");
+  const [modalProgramId, setModalProgramId] = useState("");
+
+  const modalSubjects = useMemo(() => {
+    const catId = modalCategoryId || subjectsTree[0]?.id || "";
+    return subjectsTree.find((c) => c.id === catId)?.subjects ?? [];
+  }, [subjectsTree, modalCategoryId]);
+  const modalPrograms = useMemo(() => {
+    const subId = modalSubjectId || modalSubjects[0]?.id || "";
+    return modalSubjects.find((s) => s.id === subId)?.programs ?? [];
+  }, [modalSubjects, modalSubjectId]);
+  const effectiveModalProgramId =
+    modalProgramId || modalPrograms[0]?.id || effectiveProgramId || "";
+  const scopeLocked = Boolean(editId);
+
+  const qbProgramId = modalOpen ? effectiveModalProgramId : effectiveProgramId;
+  const { data: qbTopics = [] } = useAdminQuestionbank(qbProgramId || undefined);
+  const createPaper = useCreatePastPaper();
+  const updatePaper = useUpdatePastPaper();
+  const deletePaper = useDeletePastPaper();
+
+  const papers = data?.papers ?? [];
+
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<ListStatusFilter>("ALL");
 
   const [year, setYear] = useState(String(new Date().getFullYear() - 1));
   const [session, setSession] = useState("Annual");
@@ -105,14 +143,107 @@ export function AdminPastPapersPage() {
   const [pdfUrl, setPdfUrl] = useState("");
   const [accessTier, setAccessTier] = useState<QbAccessBadge>("FREE");
   const [sectionTitle, setSectionTitle] = useState("Section A");
+  const [topicId, setTopicId] = useState("");
+  const [subtopicId, setSubtopicId] = useState("");
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
-  const [isPublished, setIsPublished] = useState(false);
+  const [pickerTab, setPickerTab] = useState<QuestionPickerTab>("available");
+  const [isPublished, setIsPublished] = useState(true);
 
   const busy = createPaper.isPending || updatePaper.isPending || deletePaper.isPending;
   const questionsChanged =
-    editId &&
+    Boolean(editId) &&
     (selectedQuestionIds.length !== initialQuestionIds.length ||
       selectedQuestionIds.some((id, i) => id !== initialQuestionIds[i]));
+
+  const selectedTopic = qbTopics.find((t) => t.id === topicId);
+  const subtopicOptions = useMemo(() => {
+    if (topicId && selectedTopic) {
+      return selectedTopic.subtopics.map((s) => ({ id: s.id, label: s.title }));
+    }
+    return qbTopics.flatMap((t) =>
+      t.subtopics.map((s) => ({
+        id: s.id,
+        label: `${t.title} · ${s.title}`,
+      }))
+    );
+  }, [qbTopics, topicId, selectedTopic]);
+
+  const allModeQuestions = useMemo(() => {
+    const rows: PickerQuestionRow[] = [];
+    for (const topic of qbTopics) {
+      for (const sub of topic.subtopics) {
+        for (const q of sub.questions ?? []) {
+          if (!q.isActive) continue;
+          rows.push({
+            id: q.id,
+            number: q.number,
+            prompt: q.prompt,
+            difficulty: String(q.difficulty),
+            marks: q.marks ?? 1,
+            topicTitle: topic.title,
+            subtopicTitle: sub.title,
+          });
+        }
+      }
+    }
+    return rows;
+  }, [qbTopics]);
+
+  const filteredAvailableQuestions = useMemo(() => {
+    const selected = new Set(selectedQuestionIds);
+    const topics = topicId ? qbTopics.filter((t) => t.id === topicId) : qbTopics;
+    const allowedIds = new Set<string>();
+    for (const topic of topics) {
+      for (const sub of topic.subtopics) {
+        if (subtopicId && sub.id !== subtopicId) continue;
+        for (const q of sub.questions ?? []) {
+          if (!selected.has(q.id)) allowedIds.add(q.id);
+        }
+      }
+    }
+    return allModeQuestions.filter((q) => allowedIds.has(q.id));
+  }, [allModeQuestions, selectedQuestionIds, qbTopics, topicId, subtopicId]);
+
+  const selectedQuestions = useMemo(() => {
+    const byId = new Map(allModeQuestions.map((q) => [q.id, q]));
+    return selectedQuestionIds
+      .map((id) => byId.get(id))
+      .filter((q): q is PickerQuestionRow => Boolean(q));
+  }, [allModeQuestions, selectedQuestionIds]);
+
+  const filteredPapers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return papers.filter((item) => {
+      if (statusFilter === "PUBLISHED" && !item.isPublished) return false;
+      if (statusFilter === "DRAFT" && item.isPublished) return false;
+      if (!q) return true;
+      return (
+        item.title.toLowerCase().includes(q) ||
+        item.slug.toLowerCase().includes(q) ||
+        item.session.toLowerCase().includes(q) ||
+        item.paperCode.toLowerCase().includes(q) ||
+        String(item.year).includes(q)
+      );
+    });
+  }, [papers, search, statusFilter]);
+
+  const papersByYear = useMemo(() => {
+    const map = new Map<number, PastPaper[]>();
+    for (const paper of filteredPapers) {
+      if (!map.has(paper.year)) map.set(paper.year, []);
+      map.get(paper.year)!.push(paper);
+    }
+    return [...map.entries()].sort((a, b) => b[0] - a[0]);
+  }, [filteredPapers]);
+
+  const stats = useMemo(() => {
+    const base = { total: papers.length, published: 0, draft: 0 };
+    for (const p of papers) {
+      if (p.isPublished) base.published += 1;
+      else base.draft += 1;
+    }
+    return base;
+  }, [papers]);
 
   useEffect(() => {
     if (!modalOpen || editId) return;
@@ -120,8 +251,52 @@ export function AdminPastPapersPage() {
     setSlug(slugify(title));
   }, [title, modalOpen, editId]);
 
+  const syncModalScope = (programIdValue: string) => {
+    const path = findProgramPath(subjectsTree, programIdValue);
+    if (path) {
+      setModalCategoryId(path.categoryId);
+      setModalSubjectId(path.subjectId);
+      setModalProgramId(path.programId);
+      return;
+    }
+    setModalCategoryId(effectiveCategoryId);
+    setModalSubjectId(effectiveSubjectId);
+    setModalProgramId(programIdValue || effectiveProgramId);
+  };
+
+  const clearQuestionScope = () => {
+    setTopicId("");
+    setSubtopicId("");
+    setSelectedQuestionIds([]);
+  };
+
+  const addQuestion = (id: string) => {
+    setSelectedQuestionIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const removeQuestion = (id: string) => {
+    setSelectedQuestionIds((prev) => prev.filter((qid) => qid !== id));
+  };
+
+  const addAllAvailable = () => {
+    setSelectedQuestionIds((prev) => {
+      const next = [...prev];
+      const seen = new Set(prev);
+      for (const q of filteredAvailableQuestions) {
+        if (seen.has(q.id)) continue;
+        seen.add(q.id);
+        next.push(q.id);
+      }
+      return next;
+    });
+  };
+
+  const clearAllSelected = () => {
+    setSelectedQuestionIds([]);
+    setPickerTab("available");
+  };
+
   const resetForm = () => {
-    setStep(0);
     setEditId(null);
     setEditMeta({ isPublished: false, attemptCount: 0 });
     setInitialQuestionIds([]);
@@ -136,9 +311,13 @@ export function AdminPastPapersPage() {
     setPdfUrl("");
     setAccessTier("FREE");
     setSectionTitle("Section A");
+    setTopicId("");
+    setSubtopicId("");
     setSelectedQuestionIds([]);
-    setIsPublished(false);
+    setPickerTab("available");
+    setIsPublished(true);
     setActionError(null);
+    syncModalScope(effectiveProgramId);
   };
 
   const openCreate = () => {
@@ -163,7 +342,6 @@ export function AdminPastPapersPage() {
       attemptCount: item.attemptCount ?? 0,
     });
     setInitialQuestionIds(orderedIds);
-    setStep(0);
     setYear(String(item.year));
     setSession(item.session);
     setPaperCode(item.paperCode);
@@ -175,55 +353,35 @@ export function AdminPastPapersPage() {
     setPdfUrl(item.pdfUrl ?? "");
     setAccessTier(normalizeAccessBadge(item.accessTier));
     setSectionTitle(item.sections?.[0]?.title ?? "Section A");
+    setTopicId("");
+    setSubtopicId("");
     setSelectedQuestionIds(orderedIds);
+    setPickerTab(orderedIds.length > 0 ? "selected" : "available");
     setIsPublished(Boolean(item.isPublished));
+    syncModalScope(item.programId || effectiveProgramId);
     setActionError(null);
     setModalOpen(true);
   };
 
-  const toggleQuestion = (questionId: string) => {
-    setSelectedQuestionIds((prev) =>
-      prev.includes(questionId)
-        ? prev.filter((id) => id !== questionId)
-        : [...prev, questionId]
-    );
-  };
-
-  const validateStep = (current: WizardStep): string | null => {
-    if (current === 0) {
-      if (!title.trim() || !slug.trim()) return "Title and slug are required";
-      if (!year.trim() || Number.parseInt(year, 10) < 1990) return "Enter a valid year";
-      if (!session.trim() || !paperCode.trim()) return "Session and paper code are required";
-      if (!Number.parseInt(durationMin, 10) || Number.parseInt(durationMin, 10) < 1) {
-        return "Duration must be at least 1 minute";
-      }
+  const validate = (): string | null => {
+    if (!title.trim() || !slug.trim()) return "Title and slug are required";
+    if (!year.trim() || Number.parseInt(year, 10) < 1990) return "Enter a valid year";
+    if (!session.trim() || !paperCode.trim()) return "Session and paper code are required";
+    if (!Number.parseInt(durationMin, 10) || Number.parseInt(durationMin, 10) < 1) {
+      return "Duration must be at least 1 minute";
     }
-    if (current === 1) {
-      if (selectedQuestionIds.length < 1) return "Select at least one question";
-    }
+    if (!effectiveModalProgramId) return "Select a category, subject, and program";
+    if (selectedQuestionIds.length < 1) return "Select at least one question from the Questionbank";
     return null;
   };
 
-  const goNext = () => {
-    const err = validateStep(step);
+  const onSave = async () => {
+    const err = validate();
     if (err) {
       setActionError(err);
       return;
     }
-    setActionError(null);
-    setStep((s) => Math.min(2, s + 1) as WizardStep);
-  };
-
-  const onSave = async () => {
-    for (const s of [0, 1] as WizardStep[]) {
-      const err = validateStep(s);
-      if (err) {
-        setStep(s);
-        setActionError(err);
-        return;
-      }
-    }
-    if (!effectiveProgramId) {
+    if (!effectiveModalProgramId) {
       setActionError("Select a program first");
       return;
     }
@@ -255,7 +413,7 @@ export function AdminPastPapersPage() {
       paperCode: paperCode.trim(),
       title: title.trim(),
       slug: slug.trim(),
-      description: description.trim() || undefined,
+      description: description.trim(),
       durationMin: Number.parseInt(durationMin, 10),
       sourceType,
       pdfUrl: pdfUrl.trim() || undefined,
@@ -268,12 +426,31 @@ export function AdminPastPapersPage() {
       if (editId) {
         await updatePaper.mutateAsync({ id: editId, payload });
       } else {
-        await createPaper.mutateAsync({ programId: effectiveProgramId, ...payload });
+        await createPaper.mutateAsync({
+          programId: effectiveModalProgramId,
+          ...payload,
+        });
+        const path = findProgramPath(subjectsTree, effectiveModalProgramId);
+        if (path) {
+          setCategoryId(path.categoryId);
+          setSubjectId(path.subjectId);
+          setProgramId(path.programId);
+        }
       }
       setModalOpen(false);
       resetForm();
-    } catch (err) {
-      setActionError((err as ApiError)?.message || "Failed to save past paper");
+    } catch (saveErr) {
+      setActionError((saveErr as ApiError)?.message || "Failed to save past paper");
+    }
+  };
+
+  const onConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deletePaper.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (delErr) {
+      setActionError((delErr as ApiError)?.message || "Failed to delete past paper");
     }
   };
 
@@ -282,7 +459,7 @@ export function AdminPastPapersPage() {
       <div className="space-y-6">
         <PageHeader
           title="Past Papers"
-          description="Year/session archive with fixed Questionbank sets."
+          description="Create and manage year/session exam archives."
           className="mb-0"
         />
         <PageLoader label="Loading past papers..." />
@@ -297,7 +474,7 @@ export function AdminPastPapersPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Past Papers"
-              description="Archive by year and session. Each paper uses a fixed ordered QB set — student attempts snapshot it."
+              description="Create, edit, publish, or delete year/session papers. Questions come from the Questionbank."
               className="mb-0"
             />
             <div className="flex flex-wrap gap-2">
@@ -312,7 +489,7 @@ export function AdminPastPapersPage() {
               <Button
                 type="button"
                 size="sm"
-                disabled={!effectiveProgramId || qbQuestions.length === 0}
+                disabled={!effectiveProgramId}
                 onClick={openCreate}
               >
                 <Plus className="h-4 w-4" />
@@ -321,7 +498,7 @@ export function AdminPastPapersPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <label className="block space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Category
@@ -331,6 +508,7 @@ export function AdminPastPapersPage() {
                 onChange={(e) => {
                   setCategoryId(e.target.value);
                   setSubjectId("");
+                  setProgramId("");
                 }}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
@@ -347,12 +525,31 @@ export function AdminPastPapersPage() {
               </span>
               <select
                 value={effectiveSubjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
+                onChange={(e) => {
+                  setSubjectId(e.target.value);
+                  setProgramId("");
+                }}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
                 {subjects.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Program
+              </span>
+              <select
+                value={effectiveProgramId}
+                onChange={(e) => setProgramId(e.target.value)}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {programs.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
                   </option>
                 ))}
               </select>
@@ -364,141 +561,217 @@ export function AdminPastPapersPage() {
               {(error as unknown as ApiError)?.message}
             </p>
           ) : null}
+
           {selectedProgram ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Student hub:{" "}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                {stats.total} total
+              </span>
+              <span className="rounded-lg bg-[#ecfdf3] px-2.5 py-1 text-xs font-semibold text-[var(--accent-green)]">
+                {stats.published} published
+              </span>
+              <span className="rounded-lg bg-[#fff8ef] px-2.5 py-1 text-xs font-semibold text-[#9a3412]">
+                {stats.draft} draft
+              </span>
               <Link
                 href={ROUTES.subjectResource(selectedProgram.slug, "past-papers")}
-                className="font-semibold text-primary hover:underline"
+                className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                 target="_blank"
               >
-                /subjects/{selectedProgram.slug}/past-papers
+                Open student hub
+                <ExternalLink className="h-3 w-3" />
               </Link>
-            </p>
+            </div>
           ) : null}
         </div>
 
-        <div className="space-y-6 p-5">
-          {papers.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">
-              No past papers yet. Create one with the year/session wizard.
-            </p>
-          ) : null}
-
-          {papersByYear.map(([yr, yearPapers]) => (
-            <div key={yr}>
-              <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
-                {yr}
-              </h3>
-              <div className="space-y-3">
-                {yearPapers.map((item) => (
-                  <div
-                    key={item.id}
-                    className={cn(
-                      "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3",
-                      !item.isActive && "border-dashed opacity-70"
-                    )}
-                  >
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-foreground">{item.title}</p>
-                        <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
-                          {item.paperCode}
-                        </span>
-                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-                          {sourceLabel(item.sourceType)}
-                        </span>
-                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-                          {tierLabel(normalizeAccessBadge(item.accessTier))}
-                        </span>
-                        {item.isPublished ? (
-                          <span className="rounded-md bg-[#ecfdf3] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--accent-green)]">
-                            Published
-                          </span>
-                        ) : (
-                          <span className="rounded-md bg-[#fff8ef] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#9a3412]">
-                            Draft
-                          </span>
-                        )}
-                      </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {item.session} · {item.totalQuestions}Q · {item.totalMarks} marks ·{" "}
-                        {item.durationMin} min · {item.slug}
-                        {(item.attemptCount ?? 0) > 0
-                          ? ` · ${item.attemptCount} attempt(s)`
-                          : ""}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <button
-                        type="button"
-                        className="rounded-md p-2 text-muted-foreground hover:bg-primary-muted hover:text-primary"
-                        title="Edit"
-                        onClick={() => openEdit(item)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-                        title={item.isPublished ? "Unpublish" : "Publish"}
-                        disabled={busy}
-                        onClick={() =>
-                          void updatePaper.mutateAsync({
-                            id: item.id,
-                            payload: { isPublished: !item.isPublished },
-                          })
-                        }
-                      >
-                        {item.isPublished ? (
-                          <Eye className="h-4 w-4" />
-                        ) : (
-                          <EyeOff className="h-4 w-4 text-accent" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded-md p-2 text-accent hover:bg-[#fff1ee]"
-                        title="Delete"
-                        onClick={() => {
-                          const msg =
-                            (item.attemptCount ?? 0) > 0
-                              ? `"${item.title}" has ${item.attemptCount} student attempt(s). Delete anyway?`
-                              : `Delete "${item.title}"?`;
-                          if (window.confirm(msg)) void deletePaper.mutateAsync(item.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+        <div className="space-y-4 p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative max-w-md flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by title, year, session…"
+                className="pl-9"
+              />
             </div>
-          ))}
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["ALL", "All status"],
+                  ["PUBLISHED", "Published"],
+                  ["DRAFT", "Draft"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setStatusFilter(id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    statusFilter === id
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredPapers.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
+              <p className="text-sm text-muted-foreground">
+                {papers.length === 0
+                  ? "No past papers yet for this program."
+                  : "No papers match your filters."}
+              </p>
+              {papers.length === 0 ? (
+                <Button type="button" size="sm" className="mt-4" onClick={openCreate}>
+                  <Plus className="h-4 w-4" />
+                  Create past paper
+                </Button>
+              ) : null}
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {papersByYear.map(([yr, yearPapers]) => (
+                <div key={yr}>
+                  <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-muted-foreground">
+                    {yr}
+                  </h3>
+                  <div className="space-y-3">
+                    {yearPapers.map((item) => (
+                      <div
+                        key={item.id}
+                        className={cn(
+                          "rounded-xl border border-border px-4 py-3 transition",
+                          !item.isActive && "border-dashed opacity-70",
+                          !item.isPublished && "bg-muted/20"
+                        )}
+                      >
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <p className="font-semibold text-foreground">{item.title}</p>
+                              <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+                                {item.paperCode}
+                              </span>
+                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+                                {sourceLabel(item.sourceType)}
+                              </span>
+                              <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+                                {tierLabel(item.accessTier)}
+                              </span>
+                              {item.isPublished ? (
+                                <span className="rounded-md bg-[#ecfdf3] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--accent-green)]">
+                                  Published
+                                </span>
+                              ) : (
+                                <span className="rounded-md bg-[#fff8ef] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#9a3412]">
+                                  Draft
+                                </span>
+                              )}
+                            </div>
+                            <p className="mt-1 text-xs text-muted-foreground">
+                              {item.session} · {item.totalQuestions}Q · {item.durationMin} min
+                              {(item.attemptCount ?? 0) > 0
+                                ? ` · ${item.attemptCount} attempt(s)`
+                                : ""}
+                            </p>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() => openEdit(item)}
+                            >
+                              <Pencil className="h-3.5 w-3.5" />
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() =>
+                                void updatePaper.mutateAsync({
+                                  id: item.id,
+                                  payload: { isPublished: !item.isPublished },
+                                })
+                              }
+                            >
+                              {item.isPublished ? (
+                                <>
+                                  <EyeOff className="h-3.5 w-3.5" />
+                                  Unpublish
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="h-3.5 w-3.5" />
+                                  Publish
+                                </>
+                              )}
+                            </Button>
+                            {selectedProgram && item.isPublished ? (
+                              <Button type="button" size="sm" variant="ghost" asChild>
+                                <Link
+                                  href={ROUTES.subjectPastPaper(
+                                    selectedProgram.slug,
+                                    item.slug
+                                  )}
+                                  target="_blank"
+                                >
+                                  <ExternalLink className="h-3.5 w-3.5" />
+                                  View
+                                </Link>
+                              </Button>
+                            ) : null}
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="text-accent hover:bg-[#fff1ee] hover:text-accent"
+                              disabled={busy}
+                              onClick={() => setDeleteTarget(item)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Delete
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       <AdminModal
         open={modalOpen}
-        title={editId ? "Edit past paper" : "New past paper"}
-        description={`Step ${step + 1} of 3 — ${STEPS[step]}`}
+        title={editId ? "Edit past paper" : "Create past paper"}
+        description="Choose scope, set year/session, then pick Questionbank questions."
         onClose={() => !busy && setModalOpen(false)}
         className="sm:max-w-2xl"
         footer={
-          <div className="flex flex-wrap justify-between gap-2">
-            <div className="flex gap-2">
-              {step > 0 ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() => setStep((s) => Math.max(0, s - 1) as WizardStep)}
-                >
-                  Back
-                </Button>
-              ) : null}
-            </div>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="inline-flex items-center gap-2 text-sm font-semibold">
+              <input
+                type="checkbox"
+                className="h-4 w-4 accent-primary"
+                checked={isPublished}
+                onChange={(e) => setIsPublished(e.target.checked)}
+              />
+              Publish
+            </label>
             <div className="flex gap-2">
               <Button
                 type="button"
@@ -508,196 +781,435 @@ export function AdminPastPapersPage() {
               >
                 Cancel
               </Button>
-              {step < 2 ? (
-                <Button type="button" disabled={busy} onClick={goNext}>
-                  Next
-                </Button>
-              ) : (
-                <Button type="button" disabled={busy} onClick={() => void onSave()}>
-                  {busy ? "Saving…" : editId ? "Save paper" : "Create paper"}
-                </Button>
-              )}
+              <Button type="button" disabled={busy} onClick={() => void onSave()}>
+                {busy ? "Saving…" : editId ? "Save" : "Create"}
+              </Button>
             </div>
           </div>
         }
       >
-        {actionError ? (
-          <p className="mb-3 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
-            {actionError}
-          </p>
-        ) : null}
-
-        {editId && editMeta.isPublished && (editMeta.attemptCount > 0 || questionsChanged) ? (
-          <div className="mb-3 flex gap-2 rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-2 text-sm text-amber-950">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-            <p>
-              Published archive — student attempts use a frozen snapshot. Changing the fixed
-              question set affects consistency for existing attempts.
+        <div className="max-h-[65vh] space-y-4 overflow-y-auto pr-1">
+          {actionError ? (
+            <p className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
+              {actionError}
             </p>
-          </div>
-        ) : null}
+          ) : null}
 
-        <div className="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
-          {step === 0 ? (
+          {editId && editMeta.isPublished && (editMeta.attemptCount > 0 || questionsChanged) ? (
+            <div className="flex gap-2 rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <p>
+                Published paper — student attempts use a frozen snapshot. Changing questions can
+                affect consistency for existing attempts.
+              </p>
+            </div>
+          ) : null}
+
+          <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Questionbank scope
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Category</span>
+                <select
+                  value={modalCategoryId || subjectsTree[0]?.id || ""}
+                  disabled={busy || scopeLocked}
+                  onChange={(e) => {
+                    setModalCategoryId(e.target.value);
+                    setModalSubjectId("");
+                    setModalProgramId("");
+                    clearQuestionScope();
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                >
+                  {subjectsTree.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Subject</span>
+                <select
+                  value={modalSubjectId || modalSubjects[0]?.id || ""}
+                  disabled={busy || scopeLocked || modalSubjects.length === 0}
+                  onChange={(e) => {
+                    setModalSubjectId(e.target.value);
+                    setModalProgramId("");
+                    clearQuestionScope();
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                >
+                  {modalSubjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Program</span>
+                <select
+                  value={effectiveModalProgramId}
+                  disabled={busy || scopeLocked || modalPrograms.length === 0}
+                  onChange={(e) => {
+                    setModalProgramId(e.target.value);
+                    clearQuestionScope();
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                >
+                  {modalPrograms.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Year</span>
-                <Input type="number" min={1990} value={year} onChange={(e) => setYear(e.target.value)} />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Session</span>
-                <Input value={session} onChange={(e) => setSession(e.target.value)} placeholder="Annual" />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Paper code</span>
+                <span className="text-sm font-semibold">Topic</span>
                 <select
-                  value={paperCode}
-                  onChange={(e) => setPaperCode(e.target.value)}
+                  value={topicId}
+                  onChange={(e) => {
+                    setTopicId(e.target.value);
+                    setSubtopicId("");
+                  }}
                   className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
                 >
-                  {PAPER_CODES.map((code) => (
-                    <option key={code} value={code}>
-                      {code}
+                  <option value="">All topics</option>
+                  {qbTopics.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
                     </option>
                   ))}
                 </select>
               </label>
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Duration (minutes)</span>
-                <Input
-                  type="number"
-                  min={1}
-                  value={durationMin}
-                  onChange={(e) => setDurationMin(e.target.value)}
-                />
-              </label>
-              <label className="block space-y-1.5 sm:col-span-2">
-                <span className="text-sm font-semibold">Title</span>
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Slug</span>
-                <Input value={slug} onChange={(e) => setSlug(e.target.value)} />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Access tier</span>
+                <span className="text-sm font-semibold">Subtopic</span>
                 <select
-                  value={accessTier}
-                  onChange={(e) => setAccessTier(e.target.value as QbAccessBadge)}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+                  value={subtopicId}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setSubtopicId(next);
+                    if (next && !topicId) {
+                      const owner = qbTopics.find((t) =>
+                        t.subtopics.some((s) => s.id === next)
+                      );
+                      if (owner) setTopicId(owner.id);
+                    }
+                  }}
+                  disabled={subtopicOptions.length === 0}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
                 >
-                  {TIERS.map((t) => (
-                    <option key={t} value={t}>
-                      {tierLabel(t)}
+                  <option value="">
+                    {subtopicOptions.length === 0
+                      ? "No subtopics in Questionbank"
+                      : "All subtopics"}
+                  </option>
+                  {subtopicOptions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
                     </option>
                   ))}
                 </select>
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Source type</span>
-                <select
-                  value={sourceType}
-                  onChange={(e) => setSourceType(e.target.value as PastPaperSourceType)}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-                >
-                  {SOURCE_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {sourceLabel(t)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {(sourceType === "PDF" || sourceType === "HYBRID") && (
-                <label className="block space-y-1.5 sm:col-span-2">
-                  <span className="text-sm font-semibold">PDF URL (optional)</span>
-                  <Input value={pdfUrl} onChange={(e) => setPdfUrl(e.target.value)} placeholder="https://…" />
-                </label>
-              )}
-              <label className="block space-y-1.5 sm:col-span-2">
-                <span className="text-sm font-semibold">Description</span>
-                <Input
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Short archive note for students"
-                />
               </label>
             </div>
-          ) : null}
+          </div>
 
-          {step === 1 ? (
-            <div className="space-y-3">
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Section title</span>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold">Year</span>
+              <Input
+                type="number"
+                min={1990}
+                value={year}
+                onChange={(e) => setYear(e.target.value)}
+              />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold">Session</span>
+              <Input
+                value={session}
+                onChange={(e) => setSession(e.target.value)}
+                placeholder="Annual"
+              />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold">Paper code</span>
+              <select
+                value={paperCode}
+                onChange={(e) => setPaperCode(e.target.value)}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {PAPER_CODES.map((code) => (
+                  <option key={code} value={code}>
+                    {code}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold">Duration (min)</span>
+              <Input
+                type="number"
+                min={1}
+                value={durationMin}
+                onChange={(e) => setDurationMin(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold">Title</span>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. 2023 Annual Paper 1"
+            />
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold">Description</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              placeholder="Optional short note for students"
+              className="flex min-h-[72px] w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15"
+            />
+          </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold">Access</span>
+              <select
+                value={accessTier}
+                onChange={(e) => setAccessTier(e.target.value as QbAccessBadge)}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {TIERS.map((t) => (
+                  <option key={t} value={t}>
+                    {tierLabel(t)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold">Source type</span>
+              <select
+                value={sourceType}
+                onChange={(e) => setSourceType(e.target.value as PastPaperSourceType)}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {SOURCE_TYPES.map((t) => (
+                  <option key={t} value={t}>
+                    {sourceLabel(t)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {(sourceType === "PDF" || sourceType === "HYBRID") && (
+              <label className="block space-y-1.5 sm:col-span-2">
+                <span className="text-sm font-semibold">PDF URL</span>
                 <Input
-                  value={sectionTitle}
-                  onChange={(e) => setSectionTitle(e.target.value)}
-                  placeholder="Section A"
+                  value={pdfUrl}
+                  onChange={(e) => setPdfUrl(e.target.value)}
+                  placeholder="https://…"
                 />
               </label>
-              <p className="text-xs text-muted-foreground">
-                Select questions in the order they should appear on the paper ({selectedQuestionIds.length}{" "}
-                selected).
-              </p>
-              <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-border p-3">
-                {qbQuestions.map((q) => {
-                  const checked = selectedQuestionIds.includes(q.id);
-                  const order = selectedQuestionIds.indexOf(q.id);
-                  return (
-                    <label
-                      key={q.id}
-                      className={cn(
-                        "flex cursor-pointer gap-2 rounded-lg border px-3 py-2 text-sm",
-                        checked ? "border-primary bg-primary-muted/40" : "border-border"
-                      )}
+            )}
+            <label className="block space-y-1.5 sm:col-span-2">
+              <span className="text-sm font-semibold">Section title</span>
+              <Input
+                value={sectionTitle}
+                onChange={(e) => setSectionTitle(e.target.value)}
+                placeholder="Section A"
+              />
+            </label>
+          </div>
+
+          <div className="space-y-2">
+            <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setPickerTab("selected")}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition",
+                  pickerTab === "selected"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Selected ({selectedQuestionIds.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPickerTab("available")}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition",
+                  pickerTab === "available"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Available ({filteredAvailableQuestions.length})
+              </button>
+            </div>
+
+            {pickerTab === "selected" ? (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">Already on this paper</span>
+                  {selectedQuestions.length > 0 ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={clearAllSelected}
                     >
-                      <input
-                        type="checkbox"
-                        className="mt-1 accent-primary"
-                        checked={checked}
-                        onChange={() => toggleQuestion(q.id)}
-                      />
-                      <span className="min-w-0 flex-1">
-                        <span className="font-semibold text-foreground">
-                          {checked ? `#${order + 1} · ` : ""}
-                          Q{q.number}
-                        </span>{" "}
-                        <span className="text-muted-foreground">
-                          ({q.subtopicTitle}) · {q.marks} mark{q.marks === 1 ? "" : "s"}
+                      Clear all
+                    </Button>
+                  ) : null}
+                </div>
+                {selectedQuestions.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                    No questions selected yet. Switch to Available and add some.
+                  </p>
+                ) : (
+                  <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                    {selectedQuestions.map((q, index) => (
+                      <div
+                        key={q.id}
+                        className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
+                      >
+                        <span className="mt-0.5 w-5 shrink-0 text-xs font-semibold text-muted-foreground">
+                          {index + 1}.
                         </span>
-                        <span className="mt-0.5 block truncate text-foreground">{q.prompt}</span>
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium text-foreground line-clamp-2">
+                            #{q.number} {q.prompt}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {q.topicTitle} · {q.subtopicTitle} · {q.marks} mark
+                            {q.marks === 1 ? "" : "s"}
+                          </span>
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="shrink-0 text-accent hover:bg-[#fff1ee] hover:text-accent"
+                          disabled={busy}
+                          onClick={() => removeQuestion(q.id)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">Add from Questionbank</span>
+                  {filteredAvailableQuestions.length > 0 ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={addAllAvailable}
+                    >
+                      Select all
+                    </Button>
+                  ) : null}
+                </div>
+                {filteredAvailableQuestions.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                    {allModeQuestions.length === 0
+                      ? "No questions in this program. Add them in Questionbank first."
+                      : selectedQuestionIds.length > 0
+                        ? "All matching questions are already selected."
+                        : "No questions match this topic/subtopic filter."}
+                  </p>
+                ) : (
+                  <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                    {filteredAvailableQuestions.map((q) => (
+                      <div
+                        key={q.id}
+                        className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium text-foreground line-clamp-2">
+                            #{q.number} {q.prompt}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {q.topicTitle} · {q.subtopicTitle} · {q.difficulty}
+                          </span>
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0"
+                          disabled={busy}
+                          onClick={() => addQuestion(q.id)}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
+            )}
 
-          {step === 2 ? (
-            <div className="space-y-3 text-sm">
-              <p>
-                <strong>{title || "Untitled"}</strong> · {year} {session} {paperCode}
-              </p>
-              <p className="text-muted-foreground">
-                {selectedQuestionIds.length} fixed questions · {durationMin} min ·{" "}
-                {tierLabel(accessTier)} · {sourceLabel(sourceType)}
-              </p>
-              <p className="rounded-lg border border-dashed border-border px-3 py-2 text-xs text-muted-foreground">
-                Students will always see this exact question order. Attempts store an immutable
-                snapshot — live QB edits will not change past scores.
-              </p>
-              <label className="flex items-center gap-2 font-semibold">
-                <input
-                  type="checkbox"
-                  className="h-4 w-4 accent-primary"
-                  checked={isPublished}
-                  onChange={(e) => setIsPublished(e.target.checked)}
-                />
-                Publish now (visible on student Past Papers archive)
-              </label>
-            </div>
-          ) : null}
+            <p className="text-xs text-muted-foreground">
+              Selected questions stay out of Available, so the same question cannot be added twice.
+              Order in Selected is the paper order.
+            </p>
+          </div>
         </div>
+      </AdminModal>
+
+      <AdminModal
+        open={Boolean(deleteTarget)}
+        title="Delete past paper?"
+        description="This cannot be undone. Student attempts for this paper will also be removed."
+        onClose={() => !busy && setDeleteTarget(null)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={busy}
+              className="bg-accent text-white hover:bg-accent/90"
+              onClick={() => void onConfirmDelete()}
+            >
+              {busy ? "Deleting…" : "Delete paper"}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-foreground">
+          Delete <strong>{deleteTarget?.title}</strong>
+          {(deleteTarget?.attemptCount ?? 0) > 0
+            ? ` (${deleteTarget?.attemptCount} student attempt(s))?`
+            : "?"}
+        </p>
       </AdminModal>
     </>
   );

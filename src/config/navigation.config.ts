@@ -66,6 +66,7 @@ export const adminNav: NavItem[] = [
   { title: "Reviews", href: ROUTES.admin.reviews, iconName: "messages" },
   { title: "Questionbank", href: ROUTES.admin.questionbank, iconName: "clipboard" },
   { title: "Practice Exams", href: ROUTES.admin.practiceExams, iconName: "clipboard" },
+  { title: "Past Papers", href: ROUTES.admin.pastPapers, iconName: "clipboard" },
   { title: "Categories", href: ROUTES.admin.categories, iconName: "tags" },
   { title: "Subjects", href: ROUTES.admin.qbSubjects, iconName: "book" },
   { title: "Key Concepts", href: ROUTES.admin.keyConcepts, iconName: "book" },
@@ -73,7 +74,6 @@ export const adminNav: NavItem[] = [
     title: "Exams",
     iconName: "clipboard",
     children: [
-      { title: "Past Papers", href: ROUTES.admin.pastPapers, iconName: "clipboard" },
       { title: "MCQ Exams", href: ROUTES.admin.examsMcq, iconName: "clipboard" },
       { title: "Written Exams", href: ROUTES.admin.examsWritten, iconName: "clipboard" },
       { title: "Grading", href: ROUTES.admin.gradingQueue, iconName: "clipboard" },

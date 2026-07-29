@@ -164,6 +164,7 @@ export function AdminPracticeExamsPage() {
   const [statusFilter, setStatusFilter] = useState<ListStatusFilter>("ALL");
 
   const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [mode, setMode] = useState<PracticeExamMode>("MCQ");
   const [durationMin, setDurationMin] = useState("30");
   const [topicId, setTopicId] = useState("");
@@ -343,6 +344,7 @@ export function AdminPracticeExamsPage() {
   const resetForm = (preset?: { mode?: PracticeExamMode }) => {
     setEditId(null);
     setTitle("");
+    setDescription("");
     setEditSlug("");
     setMode(preset?.mode ?? "MCQ");
     setDurationMin(preset?.mode === "WRITTEN" ? "40" : "30");
@@ -364,6 +366,7 @@ export function AdminPracticeExamsPage() {
   const openEdit = (item: PracticeExamTemplate) => {
     setEditId(item.id);
     setTitle(item.title);
+    setDescription(item.description ?? "");
     setEditSlug(item.slug);
     setMode(item.mode === "WRITTEN" ? "WRITTEN" : "MCQ");
     setDurationMin(String(item.durationMin));
@@ -384,6 +387,7 @@ export function AdminPracticeExamsPage() {
   const openDuplicate = (item: PracticeExamTemplate) => {
     setEditId(null);
     setTitle(`${item.title} (Copy)`);
+    setDescription(item.description ?? "");
     setEditSlug(slugify(`${item.slug}-copy`));
     setMode(item.mode === "WRITTEN" ? "WRITTEN" : "MCQ");
     setDurationMin(String(item.durationMin));
@@ -438,6 +442,7 @@ export function AdminPracticeExamsPage() {
     const payload = {
       title: title.trim(),
       slug,
+      description: description.trim(),
       type: "TOPIC_QUIZ" as const,
       mode,
       durationMin: Number.parseInt(durationMin, 10),
@@ -904,6 +909,17 @@ export function AdminPracticeExamsPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Linear Equations Quiz"
+            />
+          </label>
+
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold">Description</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Optional short description for students"
+              className="flex min-h-[80px] w-full rounded-xl border border-border bg-card px-4 py-2.5 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/15"
             />
           </label>
 
