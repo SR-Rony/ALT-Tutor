@@ -42,6 +42,18 @@ const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
 
 type ListModeFilter = "ALL" | PracticeExamMode;
 type ListStatusFilter = "ALL" | "PUBLISHED" | "DRAFT";
+type QuestionPickerTab = "selected" | "available";
+
+type PickerQuestionRow = {
+  id: string;
+  number: number;
+  prompt: string;
+  difficulty: string;
+  paper: string;
+  questionType: string;
+  topicTitle: string;
+  subtopicTitle: string;
+};
 
 function modeLabel(mode: PracticeExamMode | string | undefined) {
   return mode === "WRITTEN" ? "Written" : "MCQ";
@@ -80,6 +92,23 @@ function scopeLabel(
   return "Any topic";
 }
 
+function findProgramPath(
+  tree: Array<{
+    id: string;
+    subjects: Array<{ id: string; programs: Array<{ id: string }> }>;
+  }>,
+  programId: string
+): { categoryId: string; subjectId: string; programId: string } | null {
+  for (const category of tree) {
+    for (const subject of category.subjects) {
+      if (subject.programs.some((p) => p.id === programId)) {
+        return { categoryId: category.id, subjectId: subject.id, programId };
+      }
+    }
+  }
+  return null;
+}
+
 export function AdminPracticeExamsPage() {
   const { data: subjectsTree = [] } = useAdminSubjectsTree();
   const [categoryId, setCategoryId] = useState("");
@@ -100,7 +129,30 @@ export function AdminPracticeExamsPage() {
   const { data, isLoading, error, refetch, isFetching } = useAdminPracticeExams(
     effectiveProgramId || undefined
   );
-  const { data: qbTopics = [] } = useAdminQuestionbank(effectiveProgramId || undefined);
+
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PracticeExamTemplate | null>(null);
+
+  const [modalCategoryId, setModalCategoryId] = useState("");
+  const [modalSubjectId, setModalSubjectId] = useState("");
+  const [modalProgramId, setModalProgramId] = useState("");
+
+  const modalSubjects = useMemo(() => {
+    const catId = modalCategoryId || subjectsTree[0]?.id || "";
+    return subjectsTree.find((c) => c.id === catId)?.subjects ?? [];
+  }, [subjectsTree, modalCategoryId]);
+  const modalPrograms = useMemo(() => {
+    const subId = modalSubjectId || modalSubjects[0]?.id || "";
+    return modalSubjects.find((s) => s.id === subId)?.programs ?? [];
+  }, [modalSubjects, modalSubjectId]);
+  const effectiveModalProgramId =
+    modalProgramId || modalPrograms[0]?.id || effectiveProgramId || "";
+  const scopeLocked = Boolean(editId);
+
+  const qbProgramId = modalOpen ? effectiveModalProgramId : effectiveProgramId;
+  const { data: qbTopics = [] } = useAdminQuestionbank(qbProgramId || undefined);
   const createTemplate = useCreatePracticeExamTemplate();
   const updateTemplate = useUpdatePracticeExamTemplate();
   const deleteTemplate = useDeletePracticeExamTemplate();
@@ -111,17 +163,13 @@ export function AdminPracticeExamsPage() {
   const [modeFilter, setModeFilter] = useState<ListModeFilter>("ALL");
   const [statusFilter, setStatusFilter] = useState<ListStatusFilter>("ALL");
 
-  const [modalOpen, setModalOpen] = useState(false);
-  const [editId, setEditId] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<PracticeExamTemplate | null>(null);
-
   const [title, setTitle] = useState("");
   const [mode, setMode] = useState<PracticeExamMode>("MCQ");
   const [durationMin, setDurationMin] = useState("30");
   const [topicId, setTopicId] = useState("");
   const [subtopicId, setSubtopicId] = useState("");
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
+  const [pickerTab, setPickerTab] = useState<QuestionPickerTab>("available");
   const [accessTier, setAccessTier] = useState<QbAccessBadge>("FREE");
   const [isPublished, setIsPublished] = useState(true);
   const [editSlug, setEditSlug] = useState("");
@@ -130,24 +178,45 @@ export function AdminPracticeExamsPage() {
     createTemplate.isPending || updateTemplate.isPending || deleteTemplate.isPending;
 
   const selectedTopic = qbTopics.find((t) => t.id === topicId);
-  const subtopics = selectedTopic?.subtopics ?? [];
+  const subtopicOptions = useMemo(() => {
+    if (topicId && selectedTopic) {
+      return selectedTopic.subtopics.map((s) => ({
+        id: s.id,
+        label: s.title,
+      }));
+    }
+    return qbTopics.flatMap((t) =>
+      t.subtopics.map((s) => ({
+        id: s.id,
+        label: `${t.title} · ${s.title}`,
+      }))
+    );
+  }, [qbTopics, topicId, selectedTopic]);
 
-  const pickerQuestions = useMemo(() => {
+  const syncModalScope = (programIdValue: string) => {
+    const path = findProgramPath(subjectsTree, programIdValue);
+    if (path) {
+      setModalCategoryId(path.categoryId);
+      setModalSubjectId(path.subjectId);
+      setModalProgramId(path.programId);
+      return;
+    }
+    setModalCategoryId(effectiveCategoryId);
+    setModalSubjectId(effectiveSubjectId);
+    setModalProgramId(programIdValue || effectiveProgramId);
+  };
+
+  const clearQuestionScope = () => {
+    setTopicId("");
+    setSubtopicId("");
+    setSelectedQuestionIds([]);
+  };
+
+  const allModeQuestions = useMemo(() => {
     const types = allowedQuestionTypes(mode);
-    const topics = topicId ? qbTopics.filter((t) => t.id === topicId) : qbTopics;
-    const rows: Array<{
-      id: string;
-      number: number;
-      prompt: string;
-      difficulty: string;
-      paper: string;
-      questionType: string;
-      topicTitle: string;
-      subtopicTitle: string;
-    }> = [];
-    for (const topic of topics) {
+    const rows: PickerQuestionRow[] = [];
+    for (const topic of qbTopics) {
       for (const sub of topic.subtopics) {
-        if (subtopicId && sub.id !== subtopicId) continue;
         for (const q of sub.questions ?? []) {
           if (!q.isActive) continue;
           if (!types.includes(q.questionType as (typeof types)[number])) continue;
@@ -165,25 +234,57 @@ export function AdminPracticeExamsPage() {
       }
     }
     return rows;
-  }, [qbTopics, topicId, subtopicId, mode]);
+  }, [qbTopics, mode]);
 
-  const selectedPreview = useMemo(() => {
-    const byId = new Map(
-      qbTopics.flatMap((t) =>
-        t.subtopics.flatMap((s) =>
-          (s.questions ?? []).map(
-            (q) =>
-              [q.id, { number: q.number, prompt: q.prompt, topicTitle: t.title }] as const
-          )
-        )
-      )
-    );
+  const filteredAvailableQuestions = useMemo(() => {
+    const selected = new Set(selectedQuestionIds);
+    const topics = topicId ? qbTopics.filter((t) => t.id === topicId) : qbTopics;
+    const allowedIds = new Set<string>();
+    for (const topic of topics) {
+      for (const sub of topic.subtopics) {
+        if (subtopicId && sub.id !== subtopicId) continue;
+        for (const q of sub.questions ?? []) {
+          if (!selected.has(q.id)) allowedIds.add(q.id);
+        }
+      }
+    }
+    return allModeQuestions.filter((q) => allowedIds.has(q.id));
+  }, [allModeQuestions, selectedQuestionIds, qbTopics, topicId, subtopicId]);
+
+  const selectedQuestions = useMemo(() => {
+    const byId = new Map(allModeQuestions.map((q) => [q.id, q]));
     return selectedQuestionIds
       .map((id) => byId.get(id))
-      .filter((q): q is NonNullable<typeof q> => Boolean(q));
-  }, [qbTopics, selectedQuestionIds]);
+      .filter((q): q is PickerQuestionRow => Boolean(q));
+  }, [allModeQuestions, selectedQuestionIds]);
 
   const totalQuestions = selectedQuestionIds.length;
+
+  const addQuestion = (id: string) => {
+    setSelectedQuestionIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+  };
+
+  const removeQuestion = (id: string) => {
+    setSelectedQuestionIds((prev) => prev.filter((qid) => qid !== id));
+  };
+
+  const addAllAvailable = () => {
+    setSelectedQuestionIds((prev) => {
+      const next = [...prev];
+      const seen = new Set(prev);
+      for (const q of filteredAvailableQuestions) {
+        if (seen.has(q.id)) continue;
+        seen.add(q.id);
+        next.push(q.id);
+      }
+      return next;
+    });
+  };
+
+  const clearAllSelected = () => {
+    setSelectedQuestionIds([]);
+    setPickerTab("available");
+  };
 
   const filteredTemplates = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -248,9 +349,11 @@ export function AdminPracticeExamsPage() {
     setTopicId("");
     setSubtopicId("");
     setSelectedQuestionIds([]);
+    setPickerTab("available");
     setAccessTier("FREE");
     setIsPublished(true);
     setActionError(null);
+    syncModalScope(effectiveProgramId);
   };
 
   const openCreate = (preset?: { mode?: PracticeExamMode }) => {
@@ -266,7 +369,14 @@ export function AdminPracticeExamsPage() {
     setDurationMin(String(item.durationMin));
     setAccessTier(normalizeAccessBadge(item.accessTier));
     setIsPublished(item.isPublished);
+    syncModalScope(item.programId || effectiveProgramId);
     loadScopeFromBlueprint(item);
+    const ids = [
+      ...new Set(
+        (item.blueprint ?? []).flatMap((r) => r.questionIds ?? []).filter(Boolean)
+      ),
+    ];
+    setPickerTab(ids.length > 0 ? "selected" : "available");
     setActionError(null);
     setModalOpen(true);
   };
@@ -279,7 +389,14 @@ export function AdminPracticeExamsPage() {
     setDurationMin(String(item.durationMin));
     setAccessTier(normalizeAccessBadge(item.accessTier));
     setIsPublished(false);
+    syncModalScope(item.programId || effectiveProgramId);
     loadScopeFromBlueprint(item);
+    const ids = [
+      ...new Set(
+        (item.blueprint ?? []).flatMap((r) => r.questionIds ?? []).filter(Boolean)
+      ),
+    ];
+    setPickerTab(ids.length > 0 ? "selected" : "available");
     setActionError(null);
     setModalOpen(true);
   };
@@ -289,6 +406,7 @@ export function AdminPracticeExamsPage() {
     if (!Number.parseInt(durationMin, 10) || Number.parseInt(durationMin, 10) < 1) {
       return "Duration must be at least 1 minute";
     }
+    if (!effectiveModalProgramId) return "Select a category, subject, and program";
     if (selectedQuestionIds.length < 1) {
       return "Select at least one question from the Questionbank";
     }
@@ -301,7 +419,7 @@ export function AdminPracticeExamsPage() {
       setActionError(err);
       return;
     }
-    if (!effectiveProgramId) {
+    if (!effectiveModalProgramId) {
       setActionError("Select a program first");
       return;
     }
@@ -339,9 +457,16 @@ export function AdminPracticeExamsPage() {
         await updateTemplate.mutateAsync({ id: editId, payload });
       } else {
         await createTemplate.mutateAsync({
-          programId: effectiveProgramId,
+          programId: effectiveModalProgramId,
           ...payload,
         });
+        // Keep page list on the program we just created into
+        const path = findProgramPath(subjectsTree, effectiveModalProgramId);
+        if (path) {
+          setCategoryId(path.categoryId);
+          setSubjectId(path.subjectId);
+          setProgramId(path.programId);
+        }
       }
       setModalOpen(false);
       resetForm();
@@ -713,7 +838,7 @@ export function AdminPracticeExamsPage() {
       <AdminModal
         open={modalOpen}
         title={editId ? "Edit practice exam" : "Create practice exam"}
-        description="Pick MCQ or Written, then select questions from the Questionbank."
+        description="Choose category → subject → program, then pick questions."
         onClose={() => !busy && setModalOpen(false)}
         className="sm:max-w-2xl"
         footer={
@@ -759,6 +884,7 @@ export function AdminPracticeExamsPage() {
                   if (m === mode) return;
                   setMode(m);
                   setSelectedQuestionIds([]);
+                  setPickerTab("available");
                 }}
                 className={cn(
                   "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition",
@@ -807,100 +933,283 @@ export function AdminPracticeExamsPage() {
             </label>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Topic (filter)</span>
-              <select
-                value={topicId}
-                onChange={(e) => {
-                  setTopicId(e.target.value);
-                  setSubtopicId("");
-                }}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                <option value="">All topics</option>
-                {qbTopics.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title}
+          <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Questionbank scope
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Category</span>
+                <select
+                  value={modalCategoryId || subjectsTree[0]?.id || ""}
+                  disabled={busy || scopeLocked}
+                  onChange={(e) => {
+                    setModalCategoryId(e.target.value);
+                    setModalSubjectId("");
+                    setModalProgramId("");
+                    clearQuestionScope();
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                >
+                  {subjectsTree.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Subject</span>
+                <select
+                  value={modalSubjectId || modalSubjects[0]?.id || ""}
+                  disabled={busy || scopeLocked || modalSubjects.length === 0}
+                  onChange={(e) => {
+                    setModalSubjectId(e.target.value);
+                    setModalProgramId("");
+                    clearQuestionScope();
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                >
+                  {modalSubjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Program</span>
+                <select
+                  value={effectiveModalProgramId}
+                  disabled={busy || scopeLocked || modalPrograms.length === 0}
+                  onChange={(e) => {
+                    setModalProgramId(e.target.value);
+                    clearQuestionScope();
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                >
+                  {modalPrograms.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {scopeLocked ? (
+              <p className="text-xs text-muted-foreground">
+                Category / subject / program stay fixed while editing this exam.
+              </p>
+            ) : null}
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Topic</span>
+                <select
+                  value={topicId}
+                  onChange={(e) => {
+                    setTopicId(e.target.value);
+                    setSubtopicId("");
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+                >
+                  <option value="">All topics</option>
+                  {qbTopics.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Subtopic</span>
+                <select
+                  value={subtopicId}
+                  onChange={(e) => {
+                    const next = e.target.value;
+                    setSubtopicId(next);
+                    if (next && !topicId) {
+                      const owner = qbTopics.find((t) =>
+                        t.subtopics.some((s) => s.id === next)
+                      );
+                      if (owner) setTopicId(owner.id);
+                    }
+                  }}
+                  disabled={subtopicOptions.length === 0}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                >
+                  <option value="">
+                    {subtopicOptions.length === 0
+                      ? "No subtopics in Questionbank"
+                      : "All subtopics"}
                   </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Subtopic (filter)</span>
-              <select
-                value={subtopicId}
-                onChange={(e) => setSubtopicId(e.target.value)}
-                disabled={!topicId}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
-              >
-                <option value="">All subtopics</option>
-                {subtopics.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.title}
-                  </option>
-                ))}
-              </select>
-            </label>
+                  {subtopicOptions.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            {subtopicOptions.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Subtopics come from Questionbank study sets (e.g. “1.1 Linear Equations”
+                under a topic). Add them under Questionbank first.
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Subtopic = Questionbank study set under a topic (e.g. Algebra → 1.1 Linear
+                Equations).
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-sm font-semibold">
-                Select questions ({mode === "WRITTEN" ? "written" : "MCQ"})
-              </span>
-              <span className="text-xs font-semibold text-muted-foreground">
-                {totalQuestions} selected
-              </span>
+            <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setPickerTab("selected")}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition",
+                  pickerTab === "selected"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Selected ({totalQuestions})
+              </button>
+              <button
+                type="button"
+                onClick={() => setPickerTab("available")}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition",
+                  pickerTab === "available"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Available ({filteredAvailableQuestions.length})
+              </button>
             </div>
-            {pickerQuestions.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                {mode === "WRITTEN"
-                  ? "No written (short answer / data-based) questions in this filter. Add them in Questionbank first."
-                  : "No MCQ questions in this filter. Add them in Questionbank first."}
-              </p>
-            ) : (
-              <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
-                {pickerQuestions.map((q) => {
-                  const checked = selectedQuestionIds.includes(q.id);
-                  return (
-                    <label
-                      key={q.id}
-                      className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
+
+            {pickerTab === "selected" ? (
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">
+                    Already in this exam ({mode === "WRITTEN" ? "written" : "MCQ"})
+                  </span>
+                  {selectedQuestions.length > 0 ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={clearAllSelected}
                     >
-                      <input
-                        type="checkbox"
-                        className="mt-1 accent-primary"
-                        checked={checked}
-                        disabled={busy}
-                        onChange={() =>
-                          setSelectedQuestionIds((prev) =>
-                            checked ? prev.filter((id) => id !== q.id) : [...prev, q.id]
-                          )
-                        }
-                      />
-                      <span className="min-w-0">
-                        <span className="font-medium text-foreground line-clamp-2">
-                          {q.number}. {q.prompt}
+                      Clear all
+                    </Button>
+                  ) : null}
+                </div>
+                {selectedQuestions.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                    No questions selected yet. Switch to Available and add some.
+                  </p>
+                ) : (
+                  <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                    {selectedQuestions.map((q, index) => (
+                      <div
+                        key={q.id}
+                        className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
+                      >
+                        <span className="mt-0.5 w-5 shrink-0 text-xs font-semibold text-muted-foreground">
+                          {index + 1}.
                         </span>
-                        <span className="mt-0.5 block text-xs text-muted-foreground">
-                          {q.topicTitle} · {q.subtopicTitle} · {q.difficulty}
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium text-foreground line-clamp-2">
+                            #{q.number} {q.prompt}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {q.topicTitle} · {q.subtopicTitle} · {q.difficulty}
+                          </span>
                         </span>
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-            {selectedPreview.length > 0 ? (
-              <p className="text-xs text-muted-foreground">
-                Order: {selectedPreview.map((q) => `#${q.number}`).join(", ")}
-              </p>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="shrink-0 text-accent hover:bg-[#fff1ee] hover:text-accent"
+                          disabled={busy}
+                          onClick={() => removeQuestion(q.id)}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                Tick the exact Questionbank questions you want in this exam.
-              </p>
+              <>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold">
+                    Add from Questionbank ({mode === "WRITTEN" ? "written" : "MCQ"})
+                  </span>
+                  {filteredAvailableQuestions.length > 0 ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={addAllAvailable}
+                    >
+                      Select all
+                    </Button>
+                  ) : null}
+                </div>
+                {filteredAvailableQuestions.length === 0 ? (
+                  <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                    {allModeQuestions.length === 0
+                      ? mode === "WRITTEN"
+                        ? "No written questions in this program. Add them in Questionbank first."
+                        : "No MCQ questions in this program. Add them in Questionbank first."
+                      : totalQuestions > 0
+                        ? "All matching questions are already selected. Change topic/subtopic filter or clear some from Selected."
+                        : "No questions match this topic/subtopic filter."}
+                  </p>
+                ) : (
+                  <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                    {filteredAvailableQuestions.map((q) => (
+                      <div
+                        key={q.id}
+                        className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium text-foreground line-clamp-2">
+                            #{q.number} {q.prompt}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-muted-foreground">
+                            {q.topicTitle} · {q.subtopicTitle} · {q.difficulty}
+                          </span>
+                        </span>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          className="shrink-0"
+                          disabled={busy}
+                          onClick={() => addQuestion(q.id)}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
+
+            <p className="text-xs text-muted-foreground">
+              Selected questions stay out of Available, so the same question cannot be added twice.
+            </p>
           </div>
 
           <p className="text-xs text-muted-foreground">
