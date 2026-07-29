@@ -1,7 +1,17 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Eye, EyeOff, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import {
+  Copy,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+} from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
@@ -20,41 +30,53 @@ import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
 import { slugify } from "@/lib/slugify";
 import type { ApiError } from "@/types";
 import type {
-  PracticeExamBlueprintRule,
   PracticeExamMode,
   PracticeExamTemplate,
-  PracticeExamType,
 } from "@/types/practice-exam.types";
-import type { QbAccessBadge, QbDifficulty } from "@/types/qb.types";
+import type { QbAccessBadge } from "@/types/qb.types";
 import { cn } from "@/utils";
 import Link from "next/link";
 
-type WizardStep = 0 | 1 | 2 | 3;
-
-const STEPS = ["Basics", "Blueprint", "Preview", "Publish"] as const;
-const EXAM_TYPES: PracticeExamType[] = ["TOPIC_QUIZ", "MOCK", "LADDER"];
 const EXAM_MODES: PracticeExamMode[] = ["MCQ", "WRITTEN"];
-const DIFFICULTIES: Array<QbDifficulty | ""> = ["", "EASY", "MEDIUM", "HARD"];
 const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
 
-function typeLabel(type: PracticeExamType) {
-  if (type === "MOCK") return "Mock Exam";
-  if (type === "LADDER") return "Revision Ladder";
-  return "Topic Quiz";
-}
+type ListModeFilter = "ALL" | PracticeExamMode;
+type ListStatusFilter = "ALL" | "PUBLISHED" | "DRAFT";
 
 function modeLabel(mode: PracticeExamMode | string | undefined) {
   return mode === "WRITTEN" ? "Written" : "MCQ";
 }
 
-function emptyRule(): PracticeExamBlueprintRule {
-  return { count: 1 };
+function scopeLabel(
+  item: PracticeExamTemplate,
+  qbTopics: Array<{
+    id: string;
+    title: string;
+    subtopics: Array<{ id: string; title: string }>;
+  }>
+) {
+  const rules = item.blueprint ?? [];
+  if (!rules.length) return "Any topic";
+  const topicIds = [...new Set(rules.map((r) => r.topicId).filter(Boolean))];
+  const subIds = [...new Set(rules.map((r) => r.subtopicId).filter(Boolean))];
+  if (subIds.length === 1) {
+    for (const t of qbTopics) {
+      const sub = t.subtopics.find((s) => s.id === subIds[0]);
+      if (sub) return sub.title;
+    }
+  }
+  if (topicIds.length === 1) {
+    return qbTopics.find((t) => t.id === topicIds[0])?.title ?? "Topic";
+  }
+  if (topicIds.length > 1) return "Mixed topics";
+  return "Any topic";
 }
 
 export function AdminPracticeExamsPage() {
   const { data: subjectsTree = [] } = useAdminSubjectsTree();
   const [categoryId, setCategoryId] = useState("");
   const [subjectId, setSubjectId] = useState("");
+  const [programId, setProgramId] = useState("");
 
   const effectiveCategoryId = categoryId || subjectsTree[0]?.id || "";
   const subjects = useMemo(() => {
@@ -64,8 +86,8 @@ export function AdminPracticeExamsPage() {
   const programs = useMemo(() => {
     return subjects.find((s) => s.id === effectiveSubjectId)?.programs ?? [];
   }, [subjects, effectiveSubjectId]);
-  const effectiveProgramId = programs[0]?.id || "";
-  const selectedProgram = programs[0];
+  const effectiveProgramId = programId || programs[0]?.id || "";
+  const selectedProgram = programs.find((p) => p.id === effectiveProgramId) ?? programs[0];
 
   const { data, isLoading, error, refetch, isFetching } = useAdminPracticeExams(
     effectiveProgramId || undefined
@@ -77,143 +99,176 @@ export function AdminPracticeExamsPage() {
 
   const templates = data?.templates ?? [];
 
+  const [search, setSearch] = useState("");
+  const [modeFilter, setModeFilter] = useState<ListModeFilter>("ALL");
+  const [statusFilter, setStatusFilter] = useState<ListStatusFilter>("ALL");
+
   const [modalOpen, setModalOpen] = useState(false);
-  const [step, setStep] = useState<WizardStep>(0);
   const [editId, setEditId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<PracticeExamTemplate | null>(null);
 
   const [title, setTitle] = useState("");
-  const [slug, setSlug] = useState("");
-  const [description, setDescription] = useState("");
-  const [type, setType] = useState<PracticeExamType>("TOPIC_QUIZ");
   const [mode, setMode] = useState<PracticeExamMode>("MCQ");
   const [durationMin, setDurationMin] = useState("30");
-  const [totalQuestions, setTotalQuestions] = useState("10");
-  const [passMarkPercent, setPassMarkPercent] = useState("50");
+  const [questionCount, setQuestionCount] = useState("10");
+  const [topicId, setTopicId] = useState("");
+  const [subtopicId, setSubtopicId] = useState("");
   const [accessTier, setAccessTier] = useState<QbAccessBadge>("FREE");
-  const [blueprint, setBlueprint] = useState<PracticeExamBlueprintRule[]>([emptyRule()]);
-  const [isPublished, setIsPublished] = useState(false);
+  const [isPublished, setIsPublished] = useState(true);
+  const [editSlug, setEditSlug] = useState("");
 
   const busy =
     createTemplate.isPending || updateTemplate.isPending || deleteTemplate.isPending;
-  const blueprintSum = blueprint.reduce((n, rule) => n + (Number(rule.count) || 0), 0);
-  const totalQ = Number.parseInt(totalQuestions, 10) || 0;
+
+  const selectedTopic = qbTopics.find((t) => t.id === topicId);
+  const subtopics = selectedTopic?.subtopics ?? [];
+  const totalQuestions = Math.max(1, Number.parseInt(questionCount, 10) || 1);
+
+  const filteredTemplates = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return templates.filter((item) => {
+      if (modeFilter !== "ALL" && (item.mode ?? "MCQ") !== modeFilter) return false;
+      if (statusFilter === "PUBLISHED" && !item.isPublished) return false;
+      if (statusFilter === "DRAFT" && item.isPublished) return false;
+      if (!q) return true;
+      return (
+        item.title.toLowerCase().includes(q) ||
+        item.slug.toLowerCase().includes(q) ||
+        (item.description ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [templates, search, modeFilter, statusFilter]);
+
+  const stats = useMemo(() => {
+    const base = {
+      total: templates.length,
+      published: 0,
+      draft: 0,
+      mcq: 0,
+      written: 0,
+    };
+    for (const t of templates) {
+      if (t.isPublished) base.published += 1;
+      else base.draft += 1;
+      if (t.mode === "WRITTEN") base.written += 1;
+      else base.mcq += 1;
+    }
+    return base;
+  }, [templates]);
 
   useEffect(() => {
     if (!modalOpen || editId) return;
     if (!title.trim()) return;
-    setSlug(slugify(title));
+    setEditSlug(slugify(title));
   }, [title, modalOpen, editId]);
 
-  const resetForm = () => {
-    setStep(0);
+  const loadScopeFromBlueprint = (item: PracticeExamTemplate) => {
+    const rules = item.blueprint?.length
+      ? item.blueprint
+      : [{ count: item.totalQuestions || 10 }];
+    const count =
+      rules.reduce((n, r) => n + (Number(r.count) || 0), 0) || item.totalQuestions || 10;
+    setQuestionCount(String(count));
+
+    const topicIds = [...new Set(rules.map((r) => r.topicId).filter(Boolean))] as string[];
+    const subIds = [...new Set(rules.map((r) => r.subtopicId).filter(Boolean))] as string[];
+    setTopicId(topicIds.length === 1 ? topicIds[0] : "");
+    setSubtopicId(subIds.length === 1 ? subIds[0] : "");
+  };
+
+  const resetForm = (preset?: { mode?: PracticeExamMode }) => {
     setEditId(null);
     setTitle("");
-    setSlug("");
-    setDescription("");
-    setType("TOPIC_QUIZ");
-    setMode("MCQ");
-    setDurationMin("30");
-    setTotalQuestions("10");
-    setPassMarkPercent("50");
+    setEditSlug("");
+    setMode(preset?.mode ?? "MCQ");
+    setDurationMin(preset?.mode === "WRITTEN" ? "40" : "30");
+    setQuestionCount(preset?.mode === "WRITTEN" ? "5" : "10");
+    setTopicId("");
+    setSubtopicId("");
     setAccessTier("FREE");
-    setBlueprint([emptyRule()]);
-    setIsPublished(false);
+    setIsPublished(true);
     setActionError(null);
   };
 
-  const openCreate = () => {
-    resetForm();
+  const openCreate = (preset?: { mode?: PracticeExamMode }) => {
+    resetForm(preset);
     setModalOpen(true);
   };
 
   const openEdit = (item: PracticeExamTemplate) => {
     setEditId(item.id);
-    setStep(0);
     setTitle(item.title);
-    setSlug(item.slug);
-    setDescription(item.description ?? "");
-    setType(item.type);
+    setEditSlug(item.slug);
     setMode(item.mode === "WRITTEN" ? "WRITTEN" : "MCQ");
     setDurationMin(String(item.durationMin));
-    setTotalQuestions(String(item.totalQuestions));
-    setPassMarkPercent(
-      item.passMarkPercent != null ? String(item.passMarkPercent) : ""
-    );
     setAccessTier(normalizeAccessBadge(item.accessTier));
-    setBlueprint(item.blueprint?.length ? item.blueprint : [emptyRule()]);
     setIsPublished(item.isPublished);
+    loadScopeFromBlueprint(item);
     setActionError(null);
     setModalOpen(true);
   };
 
-  const validateStep = (current: WizardStep): string | null => {
-    if (current === 0) {
-      if (!title.trim() || !slug.trim()) return "Title and slug are required";
-      if (!Number.parseInt(durationMin, 10) || Number.parseInt(durationMin, 10) < 1) {
-        return "Duration must be at least 1 minute";
-      }
-      if (!totalQ || totalQ < 1) return "Total questions must be at least 1";
+  const openDuplicate = (item: PracticeExamTemplate) => {
+    setEditId(null);
+    setTitle(`${item.title} (Copy)`);
+    setEditSlug(slugify(`${item.slug}-copy`));
+    setMode(item.mode === "WRITTEN" ? "WRITTEN" : "MCQ");
+    setDurationMin(String(item.durationMin));
+    setAccessTier(normalizeAccessBadge(item.accessTier));
+    setIsPublished(false);
+    loadScopeFromBlueprint(item);
+    setActionError(null);
+    setModalOpen(true);
+  };
+
+  const validate = (): string | null => {
+    if (!title.trim()) return "Title is required";
+    if (!Number.parseInt(durationMin, 10) || Number.parseInt(durationMin, 10) < 1) {
+      return "Duration must be at least 1 minute";
     }
-    if (current === 1) {
-      if (!blueprint.length) return "Add at least one blueprint rule";
-      if (blueprint.some((r) => !r.count || r.count < 1)) {
-        return "Each blueprint rule needs count ≥ 1";
-      }
-      if (blueprintSum !== totalQ) {
-        return `Blueprint sum (${blueprintSum}) must equal total questions (${totalQ})`;
-      }
-    }
+    if (totalQuestions < 1) return "Question count must be at least 1";
     return null;
   };
 
-  const goNext = () => {
-    const err = validateStep(step);
+  const onSave = async () => {
+    const err = validate();
     if (err) {
       setActionError(err);
       return;
-    }
-    setActionError(null);
-    setStep((s) => Math.min(3, s + 1) as WizardStep);
-  };
-
-  const onSave = async () => {
-    for (const s of [0, 1] as WizardStep[]) {
-      const err = validateStep(s);
-      if (err) {
-        setStep(s);
-        setActionError(err);
-        return;
-      }
     }
     if (!effectiveProgramId) {
       setActionError("Select a program first");
       return;
     }
     setActionError(null);
+
+    const slug = (editSlug || slugify(title)).trim();
+    const blueprint = [
+      {
+        ...(topicId ? { topicId } : {}),
+        ...(subtopicId ? { subtopicId } : {}),
+        count: totalQuestions,
+      },
+    ];
+
     const payload = {
       title: title.trim(),
-      slug: slug.trim(),
-      description: description.trim() || undefined,
-      type,
+      slug,
+      type: "TOPIC_QUIZ" as const,
       mode,
       durationMin: Number.parseInt(durationMin, 10),
-      totalQuestions: totalQ,
-      passMarkPercent:
-        mode === "WRITTEN"
-          ? (editId ? null : undefined)
-          : passMarkPercent.trim()
-            ? Number.parseInt(passMarkPercent, 10)
-            : undefined,
-      blueprint: blueprint.map((rule) => ({
-        ...(rule.topicId ? { topicId: rule.topicId } : {}),
-        ...(rule.subtopicId ? { subtopicId: rule.subtopicId } : {}),
-        ...(rule.difficulty ? { difficulty: rule.difficulty } : {}),
-        count: Number(rule.count),
-      })),
+      totalQuestions,
+      passMarkPercent: mode === "WRITTEN" ? (editId ? null : undefined) : 50,
+      blueprint,
       accessTier,
       isPublished,
+      order: editId
+        ? (templates.find((t) => t.id === editId)?.order ?? templates.length)
+        : templates.length,
+      isActive: true,
     };
+
     try {
       if (editId) {
         await updateTemplate.mutateAsync({ id: editId, payload });
@@ -225,15 +280,19 @@ export function AdminPracticeExamsPage() {
       }
       setModalOpen(false);
       resetForm();
-    } catch (err) {
-      setActionError((err as ApiError)?.message || "Failed to save template");
+    } catch (saveErr) {
+      setActionError((saveErr as ApiError)?.message || "Failed to save template");
     }
   };
 
-  const updateRule = (index: number, patch: Partial<PracticeExamBlueprintRule>) => {
-    setBlueprint((prev) =>
-      prev.map((rule, i) => (i === index ? { ...rule, ...patch } : rule))
-    );
+  const onConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    try {
+      await deleteTemplate.mutateAsync(deleteTarget.id);
+      setDeleteTarget(null);
+    } catch (delErr) {
+      setActionError((delErr as ApiError)?.message || "Failed to delete template");
+    }
   };
 
   if (isLoading && templates.length === 0 && programs.length > 0) {
@@ -241,7 +300,7 @@ export function AdminPracticeExamsPage() {
       <div className="space-y-6">
         <PageHeader
           title="Practice Exams"
-          description="Create timed templates that pull questions from the Questionbank."
+          description="Create and manage MCQ & Written practice exams."
           className="mb-0"
         />
         <PageLoader label="Loading practice exams..." />
@@ -256,7 +315,7 @@ export function AdminPracticeExamsPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Practice Exams"
-              description="Wizard: Basics → Blueprint → Preview → Publish. Questions come from the Questionbank pool."
+              description="Create, edit, publish, or delete templates. Students take them from the subject Practice Exams hub."
               className="mb-0"
             />
             <div className="flex flex-wrap gap-2">
@@ -268,14 +327,29 @@ export function AdminPracticeExamsPage() {
                 onClick={() => void refetch()}
                 className={isFetching ? "animate-spin" : undefined}
               />
-              <Button type="button" size="sm" disabled={!effectiveProgramId} onClick={openCreate}>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={!effectiveProgramId}
+                onClick={() => openCreate({ mode: "WRITTEN" })}
+              >
                 <Plus className="h-4 w-4" />
-                New template
+                New Written
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!effectiveProgramId}
+                onClick={() => openCreate({ mode: "MCQ" })}
+              >
+                <Plus className="h-4 w-4" />
+                New MCQ
               </Button>
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-3">
             <label className="block space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Category
@@ -285,6 +359,7 @@ export function AdminPracticeExamsPage() {
                 onChange={(e) => {
                   setCategoryId(e.target.value);
                   setSubjectId("");
+                  setProgramId("");
                 }}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
@@ -301,7 +376,10 @@ export function AdminPracticeExamsPage() {
               </span>
               <select
                 value={effectiveSubjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
+                onChange={(e) => {
+                  setSubjectId(e.target.value);
+                  setProgramId("");
+                }}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
                 {subjects.map((s) => (
@@ -311,443 +389,438 @@ export function AdminPracticeExamsPage() {
                 ))}
               </select>
             </label>
+            <label className="block space-y-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Program
+              </span>
+              <select
+                value={effectiveProgramId}
+                onChange={(e) => setProgramId(e.target.value)}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {programs.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
+
           {error ? (
             <p className="mt-2 text-sm text-accent">
               {(error as unknown as ApiError)?.message}
             </p>
           ) : null}
+
           {selectedProgram ? (
-            <p className="mt-3 text-xs text-muted-foreground">
-              Student hub:{" "}
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                {stats.total} total
+              </span>
+              <span className="rounded-lg bg-[#ecfdf3] px-2.5 py-1 text-xs font-semibold text-[var(--accent-green)]">
+                {stats.published} published
+              </span>
+              <span className="rounded-lg bg-[#fff8ef] px-2.5 py-1 text-xs font-semibold text-[#9a3412]">
+                {stats.draft} draft
+              </span>
+              <span className="rounded-lg bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary">
+                {stats.mcq} MCQ
+              </span>
+              <span className="rounded-lg bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary">
+                {stats.written} Written
+              </span>
               <Link
                 href={ROUTES.subjectResource(selectedProgram.slug, "practice-exams")}
-                className="font-semibold text-primary hover:underline"
+                className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                 target="_blank"
               >
-                /subjects/{selectedProgram.slug}/practice-exams
+                Open student hub
+                <ExternalLink className="h-3 w-3" />
               </Link>
-            </p>
+            </div>
           ) : null}
         </div>
 
-        <div className="space-y-3 p-5">
-          {templates.length === 0 ? (
-            <p className="py-8 text-center text-muted-foreground">
-              No practice exam templates yet. Create one with the wizard.
-            </p>
-          ) : null}
-          {templates.map((item) => (
-            <div
-              key={item.id}
-              className={cn(
-                "flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border px-4 py-3",
-                !item.isActive && "border-dashed opacity-70"
-              )}
-            >
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-semibold text-foreground">{item.title}</p>
-                  <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
-                    {typeLabel(item.type)}
-                  </span>
-                  <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-                    {modeLabel(item.mode)}
-                  </span>
-                  <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-                    {tierLabel(item.accessTier)}
-                  </span>
-                  {item.isPublished ? (
-                    <span className="rounded-md bg-[#ecfdf3] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--accent-green)]">
-                      Published
-                    </span>
-                  ) : (
-                    <span className="rounded-md bg-[#fff8ef] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#9a3412]">
-                      Draft
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {item.totalQuestions}Q · {item.durationMin} min
-                  {item.passMarkPercent != null ? ` · pass ${item.passMarkPercent}%` : ""} ·{" "}
-                  {item.slug}
-                </p>
-              </div>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  className="rounded-md p-2 text-muted-foreground hover:bg-primary-muted hover:text-primary"
-                  title="Edit"
-                  onClick={() => openEdit(item)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </button>
-                <button
-                  type="button"
-                  className="rounded-md p-2 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-                  title={item.isPublished ? "Unpublish" : "Publish"}
-                  disabled={busy}
-                  onClick={() =>
-                    void updateTemplate.mutateAsync({
-                      id: item.id,
-                      payload: { isPublished: !item.isPublished },
-                    })
-                  }
-                >
-                  {item.isPublished ? (
-                    <Eye className="h-4 w-4" />
-                  ) : (
-                    <EyeOff className="h-4 w-4 text-accent" />
-                  )}
-                </button>
-                <button
-                  type="button"
-                  className="rounded-md p-2 text-accent hover:bg-[#fff1ee]"
-                  title="Delete"
-                  onClick={() => {
-                    if (window.confirm(`Delete "${item.title}"?`)) {
-                      void deleteTemplate.mutateAsync(item.id);
-                    }
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
+        <div className="space-y-4 p-5">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="relative max-w-md flex-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search by title or slug…"
+                className="pl-9"
+              />
             </div>
-          ))}
+            <div className="flex flex-wrap gap-2">
+              {(
+                [
+                  ["ALL", "All"],
+                  ["MCQ", "MCQ"],
+                  ["WRITTEN", "Written"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setModeFilter(id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    modeFilter === id
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+              <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden />
+              {(
+                [
+                  ["ALL", "All status"],
+                  ["PUBLISHED", "Published"],
+                  ["DRAFT", "Draft"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setStatusFilter(id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    statusFilter === id
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {filteredTemplates.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-border px-6 py-12 text-center">
+              <p className="text-sm text-muted-foreground">
+                {templates.length === 0
+                  ? "No practice exams yet for this program."
+                  : "No exams match your filters."}
+              </p>
+              {templates.length === 0 ? (
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <Button type="button" size="sm" onClick={() => openCreate({ mode: "MCQ" })}>
+                    <Plus className="h-4 w-4" />
+                    Create MCQ exam
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openCreate({ mode: "WRITTEN" })}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create Written exam
+                  </Button>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredTemplates.map((item) => (
+                <div
+                  key={item.id}
+                  className={cn(
+                    "rounded-xl border border-border px-4 py-3 transition",
+                    !item.isActive && "border-dashed opacity-70",
+                    !item.isPublished && "bg-muted/20"
+                  )}
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-semibold text-foreground">{item.title}</p>
+                        <span
+                          className={cn(
+                            "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                            item.mode === "WRITTEN"
+                              ? "bg-[#eff6ff] text-[#1d4ed8]"
+                              : "bg-primary-muted text-primary"
+                          )}
+                        >
+                          {modeLabel(item.mode)}
+                        </span>
+                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+                          {tierLabel(item.accessTier)}
+                        </span>
+                        {item.isPublished ? (
+                          <span className="rounded-md bg-[#ecfdf3] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--accent-green)]">
+                            Published
+                          </span>
+                        ) : (
+                          <span className="rounded-md bg-[#fff8ef] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#9a3412]">
+                            Draft
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {item.totalQuestions}Q · {item.durationMin} min · {scopeLabel(item, qbTopics)}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => openEdit(item)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                        Edit
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => openDuplicate(item)}
+                        title="Duplicate"
+                      >
+                        <Copy className="h-3.5 w-3.5" />
+                        Copy
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() =>
+                          void updateTemplate.mutateAsync({
+                            id: item.id,
+                            payload: { isPublished: !item.isPublished },
+                          })
+                        }
+                      >
+                        {item.isPublished ? (
+                          <>
+                            <EyeOff className="h-3.5 w-3.5" />
+                            Unpublish
+                          </>
+                        ) : (
+                          <>
+                            <Eye className="h-3.5 w-3.5" />
+                            Publish
+                          </>
+                        )}
+                      </Button>
+                      {selectedProgram && item.isPublished ? (
+                        <Button type="button" size="sm" variant="ghost" asChild>
+                          <Link
+                            href={ROUTES.subjectPracticeExam(selectedProgram.slug, item.slug)}
+                            target="_blank"
+                          >
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            View
+                          </Link>
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="text-accent hover:bg-[#fff1ee] hover:text-accent"
+                        disabled={busy}
+                        onClick={() => setDeleteTarget(item)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
       <AdminModal
         open={modalOpen}
-        title={editId ? "Edit practice exam" : "New practice exam"}
-        description={`${STEPS[step]} (${step + 1}/${STEPS.length})`}
+        title={editId ? "Edit practice exam" : "Create practice exam"}
+        description="Only the essentials — pick MCQ or Written."
         onClose={() => !busy && setModalOpen(false)}
-        className="sm:max-w-2xl"
+        className="sm:max-w-lg"
         footer={
-          <div className="flex flex-wrap justify-between gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy || step === 0}
-              onClick={() => setStep((s) => Math.max(0, s - 1) as WizardStep)}
-            >
-              Back
-            </Button>
-            <div className="flex gap-2">
-              <Button type="button" variant="outline" disabled={busy} onClick={() => setModalOpen(false)}>
-                Cancel
-              </Button>
-              {step < 3 ? (
-                <Button type="button" disabled={busy} onClick={goNext}>
-                  Next
-                </Button>
-              ) : (
-                <Button type="button" disabled={busy} onClick={() => void onSave()}>
-                  {busy ? "Saving…" : editId ? "Save template" : "Create template"}
-                </Button>
-              )}
-            </div>
-          </div>
-        }
-      >
-        <div className="mb-4 flex flex-wrap gap-2">
-          {STEPS.map((label, index) => (
-            <span
-              key={label}
-              className={cn(
-                "rounded-full px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide",
-                index === step
-                  ? "bg-primary text-primary-foreground"
-                  : index < step
-                    ? "bg-primary-muted text-primary"
-                    : "bg-muted text-muted-foreground"
-              )}
-            >
-              {index + 1}. {label}
-            </span>
-          ))}
-        </div>
-
-        {actionError ? (
-          <p className="mb-3 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
-            {actionError}
-          </p>
-        ) : null}
-
-        {step === 0 ? (
-          <div className="space-y-3">
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Title</span>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Slug</span>
-              <Input value={slug} onChange={(e) => setSlug(e.target.value)} />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Description</span>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={2}
-                className="w-full rounded-xl border border-border bg-card px-3 py-2 text-sm"
-              />
-            </label>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Type</span>
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as PracticeExamType)}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-                >
-                  {EXAM_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {typeLabel(t)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Question format</span>
-                <select
-                  value={mode}
-                  onChange={(e) => setMode(e.target.value as PracticeExamMode)}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-                >
-                  {EXAM_MODES.map((m) => (
-                    <option key={m} value={m}>
-                      {modeLabel(m)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1.5 sm:col-span-2">
-                <span className="text-xs text-muted-foreground">
-                  {mode === "WRITTEN"
-                    ? "Written templates pull SHORT_ANSWER / DATA_BASED questions from the Questionbank. Students download the paper and upload answer scripts."
-                    : "MCQ templates pull MULTIPLE_CHOICE questions and auto-mark letter answers."}
-                </span>
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Access tier</span>
-                <select
-                  value={accessTier}
-                  onChange={(e) => setAccessTier(e.target.value as QbAccessBadge)}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-                >
-                  {TIERS.map((t) => (
-                    <option key={t} value={t}>
-                      {tierLabel(t)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Duration (minutes)</span>
-                <Input
-                  type="number"
-                  min={1}
-                  value={durationMin}
-                  onChange={(e) => setDurationMin(e.target.value)}
-                />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Total questions</span>
-                <Input
-                  type="number"
-                  min={1}
-                  value={totalQuestions}
-                  onChange={(e) => setTotalQuestions(e.target.value)}
-                />
-              </label>
-              <label className="block space-y-1.5 sm:col-span-2">
-                <span className="text-sm font-semibold">
-                  Pass mark % {mode === "WRITTEN" ? "(optional, ignored for written)" : "(optional)"}
-                </span>
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={passMarkPercent}
-                  onChange={(e) => setPassMarkPercent(e.target.value)}
-                  placeholder="e.g. 50"
-                  disabled={mode === "WRITTEN"}
-                />
-              </label>
-            </div>
-          </div>
-        ) : null}
-
-        {step === 1 ? (
-          <div className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Blueprint sum:{" "}
-              <strong className={blueprintSum === totalQ ? "text-foreground" : "text-accent"}>
-                {blueprintSum}
-              </strong>{" "}
-              / {totalQ} required
-              {mode === "WRITTEN"
-                ? " · pulls written (SHORT_ANSWER / DATA_BASED) questions"
-                : " · pulls MCQ questions"}
-            </p>
-            {blueprint.map((rule, index) => {
-              const topic = qbTopics.find((t) => t.id === rule.topicId);
-              const subtopics = topic?.subtopics ?? [];
-              return (
-                <div key={index} className="space-y-2 rounded-xl border border-border p-3">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    <label className="block space-y-1">
-                      <span className="text-xs font-semibold uppercase text-muted-foreground">
-                        Topic
-                      </span>
-                      <select
-                        value={rule.topicId ?? ""}
-                        onChange={(e) =>
-                          updateRule(index, {
-                            topicId: e.target.value || undefined,
-                            subtopicId: undefined,
-                          })
-                        }
-                        className="flex h-9 w-full rounded-lg border border-border bg-card px-2 text-sm"
-                      >
-                        <option value="">Any topic</option>
-                        {qbTopics.map((t) => (
-                          <option key={t.id} value={t.id}>
-                            {t.title}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block space-y-1">
-                      <span className="text-xs font-semibold uppercase text-muted-foreground">
-                        Subtopic
-                      </span>
-                      <select
-                        value={rule.subtopicId ?? ""}
-                        onChange={(e) =>
-                          updateRule(index, {
-                            subtopicId: e.target.value || undefined,
-                          })
-                        }
-                        className="flex h-9 w-full rounded-lg border border-border bg-card px-2 text-sm"
-                      >
-                        <option value="">Any subtopic</option>
-                        {subtopics.map((s) => (
-                          <option key={s.id} value={s.id}>
-                            {s.title}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block space-y-1">
-                      <span className="text-xs font-semibold uppercase text-muted-foreground">
-                        Difficulty
-                      </span>
-                      <select
-                        value={rule.difficulty ?? ""}
-                        onChange={(e) =>
-                          updateRule(index, {
-                            difficulty: (e.target.value || undefined) as QbDifficulty | undefined,
-                          })
-                        }
-                        className="flex h-9 w-full rounded-lg border border-border bg-card px-2 text-sm"
-                      >
-                        {DIFFICULTIES.map((d) => (
-                          <option key={d || "any"} value={d}>
-                            {d || "Any"}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
-                    <label className="block space-y-1">
-                      <span className="text-xs font-semibold uppercase text-muted-foreground">
-                        Count
-                      </span>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={rule.count}
-                        onChange={(e) =>
-                          updateRule(index, {
-                            count: Number.parseInt(e.target.value, 10) || 1,
-                          })
-                        }
-                      />
-                    </label>
-                  </div>
-                  <div className="flex justify-end">
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      className="text-accent"
-                      disabled={blueprint.length <= 1}
-                      onClick={() =>
-                        setBlueprint((prev) => prev.filter((_, i) => i !== index))
-                      }
-                    >
-                      Remove rule
-                    </Button>
-                  </div>
-                </div>
-              );
-            })}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => setBlueprint((prev) => [...prev, emptyRule()])}
-            >
-              <Plus className="h-4 w-4" />
-              Add rule
-            </Button>
-          </div>
-        ) : null}
-
-        {step === 2 ? (
-          <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4 text-sm">
-            <p>
-              <strong>{title}</strong> ({typeLabel(type)} · {modeLabel(mode)})
-            </p>
-            <p className="text-muted-foreground">{description || "No description"}</p>
-            <p>
-              {totalQ} questions · {durationMin} min · {tierLabel(accessTier)}
-              {mode === "MCQ" && passMarkPercent ? ` · pass ${passMarkPercent}%` : ""}
-              {mode === "WRITTEN" ? " · download paper + upload answers" : " · auto-mark MCQ"}
-            </p>
-            <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
-              {blueprint.map((rule, index) => {
-                const topic = qbTopics.find((t) => t.id === rule.topicId);
-                const sub = topic?.subtopics.find((s) => s.id === rule.subtopicId);
-                return (
-                  <li key={index}>
-                    {rule.count}× {rule.difficulty || "any difficulty"}
-                    {sub ? ` · ${sub.title}` : topic ? ` · ${topic.title}` : " · any topic"}
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        ) : null}
-
-        {step === 3 ? (
-          <div className="space-y-3">
-            <label className="flex items-center gap-2 text-sm font-semibold">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <label className="inline-flex items-center gap-2 text-sm font-semibold">
               <input
                 type="checkbox"
                 className="h-4 w-4 accent-primary"
                 checked={isPublished}
                 onChange={(e) => setIsPublished(e.target.checked)}
               />
-              Publish now (visible on student Practice Exams)
+              Publish
             </label>
-            <p className="text-sm text-muted-foreground">
-              You can still toggle publish later from the list. Draft templates stay admin-only.
-            </p>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy}
+                onClick={() => setModalOpen(false)}
+              >
+                Cancel
+              </Button>
+              <Button type="button" disabled={busy} onClick={() => void onSave()}>
+                {busy ? "Saving…" : editId ? "Save" : "Create"}
+              </Button>
+            </div>
           </div>
-        ) : null}
+        }
+      >
+        <div className="space-y-4">
+          {actionError ? (
+            <p className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-accent">
+              {actionError}
+            </p>
+          ) : null}
+
+          <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
+            {EXAM_MODES.map((m) => (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition",
+                  mode === m
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {modeLabel(m)}
+              </button>
+            ))}
+          </div>
+
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold">Title</span>
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g. Linear Equations Quiz"
+            />
+          </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1.5 sm:col-span-2">
+              <span className="text-sm font-semibold">Access</span>
+              <select
+                value={accessTier}
+                onChange={(e) => setAccessTier(e.target.value as QbAccessBadge)}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {TIERS.map((t) => (
+                  <option key={t} value={t}>
+                    {tierLabel(t)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold">Duration (min)</span>
+              <Input
+                type="number"
+                min={1}
+                value={durationMin}
+                onChange={(e) => setDurationMin(e.target.value)}
+              />
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold">Questions</span>
+              <Input
+                type="number"
+                min={1}
+                value={questionCount}
+                onChange={(e) => setQuestionCount(e.target.value)}
+              />
+            </label>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold">Topic</span>
+              <select
+                value={topicId}
+                onChange={(e) => {
+                  setTopicId(e.target.value);
+                  setSubtopicId("");
+                }}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                <option value="">Any topic</option>
+                {qbTopics.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="block space-y-1.5">
+              <span className="text-sm font-semibold">Subtopic</span>
+              <select
+                value={subtopicId}
+                onChange={(e) => setSubtopicId(e.target.value)}
+                disabled={!topicId}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+              >
+                <option value="">Any subtopic</option>
+                {subtopics.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+
+          <p className="text-xs text-muted-foreground">
+            {mode === "WRITTEN"
+              ? "Students download the question paper and upload their answers."
+              : "Students answer MCQs online — auto-marked after submit."}
+          </p>
+        </div>
+      </AdminModal>
+
+      <AdminModal
+        open={Boolean(deleteTarget)}
+        title="Delete practice exam?"
+        description="This cannot be undone. Student attempts for this template will also be removed."
+        onClose={() => !busy && setDeleteTarget(null)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={() => setDeleteTarget(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={busy}
+              className="bg-accent text-white hover:bg-accent/90"
+              onClick={() => void onConfirmDelete()}
+            >
+              {busy ? "Deleting…" : "Delete exam"}
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-sm text-foreground">
+          Delete <strong>{deleteTarget?.title}</strong>?
+        </p>
       </AdminModal>
     </>
   );

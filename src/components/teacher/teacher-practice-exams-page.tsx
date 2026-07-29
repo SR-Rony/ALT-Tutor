@@ -11,13 +11,6 @@ import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
 
-function typeLabel(type: string) {
-  if (type === "MOCK") return "Mock Exam";
-  if (type === "LADDER") return "Revision Ladder";
-  if (type === "TOPIC_QUIZ") return "Topic Quiz";
-  return type;
-}
-
 export function TeacherPracticeExamsPage() {
   const { data: tree = [], isLoading: treeLoading } = useTeacherSubjectsTree();
   const programs = useMemo(() => {
@@ -138,9 +131,6 @@ export function TeacherPracticeExamsPage() {
                 <div className="flex flex-wrap items-center gap-2">
                   <p className="font-semibold text-foreground">{item.title}</p>
                   <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
-                    {typeLabel(String(item.typeLabel ?? item.type))}
-                  </span>
-                  <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
                     {item.mode === "WRITTEN" ? "Written" : "MCQ"}
                   </span>
                   <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">

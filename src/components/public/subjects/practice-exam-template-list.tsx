@@ -5,7 +5,7 @@ import { Clock, HelpCircle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { normalizeAccessBadge, tierBadgeClass, tierLabel } from "@/lib/access-tier";
-import type { PracticeExamTemplate, PracticeExamType } from "@/types/practice-exam.types";
+import type { PracticeExamTemplate } from "@/types/practice-exam.types";
 import { cn } from "@/utils";
 
 type Props = {
@@ -15,10 +15,8 @@ type Props = {
   onUnlock?: (template: PracticeExamTemplate) => void;
 };
 
-function typeAccent(type: PracticeExamType) {
-  if (type === "MOCK") return "border-l-[var(--accent-green)]";
-  if (type === "LADDER") return "border-l-violet-500";
-  return "border-l-accent";
+function modeAccent(mode?: string) {
+  return mode === "WRITTEN" ? "border-l-[#1d4ed8]" : "border-l-accent";
 }
 
 export function PracticeExamTemplateList({
@@ -41,23 +39,28 @@ export function PracticeExamTemplateList({
         const locked = Boolean(template.locked);
         const badge = normalizeAccessBadge(template.accessTier);
         const detailHref = ROUTES.subjectPracticeExam(programSlug, template.slug);
+        const modeLabel = template.modeLabel ?? (template.mode === "WRITTEN" ? "Written" : "MCQ");
 
         return (
           <article
             key={template.id}
             className={cn(
               "flex flex-col gap-4 rounded-2xl border border-border border-l-4 bg-card p-4 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-5",
-              typeAccent(template.type)
+              modeAccent(template.mode)
             )}
           >
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-bold text-foreground">{template.title}</h3>
-                <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-                  {template.typeLabel ?? template.type}
-                </span>
-                <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
-                  {template.modeLabel ?? (template.mode === "WRITTEN" ? "Written" : "MCQ")}
+                <span
+                  className={cn(
+                    "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                    template.mode === "WRITTEN"
+                      ? "bg-[#eff6ff] text-[#1d4ed8]"
+                      : "bg-primary-muted text-primary"
+                  )}
+                >
+                  {modeLabel}
                 </span>
                 <span
                   className={cn(

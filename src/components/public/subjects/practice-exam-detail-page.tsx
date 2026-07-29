@@ -65,8 +65,8 @@ export function PracticeExamDetailPage({ programSlug, templateSlug }: Props) {
     <div className="bg-background pb-16">
       <ResourceHero
         title={template.title}
-        subtitle={`${programName} · ${template.typeLabel ?? template.type}${
-          template.mode === "WRITTEN" || template.modeLabel === "Written" ? " · Written" : " · MCQ"
+        subtitle={`${programName} · ${
+          template.mode === "WRITTEN" || template.modeLabel === "Written" ? "Written" : "MCQ"
         }`}
         description={
           template.description ||
