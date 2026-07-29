@@ -8,6 +8,7 @@ export type PracticeExamBlueprintRule = {
   subtopicId?: string;
   difficulty?: QbDifficulty;
   count: number;
+  questionIds?: string[];
 };
 
 export type PracticeExamTemplate = {

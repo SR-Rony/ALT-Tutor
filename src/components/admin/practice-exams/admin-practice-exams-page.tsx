@@ -47,6 +47,12 @@ function modeLabel(mode: PracticeExamMode | string | undefined) {
   return mode === "WRITTEN" ? "Written" : "MCQ";
 }
 
+function allowedQuestionTypes(mode: PracticeExamMode) {
+  return mode === "WRITTEN"
+    ? (["SHORT_ANSWER", "DATA_BASED"] as const)
+    : (["MULTIPLE_CHOICE"] as const);
+}
+
 function scopeLabel(
   item: PracticeExamTemplate,
   qbTopics: Array<{
@@ -57,6 +63,8 @@ function scopeLabel(
 ) {
   const rules = item.blueprint ?? [];
   if (!rules.length) return "Any topic";
+  const selectedIds = rules.flatMap((r) => r.questionIds ?? []);
+  if (selectedIds.length > 0) return `${selectedIds.length} selected questions`;
   const topicIds = [...new Set(rules.map((r) => r.topicId).filter(Boolean))];
   const subIds = [...new Set(rules.map((r) => r.subtopicId).filter(Boolean))];
   if (subIds.length === 1) {
@@ -111,9 +119,9 @@ export function AdminPracticeExamsPage() {
   const [title, setTitle] = useState("");
   const [mode, setMode] = useState<PracticeExamMode>("MCQ");
   const [durationMin, setDurationMin] = useState("30");
-  const [questionCount, setQuestionCount] = useState("10");
   const [topicId, setTopicId] = useState("");
   const [subtopicId, setSubtopicId] = useState("");
+  const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [accessTier, setAccessTier] = useState<QbAccessBadge>("FREE");
   const [isPublished, setIsPublished] = useState(true);
   const [editSlug, setEditSlug] = useState("");
@@ -123,7 +131,59 @@ export function AdminPracticeExamsPage() {
 
   const selectedTopic = qbTopics.find((t) => t.id === topicId);
   const subtopics = selectedTopic?.subtopics ?? [];
-  const totalQuestions = Math.max(1, Number.parseInt(questionCount, 10) || 1);
+
+  const pickerQuestions = useMemo(() => {
+    const types = allowedQuestionTypes(mode);
+    const topics = topicId ? qbTopics.filter((t) => t.id === topicId) : qbTopics;
+    const rows: Array<{
+      id: string;
+      number: number;
+      prompt: string;
+      difficulty: string;
+      paper: string;
+      questionType: string;
+      topicTitle: string;
+      subtopicTitle: string;
+    }> = [];
+    for (const topic of topics) {
+      for (const sub of topic.subtopics) {
+        if (subtopicId && sub.id !== subtopicId) continue;
+        for (const q of sub.questions ?? []) {
+          if (!q.isActive) continue;
+          if (!types.includes(q.questionType as (typeof types)[number])) continue;
+          rows.push({
+            id: q.id,
+            number: q.number,
+            prompt: q.prompt,
+            difficulty: String(q.difficulty),
+            paper: String(q.paper),
+            questionType: String(q.questionType),
+            topicTitle: topic.title,
+            subtopicTitle: sub.title,
+          });
+        }
+      }
+    }
+    return rows;
+  }, [qbTopics, topicId, subtopicId, mode]);
+
+  const selectedPreview = useMemo(() => {
+    const byId = new Map(
+      qbTopics.flatMap((t) =>
+        t.subtopics.flatMap((s) =>
+          (s.questions ?? []).map(
+            (q) =>
+              [q.id, { number: q.number, prompt: q.prompt, topicTitle: t.title }] as const
+          )
+        )
+      )
+    );
+    return selectedQuestionIds
+      .map((id) => byId.get(id))
+      .filter((q): q is NonNullable<typeof q> => Boolean(q));
+  }, [qbTopics, selectedQuestionIds]);
+
+  const totalQuestions = selectedQuestionIds.length;
 
   const filteredTemplates = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -167,9 +227,11 @@ export function AdminPracticeExamsPage() {
     const rules = item.blueprint?.length
       ? item.blueprint
       : [{ count: item.totalQuestions || 10 }];
-    const count =
-      rules.reduce((n, r) => n + (Number(r.count) || 0), 0) || item.totalQuestions || 10;
-    setQuestionCount(String(count));
+
+    const ids = [
+      ...new Set(rules.flatMap((r) => r.questionIds ?? []).filter(Boolean)),
+    ] as string[];
+    setSelectedQuestionIds(ids);
 
     const topicIds = [...new Set(rules.map((r) => r.topicId).filter(Boolean))] as string[];
     const subIds = [...new Set(rules.map((r) => r.subtopicId).filter(Boolean))] as string[];
@@ -183,9 +245,9 @@ export function AdminPracticeExamsPage() {
     setEditSlug("");
     setMode(preset?.mode ?? "MCQ");
     setDurationMin(preset?.mode === "WRITTEN" ? "40" : "30");
-    setQuestionCount(preset?.mode === "WRITTEN" ? "5" : "10");
     setTopicId("");
     setSubtopicId("");
+    setSelectedQuestionIds([]);
     setAccessTier("FREE");
     setIsPublished(true);
     setActionError(null);
@@ -227,7 +289,9 @@ export function AdminPracticeExamsPage() {
     if (!Number.parseInt(durationMin, 10) || Number.parseInt(durationMin, 10) < 1) {
       return "Duration must be at least 1 minute";
     }
-    if (totalQuestions < 1) return "Question count must be at least 1";
+    if (selectedQuestionIds.length < 1) {
+      return "Select at least one question from the Questionbank";
+    }
     return null;
   };
 
@@ -248,7 +312,8 @@ export function AdminPracticeExamsPage() {
       {
         ...(topicId ? { topicId } : {}),
         ...(subtopicId ? { subtopicId } : {}),
-        count: totalQuestions,
+        count: selectedQuestionIds.length,
+        questionIds: selectedQuestionIds,
       },
     ];
 
@@ -258,7 +323,7 @@ export function AdminPracticeExamsPage() {
       type: "TOPIC_QUIZ" as const,
       mode,
       durationMin: Number.parseInt(durationMin, 10),
-      totalQuestions,
+      totalQuestions: selectedQuestionIds.length,
       passMarkPercent: mode === "WRITTEN" ? (editId ? null : undefined) : 50,
       blueprint,
       accessTier,
@@ -648,9 +713,9 @@ export function AdminPracticeExamsPage() {
       <AdminModal
         open={modalOpen}
         title={editId ? "Edit practice exam" : "Create practice exam"}
-        description="Only the essentials — pick MCQ or Written."
+        description="Pick MCQ or Written, then select questions from the Questionbank."
         onClose={() => !busy && setModalOpen(false)}
-        className="sm:max-w-lg"
+        className="sm:max-w-2xl"
         footer={
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="inline-flex items-center gap-2 text-sm font-semibold">
@@ -690,7 +755,11 @@ export function AdminPracticeExamsPage() {
               <button
                 key={m}
                 type="button"
-                onClick={() => setMode(m)}
+                onClick={() => {
+                  if (m === mode) return;
+                  setMode(m);
+                  setSelectedQuestionIds([]);
+                }}
                 className={cn(
                   "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition",
                   mode === m
@@ -713,7 +782,7 @@ export function AdminPracticeExamsPage() {
           </label>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1.5 sm:col-span-2">
+            <label className="block space-y-1.5">
               <span className="text-sm font-semibold">Access</span>
               <select
                 value={accessTier}
@@ -736,20 +805,11 @@ export function AdminPracticeExamsPage() {
                 onChange={(e) => setDurationMin(e.target.value)}
               />
             </label>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Questions</span>
-              <Input
-                type="number"
-                min={1}
-                value={questionCount}
-                onChange={(e) => setQuestionCount(e.target.value)}
-              />
-            </label>
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Topic</span>
+              <span className="text-sm font-semibold">Topic (filter)</span>
               <select
                 value={topicId}
                 onChange={(e) => {
@@ -758,7 +818,7 @@ export function AdminPracticeExamsPage() {
                 }}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
-                <option value="">Any topic</option>
+                <option value="">All topics</option>
                 {qbTopics.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.title}
@@ -767,14 +827,14 @@ export function AdminPracticeExamsPage() {
               </select>
             </label>
             <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Subtopic</span>
+              <span className="text-sm font-semibold">Subtopic (filter)</span>
               <select
                 value={subtopicId}
                 onChange={(e) => setSubtopicId(e.target.value)}
                 disabled={!topicId}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
               >
-                <option value="">Any subtopic</option>
+                <option value="">All subtopics</option>
                 {subtopics.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.title}
@@ -782,6 +842,65 @@ export function AdminPracticeExamsPage() {
                 ))}
               </select>
             </label>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-sm font-semibold">
+                Select questions ({mode === "WRITTEN" ? "written" : "MCQ"})
+              </span>
+              <span className="text-xs font-semibold text-muted-foreground">
+                {totalQuestions} selected
+              </span>
+            </div>
+            {pickerQuestions.length === 0 ? (
+              <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
+                {mode === "WRITTEN"
+                  ? "No written (short answer / data-based) questions in this filter. Add them in Questionbank first."
+                  : "No MCQ questions in this filter. Add them in Questionbank first."}
+              </p>
+            ) : (
+              <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                {pickerQuestions.map((q) => {
+                  const checked = selectedQuestionIds.includes(q.id);
+                  return (
+                    <label
+                      key={q.id}
+                      className="flex cursor-pointer items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
+                    >
+                      <input
+                        type="checkbox"
+                        className="mt-1 accent-primary"
+                        checked={checked}
+                        disabled={busy}
+                        onChange={() =>
+                          setSelectedQuestionIds((prev) =>
+                            checked ? prev.filter((id) => id !== q.id) : [...prev, q.id]
+                          )
+                        }
+                      />
+                      <span className="min-w-0">
+                        <span className="font-medium text-foreground line-clamp-2">
+                          {q.number}. {q.prompt}
+                        </span>
+                        <span className="mt-0.5 block text-xs text-muted-foreground">
+                          {q.topicTitle} · {q.subtopicTitle} · {q.difficulty}
+                        </span>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            {selectedPreview.length > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                Order: {selectedPreview.map((q) => `#${q.number}`).join(", ")}
+              </p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Tick the exact Questionbank questions you want in this exam.
+              </p>
+            )}
           </div>
 
           <p className="text-xs text-muted-foreground">
