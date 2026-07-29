@@ -7,6 +7,7 @@ import type {
   PracticeExamProgramList,
   PracticeExamTemplate,
   PracticeExamTemplateDetail,
+  SavePracticeExamAnswerFilesResult,
   SavePracticeExamAnswerResult,
   StartPracticeExamInput,
   UpdatePracticeExamTemplateInput,
@@ -71,6 +72,17 @@ export const practiceExamsService = {
     const response = await apiClient.patch<SavePracticeExamAnswerResult>(
       `/practice-exams/attempts/${encodeURIComponent(attemptId)}/answers`,
       { questionId, answer }
+    );
+    return response.data;
+  },
+
+  async saveAnswerFiles(
+    attemptId: string,
+    fileUrls: string[]
+  ): Promise<SavePracticeExamAnswerFilesResult> {
+    const response = await apiClient.patch<SavePracticeExamAnswerFilesResult>(
+      `/practice-exams/attempts/${encodeURIComponent(attemptId)}/answer-files`,
+      { fileUrls }
     );
     return response.data;
   },

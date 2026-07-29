@@ -65,10 +65,14 @@ export function PracticeExamDetailPage({ programSlug, templateSlug }: Props) {
     <div className="bg-background pb-16">
       <ResourceHero
         title={template.title}
-        subtitle={`${programName} · ${template.typeLabel ?? template.type}`}
+        subtitle={`${programName} · ${template.typeLabel ?? template.type}${
+          template.mode === "WRITTEN" || template.modeLabel === "Written" ? " · Written" : " · MCQ"
+        }`}
         description={
           template.description ||
-          "Timed practice pulled from the Questionbank. Mark schemes stay hidden until you submit."
+          (template.mode === "WRITTEN"
+            ? "Download the full question paper, write answers offline, then upload your script. Mark schemes unlock after submit."
+            : "Timed practice pulled from the Questionbank. Mark schemes stay hidden until you submit.")
         }
         icon={<Timer className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
@@ -126,8 +130,9 @@ export function PracticeExamDetailPage({ programSlug, templateSlug }: Props) {
         <section className="rounded-2xl border border-border bg-card p-5">
           <h2 className="text-base font-bold text-foreground">Ready to start?</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            Timed attempt with countdown, autosave, and auto-submit when time runs out. Solutions
-            unlock after you submit.
+            {template.mode === "WRITTEN"
+              ? "Download the full question paper, write answers offline, upload your script, then submit. Mark schemes unlock after submit."
+              : "Timed attempt with countdown, autosave, and auto-submit when time runs out. Solutions unlock after you submit."}
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             {locked ? (

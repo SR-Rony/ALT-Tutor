@@ -67,11 +67,11 @@ export const adminNav: NavItem[] = [
   { title: "Questionbank", href: ROUTES.admin.questionbank, iconName: "clipboard" },
   { title: "Categories", href: ROUTES.admin.categories, iconName: "tags" },
   { title: "Subjects", href: ROUTES.admin.qbSubjects, iconName: "book" },
+  { title: "Key Concepts", href: ROUTES.admin.keyConcepts, iconName: "book" },
   {
     title: "Exams",
     iconName: "clipboard",
     children: [
-      { title: "Key Concepts", href: ROUTES.admin.keyConcepts, iconName: "book" },
       { title: "Practice Exams", href: ROUTES.admin.practiceExams, iconName: "clipboard" },
       { title: "Past Papers", href: ROUTES.admin.pastPapers, iconName: "clipboard" },
       { title: "MCQ Exams", href: ROUTES.admin.examsMcq, iconName: "clipboard" },

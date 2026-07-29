@@ -141,6 +141,9 @@ export function TeacherPracticeExamsPage() {
                     {typeLabel(String(item.typeLabel ?? item.type))}
                   </span>
                   <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+                    {item.mode === "WRITTEN" ? "Written" : "MCQ"}
+                  </span>
+                  <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
                     {tierLabel(normalizeAccessBadge(item.accessTier))}
                   </span>
                   {item.isPublished ? (

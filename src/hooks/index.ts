@@ -111,6 +111,7 @@ export {
   usePracticeExamAttempt,
   useStartPracticeExamAttempt,
   useSavePracticeExamAnswer,
+  useSavePracticeExamAnswerFiles,
   useSubmitPracticeExamAttempt,
   useAdminPracticeExams,
   useCreatePracticeExamTemplate,

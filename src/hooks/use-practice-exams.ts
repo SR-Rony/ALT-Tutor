@@ -79,6 +79,18 @@ export function useSavePracticeExamAnswer() {
   });
 }
 
+export function useSavePracticeExamAnswerFiles() {
+  return useMutation({
+    mutationFn: ({
+      attemptId,
+      fileUrls,
+    }: {
+      attemptId: string;
+      fileUrls: string[];
+    }) => practiceExamsService.saveAnswerFiles(attemptId, fileUrls),
+  });
+}
+
 export function useSubmitPracticeExamAttempt() {
   const qc = useQueryClient();
   return useMutation({

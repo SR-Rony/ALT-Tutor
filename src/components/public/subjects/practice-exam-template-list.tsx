@@ -56,6 +56,9 @@ export function PracticeExamTemplateList({
                 <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
                   {template.typeLabel ?? template.type}
                 </span>
+                <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+                  {template.modeLabel ?? (template.mode === "WRITTEN" ? "Written" : "MCQ")}
+                </span>
                 <span
                   className={cn(
                     "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase text-white",

@@ -2,14 +2,18 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { ClipboardList, Globe, Layers, Timer } from "lucide-react";
+import { ClipboardList, FileText, Globe, Layers, ListChecks, Timer } from "lucide-react";
 import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
 import { PageLoader } from "@/components/shared";
 import { ROUTES } from "@/constants";
 import { usePracticeExamHistory, usePracticeExamTemplates } from "@/hooks";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
-import type { PracticeExamTemplate, PracticeExamType } from "@/types/practice-exam.types";
+import type {
+  PracticeExamMode,
+  PracticeExamTemplate,
+  PracticeExamType,
+} from "@/types/practice-exam.types";
 import { cn } from "@/utils";
 import { PracticeExamTemplateList } from "./practice-exam-template-list";
 import { ResourceGridSkeleton } from "./resource-grid-skeleton";
@@ -18,13 +22,28 @@ import { useProgramContext } from "./use-program-context";
 
 type Props = { programSlug: string };
 
-type TypeFilter = "ALL" | PracticeExamType;
+type StyleFilter = PracticeExamType | null;
 
-const TYPE_FILTERS: Array<{ id: TypeFilter; label: string; icon: typeof Timer }> = [
-  { id: "ALL", label: "All", icon: Timer },
-  { id: "TOPIC_QUIZ", label: "Topic Quizzes", icon: ClipboardList },
-  { id: "LADDER", label: "Revision Ladder", icon: Layers },
-  { id: "MOCK", label: "Mock Exams", icon: Timer },
+const STYLE_FILTERS: Array<{
+  id: PracticeExamType;
+  label: string;
+  hint: string;
+  icon: typeof Timer;
+}> = [
+  { id: "TOPIC_QUIZ", label: "Topic Quizzes", hint: "Short practice by topic", icon: ClipboardList },
+  { id: "LADDER", label: "Revision Ladder", hint: "Step-by-step revision", icon: Layers },
+  { id: "MOCK", label: "Mock Exams", hint: "Full timed mocks", icon: Timer },
+];
+
+const FORMAT_OPTIONS: Array<{
+  id: PracticeExamMode | "ANY";
+  label: string;
+  hint: string;
+  icon: typeof ListChecks;
+}> = [
+  { id: "ANY", label: "Any", hint: "MCQ + Written", icon: Globe },
+  { id: "MCQ", label: "MCQ", hint: "Auto-marked", icon: ListChecks },
+  { id: "WRITTEN", label: "Written", hint: "Download & upload", icon: FileText },
 ];
 
 export function PracticeExamsPage({ programSlug }: Props) {
@@ -32,7 +51,8 @@ export function PracticeExamsPage({ programSlug }: Props) {
   const { data, isLoading, isFetching, error, refetch } = usePracticeExamTemplates(programSlug);
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const { data: history = [] } = usePracticeExamHistory(programSlug);
-  const [typeFilter, setTypeFilter] = useState<TypeFilter>("ALL");
+  const [styleFilter, setStyleFilter] = useState<StyleFilter>(null);
+  const [formatFilter, setFormatFilter] = useState<PracticeExamMode | "ANY">("ANY");
   const [unlockOpen, setUnlockOpen] = useState(false);
   const [unlockTarget, setUnlockTarget] = useState<{
     title: string;
@@ -40,16 +60,31 @@ export function PracticeExamsPage({ programSlug }: Props) {
   }>({ title: "", requiredTier: "GOLD" });
 
   const templates = data?.templates ?? [];
-  const filtered = useMemo(() => {
-    if (typeFilter === "ALL") return templates;
-    return templates.filter((t) => t.type === typeFilter);
-  }, [templates, typeFilter]);
 
-  const counts = useMemo(() => {
-    const base = { ALL: templates.length, TOPIC_QUIZ: 0, MOCK: 0, LADDER: 0 };
-    for (const t of templates) base[t.type] += 1;
+  const byFormat = useMemo(() => {
+    if (formatFilter === "ANY") return templates;
+    return templates.filter((t) => (t.mode ?? "MCQ") === formatFilter);
+  }, [templates, formatFilter]);
+
+  const filtered = useMemo(() => {
+    if (!styleFilter) return byFormat;
+    return byFormat.filter((t) => t.type === styleFilter);
+  }, [byFormat, styleFilter]);
+
+  const formatCounts = useMemo(() => {
+    const base = { ANY: templates.length, MCQ: 0, WRITTEN: 0 };
+    for (const t of templates) {
+      if (t.mode === "WRITTEN") base.WRITTEN += 1;
+      else base.MCQ += 1;
+    }
     return base;
   }, [templates]);
+
+  const styleCounts = useMemo(() => {
+    const base = { TOPIC_QUIZ: 0, MOCK: 0, LADDER: 0 };
+    for (const t of byFormat) base[t.type] += 1;
+    return base;
+  }, [byFormat]);
 
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
@@ -66,6 +101,18 @@ export function PracticeExamsPage({ programSlug }: Props) {
     setUnlockOpen(true);
   };
 
+  const emptyLabel = (() => {
+    if (filtered.length === 0 && templates.length === 0) {
+      return "No practice exams published yet for this program.";
+    }
+    const formatBit =
+      formatFilter === "ANY" ? "" : formatFilter === "MCQ" ? " MCQ" : " Written";
+    const styleBit = styleFilter
+      ? STYLE_FILTERS.find((f) => f.id === styleFilter)?.label.toLowerCase()
+      : "exams";
+    return `No${formatBit} ${styleBit ?? "exams"} available right now. Try another filter.`;
+  })();
+
   if (menuLoading && isLoading) {
     return <PageLoader label="Loading practice exams..." />;
   }
@@ -74,7 +121,7 @@ export function PracticeExamsPage({ programSlug }: Props) {
     <div className="bg-background pb-16">
       <ResourceHero
         title={`${programName} Practice Exams`}
-        description="Timed Topic Quizzes, Revision Ladders, and Mock Exams — pulled from the Questionbank with auto-marking after you submit."
+        description="MCQ exams are auto-marked. Written exams let you download the paper and upload your answers."
         icon={<Timer className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
       />
@@ -85,7 +132,8 @@ export function PracticeExamsPage({ programSlug }: Props) {
             <div>
               <h2 className="text-xl font-bold text-foreground md:text-2xl">Choose an exam</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Published templates for this program. Locked ones need a Practice Pass or course access.
+                Start with format, then pick a quiz, ladder, or mock. Locked exams need a Practice Pass
+                or course access.
               </p>
             </div>
             {isFetching ? (
@@ -95,39 +143,103 @@ export function PracticeExamsPage({ programSlug }: Props) {
             ) : null}
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2">
-            {TYPE_FILTERS.map((filter) => {
-              const Icon = filter.icon;
-              const active = typeFilter === filter.id;
-              return (
-                <button
-                  key={filter.id}
-                  type="button"
-                  onClick={() => setTypeFilter(filter.id)}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition",
-                    active
-                      ? "border-primary bg-primary text-primary-foreground"
-                      : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
-                  )}
-                >
-                  <Icon className="h-4 w-4" aria-hidden />
-                  {filter.label}
-                  <span
-                    className={cn(
-                      "rounded-full px-1.5 text-[11px]",
-                      active ? "bg-white/20" : "bg-muted text-muted-foreground"
-                    )}
+          <div className="mt-6 space-y-4">
+            <div>
+              <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                Format
+              </p>
+              <div
+                className="inline-flex flex-wrap rounded-2xl border border-border bg-muted/40 p-1"
+                role="tablist"
+                aria-label="Exam format"
+              >
+                {FORMAT_OPTIONS.map((option) => {
+                  const Icon = option.icon;
+                  const active = formatFilter === option.id;
+                  return (
+                    <button
+                      key={option.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => setFormatFilter(option.id)}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold transition",
+                        active
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" aria-hidden />
+                      <span>{option.label}</span>
+                      <span
+                        className={cn(
+                          "rounded-md px-1.5 text-[11px] font-bold",
+                          active ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {formatCounts[option.id]}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">
+                {FORMAT_OPTIONS.find((o) => o.id === formatFilter)?.hint}
+              </p>
+            </div>
+
+            <div>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                  Exam style
+                </p>
+                {styleFilter ? (
+                  <button
+                    type="button"
+                    onClick={() => setStyleFilter(null)}
+                    className="text-xs font-semibold text-primary hover:underline"
                   >
-                    {counts[filter.id]}
-                  </span>
-                </button>
-              );
-            })}
-            <span className="inline-flex items-center gap-2 rounded-full border border-dashed border-border px-3 py-1.5 text-sm font-semibold text-muted-foreground opacity-70">
-              <Globe className="h-4 w-4" aria-hidden />
-              Prediction · Coming soon
-            </span>
+                    Show all styles
+                  </button>
+                ) : null}
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {STYLE_FILTERS.map((filter) => {
+                  const Icon = filter.icon;
+                  const active = styleFilter === filter.id;
+                  const count = styleCounts[filter.id];
+                  return (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      onClick={() => setStyleFilter(active ? null : filter.id)}
+                      className={cn(
+                        "inline-flex items-center gap-2 rounded-full border px-3.5 py-2 text-sm font-semibold transition",
+                        active
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-card text-muted-foreground hover:border-primary/30 hover:text-foreground"
+                      )}
+                    >
+                      <Icon className="h-4 w-4" aria-hidden />
+                      {filter.label}
+                      <span
+                        className={cn(
+                          "rounded-full px-1.5 text-[11px]",
+                          active ? "bg-white/20" : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {count}
+                      </span>
+                    </button>
+                  );
+                })}
+                <span className="inline-flex items-center gap-2 rounded-full border border-dashed border-border px-3.5 py-2 text-sm font-semibold text-muted-foreground opacity-70">
+                  <Globe className="h-4 w-4" aria-hidden />
+                  Prediction · Soon
+                </span>
+              </div>
+            </div>
           </div>
 
           {error ? (
@@ -143,17 +255,13 @@ export function PracticeExamsPage({ programSlug }: Props) {
               <PracticeExamTemplateList
                 programSlug={programSlug}
                 templates={filtered}
-                emptyLabel={
-                  typeFilter === "ALL"
-                    ? "No practice exams published yet for this program."
-                    : `No ${TYPE_FILTERS.find((f) => f.id === typeFilter)?.label ?? "exams"} published yet.`
-                }
+                emptyLabel={emptyLabel}
                 onUnlock={openUnlock}
               />
             )}
           </div>
 
-          {typeFilter === "MOCK" && filtered.length > 0 ? (
+          {styleFilter === "MOCK" && filtered.length > 0 ? (
             <p className="mt-4 text-sm text-muted-foreground">
               Prefer a dedicated mock list?{" "}
               <Link

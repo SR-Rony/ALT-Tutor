@@ -1,6 +1,7 @@
 import type { QbAccessBadge, QbDifficulty } from "@/types/qb.types";
 
 export type PracticeExamType = "TOPIC_QUIZ" | "MOCK" | "LADDER";
+export type PracticeExamMode = "MCQ" | "WRITTEN";
 
 export type PracticeExamBlueprintRule = {
   topicId?: string;
@@ -17,6 +18,8 @@ export type PracticeExamTemplate = {
   description?: string | null;
   type: PracticeExamType;
   typeLabel?: string;
+  mode?: PracticeExamMode;
+  modeLabel?: string;
   durationMin: number;
   totalQuestions: number;
   passMarkPercent?: number | null;
@@ -58,11 +61,13 @@ export type PracticeExamHistoryItem = {
   submittedAt: string | null;
   expiresAt: string | null;
   answeredCount: number;
+  answerFileUrls?: string[];
   template: {
     id: string;
     title: string;
     slug: string;
     type: PracticeExamType;
+    mode?: PracticeExamMode;
     durationMin: number;
     accessTier: QbAccessBadge | string;
   };
@@ -102,6 +107,7 @@ export type PracticeExamAttemptPayload = {
     startedAt: string;
     expiresAt: string | null;
     submittedAt: string | null;
+    answerFileUrls?: string[];
     passed: boolean | null;
   };
   template: {
@@ -109,6 +115,7 @@ export type PracticeExamAttemptPayload = {
     title: string;
     slug: string;
     type: PracticeExamType | string;
+    mode?: PracticeExamMode | string;
     durationMin: number;
     passMarkPercent: number | null;
     accessTier: QbAccessBadge | string;
@@ -126,12 +133,17 @@ export type SavePracticeExamAnswerResult =
   | { saved: true; expired: false }
   | { expired: true; result: PracticeExamAttemptPayload };
 
+export type SavePracticeExamAnswerFilesResult =
+  | { saved: true; expired: false; answerFileUrls: string[] }
+  | { expired: true; result: PracticeExamAttemptPayload };
+
 export type CreatePracticeExamTemplateInput = {
   programId: string;
   title: string;
   slug: string;
   description?: string;
   type: PracticeExamType;
+  mode?: PracticeExamMode;
   durationMin: number;
   totalQuestions: number;
   passMarkPercent?: number;
@@ -144,4 +156,6 @@ export type CreatePracticeExamTemplateInput = {
 
 export type UpdatePracticeExamTemplateInput = Partial<
   Omit<CreatePracticeExamTemplateInput, "programId">
->;
+> & {
+  passMarkPercent?: number | null;
+};

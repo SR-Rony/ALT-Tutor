@@ -8,6 +8,7 @@ import {
   Check,
   CheckCircle2,
   Clock,
+  Download,
   Expand,
   ExternalLink,
   FileText,
@@ -17,6 +18,7 @@ import {
   ThumbsDown,
   ThumbsUp,
   Timer,
+  Upload,
   XCircle,
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
@@ -25,16 +27,19 @@ import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import {
   useSavePracticeExamAnswer,
+  useSavePracticeExamAnswerFiles,
   useStartPracticeExamAttempt,
   useSubmitPracticeExamAttempt,
 } from "@/hooks";
 import { useAppSelector } from "@/store";
+import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type {
   PracticeExamAttemptPayload,
   PracticeExamAttemptQuestion,
 } from "@/types/practice-exam.types";
 import { cn } from "@/utils";
+import { downloadQuestionPaperPdf } from "@/utils/qb-pdf-export";
 import { ResourceHero, SubjectBreadcrumbNav, useSubjectBreadcrumbs } from "./";
 import { useProgramContext } from "./use-program-context";
 
@@ -163,10 +168,15 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
 
   const startAttempt = useStartPracticeExamAttempt();
   const saveAnswer = useSavePracticeExamAnswer();
+  const saveAnswerFiles = useSavePracticeExamAnswerFiles();
   const submitAttempt = useSubmitPracticeExamAttempt();
 
   const [payload, setPayload] = useState<PracticeExamAttemptPayload | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
+  const [answerFileUrls, setAnswerFileUrls] = useState<string[]>([]);
+  const [answerUploadName, setAnswerUploadName] = useState<string | null>(null);
+  const [answerUploading, setAnswerUploading] = useState(false);
+  const answerFileRef = useRef<HTMLInputElement>(null);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -185,6 +195,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
       if (q.studentAnswer) restored[q.id] = q.studentAnswer;
     }
     setSelectedAnswers(restored);
+    setAnswerFileUrls(data.attempt.answerFileUrls ?? []);
     if (submitted) {
       setRemainingSeconds(null);
       if (opts?.openResult) setResultModalOpen(true);
@@ -245,6 +256,11 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
 
   const handleSubmit = useCallback(async () => {
     if (!payload || submitting || submitAttempt.isPending || examSubmitted) return;
+    const isWritten = payload.template.mode === "WRITTEN";
+    if (isWritten && answerFileUrls.length === 0 && remainingSeconds !== 0) {
+      setBootError("Upload your answer script before submitting.");
+      return;
+    }
     setSubmitting(true);
     try {
       const data = await submitAttempt.mutateAsync(payload.attempt.id);
@@ -254,7 +270,15 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
       setBootError((err as ApiError)?.message || "Failed to submit exam");
       setSubmitting(false);
     }
-  }, [payload, submitting, submitAttempt, examSubmitted, applyPayload]);
+  }, [
+    payload,
+    submitting,
+    submitAttempt,
+    examSubmitted,
+    applyPayload,
+    answerFileUrls.length,
+    remainingSeconds,
+  ]);
 
   useEffect(() => {
     if (remainingSeconds !== 0 || !payload || examSubmitted || autoSubmitRef.current) return;
@@ -282,6 +306,40 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
     }
   };
 
+  const handleDownloadQuestions = () => {
+    if (!payload) return;
+    downloadQuestionPaperPdf({
+      title: `${programName} — ${payload.template.title}`,
+      subtitle: `${payload.questions.length} questions · Written practice exam`,
+      questions: payload.questions,
+    });
+  };
+
+  const handleUploadAnswers = async (file: File | null) => {
+    if (!file || !payload || examSubmitted) return;
+    setBootError(null);
+    setAnswerUploading(true);
+    try {
+      const uploaded = await uploadService.upload(file, "assignments");
+      const nextUrls = [...new Set([...answerFileUrls, uploaded.url])].slice(0, 10);
+      const result = await saveAnswerFiles.mutateAsync({
+        attemptId: payload.attempt.id,
+        fileUrls: nextUrls,
+      });
+      if ("expired" in result && result.expired && result.result) {
+        applyPayload(result.result, { openResult: true });
+      } else if ("answerFileUrls" in result) {
+        setAnswerFileUrls(result.answerFileUrls);
+        setAnswerUploadName(file.name);
+      }
+    } catch (err) {
+      setBootError((err as ApiError)?.message || "Could not upload answer file");
+    } finally {
+      setAnswerUploading(false);
+      if (answerFileRef.current) answerFileRef.current.value = "";
+    }
+  };
+
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
     resourceSlug: "practice-exams",
@@ -291,6 +349,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
   });
 
   const answeredCount = useMemo(() => Object.keys(selectedAnswers).length, [selectedAnswers]);
+  const writtenReady = answerFileUrls.length > 0;
 
   const reviewIncorrect = () => {
     const firstWrong = payload?.questions.find((q) => q.isCorrect === false);
@@ -332,16 +391,21 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
 
   const { attempt, template } = payload;
   const passed = attempt.passed;
+  const writtenMode = template.mode === "WRITTEN";
 
   return (
     <div className="bg-background pb-24">
       <ResourceHero
         title={template.title}
-        subtitle={`${programName} · timed exam`}
+        subtitle={`${programName} · ${writtenMode ? "written exam" : "timed exam"}`}
         description={
           examSubmitted
-            ? "Exam submitted. Review correct/incorrect answers and unlock mark schemes & videos."
-            : "Mark schemes and videos stay locked until you submit. Answers autosave."
+            ? writtenMode
+              ? "Exam submitted. Mark schemes and video solutions are unlocked for self-review."
+              : "Exam submitted. Review correct/incorrect answers and unlock mark schemes & videos."
+            : writtenMode
+              ? "Download the full question paper, write your answers offline, then upload your script and submit."
+              : "Mark schemes and videos stay locked until you submit. Answers autosave."
         }
         icon={<Timer className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
@@ -349,10 +413,17 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
         <div className="flex flex-wrap items-center gap-2">
           <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-card px-3 py-1 text-xs font-semibold">
             <HelpCircle className="h-3.5 w-3.5" aria-hidden />
-            {examSubmitted
-              ? `${attempt.correctCount}/${attempt.totalQuestions} correct`
-              : `${answeredCount}/${payload.questions.length} answered`}
+            {writtenMode
+              ? `${payload.questions.length} questions`
+              : examSubmitted
+                ? `${attempt.correctCount}/${attempt.totalQuestions} correct`
+                : `${answeredCount}/${payload.questions.length} answered`}
           </span>
+          {writtenMode ? (
+            <span className="rounded-full border border-primary/15 bg-card px-3 py-1 text-xs font-semibold">
+              Written
+            </span>
+          ) : null}
           {!examSubmitted && remainingSeconds != null ? (
             <span
               className={cn(
@@ -366,7 +437,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
               {formatTimer(remainingSeconds)}
             </span>
           ) : null}
-          {examSubmitted ? (
+          {examSubmitted && !writtenMode ? (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--accent-green)]/30 bg-[#ecfdf3] px-3 py-1 text-xs font-bold text-[var(--accent-green)]">
               Score {attempt.score}%
             </span>
@@ -378,24 +449,99 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
         <p className="mx-auto max-w-5xl px-4 pt-4 text-sm text-accent md:px-6">{bootError}</p>
       ) : null}
 
+      {writtenMode && !examSubmitted ? (
+        <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
+          <div className="rounded-xl border border-[#c5d9ef] bg-[#e8f0fa] px-4 py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Written exam pack</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Download all {payload.questions.length} questions as one PDF, complete your answers
+                  offline, then upload your answer script before submitting.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="border-primary/30 bg-card"
+                  onClick={handleDownloadQuestions}
+                >
+                  <Download className="mr-1.5 h-4 w-4" />
+                  Download questions
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={answerUploading || submitting}
+                  onClick={() => answerFileRef.current?.click()}
+                >
+                  <Upload className="mr-1.5 h-4 w-4" />
+                  {answerUploading ? "Uploading…" : "Upload answers"}
+                </Button>
+                <input
+                  ref={answerFileRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip"
+                  className="hidden"
+                  onChange={(event) => void handleUploadAnswers(event.target.files?.[0] ?? null)}
+                />
+              </div>
+            </div>
+            {answerUploadName || writtenReady ? (
+              <p className="mt-3 text-xs font-medium text-accent-green">
+                {answerUploadName
+                  ? `Uploaded: ${answerUploadName}`
+                  : `${answerFileUrls.length} answer file(s) saved`}
+                . You can submit when ready.
+              </p>
+            ) : (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Accepted: PDF, Word, images, or ZIP.
+              </p>
+            )}
+          </div>
+        </div>
+      ) : null}
+
       {examSubmitted ? (
         <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 px-4 py-3 text-sm">
             <p className="font-medium text-foreground">
-              Exam submitted — {attempt.correctCount}/{attempt.totalQuestions} correct (
-              {attempt.score}%). Mark schemes and video solutions are unlocked.
+              {writtenMode
+                ? `Written exam submitted${answerFileUrls.length ? ` · ${answerFileUrls.length} file(s)` : ""}. Mark schemes and videos are unlocked for self-review.`
+                : `Exam submitted — ${attempt.correctCount}/${attempt.totalQuestions} correct (${attempt.score}%). Mark schemes and video solutions are unlocked.`}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setResultModalOpen(true)}>
                 View result
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={reviewIncorrect}>
-                Review answers
-              </Button>
+              {!writtenMode ? (
+                <Button type="button" variant="outline" size="sm" onClick={reviewIncorrect}>
+                  Review answers
+                </Button>
+              ) : null}
             </div>
           </div>
+          {writtenMode && answerFileUrls.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {answerFileUrls.map((url, i) => (
+                <a
+                  key={url}
+                  href={url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-primary hover:underline"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Answer file {i + 1}
+                </a>
+              ))}
+            </div>
+          ) : null}
         </div>
-      ) : (
+      ) : !writtenMode ? (
         <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
           <div className="rounded-xl border border-primary/20 bg-primary-muted/60 px-4 py-3 text-sm">
             <p className="inline-flex items-center gap-2 font-medium text-foreground">
@@ -408,21 +554,40 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
             </p>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 md:px-6">
-        {payload.questions.map((question, index) => (
-          <ExamQuestionCard
-            key={question.id}
-            index={index}
-            question={question}
-            selected={selectedAnswers[question.id] ?? null}
-            saving={savingQuestionId === question.id}
-            solutionsUnlocked={examSubmitted}
-            disabled={submitting || examSubmitted}
-            onSelect={(letter) => void handleSelectAnswer(question.id, letter)}
-          />
-        ))}
+        {writtenMode ? (
+          <>
+            {!examSubmitted ? (
+              <p className="text-sm text-muted-foreground">
+                Preview of questions below (same set as the downloadable PDF). Write answers offline —
+                do not answer here.
+              </p>
+            ) : null}
+            {payload.questions.map((question, index) => (
+              <WrittenQuestionCard
+                key={question.id}
+                index={index}
+                question={question}
+                solutionsUnlocked={examSubmitted}
+              />
+            ))}
+          </>
+        ) : (
+          payload.questions.map((question, index) => (
+            <ExamQuestionCard
+              key={question.id}
+              index={index}
+              question={question}
+              selected={selectedAnswers[question.id] ?? null}
+              saving={savingQuestionId === question.id}
+              solutionsUnlocked={examSubmitted}
+              disabled={submitting || examSubmitted}
+              onSelect={(letter) => void handleSelectAnswer(question.id, letter)}
+            />
+          ))
+        )}
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur">
@@ -430,12 +595,16 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
           {examSubmitted ? (
             <>
               <p className="text-sm text-muted-foreground">
-                {attempt.correctCount}/{attempt.totalQuestions} correct · {attempt.score}%
+                {writtenMode
+                  ? "Submitted · review mark schemes below"
+                  : `${attempt.correctCount}/${attempt.totalQuestions} correct · ${attempt.score}%`}
               </p>
               <div className="flex flex-wrap gap-2">
-                <Button type="button" variant="outline" size="pill" onClick={reviewIncorrect}>
-                  Review answers
-                </Button>
+                {!writtenMode ? (
+                  <Button type="button" variant="outline" size="pill" onClick={reviewIncorrect}>
+                    Review answers
+                  </Button>
+                ) : null}
                 <Button asChild size="pill">
                   <Link
                     href={ROUTES.subjectPracticeExamTake(programSlug, templateSlug, { new: true })}
@@ -448,15 +617,31 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
           ) : (
             <>
               <p className="text-sm text-muted-foreground">
-                {answeredCount < payload.questions.length
-                  ? `${payload.questions.length - answeredCount} unanswered`
-                  : "All questions answered"}
+                {writtenMode
+                  ? writtenReady
+                    ? "Answer script uploaded — ready to submit"
+                    : "Download questions, then upload your answers"
+                  : answeredCount < payload.questions.length
+                    ? `${payload.questions.length - answeredCount} unanswered`
+                    : "All questions answered"}
               </p>
               <Button
                 type="button"
                 size="pill"
-                disabled={submitting || submitAttempt.isPending}
+                disabled={
+                  submitting ||
+                  submitAttempt.isPending ||
+                  (writtenMode && !writtenReady)
+                }
                 onClick={() => {
+                  if (writtenMode) {
+                    if (!writtenReady) {
+                      setBootError("Upload your answer script before submitting.");
+                      return;
+                    }
+                    void handleSubmit();
+                    return;
+                  }
                   const unanswered = payload.questions.length - answeredCount;
                   if (
                     unanswered > 0 &&
@@ -482,9 +667,11 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
         className="sm:max-w-md"
         footer={
           <div className="flex flex-wrap justify-end gap-2">
-            <Button type="button" variant="outline" size="pill" onClick={reviewIncorrect}>
-              Review answers
-            </Button>
+            {!writtenMode ? (
+              <Button type="button" variant="outline" size="pill" onClick={reviewIncorrect}>
+                Review answers
+              </Button>
+            ) : null}
             <Button type="button" size="pill" onClick={() => setResultModalOpen(false)}>
               Close
             </Button>
@@ -495,50 +682,158 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
           <p
             className={cn(
               "mx-auto flex h-14 w-14 items-center justify-center rounded-full",
-              passed === true
-                ? "bg-[#ecfdf3] text-[var(--accent-green)]"
-                : passed === false
-                  ? "bg-accent/10 text-accent"
-                  : "bg-primary-muted text-primary"
+              writtenMode
+                ? "bg-primary-muted text-primary"
+                : passed === true
+                  ? "bg-[#ecfdf3] text-[var(--accent-green)]"
+                  : passed === false
+                    ? "bg-accent/10 text-accent"
+                    : "bg-primary-muted text-primary"
             )}
           >
-            {passed === false ? (
+            {passed === false && !writtenMode ? (
               <XCircle className="h-7 w-7" aria-hidden />
             ) : (
               <CheckCircle2 className="h-7 w-7" aria-hidden />
             )}
           </p>
           <div>
-            <p className="text-4xl font-bold text-foreground">{attempt.score}%</p>
-            <p className="mt-2 text-sm text-muted-foreground">
-              {attempt.correctCount}/{attempt.totalQuestions} correct
-              {attempt.totalMarks > 0
-                ? ` · ${attempt.earnedMarks}/${attempt.totalMarks} marks`
-                : ""}
-            </p>
-            {template.passMarkPercent != null ? (
-              <p className="mt-1 text-xs text-muted-foreground">
-                Pass mark {template.passMarkPercent}%
-              </p>
-            ) : null}
-            {passed != null ? (
-              <p
-                className={cn(
-                  "mt-3 text-sm font-bold",
-                  passed ? "text-[var(--accent-green)]" : "text-accent"
-                )}
-              >
-                {passed ? "Passed" : "Not passed"}
-              </p>
-            ) : null}
+            {writtenMode ? (
+              <>
+                <p className="text-2xl font-bold text-foreground">Submitted</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {payload.questions.length} questions · self-review with mark schemes
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="text-4xl font-bold text-foreground">{attempt.score}%</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {attempt.correctCount}/{attempt.totalQuestions} correct
+                  {attempt.totalMarks > 0
+                    ? ` · ${attempt.earnedMarks}/${attempt.totalMarks} marks`
+                    : ""}
+                </p>
+                {template.passMarkPercent != null ? (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Pass mark {template.passMarkPercent}%
+                  </p>
+                ) : null}
+                {passed != null ? (
+                  <p
+                    className={cn(
+                      "mt-3 text-sm font-bold",
+                      passed ? "text-[var(--accent-green)]" : "text-accent"
+                    )}
+                  >
+                    {passed ? "Passed" : "Not passed"}
+                  </p>
+                ) : null}
+              </>
+            )}
           </div>
           <p className="text-xs text-muted-foreground">
-            Correct and incorrect answers are highlighted on this page. Use Mark Scheme and Video
-            Solutions on each question to review.
+            {writtenMode
+              ? "Use Mark Scheme and Video Solutions on each question to check your work."
+              : "Correct and incorrect answers are highlighted on this page. Use Mark Scheme and Video Solutions on each question to review."}
           </p>
         </div>
       </AdminModal>
     </div>
+  );
+}
+
+function WrittenQuestionCard({
+  index,
+  question,
+  solutionsUnlocked,
+}: {
+  index: number;
+  question: PracticeExamAttemptQuestion;
+  solutionsUnlocked: boolean;
+}) {
+  const [modal, setModal] = useState<"scheme" | "video" | null>(null);
+  const displayNumber = question.number || index + 1;
+
+  return (
+    <article
+      id={`pe-q-${question.id}`}
+      data-pe-q
+      className="rounded-2xl border border-border bg-card p-5 shadow-sm"
+    >
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-xs font-semibold text-muted-foreground">
+        <span className="rounded-md bg-primary-muted px-2 py-0.5 text-primary">
+          Question {displayNumber}
+        </span>
+        <span>{paperLabel(question.paper)}</span>
+        {question.difficulty ? <DifficultyDots difficulty={question.difficulty} /> : null}
+        {question.marks ? <span>{question.marks} marks</span> : null}
+      </div>
+      <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground md:text-base">
+        {question.prompt}
+      </p>
+      {question.body ? (
+        <div className="prose prose-sm mt-3 max-w-none whitespace-pre-wrap text-foreground">
+          {question.body}
+        </div>
+      ) : null}
+      {question.diagramUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={question.diagramUrl}
+          alt={`Diagram for question ${displayNumber}`}
+          className="mt-4 max-h-80 rounded-xl border border-border object-contain"
+        />
+      ) : null}
+      {solutionsUnlocked ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!question.markScheme}
+            onClick={() => setModal("scheme")}
+          >
+            <FileText className="mr-1.5 h-4 w-4" />
+            Mark scheme
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={!question.videoUrl}
+            onClick={() => setModal("video")}
+          >
+            <PlayCircle className="mr-1.5 h-4 w-4" />
+            Video
+          </Button>
+        </div>
+      ) : (
+        <p className="mt-4 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <Lock className="h-3.5 w-3.5" />
+          Mark scheme unlocks after submit
+        </p>
+      )}
+
+      <AdminModal
+        open={modal === "scheme"}
+        title={`Mark scheme · Q${displayNumber}`}
+        onClose={() => setModal(null)}
+        className="sm:max-w-lg"
+      >
+        <div className="prose prose-sm max-w-none whitespace-pre-wrap text-foreground">
+          {question.markScheme || "No mark scheme."}
+        </div>
+      </AdminModal>
+      <AdminModal
+        open={modal === "video"}
+        title={`Video · Q${displayNumber}`}
+        onClose={() => setModal(null)}
+        className="sm:max-w-2xl"
+      >
+        {question.videoUrl ? <VideoEmbed url={question.videoUrl} /> : null}
+      </AdminModal>
+    </article>
   );
 }
 

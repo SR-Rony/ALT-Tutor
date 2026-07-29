@@ -1,10 +1,16 @@
 import { siteConfig } from "@/config";
-import type { QbQuestion } from "@/types/qb.types";
 
 type ExportArgs = {
   title: string;
   subtitle?: string;
-  questions: QbQuestion[];
+  questions: Array<{
+    id?: string;
+    paper?: string | null;
+    prompt: string;
+    body?: string | null;
+    diagramUrl?: string | null;
+    difficulty?: string | null;
+  }>;
 };
 
 /** Opens a printable window with a branded question paper (print → Save as PDF). */
@@ -456,8 +462,12 @@ export function downloadQuestionPaperPdf({ title, subtitle, questions }: ExportA
   });
 }
 
-function uniquePapersLabel(questions: QbQuestion[]) {
-  const papers = [...new Set(questions.map((q) => String(q.paper).replace("PAPER_", "Paper ")))];
+function uniquePapersLabel(
+  questions: Array<{ paper?: string | null }>
+) {
+  const papers = [
+    ...new Set(questions.map((q) => String(q.paper ?? "PAPER_1").replace("PAPER_", "Paper "))),
+  ];
   return papers.length ? papers.join(", ") : "All papers";
 }
 

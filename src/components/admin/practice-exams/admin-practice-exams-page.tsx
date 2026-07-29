@@ -21,6 +21,7 @@ import { slugify } from "@/lib/slugify";
 import type { ApiError } from "@/types";
 import type {
   PracticeExamBlueprintRule,
+  PracticeExamMode,
   PracticeExamTemplate,
   PracticeExamType,
 } from "@/types/practice-exam.types";
@@ -32,6 +33,7 @@ type WizardStep = 0 | 1 | 2 | 3;
 
 const STEPS = ["Basics", "Blueprint", "Preview", "Publish"] as const;
 const EXAM_TYPES: PracticeExamType[] = ["TOPIC_QUIZ", "MOCK", "LADDER"];
+const EXAM_MODES: PracticeExamMode[] = ["MCQ", "WRITTEN"];
 const DIFFICULTIES: Array<QbDifficulty | ""> = ["", "EASY", "MEDIUM", "HARD"];
 const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
 
@@ -39,6 +41,10 @@ function typeLabel(type: PracticeExamType) {
   if (type === "MOCK") return "Mock Exam";
   if (type === "LADDER") return "Revision Ladder";
   return "Topic Quiz";
+}
+
+function modeLabel(mode: PracticeExamMode | string | undefined) {
+  return mode === "WRITTEN" ? "Written" : "MCQ";
 }
 
 function emptyRule(): PracticeExamBlueprintRule {
@@ -80,6 +86,7 @@ export function AdminPracticeExamsPage() {
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [type, setType] = useState<PracticeExamType>("TOPIC_QUIZ");
+  const [mode, setMode] = useState<PracticeExamMode>("MCQ");
   const [durationMin, setDurationMin] = useState("30");
   const [totalQuestions, setTotalQuestions] = useState("10");
   const [passMarkPercent, setPassMarkPercent] = useState("50");
@@ -105,6 +112,7 @@ export function AdminPracticeExamsPage() {
     setSlug("");
     setDescription("");
     setType("TOPIC_QUIZ");
+    setMode("MCQ");
     setDurationMin("30");
     setTotalQuestions("10");
     setPassMarkPercent("50");
@@ -126,6 +134,7 @@ export function AdminPracticeExamsPage() {
     setSlug(item.slug);
     setDescription(item.description ?? "");
     setType(item.type);
+    setMode(item.mode === "WRITTEN" ? "WRITTEN" : "MCQ");
     setDurationMin(String(item.durationMin));
     setTotalQuestions(String(item.totalQuestions));
     setPassMarkPercent(
@@ -187,11 +196,15 @@ export function AdminPracticeExamsPage() {
       slug: slug.trim(),
       description: description.trim() || undefined,
       type,
+      mode,
       durationMin: Number.parseInt(durationMin, 10),
       totalQuestions: totalQ,
-      passMarkPercent: passMarkPercent.trim()
-        ? Number.parseInt(passMarkPercent, 10)
-        : undefined,
+      passMarkPercent:
+        mode === "WRITTEN"
+          ? (editId ? null : undefined)
+          : passMarkPercent.trim()
+            ? Number.parseInt(passMarkPercent, 10)
+            : undefined,
       blueprint: blueprint.map((rule) => ({
         ...(rule.topicId ? { topicId: rule.topicId } : {}),
         ...(rule.subtopicId ? { subtopicId: rule.subtopicId } : {}),
@@ -337,6 +350,9 @@ export function AdminPracticeExamsPage() {
                   <p className="font-semibold text-foreground">{item.title}</p>
                   <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
                     {typeLabel(item.type)}
+                  </span>
+                  <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+                    {modeLabel(item.mode)}
                   </span>
                   <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
                     {tierLabel(item.accessTier)}
@@ -494,6 +510,27 @@ export function AdminPracticeExamsPage() {
                 </select>
               </label>
               <label className="block space-y-1.5">
+                <span className="text-sm font-semibold">Question format</span>
+                <select
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value as PracticeExamMode)}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+                >
+                  {EXAM_MODES.map((m) => (
+                    <option key={m} value={m}>
+                      {modeLabel(m)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5 sm:col-span-2">
+                <span className="text-xs text-muted-foreground">
+                  {mode === "WRITTEN"
+                    ? "Written templates pull SHORT_ANSWER / DATA_BASED questions from the Questionbank. Students download the paper and upload answer scripts."
+                    : "MCQ templates pull MULTIPLE_CHOICE questions and auto-mark letter answers."}
+                </span>
+              </label>
+              <label className="block space-y-1.5">
                 <span className="text-sm font-semibold">Access tier</span>
                 <select
                   value={accessTier}
@@ -526,7 +563,9 @@ export function AdminPracticeExamsPage() {
                 />
               </label>
               <label className="block space-y-1.5 sm:col-span-2">
-                <span className="text-sm font-semibold">Pass mark % (optional)</span>
+                <span className="text-sm font-semibold">
+                  Pass mark % {mode === "WRITTEN" ? "(optional, ignored for written)" : "(optional)"}
+                </span>
                 <Input
                   type="number"
                   min={0}
@@ -534,6 +573,7 @@ export function AdminPracticeExamsPage() {
                   value={passMarkPercent}
                   onChange={(e) => setPassMarkPercent(e.target.value)}
                   placeholder="e.g. 50"
+                  disabled={mode === "WRITTEN"}
                 />
               </label>
             </div>
@@ -548,6 +588,9 @@ export function AdminPracticeExamsPage() {
                 {blueprintSum}
               </strong>{" "}
               / {totalQ} required
+              {mode === "WRITTEN"
+                ? " · pulls written (SHORT_ANSWER / DATA_BASED) questions"
+                : " · pulls MCQ questions"}
             </p>
             {blueprint.map((rule, index) => {
               const topic = qbTopics.find((t) => t.id === rule.topicId);
@@ -666,12 +709,13 @@ export function AdminPracticeExamsPage() {
         {step === 2 ? (
           <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4 text-sm">
             <p>
-              <strong>{title}</strong> ({typeLabel(type)})
+              <strong>{title}</strong> ({typeLabel(type)} · {modeLabel(mode)})
             </p>
             <p className="text-muted-foreground">{description || "No description"}</p>
             <p>
               {totalQ} questions · {durationMin} min · {tierLabel(accessTier)}
-              {passMarkPercent ? ` · pass ${passMarkPercent}%` : ""}
+              {mode === "MCQ" && passMarkPercent ? ` · pass ${passMarkPercent}%` : ""}
+              {mode === "WRITTEN" ? " · download paper + upload answers" : " · auto-mark MCQ"}
             </p>
             <ul className="mt-2 list-disc space-y-1 pl-5 text-muted-foreground">
               {blueprint.map((rule, index) => {
