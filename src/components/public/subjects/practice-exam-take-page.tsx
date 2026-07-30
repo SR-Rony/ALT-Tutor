@@ -159,6 +159,10 @@ function VideoEmbed({ url }: { url: string }) {
   );
 }
 
+function isHttpAnswerUrl(value: string | null | undefined) {
+  return Boolean(value && /^https?:\/\//i.test(value.trim()));
+}
+
 export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -176,6 +180,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
   const [answerFileUrls, setAnswerFileUrls] = useState<string[]>([]);
   const [answerUploadName, setAnswerUploadName] = useState<string | null>(null);
   const [answerUploading, setAnswerUploading] = useState(false);
+  const [uploadingQuestionId, setUploadingQuestionId] = useState<string | null>(null);
   const answerFileRef = useRef<HTMLInputElement>(null);
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [savingQuestionId, setSavingQuestionId] = useState<string | null>(null);
@@ -258,9 +263,18 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
   const handleSubmit = useCallback(async () => {
     if (!payload || submitting || submitAttempt.isPending || examSubmitted) return;
     const isWritten = payload.template.mode === "WRITTEN";
-    if (isWritten && answerFileUrls.length === 0) {
-      setBootError("Upload your answer script before submitting.");
-      return;
+    const perQuestion = payload.template.writtenStyle === "PER_QUESTION";
+    if (isWritten) {
+      if (perQuestion) {
+        const missing = payload.questions.some((q) => !isHttpAnswerUrl(selectedAnswers[q.id]));
+        if (missing) {
+          setBootError("Upload an answer file for every question before submitting.");
+          return;
+        }
+      } else if (answerFileUrls.length === 0) {
+        setBootError("Upload your answer script before submitting.");
+        return;
+      }
     }
     setSubmitting(true);
     try {
@@ -278,15 +292,28 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
     examSubmitted,
     applyPayload,
     answerFileUrls.length,
+    selectedAnswers,
   ]);
 
   useEffect(() => {
     if (remainingSeconds !== 0 || !payload || examSubmitted || autoSubmitRef.current) return;
-    // Written exams without scripts stay open after time runs out so the student can still upload.
-    if (payload.template.mode === "WRITTEN" && answerFileUrls.length === 0) return;
+    if (payload.template.mode === "WRITTEN") {
+      const perQuestion = payload.template.writtenStyle === "PER_QUESTION";
+      const ready = perQuestion
+        ? payload.questions.every((q) => isHttpAnswerUrl(selectedAnswers[q.id]))
+        : answerFileUrls.length > 0;
+      if (!ready) return;
+    }
     autoSubmitRef.current = true;
     void handleSubmit();
-  }, [remainingSeconds, payload, examSubmitted, handleSubmit, answerFileUrls.length]);
+  }, [
+    remainingSeconds,
+    payload,
+    examSubmitted,
+    handleSubmit,
+    answerFileUrls.length,
+    selectedAnswers,
+  ]);
 
   const handleSelectAnswer = async (questionId: string, letter: string) => {
     if (!payload || submitting || examSubmitted) return;
@@ -320,13 +347,43 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
   const needsLateFileAttach =
     Boolean(payload) &&
     payload!.template.mode === "WRITTEN" &&
+    payload!.template.writtenStyle !== "PER_QUESTION" &&
     payload!.attempt.status === "SUBMITTED" &&
     (payload!.attempt.answerFileUrls?.length ?? 0) === 0;
+
+  const perQuestionWritten =
+    Boolean(payload) &&
+    payload!.template.mode === "WRITTEN" &&
+    payload!.template.writtenStyle === "PER_QUESTION";
 
   const canUploadAnswers =
     Boolean(payload) &&
     payload!.template.mode === "WRITTEN" &&
+    !perQuestionWritten &&
     (!examSubmitted || needsLateFileAttach);
+
+  const handleUploadQuestionAnswer = async (questionId: string, file: File | null) => {
+    if (!file || !payload || examSubmitted || !perQuestionWritten) return;
+    setBootError(null);
+    setUploadingQuestionId(questionId);
+    try {
+      const uploaded = await uploadService.upload(file, "assignments");
+      const result = await saveAnswer.mutateAsync({
+        attemptId: payload.attempt.id,
+        questionId,
+        answer: uploaded.url,
+      });
+      if ("expired" in result && result.expired && result.result) {
+        applyPayload(result.result, { openResult: result.result.attempt.status !== "IN_PROGRESS" });
+      } else {
+        setSelectedAnswers((prev) => ({ ...prev, [questionId]: uploaded.url }));
+      }
+    } catch (err) {
+      setBootError((err as ApiError)?.message || "Could not upload answer file");
+    } finally {
+      setUploadingQuestionId(null);
+    }
+  };
 
   const handleUploadAnswers = async (file: File | null) => {
     if (!file || !payload || !canUploadAnswers) return;
@@ -371,7 +428,17 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
   });
 
   const answeredCount = useMemo(() => Object.keys(selectedAnswers).length, [selectedAnswers]);
-  const writtenReady = answerFileUrls.length > 0;
+  const writtenReady = useMemo(() => {
+    if (!payload || payload.template.mode !== "WRITTEN") return false;
+    if (payload.template.writtenStyle === "PER_QUESTION") {
+      return payload.questions.every((q) => isHttpAnswerUrl(selectedAnswers[q.id]));
+    }
+    return answerFileUrls.length > 0;
+  }, [payload, selectedAnswers, answerFileUrls.length]);
+  const perQuestionAnsweredCount = useMemo(() => {
+    if (!payload) return 0;
+    return payload.questions.filter((q) => isHttpAnswerUrl(selectedAnswers[q.id])).length;
+  }, [payload, selectedAnswers]);
 
   const reviewIncorrect = () => {
     const firstWrong = payload?.questions.find((q) => q.isCorrect === false);
@@ -469,6 +536,24 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
 
       {bootError ? (
         <p className="mx-auto max-w-5xl px-4 pt-4 text-sm text-accent md:px-6">{bootError}</p>
+      ) : null}
+
+      {perQuestionWritten && !examSubmitted ? (
+        <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
+          <div className="rounded-xl border border-[#c5d9ef] bg-[#e8f0fa] px-4 py-4">
+            <p className="text-sm font-semibold text-foreground">Per-question written exam</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Upload one answer file for each question below
+              {payload.questions.length === 1
+                ? " (single-question exam)."
+                : ` (${perQuestionAnsweredCount}/${payload.questions.length} uploaded).`}{" "}
+              Accepted: PDF, Word, images, or ZIP.
+              {remainingSeconds === 0
+                ? " Time is up — finish uploading all answers to submit."
+                : ""}
+            </p>
+          </div>
+        </div>
       ) : null}
 
       {writtenMode && canUploadAnswers ? (
@@ -588,7 +673,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
       <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 md:px-6">
         {writtenMode ? (
           <>
-            {!examSubmitted ? (
+            {!examSubmitted && !perQuestionWritten ? (
               <p className="text-sm text-muted-foreground">
                 Preview of questions below (same set as the downloadable PDF). Write answers offline —
                 do not answer here.
@@ -600,6 +685,11 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
                 index={index}
                 question={question}
                 solutionsUnlocked={examSubmitted}
+                perQuestionUpload={perQuestionWritten}
+                answerFileUrl={selectedAnswers[question.id] ?? null}
+                uploading={uploadingQuestionId === question.id}
+                disabled={submitting || examSubmitted}
+                onUploadFile={(file) => void handleUploadQuestionAnswer(question.id, file)}
               />
             ))}
           </>
@@ -648,8 +738,12 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
               <p className="text-sm text-muted-foreground">
                 {writtenMode
                   ? writtenReady
-                    ? "Answer script uploaded — ready to submit"
-                    : "Download questions, then upload your answers"
+                    ? perQuestionWritten
+                      ? "All question answers uploaded — ready to submit"
+                      : "Answer script uploaded — ready to submit"
+                    : perQuestionWritten
+                      ? `Upload answers for each question (${perQuestionAnsweredCount}/${payload.questions.length})`
+                      : "Download questions, then upload your answers"
                   : answeredCount < payload.questions.length
                     ? `${payload.questions.length - answeredCount} unanswered`
                     : "All questions answered"}
@@ -665,7 +759,11 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
                 onClick={() => {
                   if (writtenMode) {
                     if (!writtenReady) {
-                      setBootError("Upload your answer script before submitting.");
+                      setBootError(
+                        perQuestionWritten
+                          ? "Upload an answer file for every question before submitting."
+                          : "Upload your answer script before submitting."
+                      );
                       return;
                     }
                     void handleSubmit();
@@ -779,13 +877,25 @@ function WrittenQuestionCard({
   index,
   question,
   solutionsUnlocked,
+  perQuestionUpload = false,
+  answerFileUrl = null,
+  uploading = false,
+  disabled = false,
+  onUploadFile,
 }: {
   index: number;
   question: PracticeExamAttemptQuestion;
   solutionsUnlocked: boolean;
+  perQuestionUpload?: boolean;
+  answerFileUrl?: string | null;
+  uploading?: boolean;
+  disabled?: boolean;
+  onUploadFile?: (file: File | null) => void;
 }) {
   const [modal, setModal] = useState<"scheme" | "video" | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const displayNumber = question.number || index + 1;
+  const hasFile = isHttpAnswerUrl(answerFileUrl);
 
   return (
     <article
@@ -800,6 +910,11 @@ function WrittenQuestionCard({
         <span>{paperLabel(question.paper)}</span>
         {question.difficulty ? <DifficultyDots difficulty={question.difficulty} /> : null}
         {question.marks ? <span>{question.marks} marks</span> : null}
+        {perQuestionUpload && hasFile ? (
+          <span className="rounded-md bg-[#ecfdf3] px-2 py-0.5 text-[var(--accent-green)]">
+            Answer uploaded
+          </span>
+        ) : null}
       </div>
       <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground md:text-base">
         {question.prompt}
@@ -817,6 +932,43 @@ function WrittenQuestionCard({
           className="mt-4 max-h-80 rounded-xl border border-border object-contain"
         />
       ) : null}
+
+      {perQuestionUpload ? (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          {!disabled ? (
+            <>
+              <Button
+                type="button"
+                size="sm"
+                disabled={uploading || disabled}
+                onClick={() => fileRef.current?.click()}
+              >
+                <Upload className="mr-1.5 h-4 w-4" />
+                {uploading ? "Uploading…" : hasFile ? "Replace answer" : "Upload answer"}
+              </Button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip"
+                className="hidden"
+                onChange={(event) => onUploadFile?.(event.target.files?.[0] ?? null)}
+              />
+            </>
+          ) : null}
+          {hasFile && answerFileUrl ? (
+            <a
+              href={answerFileUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              View uploaded file
+            </a>
+          ) : null}
+        </div>
+      ) : null}
+
       {solutionsUnlocked ? (
         <div className="mt-4 flex flex-wrap gap-2">
           <Button

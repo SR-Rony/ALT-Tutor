@@ -2,6 +2,8 @@ import type { QbAccessBadge, QbDifficulty } from "@/types/qb.types";
 
 export type PracticeExamType = "TOPIC_QUIZ" | "MOCK" | "LADDER";
 export type PracticeExamMode = "MCQ" | "WRITTEN";
+/** PACK = full paper upload; PER_QUESTION = one answer file per question. */
+export type PracticeExamWrittenStyle = "PACK" | "PER_QUESTION";
 
 export type PracticeExamBlueprintRule = {
   topicId?: string;
@@ -21,6 +23,7 @@ export type PracticeExamTemplate = {
   typeLabel?: string;
   mode?: PracticeExamMode;
   modeLabel?: string;
+  writtenStyle?: PracticeExamWrittenStyle | null;
   durationMin: number;
   totalQuestions: number;
   passMarkPercent?: number | null;
@@ -123,6 +126,7 @@ export type PracticeExamAttemptPayload = {
     slug: string;
     type: PracticeExamType | string;
     mode?: PracticeExamMode | string;
+    writtenStyle?: PracticeExamWrittenStyle | null;
     durationMin: number;
     passMarkPercent: number | null;
     accessTier: QbAccessBadge | string;
@@ -143,6 +147,8 @@ export type WrittenPracticeSubmission = {
   totalMarks: number;
   totalQuestions: number;
   answerFileUrls: string[];
+  questionAnswerFiles?: Array<{ questionId: string; fileUrl: string }>;
+  writtenStyle?: PracticeExamWrittenStyle | null;
   feedback?: string | null;
   gradedAt?: string | null;
   submittedAt: string | null;
@@ -154,6 +160,7 @@ export type WrittenPracticeSubmission = {
     title: string;
     slug: string;
     mode?: PracticeExamMode;
+    writtenStyle?: PracticeExamWrittenStyle | null;
     durationMin: number;
     totalQuestions: number;
     passMarkPercent?: number | null;
@@ -188,6 +195,7 @@ export type CreatePracticeExamTemplateInput = {
   description?: string;
   type: PracticeExamType;
   mode?: PracticeExamMode;
+  writtenStyle?: PracticeExamWrittenStyle;
   durationMin: number;
   totalQuestions: number;
   passMarkPercent?: number;

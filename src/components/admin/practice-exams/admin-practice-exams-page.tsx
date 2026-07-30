@@ -32,12 +32,14 @@ import type { ApiError } from "@/types";
 import type {
   PracticeExamMode,
   PracticeExamTemplate,
+  PracticeExamWrittenStyle,
 } from "@/types/practice-exam.types";
 import type { QbAccessBadge } from "@/types/qb.types";
 import { cn } from "@/utils";
 import Link from "next/link";
 
 const EXAM_MODES: PracticeExamMode[] = ["MCQ", "WRITTEN"];
+const WRITTEN_STYLES: PracticeExamWrittenStyle[] = ["PER_QUESTION", "PACK"];
 const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
 
 type ListModeFilter = "ALL" | PracticeExamMode;
@@ -57,6 +59,10 @@ type PickerQuestionRow = {
 
 function modeLabel(mode: PracticeExamMode | string | undefined) {
   return mode === "WRITTEN" ? "Written" : "MCQ";
+}
+
+function writtenStyleLabel(style: PracticeExamWrittenStyle | string | null | undefined) {
+  return style === "PER_QUESTION" ? "Per question" : "Full paper";
 }
 
 function allowedQuestionTypes(mode: PracticeExamMode) {
@@ -166,6 +172,7 @@ export function AdminPracticeExamsPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [mode, setMode] = useState<PracticeExamMode>("MCQ");
+  const [writtenStyle, setWrittenStyle] = useState<PracticeExamWrittenStyle>("PACK");
   const [durationMin, setDurationMin] = useState("30");
   const [topicId, setTopicId] = useState("");
   const [subtopicId, setSubtopicId] = useState("");
@@ -347,6 +354,7 @@ export function AdminPracticeExamsPage() {
     setDescription("");
     setEditSlug("");
     setMode(preset?.mode ?? "MCQ");
+    setWrittenStyle("PACK");
     setDurationMin(preset?.mode === "WRITTEN" ? "40" : "30");
     setTopicId("");
     setSubtopicId("");
@@ -369,6 +377,7 @@ export function AdminPracticeExamsPage() {
     setDescription(item.description ?? "");
     setEditSlug(item.slug);
     setMode(item.mode === "WRITTEN" ? "WRITTEN" : "MCQ");
+    setWrittenStyle(item.writtenStyle === "PER_QUESTION" ? "PER_QUESTION" : "PACK");
     setDurationMin(String(item.durationMin));
     setAccessTier(normalizeAccessBadge(item.accessTier));
     setIsPublished(item.isPublished);
@@ -390,6 +399,7 @@ export function AdminPracticeExamsPage() {
     setDescription(item.description ?? "");
     setEditSlug(slugify(`${item.slug}-copy`));
     setMode(item.mode === "WRITTEN" ? "WRITTEN" : "MCQ");
+    setWrittenStyle(item.writtenStyle === "PER_QUESTION" ? "PER_QUESTION" : "PACK");
     setDurationMin(String(item.durationMin));
     setAccessTier(normalizeAccessBadge(item.accessTier));
     setIsPublished(false);
@@ -445,6 +455,7 @@ export function AdminPracticeExamsPage() {
       description: description.trim(),
       type: "TOPIC_QUIZ" as const,
       mode,
+      writtenStyle: mode === "WRITTEN" ? writtenStyle : undefined,
       durationMin: Number.parseInt(durationMin, 10),
       totalQuestions: selectedQuestionIds.length,
       passMarkPercent: mode === "WRITTEN" ? (editId ? null : undefined) : 50,
@@ -753,6 +764,11 @@ export function AdminPracticeExamsPage() {
                         >
                           {modeLabel(item.mode)}
                         </span>
+                        {item.mode === "WRITTEN" ? (
+                          <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+                            {writtenStyleLabel(item.writtenStyle)}
+                          </span>
+                        ) : null}
                         <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
                           {tierLabel(item.accessTier)}
                         </span>
@@ -896,6 +912,7 @@ export function AdminPracticeExamsPage() {
                 onClick={() => {
                   if (m === mode) return;
                   setMode(m);
+                  if (m === "WRITTEN") setWrittenStyle("PACK");
                   setSelectedQuestionIds([]);
                   setPickerTab("available");
                 }}
@@ -910,6 +927,34 @@ export function AdminPracticeExamsPage() {
               </button>
             ))}
           </div>
+
+          {mode === "WRITTEN" ? (
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Student submission style</p>
+              <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
+                {WRITTEN_STYLES.map((style) => (
+                  <button
+                    key={style}
+                    type="button"
+                    onClick={() => setWrittenStyle(style)}
+                    className={cn(
+                      "flex-1 rounded-lg px-3 py-2 text-sm font-semibold transition",
+                      writtenStyle === style
+                        ? "bg-card text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    )}
+                  >
+                    {writtenStyleLabel(style)}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {writtenStyle === "PER_QUESTION"
+                  ? "Students answer one question at a time and upload a file for each question. Works for a single-question exam or many questions."
+                  : "Students download the full question paper and upload one answer script for the whole exam."}
+              </p>
+            </div>
+          ) : null}
 
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold">Title</span>
@@ -1238,7 +1283,9 @@ export function AdminPracticeExamsPage() {
 
           <p className="text-xs text-muted-foreground">
             {mode === "WRITTEN"
-              ? "Students download the question paper and upload their answers."
+              ? writtenStyle === "PER_QUESTION"
+                ? "Students upload one answer file per question (1 question or many)."
+                : "Students download the question paper and upload their full answer script."
               : "Students answer MCQs online — auto-marked after submit."}
           </p>
         </div>

@@ -27,6 +27,10 @@ function uniqueFiles(urls: string[]) {
   return [...new Set(urls.filter((u) => Boolean(u && u.trim())))];
 }
 
+function isHttpAnswerUrl(value: string | null | undefined) {
+  return Boolean(value && /^https?:\/\//i.test(value.trim()));
+}
+
 function GradePanel({
   item,
   onDone,
@@ -93,7 +97,14 @@ function GradePanel({
     ...((data?.attempt.answerFileUrls as string[] | undefined) ?? []),
   ]);
   const questions = data?.questions ?? [];
-  const canAttach = item.status !== "GRADED";
+  const perQuestionFiles = item.questionAnswerFiles?.length
+    ? item.questionAnswerFiles
+    : item.writtenStyle === "PER_QUESTION"
+      ? questions
+          .filter((q) => isHttpAnswerUrl(q.studentAnswer))
+          .map((q) => ({ questionId: q.id, fileUrl: q.studentAnswer!.trim() }))
+      : [];
+  const canAttach = item.status !== "GRADED" && item.writtenStyle !== "PER_QUESTION";
 
   return (
     <div className="mt-4 space-y-4 rounded-xl border border-border bg-muted/20 p-4">
@@ -103,6 +114,7 @@ function GradePanel({
           <p className="text-xs text-muted-foreground">
             {item.student.phone || item.student.email || item.student.id}
             {item.submittedAt ? ` · submitted ${formatShortDate(item.submittedAt)}` : ""}
+            {item.writtenStyle === "PER_QUESTION" ? " · per-question upload" : ""}
           </p>
         </div>
         <Button asChild size="sm" variant="outline">
@@ -120,7 +132,32 @@ function GradePanel({
         <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Answer scripts
         </p>
-        {files.length === 0 ? (
+        {perQuestionFiles.length > 0 ? (
+          <ul className="space-y-1">
+            {perQuestionFiles.map((file) => {
+              const q = questions.find((row) => row.id === file.questionId);
+              const label = q
+                ? `Q${q.number || "?"} answer`
+                : `Answer file`;
+              return (
+                <li key={`${file.questionId}-${file.fileUrl}`}>
+                  <a
+                    href={file.fileUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    {label}
+                  </a>
+                  {q?.prompt ? (
+                    <p className="ml-5 truncate text-xs text-muted-foreground">{q.prompt}</p>
+                  ) : null}
+                </li>
+              );
+            })}
+          </ul>
+        ) : files.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No files on this submission. Attach the script here if the student sent it separately.
           </p>
