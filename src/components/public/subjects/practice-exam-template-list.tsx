@@ -19,6 +19,10 @@ function modeAccent(mode?: string) {
   return mode === "WRITTEN" ? "border-l-[#1d4ed8]" : "border-l-accent";
 }
 
+function writtenStyleLabel(style?: string | null) {
+  return style === "PER_QUESTION" ? "Per question" : "Full paper";
+}
+
 export function PracticeExamTemplateList({
   programSlug,
   templates,
@@ -39,7 +43,8 @@ export function PracticeExamTemplateList({
         const locked = Boolean(template.locked);
         const badge = normalizeAccessBadge(template.accessTier);
         const detailHref = ROUTES.subjectPracticeExam(programSlug, template.slug);
-        const modeLabel = template.modeLabel ?? (template.mode === "WRITTEN" ? "Written" : "MCQ");
+        const isWritten = template.mode === "WRITTEN";
+        const modeLabel = template.modeLabel ?? (isWritten ? "Written" : "MCQ");
 
         return (
           <article
@@ -55,13 +60,18 @@ export function PracticeExamTemplateList({
                 <span
                   className={cn(
                     "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                    template.mode === "WRITTEN"
+                    isWritten
                       ? "bg-[#eff6ff] text-[#1d4ed8]"
                       : "bg-primary-muted text-primary"
                   )}
                 >
                   {modeLabel}
                 </span>
+                {isWritten ? (
+                  <span className="rounded-md bg-[#f8fafc] px-1.5 py-0.5 text-[10px] font-bold uppercase text-slate-600">
+                    {writtenStyleLabel(template.writtenStyle)}
+                  </span>
+                ) : null}
                 <span
                   className={cn(
                     "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase text-white",
@@ -80,7 +90,7 @@ export function PracticeExamTemplateList({
               <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-medium text-muted-foreground">
                 <span className="inline-flex items-center gap-1">
                   <HelpCircle className="h-3.5 w-3.5" aria-hidden />
-                  {template.totalQuestions} questions
+                  {template.totalQuestions} question{template.totalQuestions === 1 ? "" : "s"}
                 </span>
                 <span className="inline-flex items-center gap-1">
                   <Clock className="h-3.5 w-3.5" aria-hidden />

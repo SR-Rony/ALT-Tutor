@@ -233,16 +233,32 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
                   const userTier = data.access?.userTier ?? "FREE";
                   const locked =
                     Boolean(sub.locked) || !canAccessWithTier(userTier, sub.badge);
+                  const studyHref = ROUTES.subjectQuestionbankStudy(programSlug, sub.slug);
+                  const loginThenStudy = `${ROUTES.auth.login}?next=${encodeURIComponent(studyHref)}`;
 
                   return (
                     <StudySetCard
                       key={sub.id}
                       sub={sub}
                       locked={locked}
-                      onUnlock={() => openUnlock(sub.title, sub.badge)}
-                      onOpenStudy={() =>
-                        router.push(ROUTES.subjectQuestionbankStudy(programSlug, sub.slug))
-                      }
+                      onUnlock={() => {
+                        if (!isAuthenticated) {
+                          router.push(
+                            `${ROUTES.auth.login}?next=${encodeURIComponent(
+                              `${ROUTES.subjectQuestionbank(programSlug)}?unlock=1`
+                            )}`
+                          );
+                          return;
+                        }
+                        openUnlock(sub.title, sub.badge);
+                      }}
+                      onOpenStudy={() => {
+                        if (!isAuthenticated) {
+                          router.push(loginThenStudy);
+                          return;
+                        }
+                        router.push(studyHref);
+                      }}
                     />
                   );
                 })}

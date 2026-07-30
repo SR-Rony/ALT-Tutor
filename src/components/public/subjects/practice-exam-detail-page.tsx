@@ -61,17 +61,25 @@ export function PracticeExamDetailPage({ programSlug, templateSlug }: Props) {
     ROUTES.subjectPracticeExamTake(programSlug, templateSlug)
   )}`;
 
+  const isWritten = template.mode === "WRITTEN" || template.modeLabel === "Written";
+  const perQuestion = template.writtenStyle === "PER_QUESTION";
+  const writtenBlurb = perQuestion
+    ? template.totalQuestions === 1
+      ? "One written question — upload your answer file for that question, then submit."
+      : "Answer question by question and upload a file for each. Mark schemes unlock after submit."
+    : "Download the full question paper, write answers offline, then upload one script for the whole exam.";
+
   return (
     <div className="bg-background pb-16">
       <ResourceHero
         title={template.title}
-        subtitle={`${programName} · ${
-          template.mode === "WRITTEN" || template.modeLabel === "Written" ? "Written" : "MCQ"
+        subtitle={`${programName} · ${isWritten ? "Written" : "MCQ"}${
+          isWritten ? ` · ${perQuestion ? "Per question" : "Full paper"}` : ""
         }`}
         description={
           template.description ||
-          (template.mode === "WRITTEN"
-            ? "Download the full question paper, write answers offline, then upload your script. Mark schemes unlock after submit."
+          (isWritten
+            ? writtenBlurb
             : "Timed practice pulled from the Questionbank. Mark schemes stay hidden until you submit.")
         }
         icon={<Timer className="h-7 w-7 text-primary" aria-hidden />}
@@ -130,8 +138,8 @@ export function PracticeExamDetailPage({ programSlug, templateSlug }: Props) {
         <section className="rounded-2xl border border-border bg-card p-5">
           <h2 className="text-base font-bold text-foreground">Ready to start?</h2>
           <p className="mt-2 text-sm text-muted-foreground">
-            {template.mode === "WRITTEN"
-              ? "Download the full question paper, write answers offline, upload your script, then submit. Mark schemes unlock after submit."
+            {isWritten
+              ? writtenBlurb
               : "Timed attempt with countdown, autosave, and auto-submit when time runs out. Solutions unlock after you submit."}
           </p>
           <div className="mt-5 flex flex-wrap gap-3">

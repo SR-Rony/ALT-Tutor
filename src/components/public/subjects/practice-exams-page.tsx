@@ -26,7 +26,7 @@ const FORMAT_OPTIONS: Array<{
 }> = [
   { id: "ANY", label: "All", hint: "MCQ + Written", icon: Timer },
   { id: "MCQ", label: "MCQ", hint: "Auto-marked online", icon: ListChecks },
-  { id: "WRITTEN", label: "Written", hint: "Download paper, upload answers", icon: FileText },
+  { id: "WRITTEN", label: "Written", hint: "Per question or full paper", icon: FileText },
 ];
 
 export function PracticeExamsPage({ programSlug }: Props) {

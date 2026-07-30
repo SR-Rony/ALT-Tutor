@@ -62,7 +62,7 @@ function modeLabel(mode: PracticeExamMode | string | undefined) {
 }
 
 function writtenStyleLabel(style: PracticeExamWrittenStyle | string | null | undefined) {
-  return style === "PER_QUESTION" ? "Per question" : "Full paper";
+  return style === "PER_QUESTION" ? "Per question (1Q or many)" : "Full paper pack";
 }
 
 function allowedQuestionTypes(mode: PracticeExamMode) {
