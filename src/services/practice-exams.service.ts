@@ -160,4 +160,15 @@ export const practiceExamsService = {
     );
     return response.data;
   },
+
+  async attachWrittenAnswerFiles(
+    attemptId: string,
+    fileUrls: string[]
+  ): Promise<WrittenPracticeSubmission> {
+    const response = await apiClient.patch<WrittenPracticeSubmission>(
+      `/practice-exams/admin/written-attempts/${encodeURIComponent(attemptId)}/answer-files`,
+      { fileUrls }
+    );
+    return response.data;
+  },
 };

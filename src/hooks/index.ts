@@ -120,6 +120,7 @@ export {
   useAdminWrittenPracticeSubmissions,
   useAdminWrittenPracticeAttempt,
   useGradeWrittenPracticeAttempt,
+  useAttachWrittenPracticeAnswerFiles,
 } from "./use-practice-exams";
 export {
   useKeyConceptLessons,

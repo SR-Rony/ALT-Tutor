@@ -187,7 +187,8 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
   const autoSubmitRef = useRef(false);
 
   const applyPayload = useCallback((data: PracticeExamAttemptPayload, opts?: { openResult?: boolean }) => {
-    const submitted = data.attempt.status === "SUBMITTED";
+    const submitted =
+      data.attempt.status === "SUBMITTED" || data.attempt.status === "GRADED";
     setPayload(data);
     setExamSubmitted(submitted);
     const restored: Record<string, string> = {};
@@ -257,7 +258,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
   const handleSubmit = useCallback(async () => {
     if (!payload || submitting || submitAttempt.isPending || examSubmitted) return;
     const isWritten = payload.template.mode === "WRITTEN";
-    if (isWritten && answerFileUrls.length === 0 && remainingSeconds !== 0) {
+    if (isWritten && answerFileUrls.length === 0) {
       setBootError("Upload your answer script before submitting.");
       return;
     }
@@ -277,14 +278,15 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
     examSubmitted,
     applyPayload,
     answerFileUrls.length,
-    remainingSeconds,
   ]);
 
   useEffect(() => {
     if (remainingSeconds !== 0 || !payload || examSubmitted || autoSubmitRef.current) return;
+    // Written exams without scripts stay open after time runs out so the student can still upload.
+    if (payload.template.mode === "WRITTEN" && answerFileUrls.length === 0) return;
     autoSubmitRef.current = true;
     void handleSubmit();
-  }, [remainingSeconds, payload, examSubmitted, handleSubmit]);
+  }, [remainingSeconds, payload, examSubmitted, handleSubmit, answerFileUrls.length]);
 
   const handleSelectAnswer = async (questionId: string, letter: string) => {
     if (!payload || submitting || examSubmitted) return;
@@ -315,8 +317,19 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
     });
   };
 
+  const needsLateFileAttach =
+    Boolean(payload) &&
+    payload!.template.mode === "WRITTEN" &&
+    payload!.attempt.status === "SUBMITTED" &&
+    (payload!.attempt.answerFileUrls?.length ?? 0) === 0;
+
+  const canUploadAnswers =
+    Boolean(payload) &&
+    payload!.template.mode === "WRITTEN" &&
+    (!examSubmitted || needsLateFileAttach);
+
   const handleUploadAnswers = async (file: File | null) => {
-    if (!file || !payload || examSubmitted) return;
+    if (!file || !payload || !canUploadAnswers) return;
     setBootError(null);
     setAnswerUploading(true);
     try {
@@ -331,6 +344,15 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
       } else if ("answerFileUrls" in result) {
         setAnswerFileUrls(result.answerFileUrls);
         setAnswerUploadName(file.name);
+        if (needsLateFileAttach) {
+          applyPayload({
+            ...payload,
+            attempt: {
+              ...payload.attempt,
+              answerFileUrls: result.answerFileUrls,
+            },
+          });
+        }
       }
     } catch (err) {
       setBootError((err as ApiError)?.message || "Could not upload answer file");
@@ -449,28 +471,35 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
         <p className="mx-auto max-w-5xl px-4 pt-4 text-sm text-accent md:px-6">{bootError}</p>
       ) : null}
 
-      {writtenMode && !examSubmitted ? (
+      {writtenMode && canUploadAnswers ? (
         <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
           <div className="rounded-xl border border-[#c5d9ef] bg-[#e8f0fa] px-4 py-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm font-semibold text-foreground">Written exam pack</p>
+                <p className="text-sm font-semibold text-foreground">
+                  {needsLateFileAttach ? "Attach answer script" : "Written exam pack"}
+                </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Download all {payload.questions.length} questions as one PDF, complete your answers
-                  offline, then upload your answer script before submitting.
+                  {needsLateFileAttach
+                    ? "This attempt was submitted without an answer file. Upload your script so an admin can mark it."
+                    : remainingSeconds === 0
+                      ? "Time is up — upload your answer script to finish the exam."
+                      : `Download all ${payload.questions.length} questions as one PDF, complete your answers offline, then upload your answer script before submitting.`}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="border-primary/30 bg-card"
-                  onClick={handleDownloadQuestions}
-                >
-                  <Download className="mr-1.5 h-4 w-4" />
-                  Download questions
-                </Button>
+                {!needsLateFileAttach ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="border-primary/30 bg-card"
+                    onClick={handleDownloadQuestions}
+                  >
+                    <Download className="mr-1.5 h-4 w-4" />
+                    Download questions
+                  </Button>
+                ) : null}
                 <Button
                   type="button"
                   size="sm"
@@ -494,7 +523,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
                 {answerUploadName
                   ? `Uploaded: ${answerUploadName}`
                   : `${answerFileUrls.length} answer file(s) saved`}
-                . You can submit when ready.
+                {needsLateFileAttach ? "." : ". You can submit when ready."}
               </p>
             ) : (
               <p className="mt-3 text-xs text-muted-foreground">
@@ -505,7 +534,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
         </div>
       ) : null}
 
-      {examSubmitted ? (
+      {examSubmitted && !needsLateFileAttach ? (
         <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 px-4 py-3 text-sm">
             <p className="font-medium text-foreground">

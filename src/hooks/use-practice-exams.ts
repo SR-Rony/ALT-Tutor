@@ -182,3 +182,19 @@ export function useGradeWrittenPracticeAttempt() {
     },
   });
 }
+
+export function useAttachWrittenPracticeAnswerFiles() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      attemptId,
+      fileUrls,
+    }: {
+      attemptId: string;
+      fileUrls: string[];
+    }) => practiceExamsService.attachWrittenAnswerFiles(attemptId, fileUrls),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.practiceExams.all });
+    },
+  });
+}

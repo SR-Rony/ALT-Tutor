@@ -1,8 +1,8 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, FileText, Loader2, RefreshCw } from "lucide-react";
+import { ExternalLink, FileText, Loader2, RefreshCw, Upload } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -12,9 +12,11 @@ import {
   useAdminSubjectsTree,
   useAdminWrittenPracticeAttempt,
   useAdminWrittenPracticeSubmissions,
+  useAttachWrittenPracticeAnswerFiles,
   useGradeWrittenPracticeAttempt,
 } from "@/hooks";
 import { formatShortDate } from "@/lib/format";
+import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type { WrittenPracticeSubmission } from "@/types/practice-exam.types";
 import { cn } from "@/utils";
@@ -30,10 +32,14 @@ function GradePanel({
   onDone,
 }: {
   item: WrittenPracticeSubmission;
-  onDone: () => void;
+  onDone: (close?: boolean) => void;
 }) {
   const { data, isLoading, error } = useAdminWrittenPracticeAttempt(item.id);
   const gradeMutation = useGradeWrittenPracticeAttempt();
+  const attachFiles = useAttachWrittenPracticeAnswerFiles();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [fileUrls, setFileUrls] = useState(() => uniqueFiles(item.answerFileUrls ?? []));
+  const [uploading, setUploading] = useState(false);
   const [grade, setGrade] = useState(
     item.score > 0 || item.status === "GRADED" ? String(item.score) : ""
   );
@@ -56,14 +62,38 @@ function GradePanel({
           publish,
         },
       });
-      onDone();
+      onDone(true);
     } catch (err) {
       setActionError((err as ApiError)?.message || "Grading failed");
     }
   };
 
-  const files = uniqueFiles(item.answerFileUrls ?? []);
+  const handleAttachFile = async (file: File | null) => {
+    if (!file || item.status === "GRADED") return;
+    setActionError(null);
+    setUploading(true);
+    try {
+      const uploaded = await uploadService.upload(file, "assignments");
+      const updated = await attachFiles.mutateAsync({
+        attemptId: item.id,
+        fileUrls: [uploaded.url],
+      });
+      setFileUrls(uniqueFiles(updated.answerFileUrls ?? []));
+      onDone(false);
+    } catch (err) {
+      setActionError((err as ApiError)?.message || "Could not attach answer file");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
+
+  const files = uniqueFiles([
+    ...fileUrls,
+    ...((data?.attempt.answerFileUrls as string[] | undefined) ?? []),
+  ]);
   const questions = data?.questions ?? [];
+  const canAttach = item.status !== "GRADED";
 
   return (
     <div className="mt-4 space-y-4 rounded-xl border border-border bg-muted/20 p-4">
@@ -91,7 +121,9 @@ function GradePanel({
           Answer scripts
         </p>
         {files.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No files uploaded.</p>
+          <p className="text-sm text-muted-foreground">
+            No files on this submission. Attach the script here if the student sent it separately.
+          </p>
         ) : (
           <ul className="space-y-1">
             {files.map((url, index) => (
@@ -109,6 +141,31 @@ function GradePanel({
             ))}
           </ul>
         )}
+        {canAttach ? (
+          <div className="mt-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={uploading || attachFiles.isPending}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              {uploading || attachFiles.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {files.length === 0 ? "Attach answer file" : "Add another file"}
+            </Button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip"
+              className="hidden"
+              onChange={(event) => void handleAttachFile(event.target.files?.[0] ?? null)}
+            />
+          </div>
+        ) : null}
       </div>
 
       <div>
@@ -391,8 +448,8 @@ export function AdminPracticeExamMarkingPage() {
                   {open ? (
                     <GradePanel
                       item={item}
-                      onDone={() => {
-                        setOpenId(null);
+                      onDone={(close) => {
+                        if (close) setOpenId(null);
                         void refetch();
                       }}
                     />
