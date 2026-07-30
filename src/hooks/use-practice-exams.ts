@@ -6,6 +6,7 @@ import { practiceExamsService } from "@/services/practice-exams.service";
 import { useAppSelector } from "@/store";
 import type {
   CreatePracticeExamTemplateInput,
+  GradeWrittenPracticeInput,
   StartPracticeExamInput,
   UpdatePracticeExamTemplateInput,
 } from "@/types/practice-exam.types";
@@ -143,5 +144,41 @@ export function useDeletePracticeExamTemplate() {
   return useMutation({
     mutationFn: (id: string) => practiceExamsService.deleteTemplate(id),
     onSuccess: invalidate,
+  });
+}
+
+export function useAdminWrittenPracticeSubmissions(
+  programId?: string,
+  status: "PENDING" | "GRADED" | "ALL" = "PENDING"
+) {
+  return useQuery({
+    queryKey: queryKeys.practiceExams.writtenSubmissions(programId, status),
+    queryFn: () =>
+      practiceExamsService.listWrittenSubmissions({ programId, status }),
+    enabled: Boolean(programId),
+  });
+}
+
+export function useAdminWrittenPracticeAttempt(attemptId?: string) {
+  return useQuery({
+    queryKey: queryKeys.practiceExams.attempt(`admin-${attemptId}`),
+    queryFn: () => practiceExamsService.getWrittenAttempt(attemptId!),
+    enabled: Boolean(attemptId),
+  });
+}
+
+export function useGradeWrittenPracticeAttempt() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      attemptId,
+      payload,
+    }: {
+      attemptId: string;
+      payload: GradeWrittenPracticeInput;
+    }) => practiceExamsService.gradeWrittenAttempt(attemptId, payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.practiceExams.all });
+    },
   });
 }

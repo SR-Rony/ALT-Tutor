@@ -526,6 +526,14 @@ export function AdminPracticeExamsPage() {
                 type="button"
                 size="sm"
                 variant="outline"
+                asChild
+              >
+                <Link href={ROUTES.admin.practiceExamMarking}>Written Marking</Link>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
                 disabled={!effectiveProgramId}
                 onClick={() => openCreate({ mode: "WRITTEN" })}
               >

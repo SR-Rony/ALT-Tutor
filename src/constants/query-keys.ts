@@ -46,6 +46,8 @@ export const queryKeys = {
     attempt: (attemptId: string) => ["practice-exams", "attempt", attemptId] as const,
     teacher: (programId?: string) =>
       ["practice-exams", "teacher", programId ?? "all"] as const,
+    writtenSubmissions: (programId?: string, status = "PENDING") =>
+      ["practice-exams", "written-submissions", programId ?? "all", status] as const,
   },
   keyConcepts: {
     all: ["key-concepts"] as const,

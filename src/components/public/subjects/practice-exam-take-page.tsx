@@ -510,7 +510,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 px-4 py-3 text-sm">
             <p className="font-medium text-foreground">
               {writtenMode
-                ? `Written exam submitted${answerFileUrls.length ? ` · ${answerFileUrls.length} file(s)` : ""}. Mark schemes and videos are unlocked for self-review.`
+                ? `Written exam submitted${answerFileUrls.length ? ` · ${answerFileUrls.length} file(s)` : ""}. Waiting for admin marks — mark schemes are unlocked for self-review.`
                 : `Exam submitted — ${attempt.correctCount}/${attempt.totalQuestions} correct (${attempt.score}%). Mark schemes and video solutions are unlocked.`}
             </p>
             <div className="flex flex-wrap gap-2">
@@ -596,7 +596,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
             <>
               <p className="text-sm text-muted-foreground">
                 {writtenMode
-                  ? "Submitted · review mark schemes below"
+                  ? "Submitted · awaiting admin marks"
                   : `${attempt.correctCount}/${attempt.totalQuestions} correct · ${attempt.score}%`}
               </p>
               <div className="flex flex-wrap gap-2">
@@ -702,7 +702,10 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
               <>
                 <p className="text-2xl font-bold text-foreground">Submitted</p>
                 <p className="mt-2 text-sm text-muted-foreground">
-                  {payload.questions.length} questions · self-review with mark schemes
+                  {payload.questions.length} questions · awaiting admin marks
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  You can self-review with mark schemes meanwhile. Your score appears after marking.
                 </p>
               </>
             ) : (

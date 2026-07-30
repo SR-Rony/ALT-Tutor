@@ -104,6 +104,7 @@ export const ROUTES = {
       return programId ? `${base}?programId=${encodeURIComponent(programId)}` : base;
     },
     practiceExams: "/admin/practice-exams",
+    practiceExamMarking: "/admin/practice-exams/marking",
     keyConcepts: "/admin/key-concepts",
     pastPapers: "/admin/past-papers",
     flashcards: "/admin/flashcards",

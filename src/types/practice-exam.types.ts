@@ -52,7 +52,7 @@ export type PracticeExamTemplateDetail = {
 
 export type PracticeExamHistoryItem = {
   id: string;
-  status: "IN_PROGRESS" | "SUBMITTED" | "ABANDONED" | string;
+  status: "IN_PROGRESS" | "SUBMITTED" | "GRADED" | "ABANDONED" | string;
   score: number | null;
   correctCount: number | null;
   totalQuestions: number;
@@ -63,6 +63,8 @@ export type PracticeExamHistoryItem = {
   expiresAt: string | null;
   answeredCount: number;
   answerFileUrls?: string[];
+  feedback?: string | null;
+  awaitingMarking?: boolean;
   template: {
     id: string;
     title: string;
@@ -99,7 +101,7 @@ export type PracticeExamAttemptPayload = {
   restored: boolean;
   attempt: {
     id: string;
-    status: "IN_PROGRESS" | "SUBMITTED" | string;
+    status: "IN_PROGRESS" | "SUBMITTED" | "GRADED" | string;
     score: number;
     correctCount: number;
     totalQuestions: number;
@@ -110,6 +112,10 @@ export type PracticeExamAttemptPayload = {
     submittedAt: string | null;
     answerFileUrls?: string[];
     passed: boolean | null;
+    feedback?: string | null;
+    gradedAt?: string | null;
+    awaitingMarking?: boolean;
+    gradingStatus?: "NONE" | "AWAITING" | "GRADED" | "AUTO" | string;
   };
   template: {
     id: string;
@@ -122,6 +128,43 @@ export type PracticeExamAttemptPayload = {
     accessTier: QbAccessBadge | string;
   };
   questions: PracticeExamAttemptQuestion[];
+  student?: { id: string; name: string; phone?: string | null; email?: string | null };
+  program?: { id: string; name: string; slug: string };
+  draftGrade?: number;
+  draftFeedback?: string | null;
+  isPublished?: boolean;
+};
+
+export type WrittenPracticeSubmission = {
+  id: string;
+  status: string;
+  score: number;
+  earnedMarks: number;
+  totalMarks: number;
+  totalQuestions: number;
+  answerFileUrls: string[];
+  feedback?: string | null;
+  gradedAt?: string | null;
+  submittedAt: string | null;
+  startedAt: string;
+  awaitingMarking?: boolean;
+  student: { id: string; name: string; phone?: string | null; email?: string | null };
+  template: {
+    id: string;
+    title: string;
+    slug: string;
+    mode?: PracticeExamMode;
+    durationMin: number;
+    totalQuestions: number;
+    passMarkPercent?: number | null;
+  };
+  program: { id: string; name: string; slug: string };
+};
+
+export type GradeWrittenPracticeInput = {
+  grade: number;
+  feedback?: string;
+  publish?: boolean;
 };
 
 export type StartPracticeExamInput = {

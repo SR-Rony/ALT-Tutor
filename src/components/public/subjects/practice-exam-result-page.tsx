@@ -75,9 +75,13 @@ export function PracticeExamResultPage({
   }
 
   const { attempt, template, questions } = data;
+  const isWritten = template.mode === "WRITTEN";
+  const awaitingMarking = Boolean(attempt.awaitingMarking) || attempt.gradingStatus === "AWAITING";
+  const gradePublished = !isWritten || attempt.status === "GRADED" || attempt.gradingStatus === "GRADED";
   const passed = attempt.passed;
-  const scoreLabel =
-    attempt.correctCount != null
+  const scoreLabel = isWritten
+    ? `${attempt.totalQuestions} question${attempt.totalQuestions === 1 ? "" : "s"}`
+    : attempt.correctCount != null
       ? `${attempt.correctCount}/${attempt.totalQuestions}`
       : `${attempt.totalQuestions} Q`;
 
@@ -86,7 +90,13 @@ export function PracticeExamResultPage({
       <ResourceHero
         title="Exam result"
         subtitle={`${programName} · ${template.title}`}
-        description="Review your answers below. Retry starts a fresh timed attempt."
+        description={
+          isWritten
+            ? awaitingMarking
+              ? "Your script is submitted. Marks will appear here after admin review."
+              : "Your marked result and mark schemes are below."
+            : "Review your answers below. Retry starts a fresh timed attempt."
+        }
         icon={<Timer className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
       />
@@ -95,34 +105,64 @@ export function PracticeExamResultPage({
         <section
           className={cn(
             "rounded-2xl border p-6 text-center",
-            passed === true
-              ? "border-[var(--accent-green)]/40 bg-[#ecfdf3]"
-              : passed === false
-                ? "border-accent/40 bg-accent/10"
-                : "border-border bg-card"
+            awaitingMarking
+              ? "border-[#f5d0a8] bg-[#fff8ef]"
+              : passed === true
+                ? "border-[var(--accent-green)]/40 bg-[#ecfdf3]"
+                : passed === false
+                  ? "border-accent/40 bg-accent/10"
+                  : "border-border bg-card"
           )}
         >
-          <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-            Score
-          </p>
-          <p className="mt-2 text-4xl font-bold text-foreground">{attempt.score}%</p>
-          <p className="mt-2 text-sm text-muted-foreground">
-            {scoreLabel} correct
-            {attempt.totalMarks > 0
-              ? ` · ${attempt.earnedMarks}/${attempt.totalMarks} marks`
-              : ""}
-            {template.passMarkPercent != null ? ` · pass mark ${template.passMarkPercent}%` : ""}
-          </p>
-          {passed != null ? (
-            <p
-              className={cn(
-                "mt-3 text-sm font-bold",
-                passed ? "text-[var(--accent-green)]" : "text-accent"
-              )}
-            >
-              {passed ? "Passed" : "Not passed"}
-            </p>
-          ) : null}
+          {awaitingMarking ? (
+            <>
+              <p className="text-sm font-semibold uppercase tracking-wide text-[#9a3412]">
+                Awaiting marking
+              </p>
+              <p className="mt-2 text-2xl font-bold text-foreground">Submitted</p>
+              <p className="mt-2 text-sm text-[#9a3412]/90">
+                Admin will review your uploaded answer script
+                {attempt.answerFileUrls?.length
+                  ? ` (${attempt.answerFileUrls.length} file${attempt.answerFileUrls.length === 1 ? "" : "s"})`
+                  : ""}
+                . You can still use the mark schemes below for self-review.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                Score
+              </p>
+              <p className="mt-2 text-4xl font-bold text-foreground">{attempt.score}%</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                {isWritten ? scoreLabel : `${scoreLabel} correct`}
+                {gradePublished && attempt.totalMarks > 0
+                  ? ` · ${attempt.earnedMarks}/${attempt.totalMarks} marks`
+                  : ""}
+                {template.passMarkPercent != null
+                  ? ` · pass mark ${template.passMarkPercent}%`
+                  : ""}
+              </p>
+              {passed != null ? (
+                <p
+                  className={cn(
+                    "mt-3 text-sm font-bold",
+                    passed ? "text-[var(--accent-green)]" : "text-accent"
+                  )}
+                >
+                  {passed ? "Passed" : "Not passed"}
+                </p>
+              ) : null}
+              {attempt.feedback ? (
+                <div className="mx-auto mt-4 max-w-lg rounded-xl border border-border bg-card px-4 py-3 text-left text-sm">
+                  <p className="text-xs font-bold uppercase tracking-wide text-muted-foreground">
+                    Teacher feedback
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-foreground">{attempt.feedback}</p>
+                </div>
+              ) : null}
+            </>
+          )}
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             <Button asChild size="pill">
               <Link href={ROUTES.subjectPracticeExamTake(programSlug, templateSlug, { new: true })}>
@@ -137,8 +177,32 @@ export function PracticeExamResultPage({
           </div>
         </section>
 
+        {isWritten && attempt.answerFileUrls && attempt.answerFileUrls.length > 0 ? (
+          <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
+              Your uploaded scripts
+            </h2>
+            <ul className="mt-3 space-y-1">
+              {attempt.answerFileUrls.map((url, index) => (
+                <li key={url}>
+                  <a
+                    href={url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-sm font-medium text-primary hover:underline"
+                  >
+                    Answer file {index + 1}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         <section className="space-y-4">
-          <h2 className="text-lg font-bold text-foreground">Review</h2>
+          <h2 className="text-lg font-bold text-foreground">
+            {isWritten ? "Questions & mark schemes" : "Review"}
+          </h2>
           {questions.map((question, index) => {
             const selected = question.studentAnswer;
             const correct = question.correctAnswer;
@@ -152,20 +216,26 @@ export function PracticeExamResultPage({
                   <span className="rounded-md bg-primary-muted px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
                     Q{question.number || index + 1}
                   </span>
-                  {isCorrect === true ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-green)]">
-                      <CheckCircle2 className="h-3.5 w-3.5" /> Correct
-                    </span>
-                  ) : isCorrect === false ? (
-                    <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent">
-                      <XCircle className="h-3.5 w-3.5" /> Incorrect
-                    </span>
+                  {!isWritten ? (
+                    isCorrect === true ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-green)]">
+                        <CheckCircle2 className="h-3.5 w-3.5" /> Correct
+                      </span>
+                    ) : isCorrect === false ? (
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent">
+                        <XCircle className="h-3.5 w-3.5" /> Incorrect
+                      </span>
+                    ) : (
+                      <span className="text-xs font-semibold text-muted-foreground">Unanswered</span>
+                    )
                   ) : (
-                    <span className="text-xs font-semibold text-muted-foreground">Unanswered</span>
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      {question.marks ?? 1} mark{(question.marks ?? 1) === 1 ? "" : "s"}
+                    </span>
                   )}
                 </div>
                 <p className="text-sm text-foreground">{question.prompt}</p>
-                {question.options.length > 0 ? (
+                {!isWritten && question.options.length > 0 ? (
                   <ul className="mt-3 space-y-1 text-sm">
                     {question.options.map((opt, i) => {
                       const letter = LETTERS[i] ?? String(i + 1);

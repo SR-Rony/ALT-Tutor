@@ -117,6 +117,9 @@ export {
   useCreatePracticeExamTemplate,
   useUpdatePracticeExamTemplate,
   useDeletePracticeExamTemplate,
+  useAdminWrittenPracticeSubmissions,
+  useAdminWrittenPracticeAttempt,
+  useGradeWrittenPracticeAttempt,
 } from "./use-practice-exams";
 export {
   useKeyConceptLessons,

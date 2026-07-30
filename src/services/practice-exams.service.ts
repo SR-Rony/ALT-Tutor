@@ -2,6 +2,7 @@ import { apiClient } from "./api-client";
 import type {
   AdminPracticeExamList,
   CreatePracticeExamTemplateInput,
+  GradeWrittenPracticeInput,
   PracticeExamAttemptPayload,
   PracticeExamHistoryItem,
   PracticeExamProgramList,
@@ -11,6 +12,7 @@ import type {
   SavePracticeExamAnswerResult,
   StartPracticeExamInput,
   UpdatePracticeExamTemplateInput,
+  WrittenPracticeSubmission,
 } from "@/types/practice-exam.types";
 
 export const practiceExamsService = {
@@ -122,6 +124,39 @@ export const practiceExamsService = {
   async deleteTemplate(id: string): Promise<{ message: string }> {
     const response = await apiClient.delete<{ message: string }>(
       `/practice-exams/admin/templates/${id}`
+    );
+    return response.data;
+  },
+
+  async listWrittenSubmissions(params: {
+    programId?: string;
+    templateId?: string;
+    status?: "PENDING" | "GRADED" | "ALL";
+  }): Promise<WrittenPracticeSubmission[]> {
+    const search = new URLSearchParams();
+    if (params.programId) search.set("programId", params.programId);
+    if (params.templateId) search.set("templateId", params.templateId);
+    if (params.status) search.set("status", params.status);
+    const response = await apiClient.get<WrittenPracticeSubmission[]>(
+      `/practice-exams/admin/written-submissions?${search.toString()}`
+    );
+    return response.data ?? [];
+  },
+
+  async getWrittenAttempt(attemptId: string): Promise<PracticeExamAttemptPayload> {
+    const response = await apiClient.get<PracticeExamAttemptPayload>(
+      `/practice-exams/admin/written-attempts/${encodeURIComponent(attemptId)}`
+    );
+    return response.data;
+  },
+
+  async gradeWrittenAttempt(
+    attemptId: string,
+    payload: GradeWrittenPracticeInput
+  ): Promise<WrittenPracticeSubmission> {
+    const response = await apiClient.patch<WrittenPracticeSubmission>(
+      `/practice-exams/admin/written-attempts/${encodeURIComponent(attemptId)}/grade`,
+      payload
     );
     return response.data;
   },
