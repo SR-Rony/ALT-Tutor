@@ -19,6 +19,7 @@ export function downloadQuestionPaperPdf({ title, subtitle, questions }: ExportA
   const logoUrl = `${origin}/logo.png`;
   const generatedAt = new Date().toLocaleString();
   const paperLabel = uniquePapersLabel(questions);
+  const showPaperMeta = questions.some((q) => Boolean(q.paper));
 
   const html = `<!DOCTYPE html>
 <html>
@@ -390,10 +391,14 @@ export function downloadQuestionPaperPdf({ title, subtitle, questions }: ExportA
           <strong>Generated</strong>
           ${escapeHtml(generatedAt)}
         </div>
-        <div>
+        ${
+          showPaperMeta
+            ? `<div>
           <strong>Paper set</strong>
           ${escapeHtml(paperLabel)}
-        </div>
+        </div>`
+            : ""
+        }
         <div>
           <strong>Questions</strong>
           ${questions.length}
@@ -402,15 +407,25 @@ export function downloadQuestionPaperPdf({ title, subtitle, questions }: ExportA
 
       ${questions
         .map((q, index, all) => {
-          const paper = String(q.paper).toUpperCase();
-          const serial = all.filter(
-            (item, i) => i <= index && String(item.paper).toUpperCase() === paper
-          ).length;
+          const serial = showPaperMeta
+            ? all.filter(
+                (item, i) =>
+                  i <= index &&
+                  String(item.paper ?? "").toUpperCase() === String(q.paper ?? "").toUpperCase()
+              ).length
+            : index + 1;
+          const chip = showPaperMeta
+            ? `Paper ${escapeHtml(String(q.paper ?? "").replace("PAPER_", ""))}${
+                q.difficulty ? ` · ${escapeHtml(String(q.difficulty))}` : ""
+              }`
+            : q.difficulty
+              ? escapeHtml(String(q.difficulty))
+              : "";
           return `
       <div class="q">
         <div class="q-head">
           <div class="q-num">Question ${serial}</div>
-          <div class="q-chip">Paper ${escapeHtml(String(q.paper).replace("PAPER_", ""))} · ${escapeHtml(String(q.difficulty))}</div>
+          ${chip ? `<div class="q-chip">${chip}</div>` : ""}
         </div>
         <p class="prompt">${escapeHtml(q.prompt)}</p>
         ${q.body ? `<div class="body">${escapeHtml(q.body)}</div>` : ""}
@@ -466,7 +481,12 @@ function uniquePapersLabel(
   questions: Array<{ paper?: string | null }>
 ) {
   const papers = [
-    ...new Set(questions.map((q) => String(q.paper ?? "PAPER_1").replace("PAPER_", "Paper "))),
+    ...new Set(
+      questions
+        .map((q) => q.paper)
+        .filter((p): p is string => Boolean(p && String(p).trim()))
+        .map((p) => String(p).replace("PAPER_", "Paper "))
+    ),
   ];
   return papers.length ? papers.join(", ") : "All papers";
 }

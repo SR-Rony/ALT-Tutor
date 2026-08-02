@@ -229,7 +229,10 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
     downloadQuestionPaperPdf({
       title: `${programName} — ${payload.template.title}`,
       subtitle: `${payload.questions.length} questions · Written practice exam`,
-      questions: payload.questions,
+      questions: payload.questions.map((q) => ({
+        ...q,
+        paper: null,
+      })),
     });
   };
 
@@ -856,7 +859,7 @@ function WrittenQuestionCard({
         body: question.body,
         diagramUrl: question.diagramUrl,
         difficulty: question.difficulty,
-        paper: question.paper,
+        paper: null,
         calculatorAllowed: question.calculatorAllowed ?? null,
         marks: question.marks,
         options: [],
@@ -905,7 +908,7 @@ function ExamQuestionCard({
         body: question.body,
         diagramUrl: question.diagramUrl,
         difficulty: question.difficulty,
-        paper: question.paper,
+        paper: null,
         calculatorAllowed:
           question.calculatorAllowed === undefined || question.calculatorAllowed === null
             ? false

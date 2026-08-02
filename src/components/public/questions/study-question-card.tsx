@@ -162,10 +162,14 @@ export function StudyQuestionCard({
               {question.difficulty ? (
                 <DifficultyDots difficulty={String(question.difficulty)} />
               ) : null}
-              {question.paper || isMcq ? (
+              {question.paper ? (
                 <span className="rounded-md border border-primary/15 bg-primary-muted/40 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
                   {paperDisplayLabel(question.paper)}
                   {isMcq ? " · MCQ" : ""}
+                </span>
+              ) : isMcq ? (
+                <span className="rounded-md border border-primary/15 bg-primary-muted/40 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
+                  MCQ
                 </span>
               ) : null}
               {isMcq && question.marks != null && question.marks > 0 ? (

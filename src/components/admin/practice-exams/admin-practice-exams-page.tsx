@@ -313,7 +313,7 @@ export function AdminPracticeExamsPage() {
       } · admin preview`,
       questions: selectedQuestions.map((q) => ({
         id: q.id,
-        paper: q.paper,
+        paper: null,
         prompt: q.prompt,
         body: q.body,
         diagramUrl: q.diagramUrl,
