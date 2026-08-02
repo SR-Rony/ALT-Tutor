@@ -36,6 +36,8 @@ import { cn } from "@/utils";
 
 type QuestionPickerTab = "selected" | "available";
 type ListStatusFilter = "ALL" | "PUBLISHED" | "DRAFT";
+type ListModeFilter = "ALL" | "MCQ" | "WRITTEN";
+type PastPaperQuestionMode = "MCQ" | "WRITTEN";
 
 type PickerQuestionRow = {
   id: string;
@@ -43,6 +45,7 @@ type PickerQuestionRow = {
   prompt: string;
   difficulty: string;
   marks: number;
+  questionType: string;
   topicTitle: string;
   subtopicTitle: string;
 };
@@ -55,6 +58,42 @@ function sourceLabel(type: PastPaperSourceType) {
   if (type === "PDF") return "PDF";
   if (type === "HYBRID") return "Hybrid";
   return "Interactive";
+}
+
+function modeLabel(mode: PastPaperQuestionMode | string | undefined) {
+  return mode === "WRITTEN" ? "Written" : "MCQ";
+}
+
+function normalizeQuestionType(type: unknown) {
+  return String(type ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, "_");
+}
+
+function isAllowedForMode(mode: PastPaperQuestionMode, questionType: unknown) {
+  const type = normalizeQuestionType(questionType);
+  if (mode === "WRITTEN") return type === "SHORT_ANSWER" || type === "DATA_BASED";
+  return type === "MULTIPLE_CHOICE";
+}
+
+function questionTypeLabel(type: string) {
+  const normalized = normalizeQuestionType(type);
+  if (normalized === "SHORT_ANSWER") return "Written";
+  if (normalized === "DATA_BASED") return "Data";
+  if (normalized === "MULTIPLE_CHOICE") return "MCQ";
+  return type;
+}
+
+function friendlySaveError(message: string | undefined, fallback: string) {
+  const text = message || fallback;
+  if (/Unique constraint failed/i.test(text) && /paperCode|programId/i.test(text)) {
+    return "A past paper already exists for this Year + Session + Paper code. Change year, session, or paper code (e.g. P2), then try again.";
+  }
+  if (/Unique constraint failed/i.test(text)) {
+    return "This past paper conflicts with an existing one. Change year, session, paper code, or slug and try again.";
+  }
+  return text;
 }
 
 function findProgramPath(
@@ -131,7 +170,9 @@ export function AdminPastPapersPage() {
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ListStatusFilter>("ALL");
+  const [modeFilter, setModeFilter] = useState<ListModeFilter>("ALL");
 
+  const [questionMode, setQuestionMode] = useState<PastPaperQuestionMode>("MCQ");
   const [year, setYear] = useState(String(new Date().getFullYear() - 1));
   const [session, setSession] = useState("Annual");
   const [paperCode, setPaperCode] = useState("P1");
@@ -174,12 +215,14 @@ export function AdminPastPapersPage() {
       for (const sub of topic.subtopics) {
         for (const q of sub.questions ?? []) {
           if (!q.isActive) continue;
+          if (!isAllowedForMode(questionMode, q.questionType)) continue;
           rows.push({
             id: q.id,
             number: q.number,
             prompt: q.prompt,
             difficulty: String(q.difficulty),
             marks: q.marks ?? 1,
+            questionType: normalizeQuestionType(q.questionType),
             topicTitle: topic.title,
             subtopicTitle: sub.title,
           });
@@ -187,7 +230,7 @@ export function AdminPastPapersPage() {
       }
     }
     return rows;
-  }, [qbTopics]);
+  }, [qbTopics, questionMode]);
 
   const filteredAvailableQuestions = useMemo(() => {
     const selected = new Set(selectedQuestionIds);
@@ -197,12 +240,13 @@ export function AdminPastPapersPage() {
       for (const sub of topic.subtopics) {
         if (subtopicId && sub.id !== subtopicId) continue;
         for (const q of sub.questions ?? []) {
+          if (!isAllowedForMode(questionMode, q.questionType)) continue;
           if (!selected.has(q.id)) allowedIds.add(q.id);
         }
       }
     }
     return allModeQuestions.filter((q) => allowedIds.has(q.id));
-  }, [allModeQuestions, selectedQuestionIds, qbTopics, topicId, subtopicId]);
+  }, [allModeQuestions, selectedQuestionIds, qbTopics, topicId, subtopicId, questionMode]);
 
   const selectedQuestions = useMemo(() => {
     const byId = new Map(allModeQuestions.map((q) => [q.id, q]));
@@ -216,6 +260,7 @@ export function AdminPastPapersPage() {
     return papers.filter((item) => {
       if (statusFilter === "PUBLISHED" && !item.isPublished) return false;
       if (statusFilter === "DRAFT" && item.isPublished) return false;
+      if (modeFilter !== "ALL" && (item.questionMode ?? "MCQ") !== modeFilter) return false;
       if (!q) return true;
       return (
         item.title.toLowerCase().includes(q) ||
@@ -225,7 +270,7 @@ export function AdminPastPapersPage() {
         String(item.year).includes(q)
       );
     });
-  }, [papers, search, statusFilter]);
+  }, [papers, search, statusFilter, modeFilter]);
 
   const papersByYear = useMemo(() => {
     const map = new Map<number, PastPaper[]>();
@@ -237,10 +282,12 @@ export function AdminPastPapersPage() {
   }, [filteredPapers]);
 
   const stats = useMemo(() => {
-    const base = { total: papers.length, published: 0, draft: 0 };
+    const base = { total: papers.length, published: 0, draft: 0, mcq: 0, written: 0 };
     for (const p of papers) {
       if (p.isPublished) base.published += 1;
       else base.draft += 1;
+      if (p.questionMode === "WRITTEN") base.written += 1;
+      else base.mcq += 1;
     }
     return base;
   }, [papers]);
@@ -296,10 +343,11 @@ export function AdminPastPapersPage() {
     setPickerTab("available");
   };
 
-  const resetForm = () => {
+  const resetForm = (preset?: { mode?: PastPaperQuestionMode }) => {
     setEditId(null);
     setEditMeta({ isPublished: false, attemptCount: 0 });
     setInitialQuestionIds([]);
+    setQuestionMode(preset?.mode ?? "MCQ");
     setYear(String(new Date().getFullYear() - 1));
     setSession("Annual");
     setPaperCode("P1");
@@ -320,8 +368,8 @@ export function AdminPastPapersPage() {
     syncModalScope(effectiveProgramId);
   };
 
-  const openCreate = () => {
-    resetForm();
+  const openCreate = (preset?: { mode?: PastPaperQuestionMode }) => {
+    resetForm(preset);
     setModalOpen(true);
   };
 
@@ -342,6 +390,7 @@ export function AdminPastPapersPage() {
       attemptCount: item.attemptCount ?? 0,
     });
     setInitialQuestionIds(orderedIds);
+    setQuestionMode(item.questionMode === "WRITTEN" ? "WRITTEN" : "MCQ");
     setYear(String(item.year));
     setSession(item.session);
     setPaperCode(item.paperCode);
@@ -371,7 +420,25 @@ export function AdminPastPapersPage() {
       return "Duration must be at least 1 minute";
     }
     if (!effectiveModalProgramId) return "Select a category, subject, and program";
-    if (selectedQuestionIds.length < 1) return "Select at least one question from the Questionbank";
+    if (selectedQuestionIds.length < 1) {
+      return `Select at least one ${modeLabel(questionMode)} question from the Questionbank`;
+    }
+    if (selectedQuestions.length !== selectedQuestionIds.length) {
+      return `Only ${modeLabel(questionMode)} questions can be used on this paper. Remove mismatched questions.`;
+    }
+    const yearNum = Number.parseInt(year, 10);
+    const sessionKey = session.trim().toLowerCase();
+    const codeKey = paperCode.trim().toLowerCase();
+    const duplicate = papers.some(
+      (p) =>
+        p.id !== editId &&
+        p.year === yearNum &&
+        p.session.trim().toLowerCase() === sessionKey &&
+        p.paperCode.trim().toLowerCase() === codeKey
+    );
+    if (duplicate) {
+      return "A past paper already exists for this Year + Session + Paper code. Use another paper code (e.g. P2) or change year/session.";
+    }
     return null;
   };
 
@@ -440,7 +507,9 @@ export function AdminPastPapersPage() {
       setModalOpen(false);
       resetForm();
     } catch (saveErr) {
-      setActionError((saveErr as ApiError)?.message || "Failed to save past paper");
+      setActionError(
+        friendlySaveError((saveErr as ApiError)?.message, "Failed to save past paper")
+      );
     }
   };
 
@@ -474,7 +543,7 @@ export function AdminPastPapersPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Past Papers"
-              description="Create, edit, publish, or delete year/session papers. Questions come from the Questionbank."
+              description="Create MCQ or Written past papers from the Questionbank. Students browse questions — no timed exam."
               className="mb-0"
             />
             <div className="flex flex-wrap gap-2">
@@ -489,11 +558,21 @@ export function AdminPastPapersPage() {
               <Button
                 type="button"
                 size="sm"
+                variant="outline"
                 disabled={!effectiveProgramId}
-                onClick={openCreate}
+                onClick={() => openCreate({ mode: "WRITTEN" })}
               >
                 <Plus className="h-4 w-4" />
-                New paper
+                New Written
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                disabled={!effectiveProgramId}
+                onClick={() => openCreate({ mode: "MCQ" })}
+              >
+                <Plus className="h-4 w-4" />
+                New MCQ
               </Button>
             </div>
           </div>
@@ -573,6 +652,12 @@ export function AdminPastPapersPage() {
               <span className="rounded-lg bg-[#fff8ef] px-2.5 py-1 text-xs font-semibold text-[#9a3412]">
                 {stats.draft} draft
               </span>
+              <span className="rounded-lg bg-primary-muted px-2.5 py-1 text-xs font-semibold text-primary">
+                {stats.mcq} MCQ
+              </span>
+              <span className="rounded-lg bg-muted px-2.5 py-1 text-xs font-semibold text-muted-foreground">
+                {stats.written} Written
+              </span>
               <Link
                 href={ROUTES.subjectResource(selectedProgram.slug, "past-papers")}
                 className="ml-auto inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
@@ -599,13 +684,34 @@ export function AdminPastPapersPage() {
             <div className="flex flex-wrap gap-2">
               {(
                 [
+                  ["ALL", "All types"],
+                  ["MCQ", "MCQ"],
+                  ["WRITTEN", "Written"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setModeFilter(id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    modeFilter === id
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+              {(
+                [
                   ["ALL", "All status"],
                   ["PUBLISHED", "Published"],
                   ["DRAFT", "Draft"],
                 ] as const
               ).map(([id, label]) => (
                 <button
-                  key={id}
+                  key={`status-${id}`}
                   type="button"
                   onClick={() => setStatusFilter(id)}
                   className={cn(
@@ -629,10 +735,21 @@ export function AdminPastPapersPage() {
                   : "No papers match your filters."}
               </p>
               {papers.length === 0 ? (
-                <Button type="button" size="sm" className="mt-4" onClick={openCreate}>
-                  <Plus className="h-4 w-4" />
-                  Create past paper
-                </Button>
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <Button type="button" size="sm" onClick={() => openCreate({ mode: "MCQ" })}>
+                    <Plus className="h-4 w-4" />
+                    Create MCQ paper
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => openCreate({ mode: "WRITTEN" })}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Create Written paper
+                  </Button>
+                </div>
               ) : null}
             </div>
           ) : (
@@ -658,6 +775,16 @@ export function AdminPastPapersPage() {
                               <p className="font-semibold text-foreground">{item.title}</p>
                               <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
                                 {item.paperCode}
+                              </span>
+                              <span
+                                className={cn(
+                                  "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                                  item.questionMode === "WRITTEN"
+                                    ? "bg-[#fff8ef] text-[#9a3412]"
+                                    : "bg-primary-muted text-primary"
+                                )}
+                              >
+                                {modeLabel(item.questionMode)}
                               </span>
                               <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
                                 {sourceLabel(item.sourceType)}
@@ -757,8 +884,16 @@ export function AdminPastPapersPage() {
 
       <AdminModal
         open={modalOpen}
-        title={editId ? "Edit past paper" : "Create past paper"}
-        description="Choose scope, set year/session, then pick Questionbank questions."
+        title={
+          editId
+            ? `Edit ${modeLabel(questionMode)} past paper`
+            : `Create ${modeLabel(questionMode)} past paper`
+        }
+        description={
+          questionMode === "WRITTEN"
+            ? "Pick SHORT ANSWER / DATA questions from Questionbank. Students will view them in Past Papers."
+            : "Pick MCQ questions from Questionbank. Students will view them in Past Papers."
+        }
         onClose={() => !busy && setModalOpen(false)}
         className="sm:max-w-2xl"
         footer={
@@ -795,12 +930,39 @@ export function AdminPastPapersPage() {
             </p>
           ) : null}
 
+          <div
+            className={cn(
+              "rounded-xl border px-4 py-3",
+              questionMode === "WRITTEN"
+                ? "border-[#d4a017]/40 bg-[#fff8ef]"
+                : "border-primary/25 bg-primary-muted/40"
+            )}
+          >
+            <p className="text-sm font-bold text-foreground">
+              {modeLabel(questionMode)} questions only
+            </p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {questionMode === "WRITTEN"
+                ? "MCQ questions are hidden. Only Short answer and Data-based questions appear below."
+                : "Written questions are hidden. Only Multiple choice questions appear below."}
+            </p>
+            {!editId ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Wrong type? Close and use{" "}
+                <span className="font-semibold text-foreground">
+                  {questionMode === "WRITTEN" ? "New MCQ" : "New Written"}
+                </span>{" "}
+                instead.
+              </p>
+            ) : null}
+          </div>
+
           {editId && editMeta.isPublished && (editMeta.attemptCount > 0 || questionsChanged) ? (
             <div className="flex gap-2 rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-2 text-sm text-amber-950">
               <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
               <p>
-                Published paper — student attempts use a frozen snapshot. Changing questions can
-                affect consistency for existing attempts.
+                Published paper — changing the question set updates what students see when they
+                browse this past paper.
               </p>
             </div>
           ) : null}
@@ -1044,7 +1206,7 @@ export function AdminPastPapersPage() {
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                Selected ({selectedQuestionIds.length})
+                Selected {modeLabel(questionMode)} ({selectedQuestionIds.length})
               </button>
               <button
                 type="button"
@@ -1056,7 +1218,7 @@ export function AdminPastPapersPage() {
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                Available ({filteredAvailableQuestions.length})
+                Available {modeLabel(questionMode)} ({filteredAvailableQuestions.length})
               </button>
             </div>
 
@@ -1078,7 +1240,8 @@ export function AdminPastPapersPage() {
                 </div>
                 {selectedQuestions.length === 0 ? (
                   <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                    No questions selected yet. Switch to Available and add some.
+                    No {modeLabel(questionMode).toLowerCase()} questions selected yet. Switch to
+                    Available and add some.
                   </p>
                 ) : (
                   <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
@@ -1095,8 +1258,8 @@ export function AdminPastPapersPage() {
                             #{q.number} {q.prompt}
                           </span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {q.topicTitle} · {q.subtopicTitle} · {q.marks} mark
-                            {q.marks === 1 ? "" : "s"}
+                            {questionTypeLabel(q.questionType)} · {q.topicTitle} · {q.subtopicTitle}{" "}
+                            · {q.marks} mark{q.marks === 1 ? "" : "s"}
                           </span>
                         </span>
                         <Button
@@ -1133,7 +1296,9 @@ export function AdminPastPapersPage() {
                 {filteredAvailableQuestions.length === 0 ? (
                   <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
                     {allModeQuestions.length === 0
-                      ? "No questions in this program. Add them in Questionbank first."
+                      ? questionMode === "WRITTEN"
+                        ? "No written (Short answer / Data) questions in this program. Add them in Questionbank first."
+                        : "No MCQ questions in this program. Add them in Questionbank first."
                       : selectedQuestionIds.length > 0
                         ? "All matching questions are already selected."
                         : "No questions match this topic/subtopic filter."}
@@ -1150,7 +1315,8 @@ export function AdminPastPapersPage() {
                             #{q.number} {q.prompt}
                           </span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {q.topicTitle} · {q.subtopicTitle} · {q.difficulty}
+                            {questionTypeLabel(q.questionType)} · {q.topicTitle} · {q.subtopicTitle}{" "}
+                            · {q.difficulty}
                           </span>
                         </span>
                         <Button

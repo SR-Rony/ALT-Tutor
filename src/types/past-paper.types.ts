@@ -7,6 +7,7 @@ export type PastPaperQuestionRef = {
   number: number;
   prompt: string;
   marks: number;
+  questionType?: string;
   subtopic: { id: string; title: string; slug: string };
 };
 
@@ -49,6 +50,8 @@ export type PastPaper = {
   isActive?: boolean;
   locked?: boolean;
   attemptCount?: number;
+  /** Admin list helper: MCQ vs Written based on linked Questionbank items. */
+  questionMode?: "MCQ" | "WRITTEN" | string;
   sections?: PastPaperSection[];
 };
 
