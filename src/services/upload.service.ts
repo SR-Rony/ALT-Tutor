@@ -77,4 +77,19 @@ export const uploadService = {
     );
     return response.data ?? { result: "ok" };
   },
+
+  /** Load a stored file through the API so the browser can preview (inline) instead of download. */
+  async fetchInlineBlob(url: string): Promise<Blob> {
+    const token = getAccessToken();
+    const response = await fetch(
+      `${env.apiBaseUrl}/upload/inline?url=${encodeURIComponent(url)}`,
+      {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      }
+    );
+    if (!response.ok) {
+      throw { message: "Could not load file for preview", status: response.status } satisfies ApiError;
+    }
+    return response.blob();
+  },
 };

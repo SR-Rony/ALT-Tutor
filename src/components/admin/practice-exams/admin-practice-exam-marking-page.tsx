@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ExternalLink, FileText, Loader2, RefreshCw, Upload } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { ROUTES } from "@/constants";
 import {
   useAdminSubjectsTree,
@@ -16,6 +17,7 @@ import {
   useGradeWrittenPracticeAttempt,
 } from "@/hooks";
 import { formatShortDate } from "@/lib/format";
+import { richTextToPlain } from "@/lib/rich-text";
 import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type { WrittenPracticeSubmission } from "@/types/practice-exam.types";
@@ -29,6 +31,172 @@ function uniqueFiles(urls: string[]) {
 
 function isHttpAnswerUrl(value: string | null | undefined) {
   return Boolean(value && /^https?:\/\//i.test(value.trim()));
+}
+
+function answerFileKind(url: string): "pdf" | "image" | "other" {
+  const clean = url.split("?")[0]?.split("#")[0]?.toLowerCase() ?? "";
+  if (clean.endsWith(".pdf")) return "pdf";
+  if (/\.(png|jpe?g|gif|webp|bmp)$/i.test(clean)) return "image";
+  return "other";
+}
+
+/** Prefer Cloudinary image delivery for PDFs (opens inline instead of download). */
+function preferInlineDeliveryUrl(url: string) {
+  if (!url.includes("res.cloudinary.com")) return url;
+  if (url.includes("/raw/upload/") && url.toLowerCase().includes(".pdf")) {
+    return url.replace("/raw/upload/", "/image/upload/");
+  }
+  return url;
+}
+
+async function loadInlineBlobUrl(url: string, kind: "pdf" | "image" | "other"): Promise<string> {
+  // Prefer API proxy — sets Content-Disposition: inline so the tab previews, not downloads.
+  try {
+    const blob = await uploadService.fetchInlineBlob(url);
+    const typed =
+      kind === "pdf"
+        ? new Blob([await blob.arrayBuffer()], { type: "application/pdf" })
+        : blob;
+    return URL.createObjectURL(typed);
+  } catch {
+    // Fallback: direct fetch (may fail on CORS / attachment headers)
+  }
+
+  const candidates = [...new Set([preferInlineDeliveryUrl(url), url])];
+  let lastError: unknown;
+  for (const candidate of candidates) {
+    try {
+      const res = await fetch(candidate, { mode: "cors" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const buf = await res.arrayBuffer();
+      const type =
+        kind === "pdf"
+          ? "application/pdf"
+          : kind === "image"
+            ? "image/jpeg"
+            : "application/octet-stream";
+      return URL.createObjectURL(new Blob([buf], { type }));
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError ?? new Error("Could not load file");
+}
+
+async function openAnswerFile(url: string) {
+  const kind = answerFileKind(url);
+  try {
+    const objectUrl = await loadInlineBlobUrl(url, kind);
+    window.open(objectUrl, "_blank", "noopener,noreferrer");
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120_000);
+  } catch {
+    window.open(preferInlineDeliveryUrl(url), "_blank", "noopener,noreferrer");
+  }
+}
+
+function AnswerScriptPreview({
+  url,
+  label,
+}: {
+  url: string;
+  label: string;
+}) {
+  const kind = answerFileKind(url);
+  const [pdfSrc, setPdfSrc] = useState<string | null>(null);
+  const [pdfError, setPdfError] = useState<string | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(kind === "pdf");
+
+  useEffect(() => {
+    if (kind !== "pdf") return;
+    let active = true;
+    let objectUrl: string | null = null;
+    setPdfLoading(true);
+    setPdfError(null);
+    setPdfSrc(null);
+    void loadInlineBlobUrl(url, "pdf")
+      .then((src) => {
+        if (!active) {
+          URL.revokeObjectURL(src);
+          return;
+        }
+        objectUrl = src;
+        setPdfSrc(src);
+      })
+      .catch(() => {
+        if (active) {
+          setPdfError("Could not preview this PDF here. Use Open full size.");
+        }
+      })
+      .finally(() => {
+        if (active) setPdfLoading(false);
+      });
+    return () => {
+      active = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url, kind]);
+
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
+        <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
+          <FileText className="h-3.5 w-3.5 text-primary" aria-hidden />
+          {label}
+        </p>
+        <button
+          type="button"
+          onClick={() => void openAnswerFile(url)}
+          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
+        >
+          Open full size
+          <ExternalLink className="h-3 w-3" aria-hidden />
+        </button>
+      </div>
+      {kind === "pdf" ? (
+        pdfLoading ? (
+          <div className="flex h-48 items-center justify-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Loading preview…
+          </div>
+        ) : pdfSrc ? (
+          <iframe
+            title={label}
+            src={`${pdfSrc}#view=FitH`}
+            className="h-[min(70vh,40rem)] w-full bg-muted/30"
+          />
+        ) : (
+          <div className="space-y-2 px-4 py-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              {pdfError || "Preview unavailable."}
+            </p>
+            <Button type="button" size="sm" variant="outline" onClick={() => void openAnswerFile(url)}>
+              Open file
+              <ExternalLink className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+        )
+      ) : kind === "image" ? (
+        <div className="max-h-[min(70vh,40rem)] overflow-y-auto bg-muted/20 p-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={preferInlineDeliveryUrl(url)}
+            alt={label}
+            className="mx-auto max-w-full rounded-lg border border-border"
+          />
+        </div>
+      ) : (
+        <div className="space-y-2 px-4 py-6 text-center">
+          <p className="text-sm text-muted-foreground">
+            Preview not available for this file type. Open it in a new tab.
+          </p>
+          <Button type="button" size="sm" variant="outline" onClick={() => void openAnswerFile(url)}>
+            Open file
+            <ExternalLink className="h-3.5 w-3.5" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function GradePanel({
@@ -128,58 +296,44 @@ function GradePanel({
         </Button>
       </div>
 
-      <div>
-        <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="space-y-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Answer scripts
         </p>
         {perQuestionFiles.length > 0 ? (
-          <ul className="space-y-1">
+          <div className="space-y-3">
             {perQuestionFiles.map((file) => {
               const q = questions.find((row) => row.id === file.questionId);
-              const label = q
-                ? `Q${q.number || "?"} answer`
-                : `Answer file`;
+              const label = q ? `Q${q.number || "?"} answer` : "Answer file";
               return (
-                <li key={`${file.questionId}-${file.fileUrl}`}>
-                  <a
-                    href={file.fileUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-                  >
-                    <FileText className="h-3.5 w-3.5" />
-                    {label}
-                  </a>
+                <div key={`${file.questionId}-${file.fileUrl}`} className="space-y-1.5">
                   {q?.prompt ? (
-                    <p className="ml-5 truncate text-xs text-muted-foreground">{q.prompt}</p>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {richTextToPlain(q.prompt)}
+                    </p>
                   ) : null}
-                </li>
+                  <AnswerScriptPreview url={file.fileUrl} label={label} />
+                </div>
               );
             })}
-          </ul>
+          </div>
         ) : files.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="rounded-xl border border-dashed border-border px-4 py-6 text-sm text-muted-foreground">
             No files on this submission. Attach the script here if the student sent it separately.
           </p>
         ) : (
-          <ul className="space-y-1">
+          <div className="space-y-3">
             {files.map((url, index) => (
-              <li key={url}>
-                <a
-                  href={url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  Answer file {index + 1}
-                </a>
-              </li>
+              <AnswerScriptPreview
+                key={url}
+                url={url}
+                label={`Answer file ${index + 1}`}
+              />
             ))}
-          </ul>
+          </div>
         )}
         {canAttach ? (
-          <div className="mt-2">
+          <div>
             <Button
               type="button"
               size="sm"
@@ -216,20 +370,21 @@ function GradePanel({
             {(error as unknown as ApiError)?.message || "Failed to load questions"}
           </p>
         ) : (
-          <div className="max-h-64 space-y-2 overflow-y-auto rounded-xl border border-border bg-card p-3">
+          <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-border bg-card p-3">
             {questions.map((q, index) => (
-              <div key={q.id} className="rounded-lg border border-border/70 px-3 py-2 text-sm">
+              <div key={q.id} className="rounded-lg border border-border/70 px-3 py-2.5 text-sm">
                 <p className="font-semibold text-foreground">
-                  Q{q.number || index + 1}. {q.prompt}
+                  Q{q.number || index + 1}.{" "}
+                  <span className="font-medium">{richTextToPlain(q.prompt)}</span>
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {q.marks ?? 1} mark{(q.marks ?? 1) === 1 ? "" : "s"}
                 </p>
                 {q.markScheme ? (
-                  <p className="mt-1 whitespace-pre-wrap text-xs text-muted-foreground">
-                    <span className="font-semibold text-foreground">Mark scheme: </span>
-                    {q.markScheme}
-                  </p>
+                  <div className="mt-2 rounded-lg bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
+                    <span className="font-semibold text-foreground">Mark scheme</span>
+                    <RichTextContent html={q.markScheme} className="mt-1 text-xs" />
+                  </div>
                 ) : null}
               </div>
             ))}

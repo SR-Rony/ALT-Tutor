@@ -28,6 +28,7 @@ import {
   useUpdatePastPaper,
 } from "@/hooks";
 import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
+import { richTextToPlain } from "@/lib/rich-text";
 import { slugify } from "@/lib/slugify";
 import type { ApiError } from "@/types";
 import type { PastPaper, PastPaperSourceType } from "@/types/past-paper.types";
@@ -1255,7 +1256,7 @@ export function AdminPastPapersPage() {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="font-medium text-foreground line-clamp-2">
-                            #{q.number} {q.prompt}
+                            #{q.number} {richTextToPlain(q.prompt)}
                           </span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
                             {questionTypeLabel(q.questionType)} · {q.topicTitle} · {q.subtopicTitle}{" "}
@@ -1312,7 +1313,7 @@ export function AdminPastPapersPage() {
                       >
                         <span className="min-w-0 flex-1">
                           <span className="font-medium text-foreground line-clamp-2">
-                            #{q.number} {q.prompt}
+                            #{q.number} {richTextToPlain(q.prompt)}
                           </span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
                             {questionTypeLabel(q.questionType)} · {q.topicTitle} · {q.subtopicTitle}{" "}

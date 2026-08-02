@@ -28,6 +28,7 @@ import {
   useUpdatePracticeExamTemplate,
 } from "@/hooks";
 import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
+import { richTextToPlain } from "@/lib/rich-text";
 import { slugify } from "@/lib/slugify";
 import type { ApiError } from "@/types";
 import type {
@@ -1237,7 +1238,7 @@ export function AdminPracticeExamsPage() {
                         </span>
                         <span className="min-w-0 flex-1">
                           <span className="font-medium text-foreground line-clamp-2">
-                            #{q.number} {q.prompt}
+                            #{q.number} {richTextToPlain(q.prompt)}
                           </span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
                             {q.topicTitle} · {q.subtopicTitle} · {q.difficulty}
@@ -1295,7 +1296,7 @@ export function AdminPracticeExamsPage() {
                       >
                         <span className="min-w-0 flex-1">
                           <span className="font-medium text-foreground line-clamp-2">
-                            #{q.number} {q.prompt}
+                            #{q.number} {richTextToPlain(q.prompt)}
                           </span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
                             {q.topicTitle} · {q.subtopicTitle} · {q.difficulty}
