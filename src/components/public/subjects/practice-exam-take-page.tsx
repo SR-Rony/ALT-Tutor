@@ -12,6 +12,7 @@ import {
   Lock,
   Timer,
   Upload,
+  X,
   XCircle,
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
@@ -311,6 +312,53 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
     }
   };
 
+  const handleRemoveAnswerFile = async (url: string) => {
+    if (!payload || examSubmitted || !canUploadAnswers) return;
+    setBootError(null);
+    setAnswerUploading(true);
+    try {
+      const nextUrls = answerFileUrls.filter((u) => u !== url);
+      const result = await saveAnswerFiles.mutateAsync({
+        attemptId: payload.attempt.id,
+        fileUrls: nextUrls,
+      });
+      if ("answerFileUrls" in result) {
+        setAnswerFileUrls(result.answerFileUrls);
+        if (result.answerFileUrls.length === 0) setAnswerUploadName(null);
+      }
+    } catch (err) {
+      setBootError((err as ApiError)?.message || "Could not remove answer file");
+    } finally {
+      setAnswerUploading(false);
+    }
+  };
+
+  const handleRemoveQuestionAnswer = async (questionId: string) => {
+    if (!payload || examSubmitted || !perQuestionWritten) return;
+    setBootError(null);
+    setUploadingQuestionId(questionId);
+    try {
+      const result = await saveAnswer.mutateAsync({
+        attemptId: payload.attempt.id,
+        questionId,
+        answer: "",
+      });
+      if ("expired" in result && result.expired && result.result) {
+        applyPayload(result.result, { openResult: result.result.attempt.status !== "IN_PROGRESS" });
+      } else {
+        setSelectedAnswers((prev) => {
+          const next = { ...prev };
+          delete next[questionId];
+          return next;
+        });
+      }
+    } catch (err) {
+      setBootError((err as ApiError)?.message || "Could not remove answer file");
+    } finally {
+      setUploadingQuestionId(null);
+    }
+  };
+
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
     resourceSlug: "practice-exams",
@@ -510,13 +558,42 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
                 />
               </div>
             </div>
-            {answerUploadName || writtenReady ? (
-              <p className="mt-3 text-xs font-medium text-accent-green">
-                {answerUploadName
-                  ? `Uploaded: ${answerUploadName}`
-                  : `${answerFileUrls.length} answer file(s) saved`}
-                {needsLateFileAttach ? "." : ". You can submit when ready."}
-              </p>
+            {answerFileUrls.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {answerFileUrls.map((url, index) => (
+                  <li
+                    key={url}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--accent-green)]/30 bg-[#ecfdf3] px-3 py-2"
+                  >
+                    <a
+                      href={url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex min-w-0 items-center gap-1.5 text-xs font-semibold text-[var(--accent-green)] hover:underline"
+                    >
+                      <FileText className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">
+                        {answerUploadName && answerFileUrls.length === 1
+                          ? answerUploadName
+                          : `Answer file ${index + 1}`}
+                      </span>
+                    </a>
+                    {!examSubmitted ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        className="h-8 shrink-0 text-accent hover:bg-[#fff1ee] hover:text-accent"
+                        disabled={answerUploading || submitting}
+                        onClick={() => void handleRemoveAnswerFile(url)}
+                      >
+                        <X className="mr-1 h-3.5 w-3.5" />
+                        Remove
+                      </Button>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
             ) : (
               <p className="mt-3 text-xs text-muted-foreground">
                 Accepted: PDF, Word, images, or ZIP.
@@ -597,6 +674,11 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
                 uploading={uploadingQuestionId === question.id}
                 disabled={submitting || examSubmitted}
                 onUploadFile={(file) => void handleUploadQuestionAnswer(question.id, file)}
+                onRemoveFile={
+                  examSubmitted
+                    ? undefined
+                    : () => void handleRemoveQuestionAnswer(question.id)
+                }
               />
             ))}
           </>
@@ -789,6 +871,7 @@ function WrittenQuestionCard({
   uploading = false,
   disabled = false,
   onUploadFile,
+  onRemoveFile,
 }: {
   index: number;
   question: PracticeExamAttemptQuestion;
@@ -798,6 +881,7 @@ function WrittenQuestionCard({
   uploading?: boolean;
   disabled?: boolean;
   onUploadFile?: (file: File | null) => void;
+  onRemoveFile?: () => void;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const displayNumber = index + 1;
@@ -835,6 +919,19 @@ function WrittenQuestionCard({
           <FileText className="h-3.5 w-3.5" />
           View uploaded file
         </a>
+      ) : null}
+      {hasFile && onRemoveFile && !disabled ? (
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          className="text-accent hover:bg-[#fff1ee] hover:text-accent"
+          disabled={uploading}
+          onClick={onRemoveFile}
+        >
+          <X className="mr-1 h-3.5 w-3.5" />
+          Remove
+        </Button>
       ) : null}
       {hasFile ? (
         <span className="rounded-md bg-[#ecfdf3] px-2 py-0.5 text-xs font-semibold text-[var(--accent-green)]">
