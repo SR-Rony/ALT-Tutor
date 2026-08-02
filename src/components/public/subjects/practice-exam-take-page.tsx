@@ -424,11 +424,11 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
       </ResourceHero>
 
       {bootError ? (
-        <p className="mx-auto max-w-5xl px-4 pt-4 text-sm text-accent md:px-6">{bootError}</p>
+        <p className="mx-auto max-w-7xl px-4 pt-4 text-sm text-accent md:px-6">{bootError}</p>
       ) : null}
 
       {perQuestionWritten && !examSubmitted ? (
-        <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
+        <div className="mx-auto max-w-7xl px-4 pt-6 md:px-6">
           <div className="rounded-xl border border-[#c5d9ef] bg-[#e8f0fa] px-4 py-4">
             <p className="text-sm font-semibold text-foreground">Per-question written exam</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
@@ -445,35 +445,50 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
         </div>
       ) : null}
 
-      {writtenMode && canUploadAnswers ? (
-        <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
+      {writtenMode && !examSubmitted ? (
+        <div className="mx-auto max-w-7xl px-4 pt-6 md:px-6">
           <div className="rounded-xl border border-[#c5d9ef] bg-[#e8f0fa] px-4 py-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
+                <p className="text-sm font-semibold text-foreground">Question paper</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {remainingSeconds === 0
+                    ? "Time is up — download your paper if needed, then finish uploading answers."
+                    : `Download all ${payload.questions.length} question${
+                        payload.questions.length === 1 ? "" : "s"
+                      } as one PDF (same set admin configured), write offline, then upload your answers.`}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="border-primary/30 bg-card"
+                onClick={handleDownloadQuestions}
+              >
+                <Download className="mr-1.5 h-4 w-4" />
+                Download questions
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {writtenMode && canUploadAnswers ? (
+        <div className="mx-auto max-w-7xl px-4 pt-6 md:px-6">
+          <div className="rounded-xl border border-border bg-card px-4 py-4">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
                 <p className="text-sm font-semibold text-foreground">
-                  {needsLateFileAttach ? "Attach answer script" : "Written exam pack"}
+                  {needsLateFileAttach ? "Attach answer script" : "Upload answer script"}
                 </p>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {needsLateFileAttach
                     ? "This attempt was submitted without an answer file. Upload your script so an admin can mark it."
-                    : remainingSeconds === 0
-                      ? "Time is up — upload your answer script to finish the exam."
-                      : `Download all ${payload.questions.length} questions as one PDF, complete your answers offline, then upload your answer script before submitting.`}
+                    : "Upload one file for the whole exam after you finish writing."}
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                {!needsLateFileAttach ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="border-primary/30 bg-card"
-                    onClick={handleDownloadQuestions}
-                  >
-                    <Download className="mr-1.5 h-4 w-4" />
-                    Download questions
-                  </Button>
-                ) : null}
                 <Button
                   type="button"
                   size="sm"
@@ -509,7 +524,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
       ) : null}
 
       {examSubmitted && !needsLateFileAttach ? (
-        <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
+        <div className="mx-auto max-w-7xl px-4 pt-6 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 px-4 py-3 text-sm">
             <p className="font-medium text-foreground">
               {writtenMode
@@ -545,7 +560,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
           ) : null}
         </div>
       ) : !writtenMode ? (
-        <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
+        <div className="mx-auto max-w-7xl px-4 pt-6 md:px-6">
           <div className="rounded-xl border border-primary/20 bg-primary-muted/60 px-4 py-3 text-sm">
             <p className="inline-flex items-center gap-2 font-medium text-foreground">
               <Lock className="h-4 w-4 text-primary" />
@@ -559,7 +574,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
         </div>
       ) : null}
 
-      <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 md:px-6">
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 md:px-6">
         {writtenMode ? (
           <>
             {!examSubmitted && !perQuestionWritten ? (
@@ -599,7 +614,7 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
           {examSubmitted ? (
             <>
               <p className="text-sm text-muted-foreground">

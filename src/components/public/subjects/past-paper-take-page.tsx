@@ -267,11 +267,11 @@ export function PastPaperTakePage({ programSlug, paperSlug }: Props) {
       </ResourceHero>
 
       {bootError ? (
-        <p className="mx-auto max-w-5xl px-4 pt-4 text-sm text-accent md:px-6">{bootError}</p>
+        <p className="mx-auto max-w-7xl px-4 pt-4 text-sm text-accent md:px-6">{bootError}</p>
       ) : null}
 
       {examSubmitted ? (
-        <div className="mx-auto max-w-5xl space-y-3 px-4 pt-6 md:px-6">
+        <div className="mx-auto max-w-7xl space-y-3 px-4 pt-6 md:px-6">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 px-4 py-3 text-sm">
             <p className="font-medium text-foreground">
               Paper submitted — {attempt.correctCount}/{attempt.totalQuestions} correct (
@@ -310,7 +310,7 @@ export function PastPaperTakePage({ programSlug, paperSlug }: Props) {
           ) : null}
         </div>
       ) : (
-        <div className="mx-auto max-w-5xl px-4 pt-6 md:px-6">
+        <div className="mx-auto max-w-7xl px-4 pt-6 md:px-6">
           <div className="rounded-xl border border-primary/20 bg-primary-muted/60 px-4 py-3 text-sm">
             <p className="inline-flex items-center gap-2 font-medium text-foreground">
               <Lock className="h-4 w-4 text-primary" />
@@ -324,7 +324,7 @@ export function PastPaperTakePage({ programSlug, paperSlug }: Props) {
         </div>
       )}
 
-      <div className="mx-auto max-w-5xl space-y-8 px-4 py-8 md:px-6">
+      <div className="mx-auto max-w-7xl space-y-8 px-4 py-8 md:px-6">
         {payload.questions.map((question, index) => (
           <PastPaperQuestionCard
             key={question.id}
@@ -341,7 +341,7 @@ export function PastPaperTakePage({ programSlug, paperSlug }: Props) {
       </div>
 
       <div className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card/95 backdrop-blur">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 md:px-6">
           {examSubmitted ? (
             <>
               <p className="text-sm text-muted-foreground">

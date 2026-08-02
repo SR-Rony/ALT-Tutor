@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Copy,
+  Download,
   Eye,
   EyeOff,
   ExternalLink,
@@ -36,6 +37,7 @@ import type {
 } from "@/types/practice-exam.types";
 import type { QbAccessBadge } from "@/types/qb.types";
 import { cn } from "@/utils";
+import { downloadQuestionPaperPdf } from "@/utils/qb-pdf-export";
 import Link from "next/link";
 
 const EXAM_MODES: PracticeExamMode[] = ["MCQ", "WRITTEN"];
@@ -50,6 +52,8 @@ type PickerQuestionRow = {
   id: string;
   number: number;
   prompt: string;
+  body?: string | null;
+  diagramUrl?: string | null;
   difficulty: string;
   paper: string;
   questionType: string;
@@ -232,6 +236,8 @@ export function AdminPracticeExamsPage() {
             id: q.id,
             number: q.number,
             prompt: q.prompt,
+            body: q.body,
+            diagramUrl: q.diagramUrl,
             difficulty: String(q.difficulty),
             paper: String(q.paper),
             questionType: String(q.questionType),
@@ -292,6 +298,28 @@ export function AdminPracticeExamsPage() {
   const clearAllSelected = () => {
     setSelectedQuestionIds([]);
     setPickerTab("available");
+  };
+
+  const generateSelectedWrittenPaper = () => {
+    if (mode !== "WRITTEN" || selectedQuestions.length === 0) return;
+    const programLabel =
+      modalPrograms.find((p) => p.id === modalProgramId)?.name ??
+      selectedProgram?.name ??
+      "Program";
+    downloadQuestionPaperPdf({
+      title: title.trim() || "Written practice exam",
+      subtitle: `${programLabel} · ${selectedQuestions.length} selected question${
+        selectedQuestions.length === 1 ? "" : "s"
+      } · admin preview`,
+      questions: selectedQuestions.map((q) => ({
+        id: q.id,
+        paper: q.paper,
+        prompt: q.prompt,
+        body: q.body,
+        diagramUrl: q.diagramUrl,
+        difficulty: q.difficulty,
+      })),
+    });
   };
 
   const filteredTemplates = useMemo(() => {
@@ -1168,15 +1196,28 @@ export function AdminPracticeExamsPage() {
                     Already in this exam ({mode === "WRITTEN" ? "written" : "MCQ"})
                   </span>
                   {selectedQuestions.length > 0 ? (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={busy}
-                      onClick={clearAllSelected}
-                    >
-                      Clear all
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      {mode === "WRITTEN" ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          disabled={busy}
+                          onClick={generateSelectedWrittenPaper}
+                        >
+                          <Download className="mr-1.5 h-3.5 w-3.5" />
+                          Generate paper ({selectedQuestions.length})
+                        </Button>
+                      ) : null}
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={clearAllSelected}
+                      >
+                        Clear all
+                      </Button>
+                    </div>
                   ) : null}
                 </div>
                 {selectedQuestions.length === 0 ? (
@@ -1284,8 +1325,8 @@ export function AdminPracticeExamsPage() {
           <p className="text-xs text-muted-foreground">
             {mode === "WRITTEN"
               ? writtenStyle === "PER_QUESTION"
-                ? "Students upload one answer file per question (1 question or many)."
-                : "Students download the question paper and upload their full answer script."
+                ? "Students download the same question paper, then upload one answer file per question."
+                : "Students download the same question paper and upload one full answer script."
               : "Students answer MCQs online — auto-marked after submit."}
           </p>
         </div>
