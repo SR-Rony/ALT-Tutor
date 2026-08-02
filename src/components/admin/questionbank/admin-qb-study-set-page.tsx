@@ -42,8 +42,11 @@ import {
   countByPaper,
   downloadExcelTemplate,
   downloadStudySetQuestions,
+  isMcqPaper,
+  kindForPaper,
   paperKey,
   paperShortLabel,
+  papersForKind,
   parsePaperNumber,
   questionsForPaper,
   resolvePaperTabs,
@@ -148,11 +151,14 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
     setSourceLabel("");
   };
 
-  const openAddQuestion = (forPaper: QbPaper = activePaper, kind: QuestionKind = "MCQ") => {
+  const openAddQuestion = (forPaper: QbPaper = activePaper) => {
+    const kind = kindForPaper(forPaper);
     setActionError(null);
     resetQuestionForm(forPaper, kind);
     setModal({ kind: "question" });
   };
+
+  const activePaperIsMcq = isMcqPaper(activePaper);
 
   const handleAddPaper = async () => {
     setActionError(null);
@@ -195,22 +201,22 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
   const openEditQuestion = (question: QbQuestion) => {
     setActionError(null);
     setModal({ kind: "question", editId: question.id });
-    const type = String(question.questionType).toUpperCase();
-    const kind: QuestionKind =
-      type === "SHORT_ANSWER" || type === "DATA_BASED" || (question.options?.length ?? 0) < 2
-        ? "WRITTEN"
-        : "MCQ";
+    const questionPaper = (question.paper as QbPaper) || "PAPER_1";
+    // Paper rules win: P1 = MCQ, P2+ = Written (fixes mixed legacy rows in the form).
+    const kind = kindForPaper(questionPaper);
     setQuestionKind(kind);
     setPrompt(question.prompt);
     const opts = [...(question.options ?? [])];
     while (opts.length < 4) opts.push("");
     setOptionHtmls([opts[0] ?? "", opts[1] ?? "", opts[2] ?? "", opts[3] ?? ""]);
     setCorrectAnswer(
-      kind === "MCQ" ? question.correctAnswer.toUpperCase() : question.correctAnswer ?? ""
+      kind === "MCQ"
+        ? (question.correctAnswer || "A").toUpperCase()
+        : question.correctAnswer ?? ""
     );
     setBodyText(question.body ?? "");
     setDifficulty((question.difficulty as QbDifficulty) || "EASY");
-    setPaper((question.paper as QbPaper) || "PAPER_1");
+    setPaper(questionPaper);
     setMarkScheme(question.markScheme ?? "");
     setDiagramUrl(question.diagramUrl ?? "");
     setVideoUrl(question.videoUrl ?? "");
@@ -291,6 +297,15 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
       }
       if (isRichTextEmpty(prompt)) {
         setActionError("Prompt is required.");
+        return;
+      }
+      const expectedKind = kindForPaper(paper);
+      if (questionKind !== expectedKind) {
+        setActionError(
+          expectedKind === "MCQ"
+            ? "Paper 1 only accepts MCQ questions."
+            : "Paper 2 and above only accept written questions."
+        );
         return;
       }
       const parsedMarks = Number.parseInt(marks, 10);
@@ -477,7 +492,8 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-muted-foreground">
               Managing <strong className="text-foreground">{paperShortLabel(activePaper)}</strong> —{" "}
-              {visibleQuestions.length} question{visibleQuestions.length === 1 ? "" : "s"}
+              {activePaperIsMcq ? "MCQ only" : "Written only"} · {visibleQuestions.length} question
+              {visibleQuestions.length === 1 ? "" : "s"}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -505,14 +521,17 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 <Upload className="h-4 w-4" />
                 Upload {paperShortLabel(activePaper)}
               </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => openAddQuestion(activePaper, "MCQ")}>
-                <Plus className="h-4 w-4" />
-                Add MCQ
-              </Button>
-              <Button type="button" size="sm" variant="outline" onClick={() => openAddQuestion(activePaper, "WRITTEN")}>
-                <Plus className="h-4 w-4" />
-                Add written
-              </Button>
+              {activePaperIsMcq ? (
+                <Button type="button" size="sm" onClick={() => openAddQuestion(activePaper)}>
+                  <Plus className="h-4 w-4" />
+                  Add MCQ
+                </Button>
+              ) : (
+                <Button type="button" size="sm" onClick={() => openAddQuestion(activePaper)}>
+                  <Plus className="h-4 w-4" />
+                  Add written
+                </Button>
+              )}
               <Button
                 type="button"
                 size="sm"
@@ -530,20 +549,17 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
           {visibleQuestions.length === 0 ? (
             <div className="rounded-xl border border-dashed border-border px-4 py-10 text-center">
               <p className="text-sm text-muted-foreground">
-                No {paperShortLabel(activePaper)} questions yet.
+                No {paperShortLabel(activePaper)} {activePaperIsMcq ? "MCQ" : "written"} questions
+                yet.
               </p>
               <div className="mt-3 flex flex-wrap items-center justify-center gap-2">
                 <Button type="button" size="sm" variant="outline" onClick={() => openImportForPaper(activePaper)}>
                   <Upload className="h-4 w-4" />
                   Upload Excel
                 </Button>
-                <Button type="button" size="sm" variant="outline" onClick={() => openAddQuestion(activePaper, "MCQ")}>
+                <Button type="button" size="sm" onClick={() => openAddQuestion(activePaper)}>
                   <Plus className="h-4 w-4" />
-                  Add MCQ
-                </Button>
-                <Button type="button" size="sm" onClick={() => openAddQuestion(activePaper, "WRITTEN")}>
-                  <Plus className="h-4 w-4" />
-                  Add written
+                  {activePaperIsMcq ? "Add MCQ" : "Add written"}
                 </Button>
               </div>
             </div>
@@ -632,46 +648,22 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
 
         {modal?.kind === "question" ? (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <span className="text-sm font-semibold">Question type</span>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuestionKind("MCQ");
-                    if (!correctAnswer || correctAnswer.length > 1) setCorrectAnswer("A");
-                  }}
-                  className={cn(
-                    "rounded-xl border px-3 py-2.5 text-left text-sm transition",
-                    questionKind === "MCQ"
-                      ? "border-primary bg-primary/5 font-semibold text-primary"
-                      : "border-border text-muted-foreground hover:border-primary/40"
-                  )}
-                >
-                  MCQ
-                  <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-                    Multiple choice (A–D)
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setQuestionKind("WRITTEN");
-                    if (correctAnswer.length <= 1) setCorrectAnswer("");
-                  }}
-                  className={cn(
-                    "rounded-xl border px-3 py-2.5 text-left text-sm transition",
-                    questionKind === "WRITTEN"
-                      ? "border-primary bg-primary/5 font-semibold text-primary"
-                      : "border-border text-muted-foreground hover:border-primary/40"
-                  )}
-                >
-                  Written
-                  <span className="mt-0.5 block text-xs font-normal text-muted-foreground">
-                    Non-MCQ / structured answer
-                  </span>
-                </button>
-              </div>
+            <div
+              className={cn(
+                "rounded-xl border px-4 py-3",
+                questionKind === "MCQ"
+                  ? "border-primary/25 bg-primary-muted/40"
+                  : "border-[#d4a017]/40 bg-[#fff8ef]"
+              )}
+            >
+              <p className="text-sm font-bold text-foreground">
+                {questionKind === "MCQ" ? "MCQ question" : "Written question"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {questionKind === "MCQ"
+                  ? "Paper 1 only — written questions go on Paper 2 or Paper 3."
+                  : "Paper 2 / Paper 3 only — MCQ questions go on Paper 1."}
+              </p>
             </div>
 
             <div className="block space-y-1.5">
@@ -791,10 +783,20 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 <span className="text-sm font-semibold">Paper</span>
                 <select
                   value={paper}
-                  onChange={(e) => setPaper(e.target.value as QbPaper)}
+                  onChange={(e) => {
+                    const next = e.target.value as QbPaper;
+                    setPaper(next);
+                    const nextKind = kindForPaper(next);
+                    setQuestionKind(nextKind);
+                    if (nextKind === "MCQ") {
+                      if (!correctAnswer || correctAnswer.length > 1) setCorrectAnswer("A");
+                    } else if (correctAnswer.length <= 1) {
+                      setCorrectAnswer("");
+                    }
+                  }}
                   className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
                 >
-                  {[...new Set([...paperTabs, paper])].map((p) => (
+                  {papersForKind(questionKind, [...new Set([...paperTabs, paper])]).map((p) => (
                     <option key={p} value={p}>
                       {paperShortLabel(p)}
                     </option>

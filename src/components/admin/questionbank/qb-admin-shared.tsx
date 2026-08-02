@@ -74,6 +74,19 @@ export function paperShortLabel(paper: string) {
   return `Paper ${n}`;
 }
 
+/** Paper 1 = MCQ only; Paper 2+ = Written only. */
+export function isMcqPaper(paper: string | null | undefined) {
+  return parsePaperNumber(paper) <= 1;
+}
+
+export function kindForPaper(paper: string | null | undefined): "MCQ" | "WRITTEN" {
+  return isMcqPaper(paper) ? "MCQ" : "WRITTEN";
+}
+
+export function papersForKind(kind: "MCQ" | "WRITTEN", tabs: QbPaper[]): QbPaper[] {
+  return tabs.filter((p) => (kind === "MCQ" ? isMcqPaper(p) : !isMcqPaper(p)));
+}
+
 export function countByPaper(questions: QbQuestion[] | undefined) {
   const counts: Record<string, number> = {};
   for (const q of questions ?? []) {
