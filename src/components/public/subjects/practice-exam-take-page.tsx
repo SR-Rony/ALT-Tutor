@@ -94,7 +94,9 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
     setAnswerFileUrls(data.attempt.answerFileUrls ?? []);
     if (submitted) {
       setRemainingSeconds(null);
-      if (opts?.openResult) setResultModalOpen(true);
+      if (opts?.openResult || data.attempt.status === "GRADED") {
+        setResultModalOpen(true);
+      }
     } else if (data.attempt.expiresAt) {
       setRemainingSeconds(
         Math.max(
@@ -423,6 +425,8 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
   const { attempt, template } = payload;
   const passed = attempt.passed;
   const writtenMode = template.mode === "WRITTEN";
+  const writtenGraded = writtenMode && attempt.status === "GRADED";
+  const writtenAwaiting = writtenMode && attempt.status === "SUBMITTED";
 
   return (
     <div className="bg-background pb-24">
@@ -607,11 +611,24 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
 
       {examSubmitted && !needsLateFileAttach ? (
         <div className="mx-auto max-w-7xl px-4 pt-6 md:px-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10 px-4 py-3 text-sm">
+          <div
+            className={cn(
+              "flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3 text-sm",
+              writtenGraded || !writtenMode
+                ? "border-[var(--accent-green)]/40 bg-[var(--accent-green)]/10"
+                : "border-primary/25 bg-primary-muted/50"
+            )}
+          >
             <p className="font-medium text-foreground">
-              {writtenMode
-                ? `Written exam submitted${answerFileUrls.length ? ` · ${answerFileUrls.length} file(s)` : ""}. Waiting for admin marks — mark schemes are unlocked for self-review.`
-                : `Exam submitted — ${attempt.correctCount}/${attempt.totalQuestions} correct (${attempt.score}%). Mark schemes and video solutions are unlocked.`}
+              {writtenGraded
+                ? `Marked — ${attempt.score}%${
+                    attempt.totalMarks > 0
+                      ? ` · ${attempt.earnedMarks}/${attempt.totalMarks} marks`
+                      : ""
+                  }. Mark schemes are unlocked for review.`
+                : writtenAwaiting
+                  ? `Written exam submitted${answerFileUrls.length ? ` · ${answerFileUrls.length} file(s)` : ""}. Waiting for admin marks — mark schemes are unlocked for self-review.`
+                  : `Exam submitted — ${attempt.correctCount}/${attempt.totalQuestions} correct (${attempt.score}%). Mark schemes and video solutions are unlocked.`}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setResultModalOpen(true)}>
@@ -705,23 +722,42 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
           {examSubmitted ? (
             <>
               <p className="text-sm text-muted-foreground">
-                {writtenMode
-                  ? "Submitted · awaiting admin marks"
-                  : `${attempt.correctCount}/${attempt.totalQuestions} correct · ${attempt.score}%`}
+                {writtenGraded
+                  ? `Graded · ${attempt.score}%${
+                      attempt.totalMarks > 0
+                        ? ` · ${attempt.earnedMarks}/${attempt.totalMarks} marks`
+                        : ""
+                    }`
+                  : writtenAwaiting
+                    ? "Submitted · awaiting admin marks"
+                    : `${attempt.correctCount}/${attempt.totalQuestions} correct · ${attempt.score}%`}
               </p>
               <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="pill"
+                  onClick={() => setResultModalOpen(true)}
+                >
+                  View result
+                </Button>
                 {!writtenMode ? (
                   <Button type="button" variant="outline" size="pill" onClick={reviewIncorrect}>
                     Review answers
                   </Button>
                 ) : null}
-                <Button asChild size="pill">
-                  <Link
-                    href={ROUTES.subjectPracticeExamTake(programSlug, templateSlug, { new: true })}
-                  >
-                    Retry exam
-                  </Link>
-                </Button>
+                {/* Written: no retry while waiting for marks (avoids duplicate marking load). */}
+                {!writtenAwaiting ? (
+                  <Button asChild size="pill">
+                    <Link
+                      href={ROUTES.subjectPracticeExamTake(programSlug, templateSlug, {
+                        new: true,
+                      })}
+                    >
+                      Retry exam
+                    </Link>
+                  </Button>
+                ) : null}
               </div>
             </>
           ) : (
@@ -816,14 +852,41 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
             )}
           </p>
           <div>
-            {writtenMode ? (
+            {writtenGraded ? (
+              <>
+                <p className="text-4xl font-bold text-foreground">{attempt.score}%</p>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  {payload.questions.length} questions
+                  {attempt.totalMarks > 0
+                    ? ` · ${attempt.earnedMarks}/${attempt.totalMarks} marks`
+                    : ""}
+                </p>
+                {attempt.feedback ? (
+                  <p className="mt-3 rounded-xl border border-border bg-muted/40 px-3 py-2 text-left text-sm text-foreground">
+                    <span className="font-semibold">Teacher feedback: </span>
+                    {attempt.feedback}
+                  </p>
+                ) : null}
+                {template.passMarkPercent != null && passed != null ? (
+                  <p
+                    className={cn(
+                      "mt-3 text-sm font-bold",
+                      passed ? "text-[var(--accent-green)]" : "text-accent"
+                    )}
+                  >
+                    {passed ? "Passed" : "Not passed"}
+                  </p>
+                ) : null}
+              </>
+            ) : writtenAwaiting ? (
               <>
                 <p className="text-2xl font-bold text-foreground">Submitted</p>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {payload.questions.length} questions · awaiting admin marks
                 </p>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  You can self-review with mark schemes meanwhile. Your score appears after marking.
+                  You can self-review with mark schemes meanwhile. Your score appears here after
+                  marking.
                 </p>
               </>
             ) : (

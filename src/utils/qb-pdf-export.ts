@@ -26,7 +26,7 @@ export function downloadQuestionPaperPdf({
   includeAnswerSpace = false,
 }: ExportArgs) {
   const origin = typeof window !== "undefined" ? window.location.origin : siteConfig.url;
-  const logoUrl = `${origin}/logo.png`;
+  const logoUrl = `${origin}${siteConfig.logo.startsWith("/") ? siteConfig.logo : `/${siteConfig.logo}`}`;
   const generatedAt = new Date().toLocaleString();
   const paperLabel = uniquePapersLabel(questions);
   const showPaperMeta = questions.some((q) => Boolean(q.paper));

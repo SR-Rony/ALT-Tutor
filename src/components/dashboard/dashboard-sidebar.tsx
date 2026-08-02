@@ -333,25 +333,22 @@ function SidebarBrand({ collapsed }: { collapsed: boolean }) {
       <Link
         href={ROUTES.home}
         className={cn(
-          "flex items-center gap-3 px-4 py-4 transition-colors hover:bg-[#f5f8fd]",
-          collapsed && "justify-center px-2"
+          "flex items-center px-3 py-3 transition-colors hover:bg-[#f5f8fd]",
+          collapsed ? "justify-center px-2" : "px-4"
         )}
         aria-label={`${siteConfig.name} home`}
       >
         <Image
-          src="/logo.jpeg"
+          src={siteConfig.logo}
           alt={siteConfig.name}
-          width={40}
-          height={40}
+          width={collapsed ? 40 : 160}
+          height={collapsed ? 40 : 48}
           priority
-          className="h-10 w-10 shrink-0 rounded-xl object-cover shadow-sm ring-1 ring-[#dce4f0]"
+          className={cn(
+            "object-contain object-left",
+            collapsed ? "h-9 w-9" : "h-9 w-auto max-w-[160px]"
+          )}
         />
-        {!collapsed ? (
-          <div className="min-w-0">
-            <p className="truncate text-sm font-bold tracking-tight text-[#1a1a2e]">{siteConfig.name}</p>
-            <p className="truncate text-[11px] text-[#58688b]">Learning platform</p>
-          </div>
-        ) : null}
       </Link>
     </div>
   );

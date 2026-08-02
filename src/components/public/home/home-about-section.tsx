@@ -75,11 +75,11 @@ export function HomeAboutSection() {
 
                   <div className="absolute right-3 top-3 sm:right-4 sm:top-4">
                     <Image
-                      src="/logo.jpeg"
+                      src={siteConfig.logo}
                       alt={siteConfig.name}
                       width={120}
                       height={36}
-                      className="h-8 w-auto rounded-md object-contain shadow-md sm:h-9"
+                      className="h-8 w-auto object-contain drop-shadow-md sm:h-9"
                     />
                   </div>
 
@@ -92,11 +92,11 @@ export function HomeAboutSection() {
                     </p>
                     <div className="mt-4 sm:mt-5">
                       <Image
-                        src="/logo.jpeg"
+                        src={siteConfig.logo}
                         alt={siteConfig.name}
                         width={100}
                         height={30}
-                        className="h-7 w-auto rounded object-contain sm:h-8"
+                        className="h-7 w-auto object-contain sm:h-8"
                       />
                     </div>
                   </div>

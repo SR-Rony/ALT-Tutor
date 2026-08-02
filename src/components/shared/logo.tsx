@@ -21,7 +21,7 @@ export function Logo({ className, showTagline = false, compact = false }: LogoPr
   return (
     <Link href="/" className={cn("group flex h-full w-full items-center overflow-hidden gap-2.5 lg:gap-3", className)}>
     <Image
-      src="/logo.png"
+      src={siteConfig.logo}
       alt={siteConfig.name}
       width={500}
       height={150}

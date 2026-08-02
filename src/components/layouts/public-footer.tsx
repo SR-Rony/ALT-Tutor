@@ -112,11 +112,11 @@ export function PublicFooter() {
           <div className="sm:col-span-2 lg:col-span-1">
             <Link href={ROUTES.home} className="inline-flex transition-opacity duration-300 hover:opacity-90">
               <Image
-                src="/logo.jpeg"
+                src={siteConfig.logo}
                 alt={siteConfig.name}
                 width={160}
                 height={48}
-                className="h-10 w-auto rounded-lg object-contain sm:h-11"
+                className="h-10 w-auto object-contain sm:h-11"
               />
             </Link>
             <RichTextContent

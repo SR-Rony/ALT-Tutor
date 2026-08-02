@@ -37,7 +37,7 @@ export function AuthPageShell({
           <div className="border-b border-[#eef2f7] bg-[linear-gradient(180deg,#fafcff_0%,#ffffff_100%)] px-6 pb-6 pt-8 text-center sm:px-8 sm:pt-10">
             <Link href="/" className="mx-auto inline-flex transition-opacity hover:opacity-90">
               <Image
-                src="/logo.png"
+                src={siteConfig.logo}
                 alt={siteConfig.name}
                 width={160}
                 height={48}
