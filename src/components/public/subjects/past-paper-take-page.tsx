@@ -446,12 +446,12 @@ function PastPaperQuestionCard({
   disabled: boolean;
   onSelect: (letter: string) => void;
 }) {
-  const displayNumber = question.number || index + 1;
+  const displayNumber = index + 1;
   const isMcq = question.options.length >= 2;
 
   return (
     <StudyQuestionCard
-      contentMode="plain"
+      contentMode="rich"
       solutionsUnlocked={solutionsUnlocked}
       examMode
       selectedAnswer={selected}
