@@ -311,6 +311,7 @@ export function AdminPracticeExamsPage() {
       subtitle: `${programLabel} · ${selectedQuestions.length} selected question${
         selectedQuestions.length === 1 ? "" : "s"
       } · admin preview`,
+      includeAnswerSpace: true,
       questions: selectedQuestions.map((q) => ({
         id: q.id,
         paper: null,

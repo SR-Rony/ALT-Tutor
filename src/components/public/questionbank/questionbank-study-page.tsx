@@ -587,6 +587,7 @@ export function QuestionbankStudyPage({
     downloadQuestionPaperPdf({
       title: `${program?.name ?? "Questionbank"} — ${data?.subtopic.title ?? "Questions"}`,
       subtitle: `${topic?.title ?? ""} · ${pack.length} questions`,
+      includeAnswerSpace: theoryPackQuestions.length > 0,
       questions: pack,
     });
   };

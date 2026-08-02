@@ -230,9 +230,11 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
     downloadQuestionPaperPdf({
       title: `${programName} — ${payload.template.title}`,
       subtitle: `${payload.questions.length} questions · Written practice exam`,
+      includeAnswerSpace: true,
       questions: payload.questions.map((q) => ({
         ...q,
         paper: null,
+        marks: q.marks,
       })),
     });
   };

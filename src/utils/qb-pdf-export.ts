@@ -3,6 +3,8 @@ import { siteConfig } from "@/config";
 type ExportArgs = {
   title: string;
   subtitle?: string;
+  /** Blank ruled lines under each question for handwritten answers (written exams). */
+  includeAnswerSpace?: boolean;
   questions: Array<{
     id?: string;
     paper?: string | null;
@@ -10,11 +12,19 @@ type ExportArgs = {
     body?: string | null;
     diagramUrl?: string | null;
     difficulty?: string | null;
+    marks?: number | null;
   }>;
 };
 
+const ANSWER_LINE_COUNT = 3;
+
 /** Opens a printable window with a branded question paper (print → Save as PDF). */
-export function downloadQuestionPaperPdf({ title, subtitle, questions }: ExportArgs) {
+export function downloadQuestionPaperPdf({
+  title,
+  subtitle,
+  questions,
+  includeAnswerSpace = false,
+}: ExportArgs) {
   const origin = typeof window !== "undefined" ? window.location.origin : siteConfig.url;
   const logoUrl = `${origin}/logo.png`;
   const generatedAt = new Date().toLocaleString();
@@ -255,6 +265,23 @@ export function downloadQuestionPaperPdf({ title, subtitle, questions }: ExportA
       border-radius: 8px;
     }
 
+    .answer-space {
+      margin-top: 0.75rem;
+      padding-top: 0.15rem;
+    }
+
+    .answer-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--ink);
+      margin-bottom: 0.1rem;
+    }
+
+    .answer-line {
+      height: 1.45rem;
+      border-bottom: 1px dashed #8a9bb3;
+    }
+
     .print-footer {
       display: none;
     }
@@ -421,19 +448,28 @@ export function downloadQuestionPaperPdf({ title, subtitle, questions }: ExportA
             : q.difficulty
               ? escapeHtml(String(q.difficulty))
               : "";
+          const answerBlock = includeAnswerSpace
+            ? `<div class="answer-space">
+          <div class="answer-label">Answer:</div>
+          ${Array.from({ length: ANSWER_LINE_COUNT })
+            .map(() => `<div class="answer-line"></div>`)
+            .join("")}
+        </div>`
+            : "";
           return `
       <div class="q">
         <div class="q-head">
           <div class="q-num">Question ${serial}</div>
           ${chip ? `<div class="q-chip">${chip}</div>` : ""}
         </div>
-        <p class="prompt">${escapeHtml(q.prompt)}</p>
-        ${q.body ? `<div class="body">${escapeHtml(q.body)}</div>` : ""}
+        <p class="prompt">${escapeHtml(stripHtml(q.prompt))}</p>
+        ${q.body ? `<div class="body">${escapeHtml(stripHtml(q.body))}</div>` : ""}
         ${
           q.diagramUrl
             ? `<img class="diagram" src="${escapeAttr(q.diagramUrl)}" alt="Diagram for question ${serial}" />`
             : ""
         }
+        ${answerBlock}
       </div>`;
         })
         .join("")}
@@ -489,6 +525,15 @@ function uniquePapersLabel(
     ),
   ];
   return papers.length ? papers.join(", ") : "All papers";
+}
+
+function stripHtml(s: string) {
+  return s
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
+    .replace(/<[^>]+>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
 }
 
 function escapeHtml(s: string) {
