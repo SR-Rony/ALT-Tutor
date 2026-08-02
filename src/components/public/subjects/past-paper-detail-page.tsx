@@ -1,16 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import Link from "next/link";
-import { Clock, FileText, HelpCircle, Lock } from "lucide-react";
+import { FileText, HelpCircle, Lock } from "lucide-react";
 import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
+import { StudyQuestionCard } from "@/components/public/questions";
 import { PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { usePastPaperDetail } from "@/hooks";
 import { normalizeAccessBadge, tierBadgeClass, tierLabel } from "@/lib/access-tier";
-import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
+import type { PastPaperViewQuestion } from "@/types/past-paper.types";
 import { cn } from "@/utils";
 import { ResourceHero, SubjectBreadcrumbNav, useSubjectBreadcrumbs } from "./";
 import { useProgramContext } from "./use-program-context";
@@ -29,12 +30,12 @@ function sourceLabel(type: string) {
 export function PastPaperDetailPage({ programSlug, paperSlug }: Props) {
   const { programName, isLoading: menuLoading } = useProgramContext(programSlug);
   const { data, isLoading, error, refetch } = usePastPaperDetail(programSlug, paperSlug);
-  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const [unlockOpen, setUnlockOpen] = useState(false);
 
   const paper = data?.paper;
   const locked = Boolean(paper?.locked);
   const badge = normalizeAccessBadge(paper?.accessTier);
+  const questions = useMemo(() => paper?.questions ?? [], [paper?.questions]);
 
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
@@ -63,10 +64,6 @@ export function PastPaperDetailPage({ programSlug, paperSlug }: Props) {
     );
   }
 
-  const loginHref = `${ROUTES.auth.login}?next=${encodeURIComponent(
-    ROUTES.subjectPastPaperTake(programSlug, paperSlug)
-  )}`;
-
   return (
     <div className="bg-background pb-16">
       <ResourceHero
@@ -74,7 +71,7 @@ export function PastPaperDetailPage({ programSlug, paperSlug }: Props) {
         subtitle={`${programName} · ${paper.year} ${paper.session} · ${paper.paperCode}`}
         description={
           paper.description ||
-          "Fixed archive paper — the question set stays the same for every attempt."
+          "Fixed past paper question set — browse and study at your own pace."
         }
         icon={<FileText className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
@@ -93,63 +90,47 @@ export function PastPaperDetailPage({ programSlug, paperSlug }: Props) {
             <HelpCircle className="h-3.5 w-3.5" aria-hidden />
             {paper.totalQuestions} questions · {paper.totalMarks} marks
           </span>
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/15 bg-card px-3 py-1 text-xs font-semibold">
-            <Clock className="h-3.5 w-3.5" aria-hidden />
-            {paper.durationMin} mins
-          </span>
           <span className="rounded-full border border-primary/15 bg-card px-3 py-1 text-xs font-semibold">
             {sourceLabel(paper.sourceType)}
           </span>
-        </div>
-      </ResourceHero>
-
-      <div className="mx-auto max-w-3xl space-y-6 px-4 py-10 md:px-6">
-        {paper.sections?.length ? (
-          <section className="rounded-2xl border border-border bg-card p-5">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-              Sections
-            </h2>
-            <ul className="mt-3 space-y-3">
-              {paper.sections.map((section) => (
-                <li key={section.id} className="text-sm">
-                  <p className="font-semibold text-foreground">
-                    {section.code ? `${section.code}. ` : ""}
-                    {section.title}
-                  </p>
-                  <p className="text-muted-foreground">
-                    {section.questionCount} question{section.questionCount === 1 ? "" : "s"}
-                    {section.instructions ? ` · ${section.instructions}` : ""}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
-
-        {paper.pdfUrl && !locked ? (
-          <section className="rounded-2xl border border-border bg-card p-5">
-            <h2 className="text-sm font-bold uppercase tracking-wide text-muted-foreground">
-              PDF paper
-            </h2>
-            <p className="mt-2 text-sm text-muted-foreground">
-              Optional PDF companion for this archive entry.
-            </p>
-            <Button asChild variant="outline" size="sm" className="mt-3">
+          {!locked ? (
+            <Button asChild variant="outline" size="sm" className="rounded-full">
+              <Link href={ROUTES.subjectResource(programSlug, "past-papers")}>All past papers</Link>
+            </Button>
+          ) : null}
+          {paper.pdfUrl && !locked ? (
+            <Button asChild variant="outline" size="sm" className="rounded-full">
               <a href={paper.pdfUrl} target="_blank" rel="noreferrer">
                 Open PDF
               </a>
             </Button>
-          </section>
-        ) : null}
+          ) : null}
+        </div>
+      </ResourceHero>
 
-        <section className="rounded-2xl border border-border bg-card p-5">
-          <h2 className="text-base font-bold text-foreground">Ready to sit this paper?</h2>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Timed attempt with the fixed question order. Mark schemes stay hidden until you submit.
-            Past scores stay stable even if live Questionbank items change later.
-          </p>
-          <div className="mt-5 flex flex-wrap gap-3">
-            {locked ? (
+      <div className="mx-auto max-w-7xl space-y-6 px-4 py-10 md:px-6">
+        {locked ? (
+          <section className="rounded-2xl border border-border bg-card p-6 text-center">
+            <Lock className="mx-auto h-8 w-8 text-[#9a3412]" aria-hidden />
+            <h2 className="mt-3 text-lg font-bold text-foreground">This paper is locked</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Unlock {tierLabel(badge)} access to view the full question set.
+            </p>
+            {paper.sections?.length ? (
+              <ul className="mx-auto mt-5 max-w-md space-y-2 text-left text-sm text-muted-foreground">
+                {paper.sections.map((section) => (
+                  <li key={section.id}>
+                    <span className="font-semibold text-foreground">
+                      {section.code ? `${section.code}. ` : ""}
+                      {section.title}
+                    </span>
+                    {" · "}
+                    {section.questionCount} question{section.questionCount === 1 ? "" : "s"}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <div className="mt-6 flex flex-wrap justify-center gap-3">
               <Button
                 type="button"
                 size="pill"
@@ -159,24 +140,60 @@ export function PastPaperDetailPage({ programSlug, paperSlug }: Props) {
                 <Lock className="h-4 w-4" aria-hidden />
                 Unlock {tierLabel(badge)}
               </Button>
-            ) : !isAuthenticated ? (
-              <Button asChild size="pill">
-                <Link href={loginHref}>Log in to start</Link>
-              </Button>
-            ) : (
-              <Button asChild size="pill">
-                <Link href={ROUTES.subjectPastPaperTake(programSlug, paperSlug)}>
-                  Start timed exam
+              <Button asChild variant="outline" size="pill">
+                <Link href={ROUTES.subjectResource(programSlug, "past-papers")}>
+                  All past papers
                 </Link>
               </Button>
-            )}
-            <Button asChild variant="outline" size="pill">
+            </div>
+          </section>
+        ) : questions.length === 0 ? (
+          <section className="rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+            <p className="text-sm text-muted-foreground">
+              {paper.pdfUrl
+                ? "No interactive questions on this paper. Use the PDF link above."
+                : "No questions are configured for this past paper yet."}
+            </p>
+            <Button asChild variant="outline" className="mt-4">
               <Link href={ROUTES.subjectResource(programSlug, "past-papers")}>
-                All past papers
+                Back to Past Papers
               </Link>
             </Button>
-          </div>
-        </section>
+          </section>
+        ) : (
+          <>
+            {paper.sections?.length ? (
+              <nav
+                className="flex flex-wrap gap-2 text-xs text-muted-foreground"
+                aria-label="Paper sections"
+              >
+                {paper.sections.map((section) => (
+                  <span
+                    key={section.id}
+                    className="rounded-md border border-border bg-card px-2.5 py-1 font-semibold"
+                  >
+                    {section.code ? `${section.code}. ` : ""}
+                    {section.title}
+                    <span className="ml-1 font-normal text-muted-foreground">
+                      ({section.questionCount})
+                    </span>
+                  </span>
+                ))}
+              </nav>
+            ) : null}
+
+            <div className="space-y-8">
+              {questions.map((question, index) => (
+                <PastPaperViewCard
+                  key={question.id}
+                  index={index}
+                  question={question}
+                  paperMarkSchemeUrl={paper.markSchemeUrl}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </div>
 
       {data?.program ? (
@@ -195,5 +212,54 @@ export function PastPaperDetailPage({ programSlug, paperSlug }: Props) {
         />
       ) : null}
     </div>
+  );
+}
+
+function PastPaperViewCard({
+  index,
+  question,
+  paperMarkSchemeUrl,
+}: {
+  index: number;
+  question: PastPaperViewQuestion;
+  paperMarkSchemeUrl?: string | null;
+}) {
+  const displayNumber = index + 1;
+  const isMcq = (question.options?.length ?? 0) >= 2;
+  const [selected, setSelected] = useState<string | null>(null);
+
+  return (
+    <StudyQuestionCard
+      contentMode="rich"
+      solutionsUnlocked
+      examMode={false}
+      selectedAnswer={selected}
+      onSelectAnswer={isMcq ? setSelected : undefined}
+      idPrefix="pp-q"
+      dataAttr="pp-q"
+      question={{
+        id: question.id,
+        displayNumber,
+        prompt: question.prompt,
+        body: question.body,
+        diagramUrl: question.diagramUrl,
+        difficulty: question.difficulty,
+        paper: question.paper,
+        calculatorAllowed:
+          question.calculatorAllowed === undefined || question.calculatorAllowed === null
+            ? false
+            : question.calculatorAllowed,
+        marks: question.marks,
+        options: question.options ?? [],
+        markScheme: question.markScheme,
+        videoUrl: question.videoUrl,
+        correctAnswer: question.correctAnswer,
+        isCorrect:
+          selected && question.correctAnswer
+            ? selected.trim().toLowerCase() === question.correctAnswer.trim().toLowerCase()
+            : null,
+        paperMarkSchemeUrl,
+      }}
+    />
   );
 }

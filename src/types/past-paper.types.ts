@@ -64,6 +64,24 @@ export type PastPaperProgramArchive = {
   papers: PastPaper[];
 };
 
+export type PastPaperViewQuestion = {
+  id: string;
+  number: number;
+  prompt: string;
+  body?: string | null;
+  diagramUrl?: string | null;
+  difficulty?: string | null;
+  paper?: string | null;
+  questionType?: string;
+  calculatorAllowed?: boolean;
+  options: string[];
+  marks: number;
+  order: number;
+  correctAnswer?: string;
+  markScheme?: string | null;
+  videoUrl?: string | null;
+};
+
 export type PastPaperDetail = {
   program: { id: string; name: string; slug: string };
   userTier?: QbAccessBadge | string;
@@ -76,6 +94,8 @@ export type PastPaperDetail = {
       order: number;
       questionCount: number;
     }>;
+    /** Present when paper is unlocked — browse/study only (no attempt). */
+    questions?: PastPaperViewQuestion[];
   };
 };
 
