@@ -211,8 +211,9 @@ export function downloadQuestionPaperPdf({
       margin-bottom: 1.5rem;
       padding-bottom: 1.15rem;
       border-bottom: 1px dashed var(--line);
-      page-break-inside: avoid;
-      break-inside: avoid;
+      /* Allow tall questions (large diagrams) to span pages — avoid blank first page */
+      page-break-inside: auto;
+      break-inside: auto;
       position: relative;
       z-index: 1;
     }
@@ -228,6 +229,8 @@ export function downloadQuestionPaperPdf({
       justify-content: space-between;
       gap: 0.75rem;
       margin-bottom: 0.45rem;
+      page-break-after: avoid;
+      break-after: avoid;
     }
 
     .q-num {
@@ -258,11 +261,17 @@ export function downloadQuestionPaperPdf({
     }
 
     .diagram {
+      display: block;
       max-width: 100%;
+      width: auto;
       height: auto;
+      max-height: 95mm;
+      object-fit: contain;
       margin: 0.85rem 0 0.25rem;
       border: 1px solid var(--line);
       border-radius: 8px;
+      page-break-inside: auto;
+      break-inside: auto;
     }
 
     .answer-space {
@@ -298,18 +307,47 @@ export function downloadQuestionPaperPdf({
       }
 
       .watermark img {
-        width: 420px;
-        max-height: 420px;
-        opacity: 0.08;
+        width: 280px;
+        max-height: 280px;
+        opacity: 0.06;
       }
 
       .print-header {
         position: relative;
-        padding: 0 0 0.55rem;
+        padding: 0 0 0.4rem;
         background: #fff;
         border-bottom: 2.5px solid var(--brand);
-        margin-bottom: 1rem;
+        margin-bottom: 0.65rem;
         z-index: 2;
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      .doc-title {
+        font-size: 1.15rem;
+        margin: 0 0 0.25rem;
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      .doc-sub {
+        margin: 0 0 0.5rem;
+      }
+
+      .info-grid {
+        margin-bottom: 0.75rem;
+        padding: 0.5rem 0.7rem;
+        page-break-after: avoid;
+        break-after: avoid;
+      }
+
+      .q {
+        page-break-inside: auto;
+        break-inside: auto;
+      }
+
+      .diagram {
+        max-height: 90mm;
       }
 
       .print-header .brand-bar {

@@ -30,18 +30,30 @@ type UnlockTarget = {
   requiredTier?: string;
 };
 
-/** "1. Algebra" → "Algebra" for display (Revision Village style). */
+/** "1. Algebra" / "Topic 1: Algebra" → "Algebra" for display. */
 function topicDisplayTitle(title: string): string {
-  return title.replace(/^\d+(?:\.\d+)?\.\s*/, "").trim() || title;
+  return (
+    title
+      .replace(/^\s*topic\s*\d+\s*[.:)\-–—]\s*/i, "")
+      .replace(/^\s*\d+(?:\.\d+)?\s*[.:)\-–—]\s*/, "")
+      .trim() || title
+  );
+}
+
+/** Strip leading "1.1 " so we can re-apply the serial consistently. */
+function studySetBaseTitle(title: string): string {
+  return title.replace(/^\s*\d+(\.\d+)?\s*[.:)\-–—]?\s*/, "").trim() || title;
 }
 
 function StudySetCard({
   sub,
+  serial,
   locked,
   onUnlock,
   onOpenStudy,
 }: {
   sub: QbSubtopic;
+  serial: string;
   locked: boolean;
   onUnlock: () => void;
   onOpenStudy: () => void;
@@ -51,6 +63,7 @@ function StudySetCard({
   const preview =
     richTextToPlain(sub.description ?? "") ||
     `${sub._count?.questions ?? 0} practice questions in this study set.`;
+  const displayTitle = `${serial} ${studySetBaseTitle(sub.title)}`;
 
   return (
     <article className="relative flex h-full flex-col rounded-xl border border-border/80 bg-white px-5 pb-5 pt-7 shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition hover:border-primary/25 hover:shadow-[0_8px_24px_-16px_rgba(24,119,242,0.25)]">
@@ -66,7 +79,7 @@ function StudySetCard({
         </span>
       ) : null}
 
-      <h3 className="text-base font-bold leading-snug text-foreground">{sub.title}</h3>
+      <h3 className="text-base font-bold leading-snug text-foreground">{displayTitle}</h3>
       <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{preview}</p>
 
       <div className="mt-5 flex justify-center">
@@ -229,17 +242,19 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
                 />
               ) : null}
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {topic.subtopics.map((sub) => {
+                {topic.subtopics.map((sub, subIndex) => {
                   const userTier = data.access?.userTier ?? "FREE";
                   const locked =
                     Boolean(sub.locked) || !canAccessWithTier(userTier, sub.badge);
                   const studyHref = ROUTES.subjectQuestionbankStudy(programSlug, sub.slug);
                   const loginThenStudy = `${ROUTES.auth.login}?next=${encodeURIComponent(studyHref)}`;
+                  const serial = `${topic.number}.${subIndex + 1}`;
 
                   return (
                     <StudySetCard
                       key={sub.id}
                       sub={sub}
+                      serial={serial}
                       locked={locked}
                       onUnlock={() => {
                         if (!isAuthenticated) {
