@@ -1,4 +1,5 @@
-import { PracticeExamDetailPage } from "@/components/public/subjects/practice-exam-detail-page";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants";
 
 type PageProps = {
   params: Promise<{ programSlug: string; templateSlug: string }>;
@@ -11,7 +12,8 @@ export async function generateMetadata({ params }: PageProps) {
   };
 }
 
+/** Detail/open page removed — send visitors straight to the take flow. */
 export default async function PracticeExamDetailRoute({ params }: PageProps) {
   const { programSlug, templateSlug } = await params;
-  return <PracticeExamDetailPage programSlug={programSlug} templateSlug={templateSlug} />;
+  redirect(ROUTES.subjectPracticeExamTake(programSlug, templateSlug));
 }

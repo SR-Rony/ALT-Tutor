@@ -154,7 +154,7 @@ export function TeacherPracticeExamsPage() {
               </div>
               {selected && item.isPublished ? (
                 <Link
-                  href={ROUTES.subjectPracticeExam(selected.slug, item.slug)}
+                  href={ROUTES.subjectPracticeExamTake(selected.slug, item.slug)}
                   className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
                   target="_blank"
                 >

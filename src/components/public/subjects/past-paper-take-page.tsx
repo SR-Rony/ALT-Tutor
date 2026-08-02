@@ -4,22 +4,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
-  Bookmark,
-  Check,
   CheckCircle2,
   Clock,
-  Expand,
   ExternalLink,
   FileText,
   HelpCircle,
   Lock,
-  PlayCircle,
-  ThumbsDown,
-  ThumbsUp,
   XCircle,
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageLoader } from "@/components/shared";
+import { StudyQuestionCard } from "@/components/public/questions";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import {
@@ -42,115 +37,10 @@ type Props = {
   paperSlug: string;
 };
 
-const LETTERS = ["A", "B", "C", "D", "E", "F"] as const;
-
 function formatTimer(totalSeconds: number) {
   const m = Math.floor(totalSeconds / 60);
   const s = totalSeconds % 60;
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
-}
-
-function difficultyMeta(d: string) {
-  const key = d.toUpperCase();
-  if (key === "HARD") return { label: "Hard", color: "text-accent", filled: 4, total: 4 };
-  if (key === "MEDIUM") return { label: "Medium", color: "text-[#f59e0b]", filled: 2, total: 4 };
-  return { label: "Easy", color: "text-accent-green", filled: 1, total: 4 };
-}
-
-function DifficultyDots({ difficulty }: { difficulty: string }) {
-  const meta = difficultyMeta(difficulty);
-  return (
-    <span className={cn("inline-flex items-center gap-2 text-sm font-semibold", meta.color)}>
-      {meta.label}
-      <span className="inline-flex gap-1">
-        {Array.from({ length: meta.total }).map((_, i) => (
-          <span
-            key={i}
-            className={cn(
-              "h-2 w-2 rounded-full",
-              i < meta.filled
-                ? meta.label === "Hard"
-                  ? "bg-accent"
-                  : meta.label === "Medium"
-                    ? "bg-[#f59e0b]"
-                    : "bg-accent-green"
-                : "bg-border"
-            )}
-          />
-        ))}
-      </span>
-    </span>
-  );
-}
-
-function paperLabel(paper?: string | null) {
-  const key = String(paper ?? "").toUpperCase();
-  if (key === "PAPER_3" || key === "3") return "Paper 3";
-  if (key === "PAPER_2" || key === "2") return "Paper 2";
-  return "Paper 1";
-}
-
-function youtubeEmbedUrl(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) {
-      const id = u.pathname.replace("/", "");
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.searchParams.get("v");
-      if (id) return `https://www.youtube.com/embed/${id}`;
-      if (u.pathname.startsWith("/embed/")) return url;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
-function VideoEmbed({ url }: { url: string }) {
-  const yt = youtubeEmbedUrl(url);
-  if (yt) {
-    return (
-      <div className="aspect-video w-full overflow-hidden rounded-xl border border-border bg-black shadow-sm">
-        <iframe
-          src={yt}
-          title="Video solution"
-          className="h-full w-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-
-  const lower = url.toLowerCase();
-  if (/\.(mp4|webm|ogg)(\?|$)/.test(lower)) {
-    return (
-      <video
-        controls
-        className="aspect-video w-full rounded-xl border border-border bg-black shadow-sm"
-        src={url}
-      >
-        Your browser does not support the video tag.
-      </video>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
-      <PlayCircle className="mx-auto mb-2 h-8 w-8 text-primary" />
-      <p className="text-sm text-muted-foreground">Inline preview is unavailable for this link.</p>
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
-      >
-        Watch video <ExternalLink className="h-3.5 w-3.5" />
-      </a>
-    </div>
-  );
 }
 
 export function PastPaperTakePage({ programSlug, paperSlug }: Props) {
@@ -556,302 +446,40 @@ function PastPaperQuestionCard({
   disabled: boolean;
   onSelect: (letter: string) => void;
 }) {
-  const [modal, setModal] = useState<"scheme" | "video" | null>(null);
-  const [completed, setCompleted] = useState(false);
   const displayNumber = question.number || index + 1;
-  const qLabel = `Question ${displayNumber}`;
-  const answered = selected !== null;
-  const correctAnswer = (question.correctAnswer ?? "").toUpperCase();
-  const correct = question.isCorrect === true;
-  const optionCount = Math.max(question.options.length, 1);
-  const letters = LETTERS.slice(0, optionCount);
-  const markScheme = question.markScheme;
-  const videoUrl = question.videoUrl;
-  const isMcq = question.options.length > 0;
-  const hasScheme = Boolean(markScheme) || Boolean(paperMarkSchemeUrl);
+  const isMcq = question.options.length >= 2;
 
   return (
-    <section id={`pp-q-${question.id}`} className="scroll-mt-28" data-pp-q>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-foreground">{qLabel}</h2>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          {solutionsUnlocked && question.isCorrect != null ? (
-            question.isCorrect ? (
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-[var(--accent-green)]">
-                <CheckCircle2 className="h-4 w-4" /> Correct
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 text-xs font-bold text-accent">
-                <XCircle className="h-4 w-4" /> Incorrect
-              </span>
-            )
-          ) : (
-            <>
-              <ThumbsUp className="h-4 w-4" />
-              <ThumbsDown className="h-4 w-4" />
-            </>
-          )}
-        </div>
-      </div>
-
-      <div
-        className={cn(
-          "grid gap-4",
-          solutionsUnlocked ? "lg:grid-cols-[minmax(0,1fr)_10rem]" : "grid-cols-1"
-        )}
-      >
-        <article className="rounded-2xl border border-border bg-card p-4 shadow-[0_8px_28px_-16px_rgba(24,119,242,0.2)] sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              {question.calculatorAllowed ? (
-                <span className="rounded-md bg-primary-muted px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary">
-                  Calculator
-                </span>
-              ) : (
-                <span className="rounded-md bg-primary-muted px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary">
-                  No calculator
-                </span>
-              )}
-              {question.difficulty ? (
-                <DifficultyDots difficulty={String(question.difficulty)} />
-              ) : null}
-              <span className="rounded-md border border-primary/15 bg-primary-muted/40 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                {paperLabel(question.paper)}
-                {isMcq ? " · MCQ" : ""}
-              </span>
-              {question.marks != null && question.marks > 0 ? (
-                <span className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-foreground">
-                  [{question.marks}]
-                </span>
-              ) : null}
-            </div>
-            <Expand className="h-4 w-4 text-muted-foreground" />
-          </div>
-
-          <p className="text-sm leading-relaxed text-foreground md:text-base">{question.prompt}</p>
-          {question.body ? (
-            <p className="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">{question.body}</p>
-          ) : null}
-
-          {question.diagramUrl ? (
-            <div className="mt-4 overflow-hidden rounded-xl border border-border bg-muted/20">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={question.diagramUrl}
-                alt={`Diagram for ${qLabel}`}
-                className="mx-auto max-h-[28rem] w-auto max-w-full object-contain p-3"
-              />
-            </div>
-          ) : null}
-
-          {isMcq ? (
-            <ul className="mt-4 space-y-1.5 text-sm text-foreground">
-              {question.options.map((opt, i) => (
-                <li key={`${i}-${opt}`}>
-                  <span className="font-semibold">{LETTERS[i] ?? i + 1}.</span> {opt}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-
-          {isMcq ? (
-            <div className="mt-5">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Choose an answer
-              </p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {letters.map((letter) => {
-                  const isSelected = selected === letter;
-                  const isCorrectChoice = correctAnswer ? letter === correctAnswer : false;
-                  return (
-                    <button
-                      key={letter}
-                      type="button"
-                      disabled={saving || disabled}
-                      onClick={() => onSelect(letter)}
-                      className={cn(
-                        "relative flex h-12 items-center justify-center rounded-xl border text-sm font-bold transition",
-                        !answered &&
-                          "border-border bg-muted/40 hover:border-primary hover:bg-primary-muted",
-                        answered &&
-                          solutionsUnlocked &&
-                          isCorrectChoice &&
-                          "border-accent-green bg-[#ecfdf3] text-accent-green",
-                        answered &&
-                          solutionsUnlocked &&
-                          isSelected &&
-                          !correct &&
-                          "border-accent bg-accent/10 text-accent",
-                        answered &&
-                          solutionsUnlocked &&
-                          !isSelected &&
-                          !isCorrectChoice &&
-                          "opacity-50",
-                        answered &&
-                          !solutionsUnlocked &&
-                          isSelected &&
-                          "border-primary bg-primary-muted text-primary"
-                      )}
-                    >
-                      {letter}
-                      {answered && solutionsUnlocked && isCorrectChoice ? (
-                        <CheckCircle2 className="absolute right-2 h-4 w-4" />
-                      ) : null}
-                      {answered && solutionsUnlocked && isSelected && !correct ? (
-                        <XCircle className="absolute right-2 h-4 w-4" />
-                      ) : null}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
-        </article>
-
-        {solutionsUnlocked ? (
-          <aside className="flex flex-row flex-wrap gap-2 lg:flex-col lg:flex-nowrap">
-            <div className="flex gap-2 lg:justify-end">
-              <button
-                type="button"
-                className="rounded-lg border border-border p-2 text-muted-foreground hover:text-primary"
-                aria-label="Bookmark"
-              >
-                <Bookmark className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                onClick={() => setCompleted((v) => !v)}
-                className={cn(
-                  "rounded-lg border p-2 transition",
-                  completed
-                    ? "border-accent-green bg-[#ecfdf3] text-accent-green"
-                    : "border-border text-muted-foreground hover:text-accent-green"
-                )}
-                aria-label={completed ? "Mark incomplete" : "Mark complete"}
-              >
-                <Check className="h-4 w-4" />
-              </button>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="justify-start border-primary/40 text-primary hover:bg-primary-muted hover:text-primary"
-              onClick={() => setModal("scheme")}
-              disabled={!hasScheme}
-            >
-              <FileText className="mr-1.5 h-4 w-4" />
-              Mark Scheme
-            </Button>
-            <Button
-              type="button"
-              className="justify-start bg-primary text-primary-foreground hover:bg-primary/90"
-              onClick={() => setModal("video")}
-              disabled={!videoUrl}
-            >
-              Video Solutions
-              {videoUrl ? (
-                <span className="ml-auto rounded-full bg-white/25 px-1.5 text-[10px] font-bold text-white">
-                  1
-                </span>
-              ) : null}
-            </Button>
-            {paperMarkSchemeUrl ? (
-              <a
-                href={paperMarkSchemeUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1 px-1 text-sm text-muted-foreground hover:text-primary"
-              >
-                Mark scheme file <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            ) : null}
-          </aside>
-        ) : null}
-      </div>
-
-      <AdminModal
-        open={modal === "scheme"}
-        title="Mark Scheme"
-        description={`${qLabel} · Official solution guidance`}
-        onClose={() => setModal(null)}
-        className="sm:max-w-2xl"
-        footer={
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {paperMarkSchemeUrl ? (
-              <a
-                href={paperMarkSchemeUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-              >
-                Open mark scheme PDF <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            ) : (
-              <span />
-            )}
-            <Button type="button" variant="outline" onClick={() => setModal(null)}>
-              Close
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-lg bg-primary-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
-            <FileText className="h-3.5 w-3.5" />
-            Solution notes
-          </div>
-          {markScheme ? (
-            <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed text-foreground md:text-[15px]">
-              <p className="whitespace-pre-wrap">{markScheme}</p>
-            </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No per-question mark scheme text. Use the paper mark scheme file if available.
-            </p>
-          )}
-          {correctAnswer ? (
-            <p className="text-xs text-muted-foreground">
-              Correct answer:{" "}
-              <span className="font-semibold text-foreground">{correctAnswer}</span>
-            </p>
-          ) : null}
-        </div>
-      </AdminModal>
-
-      <AdminModal
-        open={modal === "video"}
-        title="Video Solution"
-        description={`${qLabel} · Short worked explanation`}
-        onClose={() => setModal(null)}
-        className="sm:max-w-3xl"
-        footer={
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {videoUrl ? (
-              <a
-                href={videoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-              >
-                Open in new tab <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            ) : (
-              <span />
-            )}
-            <Button type="button" variant="outline" onClick={() => setModal(null)}>
-              Close
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-lg bg-primary-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
-            <PlayCircle className="h-3.5 w-3.5" />
-            1 video available
-          </div>
-          {videoUrl ? <VideoEmbed key={videoUrl} url={videoUrl} /> : null}
-        </div>
-      </AdminModal>
-    </section>
+    <StudyQuestionCard
+      contentMode="plain"
+      solutionsUnlocked={solutionsUnlocked}
+      examMode
+      selectedAnswer={selected}
+      onSelectAnswer={isMcq ? onSelect : undefined}
+      saving={saving}
+      answerDisabled={disabled}
+      idPrefix="pp-q"
+      dataAttr="pp-q"
+      question={{
+        id: question.id,
+        displayNumber,
+        prompt: question.prompt,
+        body: question.body,
+        diagramUrl: question.diagramUrl,
+        difficulty: question.difficulty,
+        paper: question.paper,
+        calculatorAllowed:
+          question.calculatorAllowed === undefined || question.calculatorAllowed === null
+            ? false
+            : question.calculatorAllowed,
+        marks: question.marks,
+        options: question.options ?? [],
+        markScheme: question.markScheme,
+        videoUrl: question.videoUrl,
+        correctAnswer: question.correctAnswer,
+        isCorrect: question.isCorrect,
+        paperMarkSchemeUrl,
+      }}
+    />
   );
 }

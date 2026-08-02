@@ -42,7 +42,7 @@ export function PracticeExamTemplateList({
       {templates.map((template) => {
         const locked = Boolean(template.locked);
         const badge = normalizeAccessBadge(template.accessTier);
-        const detailHref = ROUTES.subjectPracticeExam(programSlug, template.slug);
+        const takeHref = ROUTES.subjectPracticeExamTake(programSlug, template.slug);
         const isWritten = template.mode === "WRITTEN";
         const modeLabel = template.modeLabel ?? (isWritten ? "Written" : "MCQ");
 
@@ -115,22 +115,10 @@ export function PracticeExamTemplateList({
                   Unlock {tierLabel(badge)}
                 </Button>
               ) : (
-                <>
-                  <Button asChild size="pill" className="w-full">
-                    <Link href={detailHref}>Open</Link>
-                  </Button>
-                  <Button asChild variant="outline" size="pill" className="w-full">
-                    <Link href={ROUTES.subjectPracticeExamTake(programSlug, template.slug)}>
-                      Start
-                    </Link>
-                  </Button>
-                </>
-              )}
-              {locked ? (
-                <Button asChild variant="ghost" size="sm" className="w-full text-muted-foreground">
-                  <Link href={detailHref}>Details</Link>
+                <Button asChild size="pill" className="w-full">
+                  <Link href={takeHref}>Start</Link>
                 </Button>
-              ) : null}
+              )}
             </div>
           </article>
         );

@@ -3,34 +3,23 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, forwardRef, type ReactNode } from "react";
 import {
-  Bookmark,
-  Check,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
   Clock,
   Download,
-  Expand,
-  ExternalLink,
   FileText,
   HelpCircle,
   Info,
   ListOrdered,
   Lock,
-  PlayCircle,
   SlidersHorizontal,
-  ThumbsDown,
-  ThumbsUp,
-  Upload,
   XCircle,
 } from "lucide-react";
-import { uploadService } from "@/services/upload.service";
-import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
-import { RichTextContent } from "@/components/ui/rich-text-content";
 import { PageLoader } from "@/components/shared";
-import { richTextToPlain } from "@/lib/rich-text";
+import { StudyQuestionCard } from "@/components/public/questions";
 import { ROUTES } from "@/constants";
 import {
   ResourceHero,
@@ -62,8 +51,6 @@ type Props = {
   initialPaper?: QbPaper;
 };
 type ViewMode = "ALL" | "COMPLETE" | "INCOMPLETE";
-
-const LETTERS = ["A", "B", "C", "D"] as const;
 
 function formatTimer(totalSeconds: number) {
   const minutes = Math.floor(totalSeconds / 60);
@@ -99,47 +86,6 @@ function isMcqQuestion(question: { questionType?: string | null; paper?: string 
   return isMcqPaper(String(question.paper ?? "PAPER_1"));
 }
 
-function paperDisplayLabel(paper: string) {
-  const match = String(paper).toUpperCase().match(/PAPER_?(\d+)/);
-  const n = match ? match[1] : "1";
-  return `Paper ${n}`;
-}
-
-function difficultyMeta(d: string) {
-  const key = d.toUpperCase();
-  if (key === "HARD") return { label: "Hard", color: "text-accent", filled: 4, total: 4 };
-  if (key === "MEDIUM") return { label: "Medium", color: "text-[#f59e0b]", filled: 2, total: 4 };
-  return { label: "Easy", color: "text-accent-green", filled: 1, total: 4 };
-}
-
-function DifficultyDots({ difficulty }: { difficulty: string }) {
-  const meta = difficultyMeta(difficulty);
-  return (
-    <span className={cn("inline-flex items-center gap-2 text-sm font-semibold", meta.color)}>
-      {meta.label}
-      <span className="inline-flex gap-1">
-        {Array.from({ length: meta.total }).map((_, i) => (
-          <span
-            key={i}
-            className={cn(
-              "h-2 w-2 rounded-full",
-              i < meta.filled
-                ? keyDot(meta.label)
-                : "bg-border"
-            )}
-          />
-        ))}
-      </span>
-    </span>
-  );
-}
-
-function keyDot(label: string) {
-  if (label === "Hard") return "bg-accent";
-  if (label === "Medium") return "bg-[#f59e0b]";
-  return "bg-accent-green";
-}
-
 function toggleFilter<T extends string>(list: T[] | undefined, value: T): T[] {
   const current = list ?? [];
   return current.includes(value) ? current.filter((v) => v !== value) : [...current, value];
@@ -159,7 +105,6 @@ function filterSelectionLabel<T extends string>(
 
 function QuestionCard({
   question,
-  index,
   displayNumber,
   completed,
   onToggleComplete,
@@ -171,7 +116,6 @@ function QuestionCard({
   saving = false,
 }: {
   question: QbQuestion;
-  index: number;
   displayNumber: number;
   completed?: boolean;
   onToggleComplete?: () => void;
@@ -182,489 +126,35 @@ function QuestionCard({
   onSelectAnswer?: (letter: string) => void;
   saving?: boolean;
 }) {
-  if (isMcqQuestion(question)) {
-    return (
-      <McqQuestionCard
-        question={question}
-        index={index}
-        displayNumber={displayNumber}
-        completed={completed}
-        onToggleComplete={onToggleComplete}
-        solutionsUnlocked={solutionsUnlocked}
-        examMode={examMode}
-        selectedAnswer={selectedAnswer}
-        feedback={feedback}
-        onSelectAnswer={onSelectAnswer}
-        saving={saving}
-      />
-    );
-  }
-
+  const mcq = isMcqQuestion(question);
   return (
-    <StructuredQuestionCard
-      question={question}
-      index={index}
-      displayNumber={displayNumber}
-      completed={completed}
-      onToggleComplete={onToggleComplete}
+    <StudyQuestionCard
+      contentMode="rich"
       solutionsUnlocked={solutionsUnlocked}
       examMode={examMode}
       selectedAnswer={selectedAnswer}
-      onSelectAnswer={onSelectAnswer}
+      onSelectAnswer={mcq ? onSelectAnswer : undefined}
       saving={saving}
+      completed={completed}
+      onToggleComplete={onToggleComplete}
+      idPrefix="q"
+      question={{
+        id: question.id,
+        displayNumber,
+        prompt: question.prompt,
+        body: question.body,
+        diagramUrl: question.diagramUrl,
+        difficulty: question.difficulty,
+        paper: question.paper,
+        calculatorAllowed: question.calculatorAllowed,
+        marks: question.marks,
+        options: mcq ? question.options ?? [] : [],
+        markScheme: feedback?.markScheme ?? question.markScheme,
+        videoUrl: feedback?.videoUrl ?? question.videoUrl,
+        correctAnswer: feedback?.correctAnswer ?? question.correctAnswer,
+        isCorrect: feedback ? feedback.isCorrect : null,
+      }}
     />
-  );
-}
-
-function McqQuestionCard({
-  question,
-  index,
-  displayNumber,
-  completed,
-  onToggleComplete,
-  solutionsUnlocked = true,
-  examMode = false,
-  selectedAnswer,
-  feedback,
-  onSelectAnswer,
-  saving = false,
-}: {
-  question: QbQuestion;
-  index: number;
-  displayNumber: number;
-  completed?: boolean;
-  onToggleComplete?: () => void;
-  solutionsUnlocked?: boolean;
-  examMode?: boolean;
-  selectedAnswer?: string | null;
-  feedback?: PracticeAnswerFeedback | null;
-  onSelectAnswer?: (letter: string) => void;
-  saving?: boolean;
-}) {
-  const [modal, setModal] = useState<"scheme" | "video" | null>(null);
-  const selected = selectedAnswer ?? null;
-  const answered = selected !== null;
-  const correctAnswer = feedback?.correctAnswer?.toUpperCase() ?? "";
-  const correct = feedback ? feedback.isCorrect : false;
-  const qLabel = `Question ${displayNumber || index + 1}`;
-  const markScheme = feedback?.markScheme ?? question.markScheme;
-  const videoUrl = feedback?.videoUrl ?? question.videoUrl;
-
-  return (
-    <section id={`q-${question.id}`} className="scroll-mt-28" data-q-num={displayNumber}>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-foreground">{qLabel}</h2>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <ThumbsUp className="h-4 w-4" />
-          <ThumbsDown className="h-4 w-4" />
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_10rem]">
-        <article className="rounded-2xl border border-border bg-card p-4 shadow-[0_8px_28px_-16px_rgba(24,119,242,0.2)] sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              {question.calculatorAllowed ? (
-                <span className="rounded-md bg-primary-muted px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary">
-                  Calculator
-                </span>
-              ) : null}
-              <DifficultyDots difficulty={String(question.difficulty)} />
-              <span className="rounded-md border border-primary/15 bg-primary-muted/40 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                {paperDisplayLabel(String(question.paper))} · MCQ
-              </span>
-              {question.marks != null && question.marks > 0 ? (
-                <span className="rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-foreground">
-                  [{question.marks}]
-                </span>
-              ) : null}
-            </div>
-            <Expand className="h-4 w-4 text-muted-foreground" />
-          </div>
-
-          <RichTextContent
-            html={question.prompt}
-            className="text-sm leading-relaxed text-foreground md:text-base"
-          />
-          {question.body ? (
-            <RichTextContent
-              html={question.body}
-              className="mt-2 text-sm text-muted-foreground"
-            />
-          ) : null}
-
-          {question.diagramUrl ? (
-            <div className="mt-4 overflow-hidden rounded-xl border border-border bg-muted/20">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={question.diagramUrl}
-                alt={`Diagram for ${qLabel}`}
-                className="mx-auto max-h-[28rem] w-auto max-w-full object-contain p-3"
-              />
-            </div>
-          ) : null}
-
-          <ul className="mt-4 space-y-3 text-sm text-foreground">
-            {question.options.map((opt, i) => (
-              <li key={`${question.id}-opt-${i}`} className="flex gap-2">
-                <span className="shrink-0 font-semibold">{LETTERS[i] ?? i + 1}.</span>
-                <RichTextContent html={opt} className="min-w-0 flex-1" />
-              </li>
-            ))}
-          </ul>
-
-          <div className="mt-5">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Choose an answer
-            </p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {LETTERS.slice(0, question.options.length).map((letter) => {
-                const isSelected = selected === letter;
-                const isCorrectChoice = correctAnswer ? letter === correctAnswer : false;
-                return (
-                  <button
-                    key={letter}
-                    type="button"
-                    disabled={saving || (examMode && solutionsUnlocked)}
-                    onClick={() => onSelectAnswer?.(letter)}
-                    className={cn(
-                      "relative flex h-12 items-center justify-center rounded-xl border text-sm font-bold transition",
-                      !answered && "border-border bg-muted/40 hover:border-primary hover:bg-primary-muted",
-                      answered &&
-                        solutionsUnlocked &&
-                        isCorrectChoice &&
-                        "border-accent-green bg-[#ecfdf3] text-accent-green",
-                      answered &&
-                        solutionsUnlocked &&
-                        isSelected &&
-                        !correct &&
-                        "border-accent bg-accent/10 text-accent",
-                      answered &&
-                        solutionsUnlocked &&
-                        !isSelected &&
-                        !isCorrectChoice &&
-                        "opacity-50",
-                      answered &&
-                        !solutionsUnlocked &&
-                        isSelected &&
-                        "border-primary bg-primary-muted text-primary"
-                    )}
-                  >
-                    {letter}
-                    {answered && solutionsUnlocked && isCorrectChoice ? (
-                      <CheckCircle2 className="absolute right-2 h-4 w-4" />
-                    ) : null}
-                    {answered && solutionsUnlocked && isSelected && !correct ? (
-                      <XCircle className="absolute right-2 h-4 w-4" />
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </article>
-
-        <aside className="flex flex-row flex-wrap gap-2 lg:flex-col lg:flex-nowrap">
-          <div className="flex gap-2 lg:justify-end">
-            <button
-              type="button"
-              className="rounded-lg border border-border p-2 text-muted-foreground hover:text-primary"
-            >
-              <Bookmark className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onToggleComplete}
-              className={cn(
-                "rounded-lg border p-2 transition",
-                completed
-                  ? "border-accent-green bg-[#ecfdf3] text-accent-green"
-                  : "border-border text-muted-foreground hover:text-accent-green"
-              )}
-              aria-label={completed ? "Mark incomplete" : "Mark complete"}
-            >
-              <Check className="h-4 w-4" />
-            </button>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="justify-start border-primary/40 text-primary hover:bg-primary-muted hover:text-primary"
-            onClick={() => setModal("scheme")}
-            disabled={!markScheme || !solutionsUnlocked}
-          >
-            Mark Scheme
-          </Button>
-          <Button
-            type="button"
-            className="justify-start bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => setModal("video")}
-            disabled={!videoUrl || !solutionsUnlocked}
-          >
-            Video Solutions
-            {videoUrl ? (
-              <span className="ml-auto rounded-full bg-white/25 px-1.5 text-[10px] font-bold text-white">
-                1
-              </span>
-            ) : null}
-          </Button>
-          <a
-            href="#"
-            className="inline-flex items-center gap-1 px-1 text-sm text-muted-foreground hover:text-primary"
-          >
-            Formula Booklet <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-          {examMode && !solutionsUnlocked ? (
-            <p className="text-xs font-medium text-muted-foreground">
-              Locked until exam submission
-            </p>
-          ) : null}
-        </aside>
-      </div>
-
-      <AdminModal
-        open={modal === "scheme"}
-        title="Mark Scheme"
-        description={`${qLabel} · Official solution guidance`}
-        onClose={() => setModal(null)}
-        className="sm:max-w-2xl"
-        footer={
-          <div className="flex justify-end">
-            <Button type="button" variant="outline" onClick={() => setModal(null)}>
-              Close
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-lg bg-primary-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
-            <FileText className="h-3.5 w-3.5" />
-            Solution notes
-          </div>
-          <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed text-foreground md:text-[15px]">
-            <RichTextContent html={markScheme} />
-          </div>
-          {correctAnswer ? (
-            <p className="text-xs text-muted-foreground">
-              Correct answer:{" "}
-              <span className="font-semibold text-foreground">{correctAnswer}</span>
-            </p>
-          ) : null}
-        </div>
-      </AdminModal>
-
-      <AdminModal
-        open={modal === "video"}
-        title="Video Solution"
-        description={`${qLabel} · Short worked explanation`}
-        onClose={() => setModal(null)}
-        className="sm:max-w-3xl"
-        footer={
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            {videoUrl ? (
-              <a
-                href={videoUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
-              >
-                Open in new tab <ExternalLink className="h-3.5 w-3.5" />
-              </a>
-            ) : (
-              <span />
-            )}
-            <Button type="button" variant="outline" onClick={() => setModal(null)}>
-              Close
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-3">
-          <div className="inline-flex items-center gap-2 rounded-lg bg-primary-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
-            <PlayCircle className="h-3.5 w-3.5" />
-            1 video available
-          </div>
-          {videoUrl ? <VideoEmbed key={videoUrl} url={videoUrl} /> : null}
-        </div>
-      </AdminModal>
-    </section>
-  );
-}
-
-/** P2 (SQ/CQ) — structured written question, PDF-style layout */
-function StructuredQuestionCard({
-  question,
-  index,
-  displayNumber,
-  completed,
-  onToggleComplete,
-  solutionsUnlocked = true,
-  examMode = false,
-}: {
-  question: QbQuestion;
-  index: number;
-  displayNumber: number;
-  completed?: boolean;
-  onToggleComplete?: () => void;
-  solutionsUnlocked?: boolean;
-  examMode?: boolean;
-  selectedAnswer?: string | null;
-  onSelectAnswer?: (answer: string) => void;
-  saving?: boolean;
-}) {
-  const [modal, setModal] = useState<"scheme" | "video" | null>(null);
-  const qLabel = `Question ${displayNumber || index + 1}`;
-  const maxMarkMatch = richTextToPlain(question.body).match(/\[Maximum mark:\s*(\d+)\]/i);
-  const maxMarks = question.marks ?? (maxMarkMatch ? Number(maxMarkMatch[1]) : null);
-
-  return (
-    <section id={`q-${question.id}`} className="scroll-mt-28" data-q-num={displayNumber}>
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-foreground">{qLabel}</h2>
-        <div className="flex items-center gap-2 text-muted-foreground">
-          <ThumbsUp className="h-4 w-4" />
-          <ThumbsDown className="h-4 w-4" />
-        </div>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_10rem]">
-        <article className="rounded-2xl border border-border bg-card p-4 shadow-[0_8px_28px_-16px_rgba(24,119,242,0.2)] sm:p-5">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              {question.calculatorAllowed ? (
-                <span className="rounded-md bg-primary-muted px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-primary">
-                  Calculator
-                </span>
-              ) : null}
-              <DifficultyDots difficulty={String(question.difficulty)} />
-              <span className="rounded-md border border-primary/20 bg-primary-muted/50 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                {paperDisplayLabel(String(question.paper))}
-              </span>
-            </div>
-            <Expand className="h-4 w-4 text-muted-foreground" />
-          </div>
-
-          {maxMarks != null && maxMarks > 0 ? (
-            <p className="mb-3 text-sm font-semibold text-foreground">[Maximum mark: {maxMarks}]</p>
-          ) : null}
-
-          <RichTextContent
-            html={question.prompt}
-            className="text-sm leading-relaxed text-foreground md:text-base"
-          />
-          {question.body ? (
-            <RichTextContent
-              html={question.body}
-              className="mt-3 text-sm leading-relaxed text-foreground md:text-[15px]"
-            />
-          ) : null}
-
-          {question.diagramUrl ? (
-            <div className="mt-4 overflow-hidden rounded-xl border border-border bg-muted/20">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={question.diagramUrl}
-                alt={`Diagram for ${qLabel}`}
-                className="mx-auto max-h-[28rem] w-auto max-w-full object-contain p-3"
-              />
-            </div>
-          ) : null}
-        </article>
-
-        <aside className="flex flex-row flex-wrap gap-2 lg:flex-col lg:flex-nowrap">
-          <div className="flex gap-2 lg:justify-end">
-            <button
-              type="button"
-              className="rounded-lg border border-border p-2 text-muted-foreground hover:text-primary"
-            >
-              <Bookmark className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              onClick={onToggleComplete}
-              className={cn(
-                "rounded-lg border p-2 transition",
-                completed
-                  ? "border-accent-green bg-[#ecfdf3] text-accent-green"
-                  : "border-border text-muted-foreground hover:text-accent-green"
-              )}
-              aria-label={completed ? "Mark incomplete" : "Mark complete"}
-            >
-              <Check className="h-4 w-4" />
-            </button>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="justify-start border-primary/40 text-primary hover:bg-primary-muted hover:text-primary"
-            onClick={() => setModal("scheme")}
-            disabled={!question.markScheme || !solutionsUnlocked}
-          >
-            Mark Scheme
-          </Button>
-          <Button
-            type="button"
-            className="justify-start bg-primary text-primary-foreground hover:bg-primary/90"
-            onClick={() => setModal("video")}
-            disabled={!question.videoUrl || !solutionsUnlocked}
-          >
-            Video Solutions
-            {question.videoUrl ? (
-              <span className="ml-auto rounded-full bg-white/25 px-1.5 text-[10px] font-bold text-white">
-                1
-              </span>
-            ) : null}
-          </Button>
-          <a
-            href="#"
-            className="inline-flex items-center gap-1 px-1 text-sm text-muted-foreground hover:text-primary"
-          >
-            Formula Booklet <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-          {examMode && !solutionsUnlocked ? (
-            <p className="text-xs font-medium text-muted-foreground">
-              Locked until exam submission
-            </p>
-          ) : null}
-        </aside>
-      </div>
-
-      <AdminModal
-        open={modal === "scheme"}
-        title="Mark Scheme"
-        description={`${qLabel} · Structured question solution`}
-        onClose={() => setModal(null)}
-        className="sm:max-w-2xl"
-        footer={
-          <div className="flex justify-end">
-            <Button type="button" variant="outline" onClick={() => setModal(null)}>
-              Close
-            </Button>
-          </div>
-        }
-      >
-        <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed text-foreground md:text-[15px]">
-          <RichTextContent html={question.markScheme} />
-        </div>
-      </AdminModal>
-
-      <AdminModal
-        open={modal === "video"}
-        title="Video Solution"
-        description={`${qLabel} · Worked solution`}
-        onClose={() => setModal(null)}
-        className="sm:max-w-3xl"
-        footer={
-          <div className="flex justify-end">
-            <Button type="button" variant="outline" onClick={() => setModal(null)}>
-              Close
-            </Button>
-          </div>
-        }
-      >
-        {question.videoUrl ? <VideoEmbed key={question.videoUrl} url={question.videoUrl} /> : null}
-      </AdminModal>
-    </section>
   );
 }
 
@@ -684,10 +174,6 @@ export function QuestionbankStudyPage({
   const [questionCountLimit, setQuestionCountLimit] = useState<QuestionCountLimit>(10);
   const [currentPage, setCurrentPage] = useState(1);
   const [completedIds, setCompletedIds] = useState<Set<string>>(new Set());
-  const [answerUploadName, setAnswerUploadName] = useState<string | null>(null);
-  const [answerUploadError, setAnswerUploadError] = useState<string | null>(null);
-  const [answerUploading, setAnswerUploading] = useState(false);
-  const answerFileRef = useRef<HTMLInputElement>(null);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<string, string>>({});
   const [answerFeedback, setAnswerFeedback] = useState<Record<string, PracticeAnswerFeedback>>({});
@@ -1050,7 +536,7 @@ export function QuestionbankStudyPage({
   }, [filteredQuestions, showTheoryPaperTools, theoryPackQuestions]);
 
   /**
-   * Paper 2/3 exam pack (10/20/30 filter): one page with the full pack for download/submit.
+   * Paper 2/3 exam pack (10/20/30 filter): one page with the full pack for download.
    * Otherwise browse with 10 questions per page. Exam mode keeps the full set on one screen.
    */
   const useSinglePagePack = Boolean(showTheoryPaperTools && !examMode);
@@ -1103,38 +589,6 @@ export function QuestionbankStudyPage({
       subtitle: `${topic?.title ?? ""} · ${pack.length} questions`,
       questions: pack,
     });
-  };
-
-  const handleUploadAnswers = async (file: File | null) => {
-    if (!file) return;
-    if (!isAuthenticated) {
-      setAnswerUploadError("Sign in to upload your answer script.");
-      return;
-    }
-    setAnswerUploadError(null);
-    setAnswerUploading(true);
-    try {
-      const result = await uploadService.upload(file, "assignments");
-      const payload = {
-        programSlug,
-        subtopicSlug,
-        questionCount: theoryPackQuestions.length,
-        questionIds: theoryPackQuestions.map((q) => q.id),
-        fileName: file.name,
-        fileUrl: result.url,
-        publicId: result.publicId,
-        uploadedAt: new Date().toISOString(),
-      };
-      const key = `qb-answer-script:${programSlug}:${subtopicSlug}`;
-      const previous = JSON.parse(localStorage.getItem(key) ?? "[]") as unknown[];
-      localStorage.setItem(key, JSON.stringify([payload, ...previous].slice(0, 20)));
-      setAnswerUploadName(file.name);
-    } catch (err) {
-      setAnswerUploadError((err as ApiError)?.message || "Could not upload answer file");
-    } finally {
-      setAnswerUploading(false);
-      if (answerFileRef.current) answerFileRef.current.value = "";
-    }
   };
 
   const toggleComplete = (id: string) => {
@@ -1470,8 +924,7 @@ export function QuestionbankStudyPage({
                   theoryPackQuestions.length
                     ? ` of ${filteredQuestions.filter((q) => isTheoryPaper(String(q.paper))).length} matched`
                     : ""}
-                  . Download the set, write answers offline, then upload your answer file for
-                  teacher / admin review.
+                  . Download the set to practise offline.
                 </p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
@@ -1486,32 +939,8 @@ export function QuestionbankStudyPage({
                   <Download className="mr-1.5 h-4 w-4" />
                   Download questions
                 </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  disabled={answerUploading || theoryPackQuestions.length === 0}
-                  onClick={() => answerFileRef.current?.click()}
-                >
-                  <Upload className="mr-1.5 h-4 w-4" />
-                  {answerUploading ? "Uploading…" : "Upload answers"}
-                </Button>
-                <input
-                  ref={answerFileRef}
-                  type="file"
-                  accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,.zip"
-                  className="hidden"
-                  onChange={(event) => void handleUploadAnswers(event.target.files?.[0] ?? null)}
-                />
               </div>
             </div>
-            {answerUploadName ? (
-              <p className="mt-3 text-xs font-medium text-accent-green">
-                Uploaded: {answerUploadName}. Teachers and admins can review this answer script.
-              </p>
-            ) : null}
-            {answerUploadError ? (
-              <p className="mt-3 text-xs font-medium text-accent">{answerUploadError}</p>
-            ) : null}
           </div>
         ) : null}
 
@@ -1595,7 +1024,6 @@ export function QuestionbankStudyPage({
               <QuestionCard
                 key={question.id}
                 question={question}
-                index={(safePage - 1) * STUDY_PAGE_SIZE + index}
                 displayNumber={displayNumberById[question.id] ?? index + 1}
                 completed={completedIds.has(question.id)}
                 onToggleComplete={() => toggleComplete(question.id)}
@@ -1764,26 +1192,6 @@ export function QuestionbankStudyPage({
   );
 }
 
-function youtubeEmbedUrl(url: string): string | null {
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) {
-      const id = u.pathname.replace("/", "");
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.searchParams.get("v");
-      if (id) return `https://www.youtube.com/embed/${id}`;
-      const parts = u.pathname.split("/").filter(Boolean);
-      if (parts[0] === "embed" && parts[1]) return `https://www.youtube.com/embed/${parts[1]}`;
-      if (parts[0] === "shorts" && parts[1]) return `https://www.youtube.com/embed/${parts[1]}`;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 const QuestionTypeDropdown = forwardRef<
   HTMLDivElement,
   {
@@ -1919,50 +1327,5 @@ function NativeCheck({
       />
       {label}
     </label>
-  );
-}
-
-function VideoEmbed({ url }: { url: string }) {
-  const yt = youtubeEmbedUrl(url);
-  if (yt) {
-    return (
-      <div className="aspect-video w-full overflow-hidden rounded-xl border border-border bg-black shadow-sm">
-        <iframe
-          src={yt}
-          title="Video solution"
-          className="h-full w-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-
-  const lower = url.toLowerCase();
-  if (/\.(mp4|webm|ogg)(\?|$)/.test(lower)) {
-    return (
-      <video
-        controls
-        className="aspect-video w-full rounded-xl border border-border bg-black shadow-sm"
-        src={url}
-      >
-        Your browser does not support the video tag.
-      </video>
-    );
-  }
-
-  return (
-    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
-      <PlayCircle className="mx-auto mb-2 h-8 w-8 text-primary" />
-      <p className="text-sm text-muted-foreground">Inline preview is unavailable for this link.</p>
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
-      >
-        Watch video <ExternalLink className="h-3.5 w-3.5" />
-      </a>
-    </div>
   );
 }

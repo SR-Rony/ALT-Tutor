@@ -7,7 +7,6 @@ export { PastPaperDetailPage } from "./past-paper-detail-page";
 export { PastPaperTakePage } from "./past-paper-take-page";
 export { PastPaperResultPage } from "./past-paper-result-page";
 export { PracticeExamsPage } from "./practice-exams-page";
-export { PracticeExamDetailPage } from "./practice-exam-detail-page";
 export { PracticeExamTakePage } from "./practice-exam-take-page";
 export { PracticeExamResultPage } from "./practice-exam-result-page";
 export { MockExamsPage } from "./mock-exams-page";

@@ -836,7 +836,7 @@ export function AdminPracticeExamsPage() {
                       {selectedProgram && item.isPublished ? (
                         <Button type="button" size="sm" variant="ghost" asChild>
                           <Link
-                            href={ROUTES.subjectPracticeExam(selectedProgram.slug, item.slug)}
+                            href={ROUTES.subjectPracticeExamTake(selectedProgram.slug, item.slug)}
                             target="_blank"
                           >
                             <ExternalLink className="h-3.5 w-3.5" />

@@ -119,7 +119,7 @@ function GradePanel({
         </div>
         <Button asChild size="sm" variant="outline">
           <Link
-            href={ROUTES.subjectPracticeExam(item.program.slug, item.template.slug)}
+            href={ROUTES.subjectPracticeExamTake(item.program.slug, item.template.slug)}
             target="_blank"
           >
             Open exam page
