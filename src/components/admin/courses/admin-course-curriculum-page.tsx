@@ -811,6 +811,8 @@ function CourseProgramsTab({ courseId }: { courseId: string }) {
           subject.programs.map((program) => ({
             id: program.id,
             label: subject.name,
+            programName: program.name,
+            topicCount: program._count?.qbTopics ?? 0,
           }))
         )
       ),
@@ -840,8 +842,8 @@ function CourseProgramsTab({ courseId }: { courseId: string }) {
     <div className="rounded-2xl border border-border bg-card p-5">
       <h2 className="text-lg font-bold text-foreground">Linked subject programs</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Students opening this course&apos;s questionbank are redirected to the first linked program.
-        Select one or more IB subject programs whose questionbank this course should expose.
+        Linking a subject only connects the course. Students see practice sets after you add topics under{" "}
+        <span className="font-medium text-foreground">Admin → Questionbank</span> for that program.
       </p>
       {allPrograms.length === 0 ? (
         <p className="mt-6 text-sm text-muted-foreground">
@@ -849,22 +851,46 @@ function CourseProgramsTab({ courseId }: { courseId: string }) {
         </p>
       ) : (
         <div className="mt-5 max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-border p-3">
-          {allPrograms.map((program) => (
-            <label
-              key={program.id}
-              className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-muted/50"
-            >
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-border text-primary accent-primary"
-                checked={selected.includes(program.id)}
-                onChange={() => toggle(program.id)}
-              />
-              <span className="text-sm font-medium text-foreground">{program.label}</span>
-            </label>
-          ))}
+          {allPrograms.map((program) => {
+            const hasTopics = program.topicCount > 0;
+            return (
+              <label
+                key={program.id}
+                className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-muted/50"
+              >
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 rounded border-border text-primary accent-primary"
+                  checked={selected.includes(program.id)}
+                  onChange={() => toggle(program.id)}
+                />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-sm font-medium text-foreground">{program.label}</span>
+                  <span
+                    className={cn(
+                      "mt-0.5 block text-xs",
+                      hasTopics ? "text-muted-foreground" : "text-amber-600"
+                    )}
+                  >
+                    {hasTopics
+                      ? `${program.topicCount} questionbank topic${program.topicCount === 1 ? "" : "s"}`
+                      : "No questionbank topics yet — students will see an empty state"}
+                  </span>
+                </span>
+              </label>
+            );
+          })}
         </div>
       )}
+      {selected.some((id) => (allPrograms.find((p) => p.id === id)?.topicCount ?? 0) === 0) ? (
+        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          One or more selected programs have no topics. Add topics in{" "}
+          <Link href={ROUTES.admin.questionbank} className="font-semibold underline-offset-2 hover:underline">
+            Questionbank
+          </Link>{" "}
+          before students can practice.
+        </p>
+      ) : null}
       {message ? <p className="mt-3 text-sm text-accent-green">{message}</p> : null}
       {error ? <p className="mt-3 text-sm text-accent">{error}</p> : null}
       <Button type="button" className="mt-4" disabled={setPrograms.isPending} onClick={() => void onSave()}>

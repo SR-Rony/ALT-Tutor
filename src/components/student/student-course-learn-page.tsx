@@ -270,13 +270,15 @@ function ProgramQuestionbankSection({
     return (
       <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
         <HelpCircle className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden />
-        <p className="mt-3 font-semibold text-foreground">No topics published yet</p>
+        <p className="mt-3 font-semibold text-foreground">No practice sets yet</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {programName} is linked to this course, but admins have not published questionbank topics
-          yet.
+          <span className="font-medium text-foreground">{programName}</span> is linked to this course,
+          but it has no questionbank topics or study sets. An admin needs to add topics under{" "}
+          <span className="font-medium text-foreground">Questionbank</span> for this subject — linking
+          alone is not enough.
         </p>
         <Button asChild size="sm" variant="outline" className="mt-4">
-          <Link href={ROUTES.subjectQuestionbank(programSlug)}>Browse program questionbank</Link>
+          <Link href={ROUTES.subjectQuestionbank(programSlug)}>Open subject questionbank</Link>
         </Button>
       </div>
     );
@@ -652,9 +654,8 @@ export function StudentCourseLearnPage({ slug }: Props) {
     const requestedIndex = lessons.findIndex(({ lesson }) => lesson.id === requestedLessonId);
     if (requestedIndex >= 0 && canOpenLesson(lessons[requestedIndex]!.lesson)) {
       setLessonIndex(requestedIndex);
-      setTab("lessons");
     }
-  }, [lessons, requestedLessonId, setTab, canOpenLesson]);
+  }, [lessons, requestedLessonId, canOpenLesson]);
 
   if ((isLoading || enrollmentsLoading) && !course) {
     return <PageLoader label="Loading course..." />;

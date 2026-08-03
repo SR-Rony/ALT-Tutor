@@ -25,6 +25,7 @@ export interface SubjectMenuProgram {
   order: number;
   isActive: boolean;
   resources: SubjectMenuResource[];
+  _count?: { qbTopics?: number };
 }
 
 export interface SubjectMenuSubject {
