@@ -224,7 +224,7 @@ export function AdminEnrollmentsPage() {
               <th className="px-5 py-3 font-semibold">Course</th>
               <th className="px-5 py-3 font-semibold">Progress</th>
               <th className="px-5 py-3 font-semibold">Status</th>
-              <th className="px-5 py-3 font-semibold">Enrolled</th>
+              <th className="px-5 py-3 font-semibold">Enrolled / Access</th>
               <th className="px-5 py-3 font-semibold text-right">Actions</th>
             </tr>
           </thead>
@@ -302,7 +302,12 @@ export function AdminEnrollmentsPage() {
                     </span>
                   </td>
                   <td className="px-5 py-3.5 align-middle text-muted-foreground">
-                    {formatShortDate(enrollment.enrolledAt)}
+                    <div>{formatShortDate(enrollment.enrolledAt)}</div>
+                    <div className="mt-0.5 text-xs">
+                      {enrollment.expiresAt
+                        ? `Until ${formatShortDate(enrollment.expiresAt)}`
+                        : "Lifetime"}
+                    </div>
                   </td>
                   <td className="px-5 py-3.5 align-middle">
                     <AdminActionsBar>

@@ -63,6 +63,7 @@ type FormState = {
   targetAudience: string;
   hasCertificate: boolean;
   lifetimeAccess: boolean;
+  accessDurationDays: string;
   seoTitle: string;
   seoDescription: string;
   categoryId: string;
@@ -121,6 +122,10 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
       targetAudience: course.targetAudience ?? "",
       hasCertificate: course.hasCertificate ?? true,
       lifetimeAccess: course.lifetimeAccess ?? true,
+      accessDurationDays:
+        course.accessDurationDays != null && course.accessDurationDays > 0
+          ? String(course.accessDurationDays)
+          : "90",
       seoTitle: course.seoTitle ?? "",
       seoDescription: course.seoDescription ?? "",
       categoryId: course.categoryId ?? "",
@@ -219,6 +224,9 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
       targetAudience: form.targetAudience.trim() || undefined,
       hasCertificate: form.hasCertificate,
       lifetimeAccess: form.lifetimeAccess,
+      accessDurationDays: form.lifetimeAccess
+        ? null
+        : Math.max(1, Number(form.accessDurationDays) || 90),
       seoTitle: form.seoTitle.trim() || undefined,
       seoDescription: form.seoDescription.trim() || undefined,
       categoryId: form.categoryId,
@@ -494,6 +502,49 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
               onChange={(e) => setField("price", e.target.value)}
             />
           </Field>
+
+          <div className="lg:col-span-2 rounded-xl border border-border bg-muted/20 p-4">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Student access duration
+            </p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              After a student buys/enrolls, how long they can access this course (and linked questionbank).
+            </p>
+            <div className="mt-3 flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="radio"
+                  name="access-mode"
+                  checked={form.lifetimeAccess}
+                  onChange={() => setField("lifetimeAccess", true)}
+                />
+                Lifetime access
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="radio"
+                  name="access-mode"
+                  checked={!form.lifetimeAccess}
+                  onChange={() => setField("lifetimeAccess", false)}
+                />
+                Limited days
+              </label>
+              {!form.lifetimeAccess ? (
+                <label className="flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Access for</span>
+                  <Input
+                    type="number"
+                    min={1}
+                    className="h-9 w-24"
+                    value={form.accessDurationDays}
+                    onChange={(e) => setField("accessDurationDays", e.target.value)}
+                  />
+                  <span className="text-muted-foreground">days</span>
+                </label>
+              ) : null}
+            </div>
+          </div>
+
           <Field label="Thumbnail">
             <div className="space-y-2">
               <Input
@@ -600,14 +651,7 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
                 />
                 Certificate available on completion
               </label>
-              <label className="flex items-center gap-2 text-sm font-medium">
-                <input
-                  type="checkbox"
-                  checked={form.lifetimeAccess}
-                  onChange={(e) => setField("lifetimeAccess", e.target.checked)}
-                />
-                Lifetime access after enrollment
-              </label>
+              <div className="lg:col-span-1" />
               <Field label="SEO title">
                 <Input value={form.seoTitle} onChange={(e) => setField("seoTitle", e.target.value)} />
               </Field>

@@ -79,6 +79,7 @@ type BackendCourseDetail = BackendCatalogCourse & {
   targetAudience?: string | null;
   hasCertificate?: boolean;
   lifetimeAccess?: boolean;
+  accessDurationDays?: number | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
   programLinks?: Array<{
@@ -191,6 +192,7 @@ function mapDetail(raw: BackendCourseDetail): CourseDetail {
     targetAudience: raw.targetAudience ?? null,
     hasCertificate: raw.hasCertificate ?? true,
     lifetimeAccess: raw.lifetimeAccess ?? true,
+    accessDurationDays: raw.accessDurationDays ?? null,
     seoTitle: raw.seoTitle ?? null,
     seoDescription: raw.seoDescription ?? null,
     programLinks: raw.programLinks ?? [],

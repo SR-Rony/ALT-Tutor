@@ -10,6 +10,7 @@ import {
   Award,
   BookOpen,
   ClipboardList,
+  Clock,
   Download,
   FileText,
   HelpCircle,
@@ -32,7 +33,7 @@ import {
   useStudentCourses,
 } from "@/hooks";
 import { formatLessonDuration } from "@/lib/course-format";
-import { formatShortDate } from "@/lib/format";
+import { formatAccessRemaining, formatShortDate } from "@/lib/format";
 import { richTextToPlain } from "@/lib/rich-text";
 import { apiClient } from "@/services/api-client";
 import { useAppSelector } from "@/store";
@@ -131,6 +132,8 @@ function CourseHero({
   totalSeconds,
   examCount,
   programCount,
+  accessLabel,
+  accessUrgent,
 }: {
   course: CourseDetail;
   progress: number;
@@ -139,6 +142,8 @@ function CourseHero({
   totalSeconds: number;
   examCount: number;
   programCount: number;
+  accessLabel: string;
+  accessUrgent?: boolean;
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_12px_40px_-20px_rgba(24,119,242,0.25)]">
@@ -187,6 +192,17 @@ function CourseHero({
                   {formatLessonDuration(totalSeconds)}
                 </span>
               ) : null}
+              <span
+                className={cn(
+                  "inline-flex items-center gap-1 rounded-full px-2.5 py-1 font-semibold",
+                  accessUrgent
+                    ? "bg-amber-100 text-amber-800"
+                    : "bg-background/80 text-muted-foreground"
+                )}
+              >
+                <Clock className="h-3.5 w-3.5" aria-hidden />
+                {accessLabel}
+              </span>
             </div>
           </div>
           <div className="w-full shrink-0 rounded-xl border border-border/80 bg-background/90 p-4 sm:w-56">
@@ -690,6 +706,7 @@ export function StudentCourseLearnPage({ slug }: Props) {
   );
   const progress = enrollment?.progress ?? 0;
   const isCompleted = String(enrollment?.status ?? "").toUpperCase() === "COMPLETED";
+  const accessInfo = formatAccessRemaining(enrollment?.expiresAt);
 
   return (
     <div className="mx-auto w-full max-w-7xl space-y-6">
@@ -708,6 +725,8 @@ export function StudentCourseLearnPage({ slug }: Props) {
         totalSeconds={totalSeconds}
         examCount={courseMcqExams.length}
         programCount={programLinks.length}
+        accessLabel={accessInfo.label}
+        accessUrgent={Boolean(accessInfo.expired || (accessInfo.daysLeft != null && accessInfo.daysLeft <= 7))}
       />
 
       <nav

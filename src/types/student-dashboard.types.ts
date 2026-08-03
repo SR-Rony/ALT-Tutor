@@ -19,6 +19,7 @@ export interface StudentEnrollment {
   progress: number;
   status: EnrollmentStatus | string;
   enrolledAt?: string;
+  expiresAt?: string | null;
   studentId?: string;
   courseId: string;
   course: StudentCourseSummary;

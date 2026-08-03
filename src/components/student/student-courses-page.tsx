@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants";
 import { useStudentCourses } from "@/hooks";
-import { formatShortDate } from "@/lib/format";
+import { formatAccessRemaining, formatShortDate } from "@/lib/format";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
 
@@ -277,7 +277,7 @@ export function StudentCoursesPage() {
                   <th className="px-5 py-3">Progress</th>
                   <th className="px-5 py-3">Status</th>
                   <th className="px-5 py-3">Certificate</th>
-                  <th className="px-5 py-3">Enrolled</th>
+                  <th className="px-5 py-3">Enrolled / Access</th>
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
@@ -352,7 +352,24 @@ export function StudentCoursesPage() {
                         )}
                       </td>
                       <td className="px-5 py-4 text-xs text-muted-foreground">
-                        {item.enrolledAt ? formatShortDate(item.enrolledAt) : "—"}
+                        <div>Enrolled {item.enrolledAt ? formatShortDate(item.enrolledAt) : "—"}</div>
+                        {(() => {
+                          const access = formatAccessRemaining(item.expiresAt);
+                          return (
+                            <div
+                              className={cn(
+                                "mt-0.5 font-medium",
+                                access.expired
+                                  ? "text-accent"
+                                  : access.daysLeft != null && access.daysLeft <= 7
+                                    ? "text-amber-600"
+                                    : "text-foreground"
+                              )}
+                            >
+                              {access.label}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-5 py-4 text-right">
                         <CourseActionsMenu

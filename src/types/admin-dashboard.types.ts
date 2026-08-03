@@ -72,6 +72,8 @@ export interface AdminCourse {
   targetAudience?: string | null;
   hasCertificate?: boolean;
   lifetimeAccess?: boolean;
+  /** null = lifetime access after enroll */
+  accessDurationDays?: number | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
   teacherId: string;
@@ -111,6 +113,7 @@ export interface AdminEnrollment {
   progress: number;
   status: EnrollmentStatus | string;
   enrolledAt: string;
+  expiresAt?: string | null;
   studentId: string;
   courseId: string;
   student: AdminEnrollmentStudent;

@@ -28,6 +28,7 @@ export type CourseUpsertInput = {
   targetAudience?: string;
   hasCertificate?: boolean;
   lifetimeAccess?: boolean;
+  accessDurationDays?: number | null;
   seoTitle?: string;
   seoDescription?: string;
   categoryId: string;

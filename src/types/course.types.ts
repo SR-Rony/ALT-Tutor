@@ -93,6 +93,7 @@ export interface CourseDetail extends CatalogCourse {
   targetAudience?: string | null;
   hasCertificate?: boolean;
   lifetimeAccess?: boolean;
+  accessDurationDays?: number | null;
   seoTitle?: string | null;
   seoDescription?: string | null;
   programLinks?: CourseProgramLink[];

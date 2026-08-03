@@ -267,7 +267,11 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
           : null,
         (course?.programLinks?.length ?? 0) > 0 ? "Linked questionbank access" : null,
         course?.hasCertificate === false ? null : "Certificate on completion",
-        course?.lifetimeAccess === false ? "Access while enrolled" : "Lifetime access after enroll",
+        course?.lifetimeAccess === false
+          ? course?.accessDurationDays
+            ? `${course.accessDurationDays}-day access after enroll`
+            : "Limited-time access after enroll"
+          : "Lifetime access after enroll",
         `Instructor: ${course?.teacher.name ?? "ALT Tutor"}`,
       ].filter(Boolean) as string[],
     [allLessons.length, course, previewLessons.length, totalSecondsPre]
