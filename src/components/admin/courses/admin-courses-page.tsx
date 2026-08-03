@@ -284,11 +284,14 @@ export function AdminCoursesPage() {
       if (editing) {
         setPendingId(editing.id);
         await updateCourse.mutateAsync({ id: editing.id, payload });
+        setModalOpen(false);
+        setEditing(null);
       } else {
-        await createCourse.mutateAsync(payload);
+        const created = await createCourse.mutateAsync(payload);
+        setModalOpen(false);
+        setEditing(null);
+        router.push(ROUTES.admin.courseCurriculum(created.id));
       }
-      setModalOpen(false);
-      setEditing(null);
     } catch (err) {
       const apiError = err as ApiError;
       setActionError(apiError?.message || "Failed to save course");
@@ -531,7 +534,7 @@ export function AdminCoursesPage() {
       <AdminModal
         open={modalOpen}
         title={editing ? "Update course" : "Create course"}
-        description="Fill in course details. New courses start as Draft until published."
+        description="Fill the basics. You'll finish the rest step by step in the course setup wizard."
         onClose={closeModal}
         className="sm:max-w-2xl"
         footer={

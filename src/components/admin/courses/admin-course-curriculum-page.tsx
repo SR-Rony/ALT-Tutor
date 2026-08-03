@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
+  ArrowRight,
+  Check,
   CheckCircle2,
   ExternalLink,
   Loader2,
@@ -33,14 +35,13 @@ import type { ApiError, CourseLevel, CourseStatus } from "@/types";
 import { cn } from "@/utils";
 
 type Props = { courseId: string };
-type TabId = "overview" | "details" | "curriculum" | "programs" | "publish";
+type TabId = "overview" | "curriculum" | "programs" | "publish";
 
-const TABS: { id: TabId; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "details", label: "Course details" },
-  { id: "curriculum", label: "Curriculum" },
-  { id: "programs", label: "Questionbank" },
-  { id: "publish", label: "Preview & publish" },
+const STEPS: { id: TabId; label: string; hint: string }[] = [
+  { id: "overview", label: "Overview", hint: "Basics & description" },
+  { id: "curriculum", label: "Curriculum", hint: "Chapters & lessons" },
+  { id: "programs", label: "Questionbank", hint: "Link programs" },
+  { id: "publish", label: "Preview & publish", hint: "Go live" },
 ];
 
 const LEVELS: CourseLevel[] = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
@@ -132,6 +133,68 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
     () => users.filter((u) => String(u.role).toUpperCase() === "TEACHER"),
     [users]
   );
+  const stepIndex = STEPS.findIndex((step) => step.id === tab);
+  const { data: programLinks = [] } = useCourseProgramLinks(courseId);
+
+  const stepDone = useMemo(() => {
+    const overviewOk = Boolean(
+      form?.title.trim() &&
+        !isRichTextEmpty(form.description) &&
+        form.categoryId &&
+        form.teacherId
+    );
+    const curriculumOk = Boolean(
+      readiness?.checks?.find((c) => c.id === "publishedLesson")?.ok ||
+        (course?._count?.chapters ?? 0) > 0
+    );
+    const programsOk = programLinks.length > 0;
+    const publishOk = Boolean(readiness?.ready) || String(course?.status).toUpperCase() === "PUBLISHED";
+    return {
+      overview: overviewOk,
+      curriculum: curriculumOk,
+      programs: programsOk,
+      publish: publishOk,
+    } satisfies Record<TabId, boolean>;
+  }, [form, readiness, course, programLinks.length]);
+
+  const completedCount = STEPS.filter((step) => stepDone[step.id]).length;
+  const progressPercent = Math.round((completedCount / STEPS.length) * 100);
+
+  const goToStep = (id: TabId) => {
+    setTab(id);
+    setActionError(null);
+  };
+
+  const goNext = async () => {
+    if (tab === "overview") {
+      const payload = buildPayload();
+      if (!payload?.title || isRichTextEmpty(payload.description) || !payload.categoryId) {
+        setActionError("Complete title, description, and category before continuing.");
+        return;
+      }
+      if (!payload.teacherId) {
+        setActionError("Select an instructor before continuing.");
+        return;
+      }
+      setActionError(null);
+      setSavedMessage(null);
+      try {
+        await updateCourse.mutateAsync({ id: courseId, payload });
+        setSavedMessage("Saved. Moving to the next step…");
+        void refetch();
+      } catch (err) {
+        setActionError((err as ApiError)?.message || "Failed to save course");
+        return;
+      }
+    }
+    const next = STEPS[stepIndex + 1];
+    if (next) goToStep(next.id);
+  };
+
+  const goBack = () => {
+    const prev = STEPS[stepIndex - 1];
+    if (prev) goToStep(prev.id);
+  };
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((prev) => (prev ? { ...prev, [key]: value } : prev));
@@ -266,22 +329,80 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-1 rounded-2xl border border-border bg-card p-1">
-        {TABS.map((item) => (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => setTab(item.id)}
-            className={cn(
-              "rounded-xl px-4 py-2 text-sm font-semibold transition",
-              tab === item.id
-                ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground"
-            )}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Course setup
+            </p>
+            <p className="mt-0.5 text-sm font-semibold text-foreground">
+              Step {Math.max(stepIndex, 0) + 1} of {STEPS.length}
+              <span className="font-normal text-muted-foreground">
+                {" "}
+                · {STEPS[stepIndex]?.label}
+              </span>
+            </p>
+          </div>
+          <p className="text-sm font-semibold text-primary">{progressPercent}% complete</p>
+        </div>
+
+        <div className="mb-5 h-2 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-500 ease-out"
+            style={{ width: `${progressPercent}%` }}
+            role="progressbar"
+            aria-valuenow={progressPercent}
+            aria-valuemin={0}
+            aria-valuemax={100}
+          />
+        </div>
+
+        <ol className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+          {STEPS.map((step, index) => {
+            const active = tab === step.id;
+            const done = stepDone[step.id];
+            return (
+              <li key={step.id}>
+                <button
+                  type="button"
+                  onClick={() => goToStep(step.id)}
+                  className={cn(
+                    "flex w-full items-start gap-2.5 rounded-xl border px-2.5 py-2.5 text-left transition sm:flex-col sm:items-center sm:px-2 sm:text-center",
+                    active
+                      ? "border-primary bg-primary-muted shadow-sm"
+                      : done
+                        ? "border-accent-green/30 bg-[#ecfdf3]/60 hover:border-accent-green/50"
+                        : "border-border bg-background hover:bg-muted/60"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold",
+                      active
+                        ? "bg-primary text-primary-foreground"
+                        : done
+                          ? "bg-accent-green text-white"
+                          : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {done && !active ? <Check className="h-3.5 w-3.5" aria-hidden /> : index + 1}
+                  </span>
+                  <span className="min-w-0">
+                    <span
+                      className={cn(
+                        "block text-xs font-semibold sm:text-[13px]",
+                        active ? "text-primary" : "text-foreground"
+                      )}
+                    >
+                      {step.label}
+                    </span>
+                    <span className="mt-0.5 block text-[11px] text-muted-foreground">{step.hint}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ol>
       </div>
 
       {actionError ? (
@@ -295,6 +416,7 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
         </p>
       ) : null}
 
+      <div className="space-y-4">
       {tab === "overview" ? (
         <div className="grid gap-4 rounded-2xl border border-border bg-card p-5 lg:grid-cols-2">
           <Field label="Title">
@@ -435,60 +557,68 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
               Uploading… {uploadProgress}%
             </p>
           ) : null}
-        </div>
-      ) : null}
 
-      {tab === "details" ? (
-        <div className="grid gap-4 rounded-2xl border border-border bg-card p-5 lg:grid-cols-2">
-          <Field label="Learning outcomes (one per line)" className="lg:col-span-2">
-            <textarea
-              value={form.outcomesText}
-              onChange={(e) => setField("outcomesText", e.target.value)}
-              rows={5}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
-              placeholder={"Build real apps\nMaster React fundamentals"}
-            />
-          </Field>
-          <Field label="Requirements (one per line)" className="lg:col-span-2">
-            <textarea
-              value={form.requirementsText}
-              onChange={(e) => setField("requirementsText", e.target.value)}
-              rows={4}
-              className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
-            />
-          </Field>
-          <Field label="Target audience" className="lg:col-span-2">
-            <Input
-              value={form.targetAudience}
-              onChange={(e) => setField("targetAudience", e.target.value)}
-              placeholder="Beginners who want to learn web development"
-            />
-          </Field>
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              checked={form.hasCertificate}
-              onChange={(e) => setField("hasCertificate", e.target.checked)}
-            />
-            Certificate available on completion
-          </label>
-          <label className="flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              checked={form.lifetimeAccess}
-              onChange={(e) => setField("lifetimeAccess", e.target.checked)}
-            />
-            Lifetime access after enrollment
-          </label>
-          <Field label="SEO title">
-            <Input value={form.seoTitle} onChange={(e) => setField("seoTitle", e.target.value)} />
-          </Field>
-          <Field label="SEO description">
-            <Input
-              value={form.seoDescription}
-              onChange={(e) => setField("seoDescription", e.target.value)}
-            />
-          </Field>
+          <details className="lg:col-span-2 rounded-xl border border-dashed border-border bg-muted/30 p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-foreground">
+              Optional extras — outcomes, audience & SEO
+              <span className="ml-2 font-normal text-muted-foreground">(skip if not needed)</span>
+            </summary>
+            <p className="mt-2 text-xs text-muted-foreground">
+              These are separate from the course description. Use them only if you want “What you’ll learn”,
+              requirements, or custom search titles on the public page.
+            </p>
+            <div className="mt-4 grid gap-4 lg:grid-cols-2">
+              <Field label="Learning outcomes (one per line)" className="lg:col-span-2">
+                <textarea
+                  value={form.outcomesText}
+                  onChange={(e) => setField("outcomesText", e.target.value)}
+                  rows={4}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+                  placeholder={"Build real apps\nMaster React fundamentals"}
+                />
+              </Field>
+              <Field label="Requirements (one per line)" className="lg:col-span-2">
+                <textarea
+                  value={form.requirementsText}
+                  onChange={(e) => setField("requirementsText", e.target.value)}
+                  rows={3}
+                  className="w-full rounded-xl border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+                />
+              </Field>
+              <Field label="Target audience" className="lg:col-span-2">
+                <Input
+                  value={form.targetAudience}
+                  onChange={(e) => setField("targetAudience", e.target.value)}
+                  placeholder="Beginners who want to learn web development"
+                />
+              </Field>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={form.hasCertificate}
+                  onChange={(e) => setField("hasCertificate", e.target.checked)}
+                />
+                Certificate available on completion
+              </label>
+              <label className="flex items-center gap-2 text-sm font-medium">
+                <input
+                  type="checkbox"
+                  checked={form.lifetimeAccess}
+                  onChange={(e) => setField("lifetimeAccess", e.target.checked)}
+                />
+                Lifetime access after enrollment
+              </label>
+              <Field label="SEO title">
+                <Input value={form.seoTitle} onChange={(e) => setField("seoTitle", e.target.value)} />
+              </Field>
+              <Field label="SEO description">
+                <Input
+                  value={form.seoDescription}
+                  onChange={(e) => setField("seoDescription", e.target.value)}
+                />
+              </Field>
+            </div>
+          </details>
         </div>
       ) : null}
 
@@ -565,6 +695,41 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
           </div>
         </div>
       ) : null}
+
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border bg-card px-4 py-3">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          disabled={stepIndex <= 0 || busy}
+          onClick={goBack}
+        >
+          <ArrowLeft className="h-4 w-4" aria-hidden />
+          Back
+        </Button>
+        <p className="text-xs text-muted-foreground sm:text-sm">
+          {tab === "programs"
+            ? "Questionbank is optional — you can skip and publish later."
+            : tab === "publish"
+              ? "Finish when all readiness checks pass."
+              : "Complete this step, then continue."}
+        </p>
+        {tab === "publish" ? (
+          <Button type="button" size="sm" disabled={busy} onClick={() => void onSave()}>
+            {updateCourse.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            Save changes
+          </Button>
+        ) : (
+          <Button type="button" size="sm" disabled={busy} onClick={() => void goNext()}>
+            {updateCourse.isPending && tab === "overview" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
+            {tab === "overview" ? "Save & continue" : "Continue"}
+            <ArrowRight className="h-4 w-4" aria-hidden />
+          </Button>
+        )}
+      </div>
+      </div>
     </div>
   );
 }
@@ -610,8 +775,7 @@ function CourseProgramsTab({ courseId }: { courseId: string }) {
         cat.subjects.flatMap((subject) =>
           subject.programs.map((program) => ({
             id: program.id,
-            label: `${cat.name} · ${subject.name} · ${program.name}`,
-            slug: program.slug,
+            label: subject.name,
           }))
         )
       ),
@@ -661,10 +825,7 @@ function CourseProgramsTab({ courseId }: { courseId: string }) {
                 checked={selected.includes(program.id)}
                 onChange={() => toggle(program.id)}
               />
-              <span>
-                <span className="block text-sm font-medium text-foreground">{program.label}</span>
-                <span className="text-xs text-muted-foreground">{program.slug}</span>
-              </span>
+              <span className="text-sm font-medium text-foreground">{program.label}</span>
             </label>
           ))}
         </div>
