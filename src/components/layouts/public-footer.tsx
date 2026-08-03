@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import {
   Facebook,
@@ -13,6 +12,7 @@ import {
   Youtube,
   type LucideIcon,
 } from "lucide-react";
+import { Logo } from "@/components/shared";
 import { publicFooterCompanyLinks, publicFooterProgramLinks, siteConfig } from "@/config";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { roleHomeRoutes, ROUTES } from "@/constants";
@@ -110,15 +110,7 @@ export function PublicFooter() {
       <div className="relative mx-auto max-w-7xl px-4 pt-14 sm:px-6 sm:pt-16 lg:pt-18">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_repeat(3,minmax(0,1fr))] lg:gap-8 xl:gap-12">
           <div className="sm:col-span-2 lg:col-span-1">
-            <Link href={ROUTES.home} className="inline-flex transition-opacity duration-300 hover:opacity-90">
-              <Image
-                src={siteConfig.logo}
-                alt={siteConfig.name}
-                width={160}
-                height={48}
-                className="h-10 w-auto object-contain sm:h-11"
-              />
-            </Link>
+            <Logo href={ROUTES.home} />
             <RichTextContent
               html={siteConfig.description}
               className="mt-4 max-w-sm text-sm leading-relaxed text-[#58688b]"

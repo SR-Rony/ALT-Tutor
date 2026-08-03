@@ -308,7 +308,7 @@ function PublicHeaderInner() {
   return (
     <header className="sticky top-0 z-50 overflow-visible border-b border-border/60 bg-card shadow-[0_4px_24px_-8px_rgba(24,119,242,0.08)]">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 overflow-visible px-4 md:px-6 lg:h-[4.5rem] lg:gap-6">
-        <div className="flex h-full w-[11rem] shrink-0 items-center overflow-hidden sm:w-[12.5rem]">
+        <div className="flex h-full shrink-0 items-center">
           <Logo className="shrink-0" />
         </div>
 

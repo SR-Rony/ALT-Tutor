@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -25,10 +24,10 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
+import { Logo } from "@/components/shared";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { siteConfig } from "@/config";
 import { ROUTES } from "@/constants";
 import { authService } from "@/services/auth.service";
 import {
@@ -329,27 +328,15 @@ function SidebarNav({
 
 function SidebarBrand({ collapsed }: { collapsed: boolean }) {
   return (
-    <div className="shrink-0 border-b border-[#e8edf5]">
-      <Link
+    <div className="flex h-[4.25rem] shrink-0 items-center border-b border-[#e8edf5] px-3">
+      <Logo
         href={ROUTES.home}
+        iconOnly={collapsed}
         className={cn(
-          "flex items-center px-3 py-3 transition-colors hover:bg-[#f5f8fd]",
-          collapsed ? "justify-center px-2" : "px-4"
+          "rounded-lg px-1 py-1.5 hover:bg-[#f5f8fd]",
+          collapsed ? "mx-auto justify-center" : "w-full justify-start px-1"
         )}
-        aria-label={`${siteConfig.name} home`}
-      >
-        <Image
-          src={siteConfig.logo}
-          alt={siteConfig.name}
-          width={collapsed ? 40 : 160}
-          height={collapsed ? 40 : 48}
-          priority
-          className={cn(
-            "object-contain object-left",
-            collapsed ? "h-9 w-9" : "h-9 w-auto max-w-[160px]"
-          )}
-        />
-      </Link>
+      />
     </div>
   );
 }

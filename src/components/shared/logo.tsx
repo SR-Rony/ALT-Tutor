@@ -8,9 +8,18 @@ interface LogoProps {
   /** Show tagline always, or only from the `lg` breakpoint upward */
   showTagline?: boolean | "lg";
   compact?: boolean;
+  /** Icon-only mark (sidebar collapsed) */
+  iconOnly?: boolean;
+  href?: string;
 }
 
-export function Logo({ className, showTagline = false, compact = false }: LogoProps) {
+export function Logo({
+  className,
+  showTagline = false,
+  compact = false,
+  iconOnly = false,
+  href = "/",
+}: LogoProps) {
   const taglineClassName =
     showTagline === "lg"
       ? "hidden lg:block"
@@ -18,20 +27,40 @@ export function Logo({ className, showTagline = false, compact = false }: LogoPr
         ? "block"
         : "hidden";
 
-  return (
-    <Link href="/" className={cn("group flex h-full w-full items-center overflow-hidden gap-2.5 lg:gap-3", className)}>
+  const image = iconOnly ? (
+    <Image
+      src={siteConfig.logoIcon}
+      alt={siteConfig.name}
+      width={40}
+      height={40}
+      priority
+      className="h-9 w-9 object-contain"
+    />
+  ) : (
     <Image
       src={siteConfig.logo}
       alt={siteConfig.name}
-      width={500}
-      height={150}
+      width={419}
+      height={143}
       priority
       className={cn(
-        "h-auto w-full max-w-[200px] shrink-0 object-contain object-left transition-transform ml-[-15px]",
-        compact && "max-w-[180px]"
+        "h-9 w-auto max-w-[9.5rem] object-contain object-left sm:h-10 sm:max-w-[11rem]",
+        compact && "h-8 max-w-[9rem] sm:h-9"
       )}
     />
-      {showTagline ? (
+  );
+
+  return (
+    <Link
+      href={href}
+      className={cn(
+        "inline-flex items-center gap-2.5 transition-opacity hover:opacity-90",
+        className
+      )}
+      aria-label={`${siteConfig.name} home`}
+    >
+      {image}
+      {showTagline && !iconOnly ? (
         <span
           className={cn(
             "truncate text-[10px] font-medium text-muted-foreground sm:text-xs lg:text-[13px]",

@@ -1,6 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
-import { siteConfig } from "@/config";
+import { Logo } from "@/components/shared";
 import { cn } from "@/utils";
 
 interface AuthPageShellProps {
@@ -35,16 +34,9 @@ export function AuthPageShell({
       <div className={cn("relative z-10 w-full max-w-[26rem]", className)}>
         <div className="overflow-hidden rounded-[1.75rem] border border-[#e8edf5] bg-white shadow-[0_24px_64px_-24px_rgba(26,43,94,0.18)]">
           <div className="border-b border-[#eef2f7] bg-[linear-gradient(180deg,#fafcff_0%,#ffffff_100%)] px-6 pb-6 pt-8 text-center sm:px-8 sm:pt-10">
-            <Link href="/" className="mx-auto inline-flex transition-opacity hover:opacity-90">
-              <Image
-                src={siteConfig.logo}
-                alt={siteConfig.name}
-                width={160}
-                height={48}
-                priority
-                className="mx-auto object-contain"
-              />
-            </Link>
+            <div className="flex justify-center">
+              <Logo className="justify-center" />
+            </div>
             <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-[#1a2b5e] sm:text-[1.65rem]">
               {title}
             </h1>

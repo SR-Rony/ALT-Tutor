@@ -77,8 +77,8 @@ export function HomeAboutSection() {
                     <Image
                       src={siteConfig.logo}
                       alt={siteConfig.name}
-                      width={120}
-                      height={36}
+                      width={404}
+                      height={128}
                       className="h-8 w-auto object-contain drop-shadow-md sm:h-9"
                     />
                   </div>
@@ -94,8 +94,8 @@ export function HomeAboutSection() {
                       <Image
                         src={siteConfig.logo}
                         alt={siteConfig.name}
-                        width={100}
-                        height={30}
+                        width={404}
+                        height={128}
                         className="h-7 w-auto object-contain sm:h-8"
                       />
                     </div>
