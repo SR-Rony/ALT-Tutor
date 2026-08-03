@@ -24,7 +24,7 @@ export const homeStats = [
 export const academicProgram = {
   title: "What's included in the Alt Tutor Academic Program",
   subtitle:
-    "Everything you need for SSC & HSC exam success — questionbanks, past papers, practice exams, and more in one place.",
+    "Everything you need for SSC & HSC exam success — Questionbank, Past Papers, Practice Exams, and Key Concepts in one place.",
   features: [
     {
       id: "questionbank",
@@ -62,10 +62,10 @@ export const academicProgram = {
       description:
         "Full-length practice exams designed to mirror real board papers — timed, scored, and ready when you are.",
       previewCards: [
-        { code: "EX1", title: "SL Practice Set A", progress: 65 },
-        { code: "EX2", title: "SL Practice Set B", progress: 28 },
-        { code: "EX3", title: "HL Practice Set A", progress: 50 },
-        { code: "EX4", title: "HL Practice Set B", progress: 15 },
+        { code: "EX1", title: "Practice Set A", progress: 65 },
+        { code: "EX2", title: "Practice Set B", progress: 28 },
+        { code: "EX3", title: "Timed Mock 1", progress: 50 },
+        { code: "EX4", title: "Timed Mock 2", progress: 15 },
       ],
     },
     {
@@ -80,34 +80,6 @@ export const academicProgram = {
         { code: "KC2", title: "Formula Sheets", progress: 70 },
         { code: "KC3", title: "Worked Examples", progress: 52 },
         { code: "KC4", title: "Common Pitfalls", progress: 41 },
-      ],
-    },
-    {
-      id: "prediction-exams",
-      title: "Prediction Exams",
-      icon: "target" as const,
-      iconColor: "#f59e0b",
-      description:
-        "Targeted prediction-style papers focused on high-yield topics so you can sharpen your final exam strategy.",
-      previewCards: [
-        { code: "PE1", title: "May Session Pack", progress: 60 },
-        { code: "PE2", title: "Nov Session Pack", progress: 35 },
-        { code: "PE3", title: "Topic Hotspots", progress: 75 },
-        { code: "PE4", title: "Final Sprint Set", progress: 20 },
-      ],
-    },
-    {
-      id: "bootcamps",
-      title: "Bootcamps",
-      icon: "zap" as const,
-      iconColor: "#ec4899",
-      description:
-        "Intensive bootcamp sessions and IA toolkit support to push your scores higher in a short, focused timeframe.",
-      previewCards: [
-        { code: "BC1", title: "Exam Crash Course", progress: 48 },
-        { code: "BC2", title: "IA Toolkit", progress: 62 },
-        { code: "BC3", title: "Paper 2 Sprint", progress: 30 },
-        { code: "BC4", title: "HL Extension Week", progress: 22 },
       ],
     },
   ],

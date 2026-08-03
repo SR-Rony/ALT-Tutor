@@ -6,11 +6,8 @@ import {
   ChevronRight,
   ClipboardList,
   FileText,
-  Layers,
   Lightbulb,
   PenLine,
-  Target,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/utils";
@@ -21,9 +18,6 @@ const featureIcons: Record<(typeof academicProgram.features)[number]["icon"], Lu
   file: FileText,
   pen: PenLine,
   lightbulb: Lightbulb,
-  target: Target,
-  layers: Layers,
-  zap: Zap,
 };
 
 export function HomeAcademicProgram() {
@@ -57,8 +51,8 @@ export function HomeAcademicProgram() {
           </p>
         </div>
 
-        <div className="mt-10 grid items-stretch gap-8 lg:mt-14 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.2fr)] lg:gap-10 xl:gap-14">
-          <ul className="order-2 space-y-2 lg:order-1 sm:space-y-2.5">
+        <div className="mt-10 grid items-center gap-8 lg:mt-14 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] lg:gap-10 xl:gap-12">
+          <ul className="order-2 mx-auto w-full max-w-md space-y-2.5 self-center sm:space-y-3 lg:order-1 lg:mx-0 lg:max-w-none">
             {academicProgram.features.map((feature) => {
               const Icon = featureIcons[feature.icon];
               const isActive = activeId === feature.id;
@@ -77,7 +71,7 @@ export function HomeAcademicProgram() {
                       isActive && "bg-gradient-to-r from-[#ef3239] via-[#ff4d6d] to-[#ef3239]"
                     )}
                   >
-                    <span className="relative z-10 flex w-full items-center gap-3 overflow-hidden rounded-[10px] bg-white px-4 py-3 sm:px-5 sm:py-3.5">
+                    <span className="relative z-10 flex w-full items-center gap-3 overflow-hidden rounded-[10px] bg-white px-4 py-3.5 sm:px-5 sm:py-4 lg:py-[1.15rem]">
                       <span
                         className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg sm:h-10 sm:w-10"
                         style={{ backgroundColor: `${feature.iconColor}18` }}
