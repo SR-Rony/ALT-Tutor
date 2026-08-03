@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "@/components/shared";
+import { siteConfig } from "@/config";
 import { cn } from "@/utils";
 
 interface AuthPageShellProps {
