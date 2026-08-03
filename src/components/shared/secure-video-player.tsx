@@ -408,10 +408,30 @@ export function SecureVideoPlayer({
         const next = lessonId
           ? await lessonService.getPlayUrl(lessonId)
           : resolveDirectPlayback(directUrl!);
-        if (!cancelled) setPlayback(next);
-      } catch {
         if (!cancelled) {
-          setError("Unable to load protected video. Please refresh and try again.");
+          if (next.kind === "youtube") {
+            const id = extractYoutubeVideoId(next.embedUrl);
+            if (!id) {
+              setError("This lesson video link is invalid. Ask your teacher to update it.");
+              setPlayback(null);
+              return;
+            }
+          }
+          setPlayback(next);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          const message =
+            typeof err === "object" && err && "message" in err
+              ? String((err as { message?: string }).message || "")
+              : "";
+          setError(
+            message.includes("enrolled") || message.includes("expired")
+              ? message
+              : message.includes("No playable")
+                ? "No video is set on this lesson yet."
+                : "Unable to load protected video. Please refresh and try again."
+          );
           setPlayback(null);
         }
       } finally {

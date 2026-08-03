@@ -727,15 +727,6 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
             >
               Set as draft
             </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={busy}
-              onClick={() => void onStatus("ARCHIVED")}
-            >
-              Archive course
-            </Button>
           </div>
         </div>
       ) : null}

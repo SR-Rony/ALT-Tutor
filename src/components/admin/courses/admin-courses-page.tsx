@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Archive,
   CheckCircle2,
   Eye,
   FilePenLine,
@@ -41,7 +40,7 @@ import { uploadService } from "@/services/upload.service";
 import type { ApiError, AdminCourse, CourseLevel, CourseStatus } from "@/types";
 import { cn } from "@/utils";
 
-const statuses: CourseStatus[] = ["DRAFT", "PUBLISHED", "ARCHIVED"];
+const statuses: CourseStatus[] = ["DRAFT", "PUBLISHED"];
 const levels: CourseLevel[] = ["BEGINNER", "INTERMEDIATE", "ADVANCED"];
 
 type ThumbnailMode = "upload" | "url";
@@ -501,16 +500,6 @@ export function AdminCoursesPage() {
                             tone="warning"
                             disabled={rowBusy}
                             onClick={() => void onStatusChange(course.id, "DRAFT")}
-                          />
-                        ) : null}
-
-                        {current !== "ARCHIVED" ? (
-                          <AdminIconAction
-                            label="Archive"
-                            icon={Archive}
-                            tone="default"
-                            disabled={rowBusy}
-                            onClick={() => void onStatusChange(course.id, "ARCHIVED")}
                           />
                         ) : null}
 
