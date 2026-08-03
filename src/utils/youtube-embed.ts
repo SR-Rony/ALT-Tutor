@@ -2,13 +2,29 @@ const YOUTUBE_EMBED_PARAMS = {
   modestbranding: "1",
   rel: "0",
   iv_load_policy: "3",
-  controls: "1",
+  /** Native YouTube chrome off — we use a custom secure player UI */
+  controls: "0",
   fs: "0",
   disablekb: "1",
   playsinline: "1",
   cc_load_policy: "0",
-  color: "white",
+  enablejsapi: "1",
+  showinfo: "0",
 } as const;
+
+/** Parse YouTube `t` / `start` values like `156`, `156s`, `2m36s`. */
+export function parseYoutubeStartSeconds(raw: string | null | undefined): number | null {
+  if (!raw?.trim()) return null;
+  const value = raw.trim().toLowerCase();
+  if (/^\d+$/.test(value)) return Number.parseInt(value, 10);
+  const match = value.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$/);
+  if (!match) return null;
+  const hours = Number.parseInt(match[1] || "0", 10);
+  const minutes = Number.parseInt(match[2] || "0", 10);
+  const seconds = Number.parseInt(match[3] || "0", 10);
+  const total = hours * 3600 + minutes * 60 + seconds;
+  return total > 0 ? total : null;
+}
 
 export function extractYoutubeVideoId(url: string): string | null {
   try {
@@ -30,20 +46,43 @@ export function extractYoutubeVideoId(url: string): string | null {
   }
 }
 
-export function buildSecureYoutubeEmbedUrl(videoId: string, origin?: string): string {
+export function extractYoutubeStartSeconds(url: string): number | null {
+  try {
+    const parsed = new URL(url);
+    const fromStart = parseYoutubeStartSeconds(parsed.searchParams.get("start"));
+    if (fromStart != null) return fromStart;
+    return parseYoutubeStartSeconds(parsed.searchParams.get("t"));
+  } catch {
+    return null;
+  }
+}
+
+export function buildSecureYoutubeEmbedUrl(
+  videoId: string,
+  options?: { origin?: string; startSeconds?: number | null }
+): string {
   const params = new URLSearchParams({ ...YOUTUBE_EMBED_PARAMS });
-  if (origin) params.set("origin", origin);
+  if (options?.origin) params.set("origin", options.origin);
+  if (options?.startSeconds != null && options.startSeconds > 0) {
+    params.set("start", String(Math.floor(options.startSeconds)));
+  }
   return `https://www.youtube-nocookie.com/embed/${videoId}?${params.toString()}`;
 }
 
 export function toSecureYoutubeEmbedUrl(url: string, origin?: string): string | null {
   const videoId = extractYoutubeVideoId(url);
   if (!videoId) return null;
-  return buildSecureYoutubeEmbedUrl(videoId, origin);
+  return buildSecureYoutubeEmbedUrl(videoId, {
+    origin,
+    startSeconds: extractYoutubeStartSeconds(url),
+  });
 }
 
 export function normalizeYoutubeEmbedSrc(embedUrl: string, origin?: string): string {
   const videoId = extractYoutubeVideoId(embedUrl);
   if (!videoId) return embedUrl;
-  return buildSecureYoutubeEmbedUrl(videoId, origin);
+  return buildSecureYoutubeEmbedUrl(videoId, {
+    origin,
+    startSeconds: extractYoutubeStartSeconds(embedUrl),
+  });
 }

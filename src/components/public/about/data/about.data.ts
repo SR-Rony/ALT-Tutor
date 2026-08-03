@@ -1,8 +1,8 @@
 import { homeStats } from "@/components/public/home/data/home.data";
 
-/** Replace with your official brand story video when ready. */
+/** Official brand story video (starts at 2:36). */
 export const aboutDemoVideo = {
-  url: "https://www.youtube.com/watch?v=3fumBcKC6RE",
+  url: "https://www.youtube.com/watch?v=LMVH8edITPY&t=156s",
   title: "Alt Tutor — Platform Overview",
   caption:
     "Discover how Alt Tutor brings expert-led classes, animated lessons, and exam-ready practice to students across Bangladesh — anytime, anywhere.",
