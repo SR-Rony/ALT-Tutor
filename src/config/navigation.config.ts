@@ -81,7 +81,7 @@ export const adminNav: NavItem[] = [
       { title: "Gradebook", href: ROUTES.admin.gradebook, iconName: "clipboard" },
     ],
   },
-  { title: "Access Products", href: ROUTES.admin.accessProducts, iconName: "wallet" },
+  { title: "Pass Pricing", href: ROUTES.admin.accessProducts, iconName: "wallet" },
   { title: "Support", href: ROUTES.admin.support, iconName: "support" },
 ];
 
