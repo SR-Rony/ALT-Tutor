@@ -51,6 +51,10 @@ export type {
   HomeCourse,
   HomeData,
   HomeFeaturedReview,
+  HomePracticeOption,
+  HomePracticeQuestion,
+  HomePracticeQuestions,
+  HomePracticeTab,
   HomeStats,
 } from "./home.types";
 export type {

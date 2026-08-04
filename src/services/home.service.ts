@@ -1,5 +1,11 @@
 import { env } from "@/config";
-import type { HomeCategory, HomeCourse, HomeData, HomeFeaturedReview } from "@/types/home.types";
+import type {
+  HomeCategory,
+  HomeCourse,
+  HomeData,
+  HomeFeaturedReview,
+  HomePracticeQuestions,
+} from "@/types/home.types";
 import { sleep } from "@/utils";
 import { apiClient } from "./api-client";
 
@@ -30,6 +36,46 @@ const mockFeaturedReviews: HomeFeaturedReview[] = [
   },
 ];
 
+const mockPracticeQuestions: HomePracticeQuestions = {
+  title: "Practice SSC & HSC Exam Style Questions",
+  subtitle:
+    "Thousands of exam-style questions, filtered by topic and difficulty, with detailed mark schemes and video solutions for every question.",
+  tabs: [
+    {
+      id: "mathematics",
+      label: "Mathematics",
+      question: {
+        id: "mock-math",
+        calculator: true,
+        difficulty: "Medium",
+        stars: 3,
+        prompt: "If 2x + 5 = 15, what is x?",
+        body: null,
+        figureLabel: null,
+        marks: 1,
+        options: [
+          { key: "A", text: "3" },
+          { key: "B", text: "5" },
+          { key: "C", text: "7" },
+          { key: "D", text: "10" },
+        ],
+        correctAnswer: "B",
+        markScheme: "2x = 10 → x = 5.",
+        videoUrl: null,
+        videoCount: 0,
+        bookletLabel: "Formula Booklet",
+        programSlug: "ssc-mathematics",
+        subtopicSlug: "linear-equations",
+        programName: "SSC Mathematics",
+        topicTitle: "Algebra",
+        subtopicTitle: "Linear Equations",
+        subjectName: "Mathematics",
+        studyHref: "/subjects/ssc-mathematics/questionbank/linear-equations",
+      },
+    },
+  ],
+};
+
 const mockHomeData: HomeData = {
   featuredCourses: [
     {
@@ -53,6 +99,7 @@ const mockHomeData: HomeData = {
     { id: "3", name: "Business", slug: "business" },
   ],
   featuredReviews: mockFeaturedReviews,
+  practiceQuestions: mockPracticeQuestions,
 };
 
 export const homeService = {
@@ -72,6 +119,7 @@ export const homeService = {
       },
       categories: response.data.categories ?? [],
       featuredReviews: response.data.featuredReviews ?? [],
+      practiceQuestions: response.data.practiceQuestions ?? null,
     };
   },
 };

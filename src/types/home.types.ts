@@ -48,10 +48,53 @@ export interface HomeFeaturedReview {
   course: { id: string; title: string; slug: string };
 }
 
+export interface HomePracticeOption {
+  key: string;
+  text: string;
+}
+
+export interface HomePracticeQuestion {
+  id: string;
+  calculator: boolean;
+  difficulty: string;
+  stars: number;
+  prompt: string;
+  body?: string | null;
+  diagramUrl?: string | null;
+  figureLabel?: string | null;
+  marks: number;
+  options: HomePracticeOption[];
+  correctAnswer: string;
+  markScheme?: string | null;
+  videoUrl?: string | null;
+  videoCount: number;
+  bookletLabel: string;
+  programSlug: string;
+  subtopicSlug: string;
+  programName: string;
+  topicTitle: string;
+  subtopicTitle: string;
+  subjectName: string;
+  studyHref: string;
+}
+
+export interface HomePracticeTab {
+  id: string;
+  label: string;
+  question: HomePracticeQuestion;
+}
+
+export interface HomePracticeQuestions {
+  title: string;
+  subtitle: string;
+  tabs: HomePracticeTab[];
+}
+
 export interface HomeData {
   featuredCourses: HomeCourse[];
   latestBlogs: HomeBlog[];
   stats: HomeStats;
   categories: HomeCategory[];
   featuredReviews: HomeFeaturedReview[];
+  practiceQuestions?: HomePracticeQuestions | null;
 }

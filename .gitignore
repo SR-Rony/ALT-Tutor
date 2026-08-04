@@ -10,8 +10,6 @@ build/
 dist/
 
 # Env
-.env
-.env.local
 .env.*.local
 
 # Debug
@@ -34,3 +32,4 @@ next-env.d.ts
 
 # Vercel
 .vercel
+config.bat
