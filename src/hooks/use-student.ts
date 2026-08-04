@@ -76,6 +76,7 @@ export function useMarkNotificationRead() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.student.notifications });
       void queryClient.invalidateQueries({ queryKey: queryKeys.student.dashboard });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.student.navBadges });
     },
   });
 }
@@ -87,6 +88,7 @@ export function useMarkAllNotificationsRead() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: queryKeys.student.notifications });
       void queryClient.invalidateQueries({ queryKey: queryKeys.student.dashboard });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.student.navBadges });
     },
   });
 }

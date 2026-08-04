@@ -4,6 +4,8 @@ export { usePublicNav } from "./use-public-nav";
 export {
   useAdminStats,
   useAdminNavBadges,
+  useStudentNavBadges,
+  useTeacherNavBadges,
   useAdminAnalytics,
   useAdminUsers,
   useAdminUser,

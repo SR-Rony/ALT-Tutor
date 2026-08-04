@@ -97,6 +97,14 @@ export type AdminNavBadges = {
   writtenMarking: number;
 };
 
+export type StudentNavBadges = {
+  notifications: number;
+};
+
+export type TeacherNavBadges = {
+  enrollments: number;
+};
+
 export const dashboardService = {
   async getAdminStats(): Promise<AdminDashboardStats> {
     if (env.useMockApi) {
@@ -128,6 +136,29 @@ export const dashboardService = {
       reviews: Number(data?.reviews) || 0,
       writtenMarking: Number(data?.writtenMarking) || 0,
     };
+  },
+
+  async getStudentNavBadges(): Promise<StudentNavBadges> {
+    if (env.useMockApi) {
+      await sleep(100);
+      return { notifications: 0 };
+    }
+    const response = await apiClient.get<StudentNavBadges>("/dashboard/student/nav-badges");
+    return { notifications: Number(response.data?.notifications) || 0 };
+  },
+
+  async getTeacherNavBadges(filters?: {
+    enrollmentsSince?: string;
+  }): Promise<TeacherNavBadges> {
+    if (env.useMockApi) {
+      await sleep(100);
+      return { enrollments: 0 };
+    }
+    const params = new URLSearchParams();
+    if (filters?.enrollmentsSince) params.set("enrollmentsSince", filters.enrollmentsSince);
+    const q = params.toString() ? `?${params.toString()}` : "";
+    const response = await apiClient.get<TeacherNavBadges>(`/dashboard/teacher/nav-badges${q}`);
+    return { enrollments: Number(response.data?.enrollments) || 0 };
   },
 
   async getAdminAnalytics(filters?: {

@@ -42,9 +42,6 @@ export const studentFooterNav: NavItem[] = [
 export const teacherNav: NavItem[] = [
   { title: "Dashboard", href: ROUTES.teacher.root, iconName: "dashboard" },
   { title: "My Courses", href: ROUTES.teacher.courses, iconName: "book" },
-  { title: "Assessments", href: ROUTES.teacher.assessments, iconName: "clipboard" },
-  { title: "Grading", href: ROUTES.teacher.gradingQueue, iconName: "clipboardCheck" },
-  { title: "Gradebook", href: ROUTES.teacher.gradebook, iconName: "graduation" },
   { title: "My Subjects", href: ROUTES.teacher.subjects, iconName: "book" },
   { title: "Practice Exams", href: ROUTES.teacher.practiceExams, iconName: "clipboard" },
   { title: "Key Concepts", href: ROUTES.teacher.keyConcepts, iconName: "book" },

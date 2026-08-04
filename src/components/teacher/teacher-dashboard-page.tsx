@@ -18,7 +18,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminStatCard } from "@/components/admin/dashboard/admin-stat-card";
 import { ROUTES } from "@/constants";
 import { useTeacherDashboard } from "@/hooks";
-import { formatShortDate } from "@/lib/format";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
@@ -38,32 +37,32 @@ const quickActions: {
     tone: "bg-primary/10 text-primary",
   },
   {
-    title: "Assessments",
-    description: "Create MCQ & written",
-    href: ROUTES.teacher.assessments,
-    icon: ClipboardList,
-    tone: "bg-accent/10 text-accent",
-  },
-  {
-    title: "Grading",
-    description: "Review submissions",
-    href: ROUTES.teacher.gradingQueue,
-    icon: ClipboardCheck,
-    tone: "bg-[#fff7ed] text-[#ea580c]",
-  },
-  {
-    title: "Gradebook",
-    description: "Scores & overrides",
-    href: ROUTES.teacher.gradebook,
-    icon: GraduationCap,
-    tone: "bg-[#ecfdf3] text-accent-green",
-  },
-  {
     title: "My Subjects",
     description: "Programs & resources",
     href: ROUTES.teacher.subjects,
     icon: Layers,
     tone: "bg-[#eff6ff] text-[#1877f2]",
+  },
+  {
+    title: "Practice Exams",
+    description: "Templates & quizzes",
+    href: ROUTES.teacher.practiceExams,
+    icon: ClipboardList,
+    tone: "bg-accent/10 text-accent",
+  },
+  {
+    title: "Key Concepts",
+    description: "Short lesson content",
+    href: ROUTES.teacher.keyConcepts,
+    icon: BookOpen,
+    tone: "bg-[#ecfdf3] text-accent-green",
+  },
+  {
+    title: "Past Papers",
+    description: "Archive papers",
+    href: ROUTES.teacher.pastPapers,
+    icon: ClipboardCheck,
+    tone: "bg-[#fff7ed] text-[#ea580c]",
   },
 ];
 
@@ -88,7 +87,7 @@ export function TeacherDashboardPage() {
       <div className="space-y-6">
         <PageHeader
           title="Teacher Dashboard"
-          description="Your teaching overview — courses, students, and grading."
+          description="Your teaching overview — courses, subjects, and resources."
           className="mb-0"
         />
         <PageLoader label="Loading teaching workspace..." />
@@ -97,7 +96,6 @@ export function TeacherDashboardPage() {
   }
 
   const courses = data?.courses ?? [];
-  const pending = data?.pendingSubmissions ?? [];
   const publishedCount = data?.publishedCourses ?? courses.filter((c) => c.status === "PUBLISHED").length;
   const draftCount = Math.max(0, (data?.totalCourses ?? courses.length) - publishedCount);
 
@@ -106,29 +104,15 @@ export function TeacherDashboardPage() {
       <div className="flex flex-col gap-4 rounded-2xl border border-border bg-card/80 p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)] sm:flex-row sm:items-center sm:justify-between">
         <PageHeader
           title={`Welcome back, ${firstName(user?.name)}`}
-          description="Courses, assessments, grading, gradebook, and subjects — everything for day-to-day teaching."
+          description="Manage courses and subject resources — Questionbank, Practice Exams, Key Concepts, and Past Papers."
           className="mb-0"
         />
         <div className="flex flex-wrap gap-2 shrink-0">
           <Button asChild size="sm">
-            <Link href={ROUTES.teacher.gradingQueue}>
-              <ClipboardCheck className="h-4 w-4" aria-hidden />
-              Open grading
-              {(data?.pendingGrading ?? 0) > 0 ? (
-                <span className="ml-1 rounded-full bg-white/20 px-1.5 py-0.5 text-[11px] font-bold">
-                  {data?.pendingGrading}
-                </span>
-              ) : null}
-            </Link>
-          </Button>
-          <Button asChild variant="secondary" size="sm">
-            <Link href={ROUTES.teacher.assessments}>
-              <ClipboardList className="h-4 w-4" aria-hidden />
-              New assessment
-            </Link>
+            <Link href={ROUTES.teacher.courses}>Manage courses</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <Link href={ROUTES.teacher.courses}>Manage courses</Link>
+            <Link href={ROUTES.teacher.subjects}>My subjects</Link>
           </Button>
           <Button
             type="button"
@@ -155,7 +139,7 @@ export function TeacherDashboardPage() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <AdminStatCard label="My courses" value={data?.totalCourses ?? 0} icon={BookOpen} tone="primary" />
         <AdminStatCard label="Published" value={publishedCount} icon={GraduationCap} tone="green" />
         <AdminStatCard label="Students" value={data?.totalStudents ?? 0} icon={Users} tone="primary" />
@@ -164,18 +148,6 @@ export function TeacherDashboardPage() {
           value={data?.totalEnrollments ?? 0}
           icon={Users}
           tone="neutral"
-        />
-        <AdminStatCard
-          label="Assessments"
-          value={data?.totalAssessments ?? 0}
-          icon={ClipboardList}
-          tone="accent"
-        />
-        <AdminStatCard
-          label="To grade"
-          value={data?.pendingGrading ?? 0}
-          icon={ClipboardCheck}
-          tone={(data?.pendingGrading ?? 0) > 0 ? "accent" : "green"}
         />
       </section>
 
@@ -200,22 +172,6 @@ export function TeacherDashboardPage() {
           );
         })}
       </section>
-
-      {(data?.pendingGrading ?? 0) > 0 ? (
-        <div className="flex flex-col gap-3 rounded-2xl border border-[#fed7aa] bg-gradient-to-r from-[#fff7ed] to-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="font-semibold text-[#9a3412]">
-              {data?.pendingGrading} submission{(data?.pendingGrading ?? 0) === 1 ? "" : "s"} waiting for your review
-            </p>
-            <p className="mt-1 text-sm text-[#c2410c]/80">
-              Grade written work promptly so students get timely feedback.
-            </p>
-          </div>
-          <Button asChild size="sm" className="shrink-0">
-            <Link href={ROUTES.teacher.gradingQueue}>Go to grading queue</Link>
-          </Button>
-        </div>
-      ) : null}
 
       <section className="grid gap-4 xl:grid-cols-5">
         <Card className="xl:col-span-3">
@@ -273,29 +229,14 @@ export function TeacherDashboardPage() {
                         {course._count.enrollments} enrolled
                         {" · "}
                         {course._count.chapters ?? 0} chapters
-                        {" · "}
-                        {course._count.assignments ?? 0} assessments
-                        {course._count.reviews ? ` · ${course._count.reviews} reviews` : ""}
                       </p>
                     </div>
-                    <div className="flex shrink-0 flex-wrap gap-2">
-                      <Button asChild variant="outline" size="sm">
-                        <Link href={ROUTES.teacher.courseCurriculum(course.id)}>
-                          <ListTree className="h-3.5 w-3.5" aria-hidden />
-                          Curriculum
-                        </Link>
-                      </Button>
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href={`${ROUTES.teacher.assessments}?courseId=${course.id}`}>
-                          Assessments
-                        </Link>
-                      </Button>
-                      <Button asChild variant="ghost" size="sm">
-                        <Link href={`${ROUTES.teacher.gradebook}?courseId=${course.id}`}>
-                          Gradebook
-                        </Link>
-                      </Button>
-                    </div>
+                    <Button asChild variant="outline" size="sm">
+                      <Link href={ROUTES.teacher.courseCurriculum(course.id)}>
+                        <ListTree className="h-3.5 w-3.5" aria-hidden />
+                        Curriculum
+                      </Link>
+                    </Button>
                   </div>
                 </div>
               ))
@@ -304,50 +245,6 @@ export function TeacherDashboardPage() {
         </Card>
 
         <div className="space-y-4 xl:col-span-2">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between border-b border-border pb-4">
-              <CardTitle className="text-base">Needs attention</CardTitle>
-              <Link
-                href={ROUTES.teacher.gradingQueue}
-                className="text-sm font-medium text-primary hover:underline"
-              >
-                Queue
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-3 pt-5">
-              {!pending.length ? (
-                <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center">
-                  <ClipboardCheck className="mx-auto h-8 w-8 text-accent-green/70" aria-hidden />
-                  <p className="mt-3 text-sm font-medium text-foreground">All caught up</p>
-                  <p className="mt-1 text-xs text-muted-foreground">No pending submissions to grade.</p>
-                </div>
-              ) : (
-                pending.map((item) => (
-                  <div key={item.id} className="rounded-xl border border-border px-4 py-3">
-                    <p className="truncate text-sm font-semibold text-foreground">
-                      {item.assignment?.title ?? "Assignment"}
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      {item.student?.name ?? "Student"}
-                      {item.assignment?.course?.title ? ` · ${item.assignment.course.title}` : ""}
-                    </p>
-                    <div className="mt-2 flex items-center justify-between gap-2">
-                      <span className="text-[11px] text-muted-foreground">
-                        {item.submittedAt ? formatShortDate(item.submittedAt) : "—"}
-                      </span>
-                      <Link
-                        href={ROUTES.teacher.gradingQueue}
-                        className="text-xs font-semibold text-primary hover:underline"
-                      >
-                        Grade
-                      </Link>
-                    </div>
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-
           <Card>
             <CardHeader className="border-b border-border pb-4">
               <CardTitle className="text-base">Teaching snapshot</CardTitle>
@@ -362,15 +259,11 @@ export function TeacherDashboardPage() {
                 <span className="font-bold text-foreground">{data?.totalEnrollments ?? 0}</span>
               </div>
               <div className="flex items-center justify-between rounded-xl bg-muted/50 px-4 py-3">
-                <span className="text-muted-foreground">Assessments live</span>
-                <span className="font-bold text-foreground">{data?.totalAssessments ?? 0}</span>
-              </div>
-              <div className="flex items-center justify-between rounded-xl bg-[#fff7ed] px-4 py-3">
-                <span className="text-[#9a3412]">Pending grading</span>
-                <span className="font-bold text-[#c2410c]">{data?.pendingGrading ?? 0}</span>
+                <span className="text-muted-foreground">Published courses</span>
+                <span className="font-bold text-foreground">{publishedCount}</span>
               </div>
               <Button asChild variant="outline" size="sm" className="w-full">
-                <Link href={ROUTES.teacher.gradebook}>Open gradebook</Link>
+                <Link href={ROUTES.teacher.subjects}>Open my subjects</Link>
               </Button>
             </CardContent>
           </Card>

@@ -45,6 +45,24 @@ export function useAdminNavBadges(filters?: {
   });
 }
 
+export function useStudentNavBadges() {
+  return useQuery({
+    queryKey: queryKeys.student.navBadges,
+    queryFn: () => dashboardService.getStudentNavBadges(),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+}
+
+export function useTeacherNavBadges(filters?: { enrollmentsSince?: string }) {
+  return useQuery({
+    queryKey: [...queryKeys.teacher.navBadges, filters?.enrollmentsSince ?? ""] as const,
+    queryFn: () => dashboardService.getTeacherNavBadges(filters),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+}
+
 export function useAdminAnalytics(filters?: { courseId?: string; programId?: string }) {
   return useQuery({
     queryKey: [...queryKeys.admin.dashboard, "analytics", filters?.courseId ?? "", filters?.programId ?? ""] as const,

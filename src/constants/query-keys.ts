@@ -18,6 +18,7 @@ export const queryKeys = {
     dashboard: ["teacher", "dashboard"] as const,
     courses: ["teacher", "courses"] as const,
     subjects: ["teacher", "subjects"] as const,
+    navBadges: ["teacher", "nav-badges"] as const,
   },
   subjects: {
     all: ["subjects"] as const,
@@ -127,5 +128,6 @@ export const queryKeys = {
     profile: ["student", "profile"] as const,
     assignments: (courseId: string) => ["student", "assignments", courseId] as const,
     myAssignments: ["student", "my-assignments"] as const,
+    navBadges: ["student", "nav-badges"] as const,
   },
 } as const;
