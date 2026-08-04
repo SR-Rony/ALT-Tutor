@@ -116,6 +116,7 @@ export const queryKeys = {
     reviews: (filters: object = {}) => ["admin", "reviews", filters] as const,
     settings: ["admin", "settings"] as const,
     support: ["admin", "support"] as const,
+    navBadges: ["admin", "nav-badges"] as const,
   },
   student: {
     dashboard: ["student", "dashboard"] as const,

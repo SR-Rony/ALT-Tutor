@@ -90,6 +90,13 @@ function normalizeStats(
   };
 }
 
+export type AdminNavBadges = {
+  users: number;
+  enrollments: number;
+  reviews: number;
+  writtenMarking: number;
+};
+
 export const dashboardService = {
   async getAdminStats(): Promise<AdminDashboardStats> {
     if (env.useMockApi) {
@@ -99,6 +106,28 @@ export const dashboardService = {
 
     const response = await apiClient.get<AdminDashboardStats>("/dashboard/admin");
     return normalizeStats(response.data);
+  },
+
+  async getAdminNavBadges(filters?: {
+    usersSince?: string;
+    enrollmentsSince?: string;
+  }): Promise<AdminNavBadges> {
+    if (env.useMockApi) {
+      await sleep(100);
+      return { users: 0, enrollments: 0, reviews: 0, writtenMarking: 0 };
+    }
+    const params = new URLSearchParams();
+    if (filters?.usersSince) params.set("usersSince", filters.usersSince);
+    if (filters?.enrollmentsSince) params.set("enrollmentsSince", filters.enrollmentsSince);
+    const q = params.toString() ? `?${params.toString()}` : "";
+    const response = await apiClient.get<AdminNavBadges>(`/dashboard/admin/nav-badges${q}`);
+    const data = response.data;
+    return {
+      users: Number(data?.users) || 0,
+      enrollments: Number(data?.enrollments) || 0,
+      reviews: Number(data?.reviews) || 0,
+      writtenMarking: Number(data?.writtenMarking) || 0,
+    };
   },
 
   async getAdminAnalytics(filters?: {

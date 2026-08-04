@@ -29,6 +29,22 @@ export function useAdminStats() {
   });
 }
 
+export function useAdminNavBadges(filters?: {
+  usersSince?: string;
+  enrollmentsSince?: string;
+}) {
+  return useQuery({
+    queryKey: [
+      ...queryKeys.admin.navBadges,
+      filters?.usersSince ?? "",
+      filters?.enrollmentsSince ?? "",
+    ] as const,
+    queryFn: () => dashboardService.getAdminNavBadges(filters),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+}
+
 export function useAdminAnalytics(filters?: { courseId?: string; programId?: string }) {
   return useQuery({
     queryKey: [...queryKeys.admin.dashboard, "analytics", filters?.courseId ?? "", filters?.programId ?? ""] as const,
@@ -130,6 +146,7 @@ export function useAdminCancelEnrollment() {
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: ["admin", "enrollments"] });
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.navBadges });
       void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
     },
   });
@@ -292,6 +309,7 @@ export function useAdminReviews(filters: AdminReviewsQuery = {}) {
 function invalidateAdminReviews(queryClient: ReturnType<typeof useQueryClient>) {
   void queryClient.invalidateQueries({ queryKey: ["admin", "reviews"] });
   void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.admin.navBadges });
   void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
   void queryClient.invalidateQueries({ queryKey: queryKeys.courses.all });
 }

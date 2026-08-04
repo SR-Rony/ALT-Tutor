@@ -98,7 +98,7 @@ function NavItemLink({
       href={item.href}
       onClick={onNavigate}
       className={cn(
-        "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
+        "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200",
         collapsed && "justify-center px-2",
         nested && !collapsed && "py-2 pl-10 pr-3 text-[13px]",
         active
@@ -123,7 +123,25 @@ function NavItemLink({
           aria-hidden
         />
       )}
-      {!collapsed ? <span className="truncate">{item.title}</span> : null}
+      {!collapsed ? (
+        <>
+          <span className="min-w-0 flex-1 truncate">{item.title}</span>
+          {typeof item.badge === "number" && item.badge > 0 ? (
+            <span
+              className={cn(
+                "ml-auto inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full px-1.5 text-[10px] font-bold tabular-nums",
+                active ? "bg-[#1877f2] text-white" : "bg-accent text-white"
+              )}
+            >
+              {item.badge > 99 ? "99+" : item.badge}
+            </span>
+          ) : null}
+        </>
+      ) : typeof item.badge === "number" && item.badge > 0 ? (
+        <span className="absolute right-1 top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[9px] font-bold text-white">
+          {item.badge > 9 ? "9+" : item.badge}
+        </span>
+      ) : null}
     </Link>
   );
 
@@ -132,7 +150,10 @@ function NavItemLink({
   return (
     <Tooltip delayDuration={0}>
       <TooltipTrigger asChild>{link}</TooltipTrigger>
-      <TooltipContent side="right">{item.title}</TooltipContent>
+      <TooltipContent side="right">
+        {item.title}
+        {typeof item.badge === "number" && item.badge > 0 ? ` (${item.badge})` : ""}
+      </TooltipContent>
     </Tooltip>
   );
 }

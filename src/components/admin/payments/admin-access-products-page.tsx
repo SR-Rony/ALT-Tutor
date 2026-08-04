@@ -108,8 +108,11 @@ function findGlobalProduct(products: AccessProduct[], meta: (typeof GLOBAL_TIERS
   );
 }
 
+const EMPTY_PRODUCTS: AccessProduct[] = [];
+
 export function AdminAccessProductsPage() {
-  const { data: products = [], isLoading, error, refetch, isFetching } = useAdminAccessProducts();
+  const { data, isLoading, error, refetch, isFetching } = useAdminAccessProducts();
+  const products = data ?? EMPTY_PRODUCTS;
   const createProduct = useCreateAccessProduct();
   const updateProduct = useUpdateAccessProduct();
   const deactivateProduct = useDeactivateAccessProduct();
@@ -133,13 +136,32 @@ export function AdminAccessProductsPage() {
     return map;
   }, [products]);
 
+  const draftSyncKey = useMemo(
+    () =>
+      GLOBAL_TIERS.map((meta) => {
+        const product = globalBySlug.get(meta.slug);
+        if (!product) return `${meta.slug}:missing`;
+        return [
+          meta.slug,
+          product.id,
+          product.title,
+          String(product.price),
+          product.durationDays ?? "",
+          product.description ?? "",
+        ].join(":");
+      }).join("|"),
+    [globalBySlug]
+  );
+
   useEffect(() => {
     setDrafts({
       SILVER: draftFromProduct(GLOBAL_TIERS[0]!, globalBySlug.get("global-silver-pass")),
       GOLD: draftFromProduct(GLOBAL_TIERS[1]!, globalBySlug.get("global-gold-pass")),
       DIAMOND: draftFromProduct(GLOBAL_TIERS[2]!, globalBySlug.get("global-diamond-pass")),
     });
-  }, [globalBySlug]);
+    // Sync only when server product fields change — not on every Map identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- draftSyncKey captures product snapshot
+  }, [draftSyncKey]);
 
   const knownGlobalIds = useMemo(() => {
     const ids = new Set<string>();

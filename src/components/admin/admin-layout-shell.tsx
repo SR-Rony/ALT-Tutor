@@ -1,10 +1,19 @@
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 import { DashboardShell } from "@/components/dashboard";
 import { adminFooterNav, adminNav } from "@/config";
-import { ROUTES } from "@/constants";
+import { queryKeys, ROUTES } from "@/constants";
+import { useAdminNavBadges } from "@/hooks";
+import {
+  getAdminNavSeenSnapshot,
+  markAdminNavSeen,
+  type AdminNavSeenKey,
+} from "@/lib/admin-nav-seen";
 import { useAppSelector } from "@/store";
+import type { NavItem } from "@/types";
 
 const adminPageTitles: Record<string, string> = {
   [ROUTES.admin.root]: "Dashboard",
@@ -27,6 +36,7 @@ const adminPageTitles: Record<string, string> = {
   [ROUTES.admin.accessProducts]: "Pass Pricing",
   [ROUTES.admin.gradebook]: "Gradebook",
   [ROUTES.admin.gradingQueue]: "Grading",
+  [ROUTES.admin.practiceExamMarking]: "Written Marking",
   [ROUTES.admin.support]: "Support",
   [ROUTES.admin.settings]: "Settings",
 };
@@ -37,13 +47,61 @@ function getAdminPageTitle(pathname: string) {
   return "Dashboard";
 }
 
+function withBadges(
+  items: NavItem[],
+  badges: Partial<Record<string, number>>
+): NavItem[] {
+  return items.map((item) => {
+    const href = item.href ?? "";
+    const badge = badges[href];
+    const children = item.children ? withBadges(item.children, badges) : undefined;
+    return {
+      ...item,
+      ...(typeof badge === "number" && badge > 0 ? { badge } : { badge: undefined }),
+      ...(children ? { children } : {}),
+    };
+  });
+}
+
 export function AdminLayoutShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const queryClient = useQueryClient();
   const headerTitleOverride = useAppSelector((state) => state.ui.headerTitleOverride);
+  const [seen, setSeen] = useState(() => getAdminNavSeenSnapshot());
+
+  const { data: badgeCounts } = useAdminNavBadges({
+    usersSince: seen.users,
+    enrollmentsSince: seen.enrollments,
+  });
+
+  useEffect(() => {
+    const markIfNeeded = (key: AdminNavSeenKey, match: (path: string) => boolean) => {
+      if (!match(pathname)) return;
+      markAdminNavSeen(key);
+      setSeen(getAdminNavSeenSnapshot());
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.navBadges });
+    };
+
+    markIfNeeded("users", (path) => path === ROUTES.admin.users || path.startsWith(`${ROUTES.admin.users}/`));
+    markIfNeeded(
+      "enrollments",
+      (path) => path === ROUTES.admin.enrollments || path.startsWith(`${ROUTES.admin.enrollments}/`)
+    );
+  }, [pathname, queryClient]);
+
+  const navItems = useMemo(() => {
+    const badges: Partial<Record<string, number>> = {
+      [ROUTES.admin.users]: badgeCounts?.users ?? 0,
+      [ROUTES.admin.enrollments]: badgeCounts?.enrollments ?? 0,
+      [ROUTES.admin.reviews]: badgeCounts?.reviews ?? 0,
+      [ROUTES.admin.practiceExamMarking]: badgeCounts?.writtenMarking ?? 0,
+    };
+    return withBadges(adminNav, badges);
+  }, [badgeCounts]);
 
   return (
     <DashboardShell
-      navItems={adminNav}
+      navItems={navItems}
       footerNavItems={adminFooterNav}
       roleLabel="Admin"
       headerTitle={headerTitleOverride ?? getAdminPageTitle(pathname)}
