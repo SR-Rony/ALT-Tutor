@@ -124,29 +124,53 @@ function resolveDirectPlayback(url: string): LessonPlayUrl {
   };
 }
 
+const WATERMARK_VISIBLE_MS = 3500;
+const WATERMARK_HIDDEN_MS = 2000;
+
+function randomWatermarkPosition() {
+  return {
+    top: 8 + Math.random() * 72,
+    left: 4 + Math.random() * 62,
+  };
+}
+
 function VideoWatermark({ label }: { label: string }) {
-  const tiles = useMemo(() => [0, 1, 2, 3, 4], []);
+  const [position, setPosition] = useState(randomWatermarkPosition);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    let timeoutId = 0;
+
+    const tick = (show: boolean) => {
+      if (show) {
+        setPosition(randomWatermarkPosition());
+        setVisible(true);
+        timeoutId = window.setTimeout(() => tick(false), WATERMARK_VISIBLE_MS);
+      } else {
+        setVisible(false);
+        timeoutId = window.setTimeout(() => tick(true), WATERMARK_HIDDEN_MS);
+      }
+    };
+
+    timeoutId = window.setTimeout(() => tick(false), WATERMARK_VISIBLE_MS);
+
+    return () => window.clearTimeout(timeoutId);
+  }, []);
 
   return (
     <div
       className="pointer-events-none absolute inset-0 z-20 overflow-hidden select-none"
       aria-hidden
     >
-      {tiles.map((index) => (
-        <span
-          key={index}
-          className={cn(
-            "absolute whitespace-nowrap text-sm font-bold tracking-wide text-white/35 mix-blend-soft-light sm:text-base",
-            index === 0 && "animate-watermark-drift left-[8%] top-[18%]",
-            index === 1 && "animate-watermark-drift-slow left-[42%] top-[48%] [animation-delay:-6s]",
-            index === 2 && "animate-watermark-drift-reverse left-[22%] top-[72%] [animation-delay:-11s]",
-            index === 3 && "animate-watermark-drift left-[68%] top-[28%] [animation-delay:-4s]",
-            index === 4 && "animate-watermark-drift-slow left-[55%] top-[82%] [animation-delay:-14s]"
-          )}
-        >
-          {label}
-        </span>
-      ))}
+      <span
+        className={cn(
+          "absolute -rotate-12 whitespace-nowrap text-sm font-bold tracking-wide text-white/40 mix-blend-soft-light transition-opacity duration-500 sm:text-base",
+          visible ? "opacity-100" : "opacity-0"
+        )}
+        style={{ top: `${position.top}%`, left: `${position.left}%` }}
+      >
+        {label}
+      </span>
     </div>
   );
 }

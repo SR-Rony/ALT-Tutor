@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -19,6 +19,7 @@ import {
   Paperclip,
   PlayCircle,
   Sparkles,
+  Timer,
 } from "lucide-react";
 import { PageLoader } from "@/components/shared";
 import { SecureVideoPlayer } from "@/components/shared/secure-video-player";
@@ -26,32 +27,92 @@ import { Button } from "@/components/ui/button";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { ROUTES } from "@/constants";
 import {
-  useCourseAssignments,
   useCourseDetail,
-  useMyMcqExams,
+  useKeyConceptLessons,
+  usePastPaperArchive,
+  usePracticeExamTemplates,
   useQbProgram,
   useStudentCourses,
 } from "@/hooks";
 import { formatLessonDuration } from "@/lib/course-format";
-import { formatAccessRemaining, formatShortDate } from "@/lib/format";
-import { richTextToPlain } from "@/lib/rich-text";
+import { formatAccessRemaining } from "@/lib/format";
 import { apiClient } from "@/services/api-client";
 import { useAppSelector } from "@/store";
-import type { ApiError } from "@/types";
 import type { CourseDetail, CourseLesson } from "@/types/course.types";
-import type { McqExam, McqPhase } from "@/types/mcq.types";
-import type { StudentAssignment } from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
 import { isPlayableVideoLesson, resolveLessonPdfUrl } from "@/utils/pdf-viewer";
 
 type Props = { slug: string };
-type CourseTab = "lessons" | "questionbank" | "exams";
+type CourseTab =
+  | "lessons"
+  | "questionbank"
+  | "key-concepts"
+  | "practice-exams"
+  | "past-papers";
 
 const TABS: { id: CourseTab; label: string; icon: typeof BookOpen }[] = [
   { id: "lessons", label: "Lessons", icon: PlayCircle },
   { id: "questionbank", label: "Questionbank", icon: HelpCircle },
-  { id: "exams", label: "Exams", icon: ClipboardList },
+  { id: "key-concepts", label: "Key Concepts", icon: BookOpen },
+  { id: "practice-exams", label: "Practice Exams", icon: ClipboardList },
+  { id: "past-papers", label: "Past Papers", icon: FileText },
 ];
+
+type ProgramLink = NonNullable<CourseDetail["programLinks"]>[number];
+
+const RESOURCE_GRID =
+  "grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4";
+
+function ResourceCard({
+  href,
+  title,
+  meta,
+  icon,
+  actionLabel,
+  locked,
+  unlockHref,
+}: {
+  href: string;
+  title: string;
+  meta: string;
+  icon: ReactNode;
+  actionLabel: string;
+  locked?: boolean;
+  unlockHref?: string;
+}) {
+  return (
+    <article
+      className={cn(
+        "flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-colors",
+        !locked && "hover:border-primary/40 hover:bg-primary-muted/20"
+      )}
+    >
+      <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
+        {locked ? <Lock className="h-4 w-4" aria-hidden /> : icon}
+      </span>
+      <h5 className="mt-3 line-clamp-2 text-sm font-semibold leading-snug text-foreground">
+        {title}
+      </h5>
+      <p className="mt-1 mb-4 flex-1 line-clamp-2 text-xs text-muted-foreground">{meta}</p>
+      {locked ? (
+        <Link
+          href={unlockHref ?? href}
+          className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:border-primary/30 hover:bg-muted"
+        >
+          Unlock
+        </Link>
+      ) : (
+        <Link
+          href={href}
+          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary-hover"
+        >
+          {actionLabel}
+          <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+        </Link>
+      )}
+    </article>
+  );
+}
 
 function LessonPlayer({ lesson }: { lesson: CourseLesson }) {
   const user = useAppSelector((state) => state.auth.user);
@@ -104,33 +165,12 @@ function LessonPlayer({ lesson }: { lesson: CourseLesson }) {
   );
 }
 
-function mcqPhaseMeta(phase: McqPhase) {
-  switch (phase) {
-    case "IN_PROGRESS":
-      return { label: "In progress", className: "bg-[#fff7ed] text-[#ea580c]" };
-    case "CAN_RETAKE":
-      return { label: "Retake available", className: "bg-primary-muted text-primary" };
-    case "COMPLETED":
-      return { label: "Completed", className: "bg-muted text-muted-foreground" };
-    default:
-      return { label: "Not started", className: "bg-primary/10 text-primary" };
-  }
-}
-
-function mcqActionLabel(phase: McqPhase) {
-  if (phase === "IN_PROGRESS") return "Continue exam";
-  if (phase === "CAN_RETAKE") return "Retake";
-  if (phase === "COMPLETED") return "View result";
-  return "Start exam";
-}
-
 function CourseHero({
   course,
   progress,
   isCompleted,
   lessonCount,
   totalSeconds,
-  examCount,
   programCount,
   accessLabel,
   accessUrgent,
@@ -140,7 +180,6 @@ function CourseHero({
   isCompleted: boolean;
   lessonCount: number;
   totalSeconds: number;
-  examCount: number;
   programCount: number;
   accessLabel: string;
   accessUrgent?: boolean;
@@ -179,12 +218,8 @@ function CourseHero({
                 {lessonCount} lessons
               </span>
               <span className="inline-flex items-center gap-1 rounded-full bg-background/80 px-2.5 py-1">
-                <ClipboardList className="h-3.5 w-3.5 text-primary" aria-hidden />
-                {examCount} exams
-              </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-background/80 px-2.5 py-1">
                 <HelpCircle className="h-3.5 w-3.5 text-primary" aria-hidden />
-                {programCount} QB program{programCount === 1 ? "" : "s"}
+                {programCount} subject{programCount === 1 ? "" : "s"}
               </span>
               {totalSeconds > 0 ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-background/80 px-2.5 py-1">
@@ -234,11 +269,9 @@ function CourseHero({
 function ProgramQuestionbankSection({
   programSlug,
   programName,
-  courseSlug,
 }: {
   programSlug: string;
   programName: string;
-  courseSlug: string;
 }) {
   const { data, isLoading, error } = useQbProgram(programSlug);
 
@@ -299,82 +332,70 @@ function ProgramQuestionbankSection({
       </div>
       <div className="space-y-6">
         {topics.map((topic) => (
-          <div key={topic.id} className="rounded-xl border border-border bg-card p-4 sm:p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-              Theme {topic.number}
-            </p>
-            <h4 className="mt-0.5 text-base font-bold text-foreground">{topic.title}</h4>
-            {topic.description ? (
-              <RichTextContent
-                html={topic.description}
-                className="mt-1 text-sm text-muted-foreground"
-              />
-            ) : null}
-            <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {(topic.subtopics ?? []).map((sub) => (
-                <article
-                  key={sub.id}
-                  className="flex flex-col rounded-xl border border-border bg-background p-4 transition hover:border-primary/30 hover:shadow-sm"
-                >
-                  <h5 className="font-semibold text-foreground">{sub.title}</h5>
-                  <p className="mt-1 flex-1 text-xs text-muted-foreground">
-                    {sub._count?.questions ?? 0} questions
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2">
-                    <Button asChild size="sm" variant="outline" className="h-8 text-xs">
-                      <Link href={ROUTES.subjectQuestionbankStudy(programSlug, sub.slug)}>
-                        Study
-                      </Link>
-                    </Button>
-                    <Button asChild size="sm" className="h-8 text-xs">
-                      <Link
-                        href={ROUTES.subjectQuestionbankStudyExam(programSlug, sub.slug, {
-                          paper: "PAPER_2",
-                        })}
-                      >
-                        Exam mode
-                      </Link>
-                    </Button>
-                  </div>
-                </article>
-              ))}
+          <div key={topic.id} className="rounded-xl border border-border bg-card">
+            <div className="border-b border-border px-4 py-3.5 sm:px-5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
+                Theme {topic.number}
+              </p>
+              <h4 className="mt-0.5 text-base font-bold text-foreground">{topic.title}</h4>
+              {topic.description ? (
+                <RichTextContent
+                  html={topic.description}
+                  className="mt-1 line-clamp-2 text-sm text-muted-foreground"
+                />
+              ) : null}
+            </div>
+            <div className={cn(RESOURCE_GRID, "p-4 sm:p-5")}>
+              {(topic.subtopics ?? []).map((sub) => {
+                const questionCount = sub._count?.questions ?? 0;
+                return (
+                  <ResourceCard
+                    key={sub.id}
+                    href={ROUTES.subjectQuestionbankStudy(programSlug, sub.slug)}
+                    title={sub.title}
+                    meta={`${questionCount} question${questionCount === 1 ? "" : "s"}`}
+                    icon={<BookOpen className="h-4 w-4" aria-hidden />}
+                    actionLabel="Study"
+                  />
+                );
+              })}
             </div>
           </div>
         ))}
       </div>
       <p className="text-xs text-muted-foreground">
-        Course-linked practice opens the subject questionbank for {programName}. You can also use{" "}
-        <Link href={ROUTES.questionbank(courseSlug)} className="text-primary hover:underline">
-          course questionbank view
-        </Link>
-        .
+        Course-linked practice for {programName}.
       </p>
     </div>
   );
 }
 
-function CourseQuestionbankPanel({
-  course,
-  programLinks,
+function LinkedProgramsEmpty({
+  title,
+  description,
 }: {
-  course: CourseDetail;
-  programLinks: NonNullable<CourseDetail["programLinks"]>;
+  title: string;
+  description: string;
 }) {
+  return (
+    <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-14 text-center">
+      <Sparkles className="mx-auto h-10 w-10 text-muted-foreground/50" aria-hidden />
+      <h2 className="mt-4 text-lg font-bold text-foreground">{title}</h2>
+      <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{description}</p>
+      <Button asChild size="sm" variant="outline" className="mt-5">
+        <Link href={ROUTES.student.payments}>Get Practice Pass for subjects</Link>
+      </Button>
+    </div>
+  );
+}
+
+function CourseQuestionbankPanel({ programLinks }: { programLinks: ProgramLink[] }) {
   if (programLinks.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-14 text-center">
-        <Sparkles className="mx-auto h-10 w-10 text-muted-foreground/50" aria-hidden />
-        <h2 className="mt-4 text-lg font-bold text-foreground">Questionbank not linked</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          This course has no subject program linked yet. Your instructor or admin can connect a
-          program in{" "}
-          <span className="font-medium text-foreground">Admin → Course → Programs</span> so practice
-          questions appear here.
-        </p>
-        <Button asChild size="sm" variant="outline" className="mt-5">
-          <Link href={ROUTES.student.payments}>Get Practice Pass for subjects</Link>
-        </Button>
-      </div>
+      <LinkedProgramsEmpty
+        title="Questionbank not linked"
+        description="This course has no subject linked yet. Your instructor or admin can connect a subject so practice questions appear here."
+      />
     );
   }
 
@@ -383,7 +404,7 @@ function CourseQuestionbankPanel({
       <div>
         <h2 className="text-lg font-bold text-foreground">Practice questionbank</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Study sets and timed exam mode from programs linked to this course.
+          Study sets from subjects linked to this course. Open a set to practice questions.
         </p>
       </div>
       {programLinks.map((link) => (
@@ -391,131 +412,339 @@ function CourseQuestionbankPanel({
           key={link.program.id}
           programSlug={link.program.slug}
           programName={link.program.name}
-          courseSlug={course.slug}
         />
       ))}
     </div>
   );
 }
 
-function CourseExamsPanel({
-  courseId,
-  mcqExams,
-  assignments,
-  loading,
-  error,
+function ProgramKeyConceptsSection({
+  programSlug,
+  programName,
 }: {
-  courseId: string;
-  mcqExams: McqExam[];
-  assignments: StudentAssignment[];
-  loading: boolean;
-  error: unknown;
+  programSlug: string;
+  programName: string;
 }) {
-  const written = assignments.filter((a) => {
-    const type = String(a.type).toUpperCase();
-    const status = String(a.status ?? "PUBLISHED").toUpperCase();
-    return type !== "MCQ" && status === "PUBLISHED";
-  });
+  const { data, isLoading, error } = useKeyConceptLessons(programSlug);
+  const lessons = data?.lessons ?? [];
 
-  if (loading) {
-    return <PageLoader label="Loading course exams..." />;
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
+        Loading {programName} key concepts…
+      </div>
+    );
   }
 
   if (error) {
     return (
-      <p className="text-sm text-accent">
-        {(error as ApiError)?.message || "Could not load exams for this course."}
-      </p>
+      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+        <p className="text-sm text-muted-foreground">Could not load key concepts for {programName}.</p>
+        <Button asChild size="sm" variant="outline" className="mt-3">
+          <Link href={ROUTES.subjectResource(programSlug, "key-concepts")}>Open Key Concepts</Link>
+        </Button>
+      </div>
     );
   }
 
-  if (mcqExams.length === 0 && written.length === 0) {
+  if (lessons.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-border bg-muted/20 px-6 py-14 text-center">
-        <ClipboardList className="mx-auto h-10 w-10 text-muted-foreground/50" aria-hidden />
-        <h2 className="mt-4 text-lg font-bold text-foreground">No exams yet</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
-          Published MCQ and written assessments for this course will appear here. Ask your teacher
-          to publish exams, or check the full exam center.
+      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
+        <BookOpen className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden />
+        <p className="mt-3 font-semibold text-foreground">No key concepts yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Nothing published under <span className="font-medium text-foreground">{programName}</span>{" "}
+          Key Concepts yet.
         </p>
-        <Button asChild size="sm" className="mt-5">
-          <Link href={ROUTES.student.assessments}>Open Exam Center</Link>
-        </Button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {mcqExams.length > 0 ? (
-        <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-          <h2 className="text-lg font-bold text-foreground">MCQ exams</h2>
-          <p className="mt-1 text-sm text-muted-foreground">Timed multiple-choice assessments.</p>
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            {mcqExams.map((exam) => {
-              const phase = exam.mcqStatus?.phase ?? "NOT_STARTED";
-              const meta = mcqPhaseMeta(phase);
-              return (
-                <article
-                  key={exam.id}
-                  className="flex flex-col rounded-xl border border-border bg-background p-4"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="font-bold text-foreground">{exam.title}</h3>
-                    <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase", meta.className)}>
-                      {meta.label}
-                    </span>
-                  </div>
-                  <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                    {richTextToPlain(exam.description)}
-                  </p>
-                  <div className="mt-3 flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    {exam.durationMinutes ? <span>{exam.durationMinutes} min</span> : null}
-                    {exam._count?.questions ? (
-                      <span>{exam._count.questions} questions</span>
-                    ) : null}
-                    {exam.dueDate ? <span>Due {formatShortDate(exam.dueDate)}</span> : null}
-                  </div>
-                  <Button asChild size="sm" className="mt-4 w-full">
-                    <Link href={ROUTES.student.mcqExam(exam.id)}>{mcqActionLabel(phase)}</Link>
-                  </Button>
-                </article>
-              );
-            })}
-          </div>
-        </section>
-      ) : null}
-
-      {written.length > 0 ? (
-        <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-          <h2 className="text-lg font-bold text-foreground">Written & file assignments</h2>
-          <div className="mt-4 space-y-3">
-            {written.map((item) => (
-              <div
-                key={item.id}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-background px-4 py-3"
-              >
-                <div>
-                  <p className="font-semibold text-foreground">{item.title}</p>
-                  <p className="text-sm text-muted-foreground">
-                    {String(item.type).toUpperCase() === "FILE" ? "File upload" : "Written response"}
-                    {item.dueDate ? ` · Due ${formatShortDate(item.dueDate)}` : ""}
-                  </p>
-                </div>
-                <Button asChild size="sm" variant="outline">
-                  <Link href={`${ROUTES.student.assessments}?course=${courseId}`}>Submit</Link>
-                </Button>
-              </div>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      <div className="flex justify-end">
-        <Button asChild variant="outline" size="sm">
-          <Link href={ROUTES.student.assessments}>All exams & results</Link>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-lg font-bold text-foreground">{programName}</h3>
+          <p className="text-sm text-muted-foreground">{lessons.length} lessons</p>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <Link href={ROUTES.subjectResource(programSlug, "key-concepts")}>Full Key Concepts</Link>
         </Button>
       </div>
+      <div className={RESOURCE_GRID}>
+        {lessons.map((lesson) => {
+          const locked = Boolean(lesson.locked);
+          return (
+            <ResourceCard
+              key={lesson.id}
+              href={ROUTES.subjectKeyConceptLesson(programSlug, lesson.slug)}
+              unlockHref={ROUTES.subjectResource(programSlug, "key-concepts")}
+              title={lesson.title}
+              meta={[
+                lesson.topic ? `Theme ${lesson.topic.number}` : null,
+                lesson.contentType === "VIDEO"
+                  ? "Video"
+                  : lesson.contentType === "MIXED"
+                    ? "Mixed"
+                    : "Article",
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              icon={<BookOpen className="h-4 w-4" aria-hidden />}
+              actionLabel="Open"
+              locked={locked}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CourseKeyConceptsPanel({ programLinks }: { programLinks: ProgramLink[] }) {
+  if (programLinks.length === 0) {
+    return (
+      <LinkedProgramsEmpty
+        title="Key Concepts not linked"
+        description="Link a subject to this course to show Key Concept lessons here."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-8 rounded-2xl border border-border bg-card p-5 sm:p-6">
+      <div>
+        <h2 className="text-lg font-bold text-foreground">Key Concepts</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Short lessons from subjects linked to this course.
+        </p>
+      </div>
+      {programLinks.map((link) => (
+        <ProgramKeyConceptsSection
+          key={link.program.id}
+          programSlug={link.program.slug}
+          programName={link.program.name}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ProgramPracticeExamsSection({
+  programSlug,
+  programName,
+}: {
+  programSlug: string;
+  programName: string;
+}) {
+  const { data, isLoading, error } = usePracticeExamTemplates(programSlug);
+  const templates = data?.templates ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
+        Loading {programName} practice exams…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+        <p className="text-sm text-muted-foreground">Could not load practice exams for {programName}.</p>
+        <Button asChild size="sm" variant="outline" className="mt-3">
+          <Link href={ROUTES.subjectResource(programSlug, "practice-exams")}>Open Practice Exams</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (templates.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
+        <Timer className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden />
+        <p className="mt-3 font-semibold text-foreground">No practice exams yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Nothing published under <span className="font-medium text-foreground">{programName}</span>{" "}
+          Practice Exams yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-lg font-bold text-foreground">{programName}</h3>
+          <p className="text-sm text-muted-foreground">{templates.length} exams</p>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <Link href={ROUTES.subjectResource(programSlug, "practice-exams")}>Full Practice Exams</Link>
+        </Button>
+      </div>
+      <div className={RESOURCE_GRID}>
+        {templates.map((template) => {
+          const locked = Boolean(template.locked);
+          return (
+            <ResourceCard
+              key={template.id}
+              href={ROUTES.subjectPracticeExam(programSlug, template.slug)}
+              unlockHref={ROUTES.subjectResource(programSlug, "practice-exams")}
+              title={template.title}
+              meta={[
+                template.modeLabel ?? template.mode ?? "MCQ",
+                template.durationMin ? `${template.durationMin} min` : null,
+                template.totalQuestions ? `${template.totalQuestions} Qs` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              icon={<ClipboardList className="h-4 w-4" aria-hidden />}
+              actionLabel="Open"
+              locked={locked}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CoursePracticeExamsPanel({ programLinks }: { programLinks: ProgramLink[] }) {
+  if (programLinks.length === 0) {
+    return (
+      <LinkedProgramsEmpty
+        title="Practice Exams not linked"
+        description="Link a subject to this course to show Practice Exams here."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-8 rounded-2xl border border-border bg-card p-5 sm:p-6">
+      <div>
+        <h2 className="text-lg font-bold text-foreground">Practice Exams</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Timed practice exams from subjects linked to this course.
+        </p>
+      </div>
+      {programLinks.map((link) => (
+        <ProgramPracticeExamsSection
+          key={link.program.id}
+          programSlug={link.program.slug}
+          programName={link.program.name}
+        />
+      ))}
+    </div>
+  );
+}
+
+function ProgramPastPapersSection({
+  programSlug,
+  programName,
+}: {
+  programSlug: string;
+  programName: string;
+}) {
+  const { data, isLoading, error } = usePastPaperArchive(programSlug);
+  const papers = data?.papers ?? data?.years?.flatMap((y) => y.papers) ?? [];
+
+  if (isLoading) {
+    return (
+      <div className="rounded-xl border border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
+        Loading {programName} past papers…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
+        <p className="text-sm text-muted-foreground">Could not load past papers for {programName}.</p>
+        <Button asChild size="sm" variant="outline" className="mt-3">
+          <Link href={ROUTES.subjectResource(programSlug, "past-papers")}>Open Past Papers</Link>
+        </Button>
+      </div>
+    );
+  }
+
+  if (papers.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
+        <FileText className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden />
+        <p className="mt-3 font-semibold text-foreground">No past papers yet</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Nothing published under <span className="font-medium text-foreground">{programName}</span>{" "}
+          Past Papers yet.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h3 className="text-lg font-bold text-foreground">{programName}</h3>
+          <p className="text-sm text-muted-foreground">{papers.length} papers</p>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <Link href={ROUTES.subjectResource(programSlug, "past-papers")}>Full Past Papers</Link>
+        </Button>
+      </div>
+      <div className={RESOURCE_GRID}>
+        {papers.map((paper) => {
+          const locked = Boolean(paper.locked);
+          return (
+            <ResourceCard
+              key={paper.id}
+              href={ROUTES.subjectPastPaper(programSlug, paper.slug)}
+              unlockHref={ROUTES.subjectResource(programSlug, "past-papers")}
+              title={paper.title}
+              meta={[
+                String(paper.year),
+                paper.session || null,
+                paper.paperCode || null,
+                paper.totalQuestions ? `${paper.totalQuestions} Qs` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+              icon={<FileText className="h-4 w-4" aria-hidden />}
+              actionLabel="Open"
+              locked={locked}
+            />
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function CoursePastPapersPanel({ programLinks }: { programLinks: ProgramLink[] }) {
+  if (programLinks.length === 0) {
+    return (
+      <LinkedProgramsEmpty
+        title="Past Papers not linked"
+        description="Link a subject to this course to show Past Papers here."
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-8 rounded-2xl border border-border bg-card p-5 sm:p-6">
+      <div>
+        <h2 className="text-lg font-bold text-foreground">Past Papers</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Archive papers from subjects linked to this course.
+        </p>
+      </div>
+      {programLinks.map((link) => (
+        <ProgramPastPapersSection
+          key={link.program.id}
+          programSlug={link.program.slug}
+          programName={link.program.name}
+        />
+      ))}
     </div>
   );
 }
@@ -527,16 +756,15 @@ export function StudentCourseLearnPage({ slug }: Props) {
   const requestedLessonId = searchParams.get("lesson");
   const tabParam = searchParams.get("tab");
   const activeTab: CourseTab =
-    tabParam === "questionbank" || tabParam === "exams" ? tabParam : "lessons";
+    tabParam === "questionbank" ||
+    tabParam === "key-concepts" ||
+    tabParam === "practice-exams" ||
+    tabParam === "past-papers"
+      ? tabParam
+      : "lessons";
 
   const { data: course, isLoading } = useCourseDetail(slug);
   const { data: enrollments = [], isLoading: enrollmentsLoading } = useStudentCourses();
-  const { data: myMcqExams = [], isLoading: mcqLoading } = useMyMcqExams();
-  const {
-    data: courseAssignments = [],
-    isLoading: assignmentsLoading,
-    error: assignmentsError,
-  } = useCourseAssignments(course?.id);
 
   const [lessonIndex, setLessonIndex] = useState(0);
   const [contentLessons, setContentLessons] = useState<CourseLesson[] | null>(null);
@@ -641,14 +869,6 @@ export function StudentCourseLearnPage({ slug }: Props) {
 
   const programLinks = course?.programLinks ?? [];
 
-  const courseMcqExams = useMemo(
-    () =>
-      myMcqExams.filter(
-        (exam) => exam.courseId === course?.id || exam.course?.id === course?.id
-      ),
-    [myMcqExams, course?.id]
-  );
-
   useEffect(() => {
     if (!requestedLessonId || lessons.length === 0) return;
     const requestedIndex = lessons.findIndex(({ lesson }) => lesson.id === requestedLessonId);
@@ -680,7 +900,7 @@ export function StudentCourseLearnPage({ slug }: Props) {
         </span>
         <h1 className="text-xl font-bold text-foreground">Enrollment required</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          This is a paid course. Enroll to access lessons, questionbank, and exams.
+          This is a paid course. Enroll to access lessons and linked subject practice.
         </p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <Button asChild size="sm">
@@ -724,7 +944,6 @@ export function StudentCourseLearnPage({ slug }: Props) {
         isCompleted={isCompleted}
         lessonCount={lessons.length}
         totalSeconds={totalSeconds}
-        examCount={courseMcqExams.length}
         programCount={programLinks.length}
         accessLabel={accessInfo.label}
         accessUrgent={Boolean(accessInfo.expired || (accessInfo.daysLeft != null && accessInfo.daysLeft <= 7))}
@@ -924,17 +1143,19 @@ export function StudentCourseLearnPage({ slug }: Props) {
       ) : null}
 
       {activeTab === "questionbank" ? (
-        <CourseQuestionbankPanel course={course} programLinks={programLinks} />
+        <CourseQuestionbankPanel programLinks={programLinks} />
       ) : null}
 
-      {activeTab === "exams" ? (
-        <CourseExamsPanel
-          courseId={course.id}
-          mcqExams={courseMcqExams}
-          assignments={courseAssignments}
-          loading={mcqLoading || assignmentsLoading}
-          error={assignmentsError}
-        />
+      {activeTab === "key-concepts" ? (
+        <CourseKeyConceptsPanel programLinks={programLinks} />
+      ) : null}
+
+      {activeTab === "practice-exams" ? (
+        <CoursePracticeExamsPanel programLinks={programLinks} />
+      ) : null}
+
+      {activeTab === "past-papers" ? (
+        <CoursePastPapersPanel programLinks={programLinks} />
       ) : null}
     </div>
   );
