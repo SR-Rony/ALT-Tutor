@@ -4,7 +4,6 @@ import Link from "next/link";
 import {
   Bell,
   BookOpen,
-  ClipboardList,
   GraduationCap,
   Percent,
   RefreshCw,
@@ -46,7 +45,7 @@ export function StudentDashboardPage() {
       <div className="space-y-6">
         <PageHeader
           title="Student Dashboard"
-          description="Track learning progress, assignments, and notifications."
+          description="Your learning overview — courses, progress, and updates."
           className="mb-0"
         />
         <PageLoader label="Loading your dashboard..." />
@@ -84,7 +83,7 @@ export function StudentDashboardPage() {
         </div>
       ) : null}
 
-      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5">
         <AdminStatCard label="Enrolled" value={data?.totalEnrolled ?? 0} icon={BookOpen} tone="primary" />
         <AdminStatCard label="Active" value={data?.activeCourses ?? 0} icon={GraduationCap} tone="green" />
         <AdminStatCard
@@ -101,12 +100,6 @@ export function StudentDashboardPage() {
           formatter={(v) => `${Number(v) || 0}%`}
         />
         <AdminStatCard
-          label="Assignments"
-          value={data?.totalAssignments ?? 0}
-          icon={ClipboardList}
-          tone="accent"
-        />
-        <AdminStatCard
           label="Unread"
           value={data?.unreadNotifications ?? 0}
           icon={Bell}
@@ -114,10 +107,9 @@ export function StudentDashboardPage() {
         />
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {[
           { href: ROUTES.student.courses, title: "My Courses", desc: "Continue learning" },
-          { href: ROUTES.student.assignments, title: "Assignments", desc: "Submit work & MCQs" },
           { href: ROUTES.student.notifications, title: "Notifications", desc: "Latest updates" },
           { href: ROUTES.student.payments, title: "Payments", desc: "Purchase history" },
         ].map((item) => (

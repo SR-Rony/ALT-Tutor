@@ -234,7 +234,7 @@ export function StudentMcqExamPage() {
       if (!ok) return;
       await flushSave();
     }
-    router.push(ROUTES.student.assignments);
+    router.push(ROUTES.student.courses);
   };
 
   const answeredCount = useMemo(
@@ -261,7 +261,7 @@ export function StudentMcqExamPage() {
       <div className="mx-auto max-w-lg py-16 text-center">
         <p className="text-accent">{(error as unknown as ApiError)?.message || "Exam not found"}</p>
         <Button asChild variant="outline" className="mt-4">
-          <Link href={ROUTES.student.assignments}>Back</Link>
+          <Link href={ROUTES.student.courses}>Back</Link>
         </Button>
       </div>
     );
@@ -352,7 +352,7 @@ export function StudentMcqExamPage() {
             </Button>
           ) : null}
           <Button asChild variant="outline">
-            <Link href={ROUTES.student.assignments}>Back to assignments</Link>
+            <Link href={ROUTES.student.courses}>Back to My Courses</Link>
           </Button>
         </div>
       </div>
@@ -559,7 +559,7 @@ export function StudentMcqExamPage() {
             <p className="text-sm text-muted-foreground">No attempts remaining.</p>
           )}
           <Button asChild variant="outline">
-            <Link href={ROUTES.student.assignments}>Back</Link>
+            <Link href={ROUTES.student.courses}>Back</Link>
           </Button>
         </div>
         {actionError ? <p className="mt-3 text-sm text-accent">{actionError}</p> : null}

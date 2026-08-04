@@ -1,7 +1,6 @@
-import { StudentAssignmentsPage } from "@/components/student/student-assignments-page";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants";
 
-export const metadata = { title: "Assignments" };
-
-export default function Page() {
-  return <StudentAssignmentsPage />;
+export default function StudentAssignmentsRoute() {
+  redirect(ROUTES.student.courses);
 }

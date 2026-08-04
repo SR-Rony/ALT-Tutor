@@ -1,5 +1,6 @@
-import { StudentExamCenterPage } from "@/components/student/student-exam-center-page";
+import { redirect } from "next/navigation";
+import { ROUTES } from "@/constants";
 
 export default function StudentAssessmentsRoute() {
-  return <StudentExamCenterPage />;
+  redirect(ROUTES.student.courses);
 }
