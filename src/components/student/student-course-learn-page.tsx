@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -61,55 +61,45 @@ const TABS: { id: CourseTab; label: string; icon: typeof BookOpen }[] = [
 type ProgramLink = NonNullable<CourseDetail["programLinks"]>[number];
 
 const RESOURCE_GRID =
-  "grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4";
+  "grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
 function ResourceCard({
   href,
   title,
   meta,
-  icon,
-  actionLabel,
+  actionLabel = "Open Study",
   locked,
   unlockHref,
 }: {
   href: string;
   title: string;
   meta: string;
-  icon: ReactNode;
-  actionLabel: string;
+  actionLabel?: string;
   locked?: boolean;
   unlockHref?: string;
 }) {
   return (
-    <article
-      className={cn(
-        "flex h-full flex-col rounded-xl border border-border bg-card p-4 transition-colors",
-        !locked && "hover:border-primary/40 hover:bg-primary-muted/20"
-      )}
-    >
-      <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary">
-        {locked ? <Lock className="h-4 w-4" aria-hidden /> : icon}
-      </span>
-      <h5 className="mt-3 line-clamp-2 text-sm font-semibold leading-snug text-foreground">
-        {title}
-      </h5>
-      <p className="mt-1 mb-4 flex-1 line-clamp-2 text-xs text-muted-foreground">{meta}</p>
+    <article className="relative flex h-full flex-col rounded-xl border border-border/80 bg-white px-5 pb-5 pt-7 shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition hover:border-primary/25 hover:shadow-[0_8px_24px_-16px_rgba(24,119,242,0.25)]">
       {locked ? (
-        <Link
-          href={unlockHref ?? href}
-          className="inline-flex h-9 w-full items-center justify-center rounded-lg border border-border bg-background px-3 text-xs font-semibold text-foreground transition hover:border-primary/30 hover:bg-muted"
+        <span className="absolute -top-3 left-1/2 inline-flex -translate-x-1/2 items-center gap-1 rounded-md bg-muted px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground shadow-sm">
+          <Lock className="h-3 w-3" aria-hidden />
+          Locked
+        </span>
+      ) : null}
+      <h3 className="text-base font-bold leading-snug text-foreground">{title}</h3>
+      <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{meta}</p>
+      <div className="mt-5 flex justify-center">
+        <Button
+          asChild
+          variant="outline"
+          size="pill"
+          className="min-w-[8.5rem] border-foreground/25 font-semibold text-foreground hover:border-primary/40 hover:bg-primary-muted hover:text-foreground"
         >
-          Unlock
-        </Link>
-      ) : (
-        <Link
-          href={href}
-          className="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-xs font-semibold text-primary-foreground transition hover:bg-primary-hover"
-        >
-          {actionLabel}
-          <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-        </Link>
-      )}
+          <Link href={locked ? unlockHref ?? href : href}>
+            {locked ? "Unlock" : actionLabel}
+          </Link>
+        </Button>
+      </div>
     </article>
   );
 }
@@ -330,37 +320,39 @@ function ProgramQuestionbankSection({
           <Link href={ROUTES.subjectQuestionbank(programSlug)}>Full questionbank</Link>
         </Button>
       </div>
-      <div className="space-y-6">
+      <div className="space-y-10">
         {topics.map((topic) => (
-          <div key={topic.id} className="rounded-xl border border-border bg-card">
-            <div className="border-b border-border px-4 py-3.5 sm:px-5">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-primary">
-                Theme {topic.number}
-              </p>
-              <h4 className="mt-0.5 text-base font-bold text-foreground">{topic.title}</h4>
-              {topic.description ? (
-                <RichTextContent
-                  html={topic.description}
-                  className="mt-1 line-clamp-2 text-sm text-muted-foreground"
-                />
-              ) : null}
-            </div>
-            <div className={cn(RESOURCE_GRID, "p-4 sm:p-5")}>
-              {(topic.subtopics ?? []).map((sub) => {
+          <section key={topic.id}>
+            <p className="text-sm font-medium text-muted-foreground">Topic {topic.number}</p>
+            <h4 className="mt-1 text-2xl font-bold text-foreground md:text-[1.75rem]">
+              {topic.title}
+            </h4>
+            {topic.description ? (
+              <RichTextContent
+                html={topic.description}
+                className="mt-2 max-w-3xl text-sm text-muted-foreground"
+              />
+            ) : null}
+            <div className={cn(RESOURCE_GRID, "mt-6")}>
+              {(topic.subtopics ?? []).map((sub, subIndex) => {
                 const questionCount = sub._count?.questions ?? 0;
+                const serial = `${topic.number}.${subIndex + 1}`;
                 return (
                   <ResourceCard
                     key={sub.id}
                     href={ROUTES.subjectQuestionbankStudy(programSlug, sub.slug)}
-                    title={sub.title}
-                    meta={`${questionCount} question${questionCount === 1 ? "" : "s"}`}
-                    icon={<BookOpen className="h-4 w-4" aria-hidden />}
-                    actionLabel="Study"
+                    title={`${serial} ${sub.title}`}
+                    meta={
+                      questionCount > 0
+                        ? `${questionCount} practice question${questionCount === 1 ? "" : "s"} in this study set.`
+                        : "Practice questions in this study set."
+                    }
+                    actionLabel="Open Study"
                   />
                 );
               })}
             </div>
-          </div>
+          </section>
         ))}
       </div>
       <p className="text-xs text-muted-foreground">
@@ -483,15 +475,14 @@ function ProgramKeyConceptsSection({
               meta={[
                 lesson.topic ? `Theme ${lesson.topic.number}` : null,
                 lesson.contentType === "VIDEO"
-                  ? "Video"
+                  ? "Video lesson"
                   : lesson.contentType === "MIXED"
-                    ? "Mixed"
-                    : "Article",
+                    ? "Mixed lesson"
+                    : "Article lesson",
               ]
                 .filter(Boolean)
                 .join(" · ")}
-              icon={<BookOpen className="h-4 w-4" aria-hidden />}
-              actionLabel="Open"
+              actionLabel="Open Study"
               locked={locked}
             />
           );
@@ -595,12 +586,11 @@ function ProgramPracticeExamsSection({
               meta={[
                 template.modeLabel ?? template.mode ?? "MCQ",
                 template.durationMin ? `${template.durationMin} min` : null,
-                template.totalQuestions ? `${template.totalQuestions} Qs` : null,
+                template.totalQuestions ? `${template.totalQuestions} questions` : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}
-              icon={<ClipboardList className="h-4 w-4" aria-hidden />}
-              actionLabel="Open"
+              actionLabel="Open Exam"
               locked={locked}
             />
           );
@@ -705,12 +695,11 @@ function ProgramPastPapersSection({
                 String(paper.year),
                 paper.session || null,
                 paper.paperCode || null,
-                paper.totalQuestions ? `${paper.totalQuestions} Qs` : null,
+                paper.totalQuestions ? `${paper.totalQuestions} questions` : null,
               ]
                 .filter(Boolean)
                 .join(" · ")}
-              icon={<FileText className="h-4 w-4" aria-hidden />}
-              actionLabel="Open"
+              actionLabel="Open Study"
               locked={locked}
             />
           );
