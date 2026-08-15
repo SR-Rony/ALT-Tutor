@@ -9,12 +9,21 @@ import {
   ChevronRight,
   ExternalLink,
   RefreshCw,
+  UserPlus,
 } from "lucide-react";
+import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { AdminActionsBar, AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { PageHeader, PageLoader } from "@/components/shared";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants";
-import { useAdminCancelEnrollment, useAdminEnrollments } from "@/hooks";
+import {
+  useAdminCancelEnrollment,
+  useAdminCourses,
+  useAdminEnrollStudent,
+  useAdminEnrollments,
+  useAdminUsers,
+} from "@/hooks/use-admin-dashboard";
 import { formatCoursePrice } from "@/lib/course-format";
 import { formatShortDate } from "@/lib/format";
 import type { ApiError, EnrollmentStatus } from "@/types";
@@ -47,6 +56,175 @@ function formatStatusLabel(status: string) {
   return status;
 }
 
+function AdminEnrollStudentModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const { data: students = [], isLoading: studentsLoading } = useAdminUsers("STUDENT");
+  const { data: courses = [], isLoading: coursesLoading } = useAdminCourses();
+  const enrollStudent = useAdminEnrollStudent();
+
+  const [studentId, setStudentId] = useState("");
+  const [courseId, setCourseId] = useState("");
+  const [studentQuery, setStudentQuery] = useState("");
+  const [courseQuery, setCourseQuery] = useState("");
+  const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setStudentId("");
+    setCourseId("");
+    setStudentQuery("");
+    setCourseQuery("");
+    setFormError(null);
+  }, [open]);
+
+  const filteredStudents = useMemo(() => {
+    const q = studentQuery.trim().toLowerCase();
+    const active = students.filter((s) => s.isActive);
+    if (!q) return active;
+    return active.filter(
+      (s) =>
+        s.name.toLowerCase().includes(q) ||
+        s.phone.toLowerCase().includes(q) ||
+        (s.email ?? "").toLowerCase().includes(q)
+    );
+  }, [students, studentQuery]);
+
+  const filteredCourses = useMemo(() => {
+    const q = courseQuery.trim().toLowerCase();
+    const available = courses.filter((c) => String(c.status).toUpperCase() !== "ARCHIVED");
+    if (!q) return available;
+    return available.filter(
+      (c) =>
+        c.title.toLowerCase().includes(q) ||
+        c.slug.toLowerCase().includes(q) ||
+        c.teacher?.name?.toLowerCase().includes(q)
+    );
+  }, [courses, courseQuery]);
+
+  const selectedStudent = students.find((s) => s.id === studentId);
+  const selectedCourse = courses.find((c) => c.id === courseId);
+
+  const onSubmit = async () => {
+    if (!studentId || !courseId) {
+      setFormError("Select both a student and a course.");
+      return;
+    }
+    setFormError(null);
+    try {
+      await enrollStudent.mutateAsync({ studentId, courseId });
+      onClose();
+    } catch (err) {
+      const apiError = err as ApiError;
+      setFormError(apiError?.message || "Failed to enroll student");
+    }
+  };
+
+  return (
+    <AdminModal
+      open={open}
+      onClose={onClose}
+      title="Enroll student"
+      description="Manually enroll any student into any course. Payment is skipped; access duration still applies."
+      className="sm:max-w-lg"
+      footer={
+        <div className="flex flex-wrap justify-end gap-2">
+          <Button type="button" variant="outline" onClick={onClose} disabled={enrollStudent.isPending}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void onSubmit()}
+            disabled={enrollStudent.isPending || !studentId || !courseId}
+          >
+            {enrollStudent.isPending ? "Enrolling…" : "Enroll student"}
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-foreground">Student</label>
+          <Input
+            value={studentQuery}
+            onChange={(e) => setStudentQuery(e.target.value)}
+            placeholder="Filter by name, phone, or email…"
+          />
+          <select
+            value={studentId}
+            onChange={(e) => setStudentId(e.target.value)}
+            disabled={studentsLoading}
+            className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+          >
+            <option value="">
+              {studentsLoading ? "Loading students…" : "Select a student"}
+            </option>
+            {filteredStudents.map((student) => (
+              <option key={student.id} value={student.id}>
+                {student.name} · {student.phone}
+                {student.email ? ` · ${student.email}` : ""}
+              </option>
+            ))}
+          </select>
+          {selectedStudent ? (
+            <p className="text-xs text-muted-foreground">
+              Selected: {selectedStudent.name} ({selectedStudent.phone})
+            </p>
+          ) : null}
+          {!studentsLoading && filteredStudents.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No active students match this filter.</p>
+          ) : null}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-semibold text-foreground">Course</label>
+          <Input
+            value={courseQuery}
+            onChange={(e) => setCourseQuery(e.target.value)}
+            placeholder="Filter by title, slug, or teacher…"
+          />
+          <select
+            value={courseId}
+            onChange={(e) => setCourseId(e.target.value)}
+            disabled={coursesLoading}
+            className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm text-foreground outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+          >
+            <option value="">
+              {coursesLoading ? "Loading courses…" : "Select a course"}
+            </option>
+            {filteredCourses.map((course) => (
+              <option key={course.id} value={course.id}>
+                {course.title} · {String(course.status)} · {formatCoursePrice(course.price)}
+              </option>
+            ))}
+          </select>
+          {selectedCourse ? (
+            <p className="text-xs text-muted-foreground">
+              Selected: {selectedCourse.title}
+              {String(selectedCourse.status).toUpperCase() === "DRAFT"
+                ? " (draft — student may have limited public visibility)"
+                : ""}
+            </p>
+          ) : null}
+          {!coursesLoading && filteredCourses.length === 0 ? (
+            <p className="text-xs text-muted-foreground">No courses match this filter.</p>
+          ) : null}
+        </div>
+
+        {formError ? (
+          <p className="rounded-lg border border-[#fecdca] bg-[#fef3f2] px-3 py-2 text-sm text-[#b42318]">
+            {formError}
+          </p>
+        ) : null}
+      </div>
+    </AdminModal>
+  );
+}
+
 export function AdminEnrollmentsPage() {
   const router = useRouter();
   const [searchInput, setSearchInput] = useState("");
@@ -55,6 +233,7 @@ export function AdminEnrollmentsPage() {
   const [page, setPage] = useState(1);
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
+  const [enrollOpen, setEnrollOpen] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -129,14 +308,20 @@ export function AdminEnrollmentsPage() {
             description="Track student course enrollments, progress, and access status."
             className="mb-0"
           />
-          <AdminIconAction
-            label="Refresh"
-            icon={RefreshCw}
-            tone="primary"
-            disabled={isFetching}
-            onClick={() => void refetch()}
-            className={isFetching ? "animate-spin" : undefined}
-          />
+          <div className="flex items-center gap-2">
+            <Button type="button" size="sm" onClick={() => setEnrollOpen(true)}>
+              <UserPlus className="h-4 w-4" aria-hidden />
+              Enroll student
+            </Button>
+            <AdminIconAction
+              label="Refresh"
+              icon={RefreshCw}
+              tone="primary"
+              disabled={isFetching}
+              onClick={() => void refetch()}
+              className={isFetching ? "animate-spin" : undefined}
+            />
+          </div>
         </div>
 
         <div className="mb-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -375,6 +560,8 @@ export function AdminEnrollmentsPage() {
           </div>
         </div>
       ) : null}
+
+      <AdminEnrollStudentModal open={enrollOpen} onClose={() => setEnrollOpen(false)} />
     </div>
   );
 }

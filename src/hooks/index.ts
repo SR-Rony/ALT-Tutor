@@ -17,6 +17,7 @@ export {
   useAdminPayments,
   useAdminEnrollments,
   useAdminCancelEnrollment,
+  useAdminEnrollStudent,
   useAdminReviews,
   useAdminUpdateReview,
   useAdminDeleteReview,

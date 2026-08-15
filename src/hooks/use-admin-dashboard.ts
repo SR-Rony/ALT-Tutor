@@ -170,6 +170,20 @@ export function useAdminCancelEnrollment() {
   });
 }
 
+export function useAdminEnrollStudent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { studentId: string; courseId: string }) =>
+      adminEnrollmentsService.enroll(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ["admin", "enrollments"] });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.navBadges });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.courses });
+    },
+  });
+}
+
 export function useUpdateUserStatus() {
   const queryClient = useQueryClient();
 

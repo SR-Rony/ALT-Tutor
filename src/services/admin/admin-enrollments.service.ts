@@ -58,4 +58,9 @@ export const adminEnrollmentsService = {
     const response = await apiClient.patch<AdminEnrollment>(`/enrollments/admin/${id}/cancel`);
     return response.data;
   },
+
+  async enroll(payload: { studentId: string; courseId: string }): Promise<AdminEnrollment> {
+    const response = await apiClient.post<AdminEnrollment>("/enrollments/admin", payload);
+    return response.data;
+  },
 };
