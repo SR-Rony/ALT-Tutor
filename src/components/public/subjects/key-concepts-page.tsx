@@ -6,17 +6,17 @@ import Link from "next/link";
 import {
   BookOpen,
   Clock3,
-  ExternalLink,
   Loader2,
   Lock,
   PlayCircle,
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
-import { PageLoader } from "@/components/shared";
+import { PageLoader, SecureVideoPlayer } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { useKeyConceptLesson, useKeyConceptLessons } from "@/hooks";
+import { useAppSelector } from "@/store";
 import { normalizeAccessBadge, tierBadgeClass, tierLabel } from "@/lib/access-tier";
 import type { ApiError } from "@/types";
 import type { KeyConceptLesson } from "@/types/key-concept.types";
@@ -41,67 +41,18 @@ function contentLabel(type: string) {
   return "Article";
 }
 
-function youtubeEmbedUrl(url?: string | null) {
-  if (!url) return null;
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) {
-      const id = u.pathname.replace("/", "");
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.searchParams.get("v");
-      if (id) return `https://www.youtube.com/embed/${id}`;
-      if (u.pathname.startsWith("/embed/")) return url;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
-
 function VideoEmbed({ url, title }: { url: string; title: string }) {
-  const yt = youtubeEmbedUrl(url);
-  if (yt) {
-    return (
-      <div className="aspect-video w-full overflow-hidden rounded-xl border border-border bg-black shadow-sm">
-        <iframe
-          src={yt}
-          title={title}
-          className="h-full w-full"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-          allowFullScreen
-        />
-      </div>
-    );
-  }
-
-  const lower = url.toLowerCase();
-  if (/\.(mp4|webm|ogg)(\?|$)/.test(lower)) {
-    return (
-      <video
-        controls
-        className="aspect-video w-full rounded-xl border border-border bg-black shadow-sm"
-        src={url}
-      >
-        Your browser does not support the video tag.
-      </video>
-    );
-  }
+  const user = useAppSelector((state) => state.auth.user);
+  const watermarkText = user ? `${user.name} · ${user.phone}` : null;
 
   return (
-    <div className="rounded-xl border border-dashed border-border bg-muted/30 p-6 text-center">
-      <PlayCircle className="mx-auto mb-2 h-8 w-8 text-primary" />
-      <p className="text-sm text-muted-foreground">Inline preview is unavailable for this link.</p>
-      <a
-        href={url}
-        target="_blank"
-        rel="noreferrer"
-        className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-primary hover:underline"
-      >
-        Watch video <ExternalLink className="h-3.5 w-3.5" />
-      </a>
-    </div>
+    <SecureVideoPlayer
+      title={title}
+      directUrl={url}
+      watermarkText={watermarkText}
+      rounded
+      className="border border-border shadow-sm"
+    />
   );
 }
 

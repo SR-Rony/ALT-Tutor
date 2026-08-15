@@ -4,10 +4,11 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { BookOpen, Clock3, Lock, PlayCircle } from "lucide-react";
 import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
-import { PageLoader } from "@/components/shared";
+import { PageLoader, SecureVideoPlayer } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { useKeyConceptLesson } from "@/hooks";
+import { useAppSelector } from "@/store";
 import { normalizeAccessBadge, tierBadgeClass, tierLabel } from "@/lib/access-tier";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
@@ -18,25 +19,6 @@ type Props = {
   programSlug: string;
   lessonSlug: string;
 };
-
-function youtubeEmbedUrl(url?: string | null) {
-  if (!url) return null;
-  try {
-    const u = new URL(url);
-    if (u.hostname.includes("youtu.be")) {
-      const id = u.pathname.replace("/", "");
-      return id ? `https://www.youtube.com/embed/${id}` : null;
-    }
-    if (u.hostname.includes("youtube.com")) {
-      const id = u.searchParams.get("v");
-      if (id) return `https://www.youtube.com/embed/${id}`;
-      if (u.pathname.startsWith("/embed/")) return url;
-    }
-  } catch {
-    return null;
-  }
-  return null;
-}
 
 function MarkdownBody({ text }: { text: string }) {
   const blocks = useMemo(() => {
@@ -104,12 +86,13 @@ function MarkdownBody({ text }: { text: string }) {
 export function KeyConceptLessonPage({ programSlug, lessonSlug }: Props) {
   const { programName, isLoading: menuLoading } = useProgramContext(programSlug);
   const { data, isLoading, error, refetch } = useKeyConceptLesson(programSlug, lessonSlug);
+  const user = useAppSelector((state) => state.auth.user);
+  const watermarkText = user ? `${user.name} · ${user.phone}` : null;
   const [unlockOpen, setUnlockOpen] = useState(false);
 
   const lesson = data?.lesson;
   const locked = Boolean(lesson?.locked);
   const badge = normalizeAccessBadge(lesson?.accessTier);
-  const embed = youtubeEmbedUrl(lesson?.videoUrl);
 
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
@@ -205,30 +188,14 @@ export function KeyConceptLessonPage({ programSlug, lessonSlug }: Props) {
           </section>
         ) : (
           <>
-            {embed ? (
-              <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-                <div className="aspect-video w-full">
-                  <iframe
-                    title={lesson.title}
-                    src={embed}
-                    className="h-full w-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
-              </div>
-            ) : lesson.videoUrl ? (
-              <p className="rounded-xl border border-border bg-card px-4 py-3 text-sm">
-                Video:{" "}
-                <a
-                  href={lesson.videoUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="font-semibold text-primary hover:underline"
-                >
-                  Open link
-                </a>
-              </p>
+            {lesson.videoUrl ? (
+              <SecureVideoPlayer
+                title={lesson.title}
+                directUrl={lesson.videoUrl}
+                watermarkText={watermarkText}
+                rounded
+                className="border border-border shadow-sm"
+              />
             ) : null}
 
             {lesson.bodyMarkdown ? (
