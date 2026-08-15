@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { CheckCircle2, Loader2, RefreshCw, Save, Sparkles, Wallet } from "lucide-react";
+import { CheckCircle2, Loader2, RefreshCw, Save, Sparkles, UserPlus, Wallet } from "lucide-react";
+import { AdminGrantPracticeAccessModal } from "@/components/admin/shared/admin-grant-practice-access-modal";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ import {
   useCreateAccessProduct,
   useDeactivateAccessProduct,
   useUpdateAccessProduct,
-} from "@/hooks";
+} from "@/hooks/use-payments";
 import { formatMoney } from "@/lib/format";
 import { tierBadgeClass, tierLabel } from "@/lib/access-tier";
 import type { ApiError } from "@/types";
@@ -126,6 +127,7 @@ export function AdminAccessProductsPage() {
   const [setupBusy, setSetupBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionOk, setActionOk] = useState<string | null>(null);
+  const [grantOpen, setGrantOpen] = useState(false);
 
   const globalBySlug = useMemo(() => {
     const map = new Map<string, AccessProduct>();
@@ -304,6 +306,10 @@ export function AdminAccessProductsPage() {
             className="mb-0"
           />
           <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => setGrantOpen(true)}>
+              <UserPlus className="h-4 w-4" aria-hidden />
+              Grant student access
+            </Button>
             {needsSetup ? (
               <Button
                 type="button"
@@ -501,6 +507,8 @@ export function AdminAccessProductsPage() {
           );
         })}
       </div>
+
+      <AdminGrantPracticeAccessModal open={grantOpen} onClose={() => setGrantOpen(false)} />
     </div>
   );
 }

@@ -40,6 +40,15 @@ export const paymentsService = {
     return apiClient.delete<AccessProduct>(`/payments/products/${id}`).then((r) => r.data);
   },
 
+  adminGrantPracticeAccess(payload: {
+    studentId: string;
+    programId?: string | null;
+    accessTier: "SILVER" | "GOLD" | "DIAMOND";
+    durationDays?: number | null;
+  }) {
+    return apiClient.post("/payments/admin/grant-access", payload).then((r) => r.data);
+  },
+
   checkout(payload: CheckoutInput): Promise<CheckoutResult> {
     return apiClient.post<CheckoutResult>("/payments/checkout", payload).then((r) => r.data);
   },

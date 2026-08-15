@@ -85,3 +85,20 @@ export function useDeactivateAccessProduct() {
     onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.payments.products }),
   });
 }
+
+export function useAdminGrantPracticeAccess() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: {
+      studentId: string;
+      programId?: string | null;
+      accessTier: "SILVER" | "GOLD" | "DIAMOND";
+      durationDays?: number | null;
+    }) => paymentsService.adminGrantPracticeAccess(payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.payments.products });
+      void qc.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+      void qc.invalidateQueries({ queryKey: queryKeys.admin.users });
+    },
+  });
+}

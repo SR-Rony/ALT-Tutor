@@ -12,6 +12,7 @@ import {
   UserPlus,
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
+import { AdminGrantPracticeAccessModal } from "@/components/admin/shared/admin-grant-practice-access-modal";
 import { AdminActionsBar, AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -234,6 +235,7 @@ export function AdminEnrollmentsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [enrollOpen, setEnrollOpen] = useState(false);
+  const [grantPracticeOpen, setGrantPracticeOpen] = useState(false);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -309,6 +311,10 @@ export function AdminEnrollmentsPage() {
             className="mb-0"
           />
           <div className="flex items-center gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => setGrantPracticeOpen(true)}>
+              <UserPlus className="h-4 w-4" aria-hidden />
+              Grant practice access
+            </Button>
             <Button type="button" size="sm" onClick={() => setEnrollOpen(true)}>
               <UserPlus className="h-4 w-4" aria-hidden />
               Enroll student
@@ -562,6 +568,10 @@ export function AdminEnrollmentsPage() {
       ) : null}
 
       <AdminEnrollStudentModal open={enrollOpen} onClose={() => setEnrollOpen(false)} />
+      <AdminGrantPracticeAccessModal
+        open={grantPracticeOpen}
+        onClose={() => setGrantPracticeOpen(false)}
+      />
     </div>
   );
 }
