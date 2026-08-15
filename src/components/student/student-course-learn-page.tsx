@@ -29,10 +29,10 @@ import { RichTextContent } from "@/components/ui/rich-text-content";
 import { ROUTES, queryKeys } from "@/constants";
 import {
   useCourseDetail,
+  useCourseLearnQuestionbank,
   useKeyConceptLessons,
   usePastPaperArchive,
   usePracticeExamTemplates,
-  useQbProgram,
   useStudentCourses,
 } from "@/hooks";
 import { formatLessonDuration } from "@/lib/course-format";
@@ -260,107 +260,6 @@ function CourseHero({
   );
 }
 
-function ProgramQuestionbankSection({
-  programSlug,
-  programName,
-}: {
-  programSlug: string;
-  programName: string;
-}) {
-  const { data, isLoading, error } = useQbProgram(programSlug);
-
-  if (isLoading) {
-    return (
-      <div className="rounded-xl border border-border bg-muted/30 px-4 py-8 text-center text-sm text-muted-foreground">
-        Loading {programName} questionbank…
-      </div>
-    );
-  }
-
-  if (error || !data) {
-    return (
-      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-8 text-center">
-        <p className="text-sm text-muted-foreground">
-          Could not load questionbank for {programName}.
-        </p>
-        <Button asChild size="sm" variant="outline" className="mt-3">
-          <Link href={ROUTES.subjectQuestionbank(programSlug)}>Open public questionbank</Link>
-        </Button>
-      </div>
-    );
-  }
-
-  const topics = data.qbTopics ?? [];
-  const totalSets = topics.reduce((sum, t) => sum + (t.subtopics?.length ?? 0), 0);
-
-  if (topics.length === 0) {
-    return (
-      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
-        <HelpCircle className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden />
-        <p className="mt-3 font-semibold text-foreground">No practice sets yet</p>
-        <p className="mt-1 text-sm text-muted-foreground">
-          <span className="font-medium text-foreground">{programName}</span> is linked to this course,
-          but it has no questionbank topics or study sets. An admin needs to add topics under{" "}
-          <span className="font-medium text-foreground">Questionbank</span> for this subject — linking
-          alone is not enough.
-        </p>
-        <Button asChild size="sm" variant="outline" className="mt-4">
-          <Link href={ROUTES.subjectQuestionbank(programSlug)}>Open subject questionbank</Link>
-        </Button>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-bold text-foreground">{programName}</h3>
-        <p className="text-sm text-muted-foreground">
-          {topics.length} themes · {totalSets} study sets
-        </p>
-      </div>
-      <div className="space-y-10">
-        {topics.map((topic) => (
-          <section key={topic.id}>
-            <p className="text-sm font-medium text-muted-foreground">Topic {topic.number}</p>
-            <h4 className="mt-1 text-2xl font-bold text-foreground md:text-[1.75rem]">
-              {topic.title}
-            </h4>
-            {topic.description ? (
-              <RichTextContent
-                html={topic.description}
-                className="mt-2 max-w-3xl text-sm text-muted-foreground"
-              />
-            ) : null}
-            <div className={cn(RESOURCE_GRID, "mt-6")}>
-              {(topic.subtopics ?? []).map((sub, subIndex) => {
-                const questionCount = sub._count?.questions ?? 0;
-                const serial = `${topic.number}.${subIndex + 1}`;
-                return (
-                  <ResourceCard
-                    key={sub.id}
-                    href={ROUTES.subjectQuestionbankStudy(programSlug, sub.slug)}
-                    title={`${serial} ${sub.title}`}
-                    meta={
-                      questionCount > 0
-                        ? `${questionCount} practice question${questionCount === 1 ? "" : "s"} in this study set.`
-                        : "Practice questions in this study set."
-                    }
-                    actionLabel="Open Study"
-                  />
-                );
-              })}
-            </div>
-          </section>
-        ))}
-      </div>
-      <p className="text-xs text-muted-foreground">
-        Course-linked practice for {programName}.
-      </p>
-    </div>
-  );
-}
-
 function LinkedProgramsEmpty({
   title,
   description,
@@ -447,13 +346,58 @@ function CourseAssignedEmptyFallback({
   );
 }
 
-function CourseQuestionbankPanel({ programLinks }: { programLinks: ProgramLink[] }) {
-  if (programLinks.length === 0) {
+function CourseQuestionbankPanel({
+  courseId,
+  canAccessResources,
+}: {
+  courseId: string;
+  canAccessResources: boolean;
+}) {
+  const { data, isLoading, error } = useCourseLearnQuestionbank(
+    courseId,
+    canAccessResources
+  );
+
+  if (!canAccessResources) {
     return (
       <LinkedProgramsEmpty
-        title="Questionbank not linked"
-        description="Link a subject to this course in the admin course workspace so practice questions appear here."
+        title="Enrollment required"
+        description="Enroll in this course to access its Questionbank study sets."
       />
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="rounded-2xl border border-border bg-card px-6 py-14 text-center text-sm text-muted-foreground">
+        Loading course questionbank…
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center">
+        <p className="text-sm text-muted-foreground">
+          {(error as { message?: string })?.message ||
+            "Could not load this course questionbank."}
+        </p>
+      </div>
+    );
+  }
+
+  const programs = data?.programs ?? [];
+
+  if (programs.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-14 text-center">
+        <HelpCircle className="mx-auto h-10 w-10 text-muted-foreground/50" aria-hidden />
+        <h2 className="mt-4 text-lg font-bold text-foreground">No questionbank for this course</h2>
+        <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">
+          Only study sets used in this course&apos;s Practice Exams or Past Papers appear here. Ask
+          your admin to assign questions in the course workspace.
+        </p>
+      </div>
     );
   }
 
@@ -462,16 +406,58 @@ function CourseQuestionbankPanel({ programLinks }: { programLinks: ProgramLink[]
       <div>
         <h2 className="text-lg font-bold text-foreground">Practice questionbank</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Study sets from subjects linked to this course only.
+          Study sets assigned to this course only (from its Practice Exams and Past Papers).
         </p>
       </div>
-      {programLinks.map((link) => (
-        <ProgramQuestionbankSection
-          key={link.program.id}
-          programSlug={link.program.slug}
-          programName={link.program.name}
-        />
-      ))}
+      {programs.map((program) => {
+        const totalSets = program.topics.reduce((sum, t) => sum + t.subtopics.length, 0);
+        return (
+          <div key={program.id} className="space-y-4">
+            <div>
+              <h3 className="text-lg font-bold text-foreground">
+                {program.subject?.name ?? program.name}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {program.topics.length} themes · {totalSets} study sets
+              </p>
+            </div>
+            <div className="space-y-10">
+              {program.topics.map((topic) => (
+                <section key={topic.id}>
+                  <p className="text-sm font-medium text-muted-foreground">Topic {topic.number}</p>
+                  <h4 className="mt-1 text-2xl font-bold text-foreground md:text-[1.75rem]">
+                    {topic.title}
+                  </h4>
+                  {topic.description ? (
+                    <RichTextContent
+                      html={topic.description}
+                      className="mt-2 max-w-3xl text-sm text-muted-foreground"
+                    />
+                  ) : null}
+                  <div className={cn(RESOURCE_GRID, "mt-6")}>
+                    {topic.subtopics.map((sub, subIndex) => {
+                      const serial = `${topic.number}.${subIndex + 1}`;
+                      return (
+                        <ResourceCard
+                          key={sub.id}
+                          href={ROUTES.subjectQuestionbankStudy(program.slug, sub.slug)}
+                          title={`${serial} ${sub.title}`}
+                          meta={
+                            sub.questionCount > 0
+                              ? `${sub.questionCount} course question${sub.questionCount === 1 ? "" : "s"} in this study set.`
+                              : "Practice questions in this study set."
+                          }
+                          actionLabel="Open Study"
+                        />
+                      );
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -875,6 +861,7 @@ export function StudentCourseLearnPage({ slug }: Props) {
   );
   const isFree = Number(course?.price ?? 0) <= 0;
   const isEnrolled = Boolean(enrollment);
+  const canAccessResources = isEnrolled || isFree;
   const hasPreviewLessons = useMemo(
     () =>
       course?.chapters.some((chapter) => chapter.lessons.some((lesson) => lesson.isPreview)) ??
@@ -1238,19 +1225,43 @@ export function StudentCourseLearnPage({ slug }: Props) {
       ) : null}
 
       {activeTab === "questionbank" ? (
-        <CourseQuestionbankPanel programLinks={programLinks} />
+        <CourseQuestionbankPanel
+          courseId={course.id}
+          canAccessResources={canAccessResources}
+        />
       ) : null}
 
       {activeTab === "key-concepts" ? (
-        <CourseKeyConceptsPanel programLinks={programLinks} courseId={course.id} />
+        canAccessResources ? (
+          <CourseKeyConceptsPanel programLinks={programLinks} courseId={course.id} />
+        ) : (
+          <LinkedProgramsEmpty
+            title="Enrollment required"
+            description="Enroll in this course to access its Key Concepts."
+          />
+        )
       ) : null}
 
       {activeTab === "practice-exams" ? (
-        <CoursePracticeExamsPanel programLinks={programLinks} courseId={course.id} />
+        canAccessResources ? (
+          <CoursePracticeExamsPanel programLinks={programLinks} courseId={course.id} />
+        ) : (
+          <LinkedProgramsEmpty
+            title="Enrollment required"
+            description="Enroll in this course to access its Practice Exams."
+          />
+        )
       ) : null}
 
       {activeTab === "past-papers" ? (
-        <CoursePastPapersPanel programLinks={programLinks} courseId={course.id} />
+        canAccessResources ? (
+          <CoursePastPapersPanel programLinks={programLinks} courseId={course.id} />
+        ) : (
+          <LinkedProgramsEmpty
+            title="Enrollment required"
+            description="Enroll in this course to access its Past Papers."
+          />
+        )
       ) : null}
     </div>
   );

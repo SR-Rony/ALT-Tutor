@@ -20,6 +20,14 @@ export function useCourseUsedQuestions(courseId: string, ignoreResourceId?: stri
   });
 }
 
+export function useCourseLearnQuestionbank(courseId: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.admin.courseLearnQuestionbank(courseId),
+    queryFn: () => adminCoursesService.getLearnQuestionbank(courseId),
+    enabled: Boolean(courseId) && enabled,
+  });
+}
+
 export function useSetCourseProgramLinks(courseId: string) {
   const qc = useQueryClient();
   return useMutation({
@@ -28,6 +36,7 @@ export function useSetCourseProgramLinks(courseId: string) {
       void qc.invalidateQueries({ queryKey: queryKeys.admin.coursePrograms(courseId) });
       void qc.invalidateQueries({ queryKey: queryKeys.admin.course(courseId) });
       void qc.invalidateQueries({ queryKey: queryKeys.admin.courseUsedQuestions(courseId) });
+      void qc.invalidateQueries({ queryKey: queryKeys.admin.courseLearnQuestionbank(courseId) });
     },
   });
 }

@@ -72,6 +72,7 @@ function useInvalidatePastPapers() {
   return () => {
     void qc.invalidateQueries({ queryKey: queryKeys.pastPapers.all });
     void qc.invalidateQueries({ queryKey: ["admin", "courses"] });
+    void qc.invalidateQueries({ queryKey: ["courses"] });
   };
 }
 

@@ -115,6 +115,8 @@ export const queryKeys = {
     coursePrograms: (id: string) => ["admin", "courses", id, "programs"] as const,
     courseUsedQuestions: (id: string, ignoreResourceId?: string) =>
       ["admin", "courses", id, "used-questions", ignoreResourceId ?? "none"] as const,
+    courseLearnQuestionbank: (id: string) =>
+      ["courses", id, "learn-questionbank"] as const,
     categories: ["admin", "categories"] as const,
     subjects: ["admin", "subjects"] as const,
     payments: ["admin", "payments"] as const,

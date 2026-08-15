@@ -116,6 +116,7 @@ function useInvalidatePracticeExams() {
   return () => {
     void qc.invalidateQueries({ queryKey: queryKeys.practiceExams.all });
     void qc.invalidateQueries({ queryKey: ["admin", "courses"] });
+    void qc.invalidateQueries({ queryKey: ["courses"] });
   };
 }
 

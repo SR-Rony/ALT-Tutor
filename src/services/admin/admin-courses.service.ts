@@ -10,6 +10,30 @@ import type { CourseProgramLink } from "@/types/course.types";
 import { sleep } from "@/utils";
 import { apiClient } from "../api-client";
 
+export type CourseLearnQuestionbank = {
+  courseId: string;
+  programs: Array<{
+    id: string;
+    name: string;
+    slug: string;
+    subject: { id: string; name: string; slug: string } | null;
+    topics: Array<{
+      id: string;
+      title: string;
+      slug: string;
+      number: number;
+      description: string | null;
+      subtopics: Array<{
+        id: string;
+        title: string;
+        slug: string;
+        number: number;
+        questionCount: number;
+      }>;
+    }>;
+  }>;
+};
+
 export type CourseUpsertInput = {
   title: string;
   slug: string;
@@ -199,5 +223,16 @@ export const adminCoursesService = {
       }>;
     }>(`/courses/${courseId}/used-questions${qs ? `?${qs}` : ""}`);
     return response.data ?? { courseId, questionIds: [], usage: [] };
+  },
+
+  async getLearnQuestionbank(courseId: string): Promise<CourseLearnQuestionbank> {
+    if (env.useMockApi) {
+      await sleep(100);
+      return { courseId, programs: [] };
+    }
+    const response = await apiClient.get<CourseLearnQuestionbank>(
+      `/courses/${courseId}/learn-questionbank`
+    );
+    return response.data ?? { courseId, programs: [] };
   },
 };
