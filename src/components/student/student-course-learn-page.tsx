@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
   ArrowLeft,
@@ -25,7 +26,7 @@ import { PageLoader } from "@/components/shared";
 import { SecureVideoPlayer } from "@/components/shared/secure-video-player";
 import { Button } from "@/components/ui/button";
 import { RichTextContent } from "@/components/ui/rich-text-content";
-import { ROUTES } from "@/constants";
+import { ROUTES, queryKeys } from "@/constants";
 import {
   useCourseDetail,
   useKeyConceptLessons,
@@ -37,6 +38,9 @@ import {
 import { formatLessonDuration } from "@/lib/course-format";
 import { formatAccessRemaining } from "@/lib/format";
 import { apiClient } from "@/services/api-client";
+import { keyConceptsService } from "@/services/key-concepts.service";
+import { pastPapersService } from "@/services/past-papers.service";
+import { practiceExamsService } from "@/services/practice-exams.service";
 import { useAppSelector } from "@/store";
 import type { CourseDetail, CourseLesson } from "@/types/course.types";
 import { cn } from "@/utils";
@@ -309,16 +313,11 @@ function ProgramQuestionbankSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-lg font-bold text-foreground">{programName}</h3>
-          <p className="text-sm text-muted-foreground">
-            {topics.length} themes · {totalSets} study sets
-          </p>
-        </div>
-        <Button asChild size="sm" variant="outline">
-          <Link href={ROUTES.subjectQuestionbank(programSlug)}>Full questionbank</Link>
-        </Button>
+      <div>
+        <h3 className="text-lg font-bold text-foreground">{programName}</h3>
+        <p className="text-sm text-muted-foreground">
+          {topics.length} themes · {totalSets} study sets
+        </p>
       </div>
       <div className="space-y-10">
         {topics.map((topic) => (
@@ -381,12 +380,79 @@ function LinkedProgramsEmpty({
   );
 }
 
+function CourseAssignedEmptyFallback({
+  kind,
+  programLinks,
+  courseId,
+  icon: Icon,
+  title,
+  description,
+}: {
+  kind: "key-concepts" | "practice-exams" | "past-papers";
+  programLinks: ProgramLink[];
+  courseId: string;
+  icon: typeof BookOpen;
+  title: string;
+  description: string;
+}) {
+  const userId = useAppSelector((s) => s.auth.user?.id);
+  const authKey = userId ?? "anon";
+
+  const results = useQueries({
+    queries: programLinks.map((link) => {
+      const slug = link.program.slug;
+      if (kind === "key-concepts") {
+        return {
+          queryKey: queryKeys.keyConcepts.program(slug, authKey, courseId),
+          queryFn: () => keyConceptsService.listLessons(slug, courseId),
+          enabled: Boolean(slug && courseId),
+        };
+      }
+      if (kind === "practice-exams") {
+        return {
+          queryKey: queryKeys.practiceExams.program(slug, authKey, courseId),
+          queryFn: () => practiceExamsService.listTemplates(slug, courseId),
+          enabled: Boolean(slug && courseId),
+        };
+      }
+      return {
+        queryKey: queryKeys.pastPapers.program(slug, authKey, courseId),
+        queryFn: () => pastPapersService.listArchive(slug, courseId),
+        enabled: Boolean(slug && courseId),
+      };
+    }),
+  });
+
+  const loading = results.some((r) => r.isLoading || r.isPending);
+  if (loading) return null;
+
+  const total = results.reduce((sum, r) => {
+    const data = r.data as
+      | { lessons?: unknown[]; templates?: unknown[]; papers?: unknown[] }
+      | undefined;
+    if (!data) return sum;
+    if (kind === "key-concepts") return sum + (data.lessons?.length ?? 0);
+    if (kind === "practice-exams") return sum + (data.templates?.length ?? 0);
+    return sum + (data.papers?.length ?? 0);
+  }, 0);
+
+  if (total > 0) return null;
+
+  return (
+    <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
+      <Icon className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden />
+      <p className="mt-3 font-semibold text-foreground">{title}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    </div>
+  );
+}
+
 function CourseQuestionbankPanel({ programLinks }: { programLinks: ProgramLink[] }) {
   if (programLinks.length === 0) {
     return (
       <LinkedProgramsEmpty
         title="Questionbank not linked"
-        description="This course has no subject linked yet. Your instructor or admin can connect a subject so practice questions appear here."
+        description="Link a subject to this course in the admin course workspace so practice questions appear here."
       />
     );
   }
@@ -396,7 +462,7 @@ function CourseQuestionbankPanel({ programLinks }: { programLinks: ProgramLink[]
       <div>
         <h2 className="text-lg font-bold text-foreground">Practice questionbank</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Study sets from subjects linked to this course. Open a set to practice questions.
+          Study sets from subjects linked to this course only.
         </p>
       </div>
       {programLinks.map((link) => (
@@ -413,11 +479,13 @@ function CourseQuestionbankPanel({ programLinks }: { programLinks: ProgramLink[]
 function ProgramKeyConceptsSection({
   programSlug,
   programName,
+  courseId,
 }: {
   programSlug: string;
   programName: string;
+  courseId?: string;
 }) {
-  const { data, isLoading, error } = useKeyConceptLessons(programSlug);
+  const { data, isLoading, error } = useKeyConceptLessons(programSlug, courseId);
   const lessons = data?.lessons ?? [];
 
   if (isLoading) {
@@ -440,6 +508,8 @@ function ProgramKeyConceptsSection({
   }
 
   if (lessons.length === 0) {
+    // Course-scoped lists hide empty programs; panel shows one empty state.
+    if (courseId) return null;
     return (
       <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
         <BookOpen className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden />
@@ -454,14 +524,9 @@ function ProgramKeyConceptsSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-lg font-bold text-foreground">{programName}</h3>
-          <p className="text-sm text-muted-foreground">{lessons.length} lessons</p>
-        </div>
-        <Button asChild size="sm" variant="outline">
-          <Link href={ROUTES.subjectResource(programSlug, "key-concepts")}>Full Key Concepts</Link>
-        </Button>
+      <div>
+        <h3 className="text-lg font-bold text-foreground">{programName}</h3>
+        <p className="text-sm text-muted-foreground">{lessons.length} lessons</p>
       </div>
       <div className={RESOURCE_GRID}>
         {lessons.map((lesson) => {
@@ -492,12 +557,18 @@ function ProgramKeyConceptsSection({
   );
 }
 
-function CourseKeyConceptsPanel({ programLinks }: { programLinks: ProgramLink[] }) {
+function CourseKeyConceptsPanel({
+  programLinks,
+  courseId,
+}: {
+  programLinks: ProgramLink[];
+  courseId: string;
+}) {
   if (programLinks.length === 0) {
     return (
       <LinkedProgramsEmpty
-        title="Key Concepts not linked"
-        description="Link a subject to this course to show Key Concept lessons here."
+        title="Key Concepts not set"
+        description="Your admin can add Key Concepts for this course in the course workspace."
       />
     );
   }
@@ -507,7 +578,7 @@ function CourseKeyConceptsPanel({ programLinks }: { programLinks: ProgramLink[] 
       <div>
         <h2 className="text-lg font-bold text-foreground">Key Concepts</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Short lessons from subjects linked to this course.
+          Lessons assigned to this course only.
         </p>
       </div>
       {programLinks.map((link) => (
@@ -515,8 +586,17 @@ function CourseKeyConceptsPanel({ programLinks }: { programLinks: ProgramLink[] 
           key={link.program.id}
           programSlug={link.program.slug}
           programName={link.program.name}
+          courseId={courseId}
         />
       ))}
+      <CourseAssignedEmptyFallback
+        kind="key-concepts"
+        programLinks={programLinks}
+        courseId={courseId}
+        icon={BookOpen}
+        title="No key concepts for this course"
+        description="Nothing has been assigned under Key Concepts for this course yet."
+      />
     </div>
   );
 }
@@ -524,11 +604,13 @@ function CourseKeyConceptsPanel({ programLinks }: { programLinks: ProgramLink[] 
 function ProgramPracticeExamsSection({
   programSlug,
   programName,
+  courseId,
 }: {
   programSlug: string;
   programName: string;
+  courseId?: string;
 }) {
-  const { data, isLoading, error } = usePracticeExamTemplates(programSlug);
+  const { data, isLoading, error } = usePracticeExamTemplates(programSlug, courseId);
   const templates = data?.templates ?? [];
 
   if (isLoading) {
@@ -551,6 +633,7 @@ function ProgramPracticeExamsSection({
   }
 
   if (templates.length === 0) {
+    if (courseId) return null;
     return (
       <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
         <Timer className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden />
@@ -565,14 +648,9 @@ function ProgramPracticeExamsSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-lg font-bold text-foreground">{programName}</h3>
-          <p className="text-sm text-muted-foreground">{templates.length} exams</p>
-        </div>
-        <Button asChild size="sm" variant="outline">
-          <Link href={ROUTES.subjectResource(programSlug, "practice-exams")}>Full Practice Exams</Link>
-        </Button>
+      <div>
+        <h3 className="text-lg font-bold text-foreground">{programName}</h3>
+        <p className="text-sm text-muted-foreground">{templates.length} exams</p>
       </div>
       <div className={RESOURCE_GRID}>
         {templates.map((template) => {
@@ -600,12 +678,18 @@ function ProgramPracticeExamsSection({
   );
 }
 
-function CoursePracticeExamsPanel({ programLinks }: { programLinks: ProgramLink[] }) {
+function CoursePracticeExamsPanel({
+  programLinks,
+  courseId,
+}: {
+  programLinks: ProgramLink[];
+  courseId: string;
+}) {
   if (programLinks.length === 0) {
     return (
       <LinkedProgramsEmpty
-        title="Practice Exams not linked"
-        description="Link a subject to this course to show Practice Exams here."
+        title="Practice Exams not set"
+        description="Your admin can add Practice Exams for this course in the course workspace."
       />
     );
   }
@@ -615,7 +699,7 @@ function CoursePracticeExamsPanel({ programLinks }: { programLinks: ProgramLink[
       <div>
         <h2 className="text-lg font-bold text-foreground">Practice Exams</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Timed practice exams from subjects linked to this course.
+          Exams assigned to this course only.
         </p>
       </div>
       {programLinks.map((link) => (
@@ -623,8 +707,17 @@ function CoursePracticeExamsPanel({ programLinks }: { programLinks: ProgramLink[
           key={link.program.id}
           programSlug={link.program.slug}
           programName={link.program.name}
+          courseId={courseId}
         />
       ))}
+      <CourseAssignedEmptyFallback
+        kind="practice-exams"
+        programLinks={programLinks}
+        courseId={courseId}
+        icon={Timer}
+        title="No practice exams for this course"
+        description="Nothing has been assigned under Practice Exams for this course yet."
+      />
     </div>
   );
 }
@@ -632,11 +725,13 @@ function CoursePracticeExamsPanel({ programLinks }: { programLinks: ProgramLink[
 function ProgramPastPapersSection({
   programSlug,
   programName,
+  courseId,
 }: {
   programSlug: string;
   programName: string;
+  courseId?: string;
 }) {
-  const { data, isLoading, error } = usePastPaperArchive(programSlug);
+  const { data, isLoading, error } = usePastPaperArchive(programSlug, courseId);
   const papers = data?.papers ?? data?.years?.flatMap((y) => y.papers) ?? [];
 
   if (isLoading) {
@@ -659,6 +754,7 @@ function ProgramPastPapersSection({
   }
 
   if (papers.length === 0) {
+    if (courseId) return null;
     return (
       <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
         <FileText className="mx-auto h-8 w-8 text-muted-foreground/60" aria-hidden />
@@ -673,14 +769,9 @@ function ProgramPastPapersSection({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-lg font-bold text-foreground">{programName}</h3>
-          <p className="text-sm text-muted-foreground">{papers.length} papers</p>
-        </div>
-        <Button asChild size="sm" variant="outline">
-          <Link href={ROUTES.subjectResource(programSlug, "past-papers")}>Full Past Papers</Link>
-        </Button>
+      <div>
+        <h3 className="text-lg font-bold text-foreground">{programName}</h3>
+        <p className="text-sm text-muted-foreground">{papers.length} papers</p>
       </div>
       <div className={RESOURCE_GRID}>
         {papers.map((paper) => {
@@ -709,12 +800,18 @@ function ProgramPastPapersSection({
   );
 }
 
-function CoursePastPapersPanel({ programLinks }: { programLinks: ProgramLink[] }) {
+function CoursePastPapersPanel({
+  programLinks,
+  courseId,
+}: {
+  programLinks: ProgramLink[];
+  courseId: string;
+}) {
   if (programLinks.length === 0) {
     return (
       <LinkedProgramsEmpty
-        title="Past Papers not linked"
-        description="Link a subject to this course to show Past Papers here."
+        title="Past Papers not set"
+        description="Your admin can add Past Papers for this course in the course workspace."
       />
     );
   }
@@ -724,7 +821,7 @@ function CoursePastPapersPanel({ programLinks }: { programLinks: ProgramLink[] }
       <div>
         <h2 className="text-lg font-bold text-foreground">Past Papers</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Archive papers from subjects linked to this course.
+          Papers assigned to this course only.
         </p>
       </div>
       {programLinks.map((link) => (
@@ -732,8 +829,17 @@ function CoursePastPapersPanel({ programLinks }: { programLinks: ProgramLink[] }
           key={link.program.id}
           programSlug={link.program.slug}
           programName={link.program.name}
+          courseId={courseId}
         />
       ))}
+      <CourseAssignedEmptyFallback
+        kind="past-papers"
+        programLinks={programLinks}
+        courseId={courseId}
+        icon={FileText}
+        title="No past papers for this course"
+        description="Nothing has been assigned under Past Papers for this course yet."
+      />
     </div>
   );
 }
@@ -1136,15 +1242,15 @@ export function StudentCourseLearnPage({ slug }: Props) {
       ) : null}
 
       {activeTab === "key-concepts" ? (
-        <CourseKeyConceptsPanel programLinks={programLinks} />
+        <CourseKeyConceptsPanel programLinks={programLinks} courseId={course.id} />
       ) : null}
 
       {activeTab === "practice-exams" ? (
-        <CoursePracticeExamsPanel programLinks={programLinks} />
+        <CoursePracticeExamsPanel programLinks={programLinks} courseId={course.id} />
       ) : null}
 
       {activeTab === "past-papers" ? (
-        <CoursePastPapersPanel programLinks={programLinks} />
+        <CoursePastPapersPanel programLinks={programLinks} courseId={course.id} />
       ) : null}
     </div>
   );

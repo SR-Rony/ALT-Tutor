@@ -32,6 +32,7 @@ export type PastPaperSection = {
 export type PastPaper = {
   id: string;
   programId?: string;
+  courseId?: string | null;
   year: number;
   session: string;
   paperCode: string;
@@ -117,6 +118,7 @@ export type PastPaperSectionInput = {
 
 export type CreatePastPaperInput = {
   programId: string;
+  courseId?: string;
   year: number;
   session: string;
   paperCode: string;

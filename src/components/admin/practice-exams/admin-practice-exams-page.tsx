@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
+import { type CourseLinkedProgram } from "@/components/admin/key-concepts/admin-key-concepts-page";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import {
   useAdminPracticeExams,
   useAdminQuestionbank,
   useAdminSubjectsTree,
+  useCourseUsedQuestions,
   useCreatePracticeExamTemplate,
   useDeletePracticeExamTemplate,
   useUpdatePracticeExamTemplate,
@@ -70,10 +72,8 @@ function writtenStyleLabel(style: PracticeExamWrittenStyle | string | null | und
   return style === "PER_QUESTION" ? "Per question (1Q or many)" : "Full paper pack";
 }
 
-function allowedQuestionTypes(mode: PracticeExamMode) {
-  return mode === "WRITTEN"
-    ? (["SHORT_ANSWER", "DATA_BASED"] as const)
-    : (["MULTIPLE_CHOICE"] as const);
+function allowedQuestionTypes(mode: PracticeExamMode): string[] {
+  return mode === "WRITTEN" ? ["SHORT_ANSWER", "DATA_BASED"] : ["MULTIPLE_CHOICE"];
 }
 
 function scopeLabel(
@@ -120,11 +120,24 @@ function findProgramPath(
   return null;
 }
 
-export function AdminPracticeExamsPage() {
+type AdminPracticeExamsPageProps = {
+  courseId?: string;
+  linkedPrograms?: CourseLinkedProgram[];
+  embedded?: boolean;
+};
+
+export function AdminPracticeExamsPage({
+  courseId,
+  linkedPrograms,
+  embedded = false,
+}: AdminPracticeExamsPageProps = {}) {
   const { data: subjectsTree = [] } = useAdminSubjectsTree();
   const [categoryId, setCategoryId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [programId, setProgramId] = useState("");
+  const [linkedProgramId, setLinkedProgramId] = useState("");
+
+  const useLinkedOnly = Boolean(courseId && linkedPrograms);
 
   const effectiveCategoryId = categoryId || subjectsTree[0]?.id || "";
   const subjects = useMemo(() => {
@@ -134,11 +147,24 @@ export function AdminPracticeExamsPage() {
   const programs = useMemo(() => {
     return subjects.find((s) => s.id === effectiveSubjectId)?.programs ?? [];
   }, [subjects, effectiveSubjectId]);
-  const effectiveProgramId = programId || programs[0]?.id || "";
-  const selectedProgram = programs.find((p) => p.id === effectiveProgramId) ?? programs[0];
+
+  useEffect(() => {
+    if (!useLinkedOnly || !linkedPrograms?.length) return;
+    if (!linkedProgramId || !linkedPrograms.some((p) => p.id === linkedProgramId)) {
+      setLinkedProgramId(linkedPrograms[0].id);
+    }
+  }, [useLinkedOnly, linkedPrograms, linkedProgramId]);
+
+  const effectiveProgramId = useLinkedOnly
+    ? linkedProgramId || linkedPrograms?.[0]?.id || ""
+    : programId || programs[0]?.id || "";
+  const selectedProgram = useLinkedOnly
+    ? linkedPrograms?.find((p) => p.id === effectiveProgramId)
+    : programs.find((p) => p.id === effectiveProgramId) ?? programs[0];
 
   const { data, isLoading, error, refetch, isFetching } = useAdminPracticeExams(
-    effectiveProgramId || undefined
+    effectiveProgramId || undefined,
+    courseId
   );
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -158,12 +184,21 @@ export function AdminPracticeExamsPage() {
     const subId = modalSubjectId || modalSubjects[0]?.id || "";
     return modalSubjects.find((s) => s.id === subId)?.programs ?? [];
   }, [modalSubjects, modalSubjectId]);
-  const effectiveModalProgramId =
-    modalProgramId || modalPrograms[0]?.id || effectiveProgramId || "";
+  const effectiveModalProgramId = useLinkedOnly
+    ? modalProgramId || effectiveProgramId || ""
+    : modalProgramId || modalPrograms[0]?.id || effectiveProgramId || "";
   const scopeLocked = Boolean(editId);
 
   const qbProgramId = modalOpen ? effectiveModalProgramId : effectiveProgramId;
   const { data: qbTopics = [] } = useAdminQuestionbank(qbProgramId || undefined);
+  const { data: usedQuestionsData } = useCourseUsedQuestions(
+    courseId ?? "",
+    editId ?? undefined
+  );
+  const usedQuestionIds = useMemo(
+    () => new Set(usedQuestionsData?.questionIds ?? []),
+    [usedQuestionsData]
+  );
   const createTemplate = useCreatePracticeExamTemplate();
   const updateTemplate = useUpdatePracticeExamTemplate();
   const deleteTemplate = useDeletePracticeExamTemplate();
@@ -232,7 +267,7 @@ export function AdminPracticeExamsPage() {
       for (const sub of topic.subtopics) {
         for (const q of sub.questions ?? []) {
           if (!q.isActive) continue;
-          if (!types.includes(q.questionType as (typeof types)[number])) continue;
+          if (!types.includes(String(q.questionType))) continue;
           rows.push({
             id: q.id,
             number: q.number,
@@ -259,12 +294,12 @@ export function AdminPracticeExamsPage() {
       for (const sub of topic.subtopics) {
         if (subtopicId && sub.id !== subtopicId) continue;
         for (const q of sub.questions ?? []) {
-          if (!selected.has(q.id)) allowedIds.add(q.id);
+          if (!selected.has(q.id) && !usedQuestionIds.has(q.id)) allowedIds.add(q.id);
         }
       }
     }
     return allModeQuestions.filter((q) => allowedIds.has(q.id));
-  }, [allModeQuestions, selectedQuestionIds, qbTopics, topicId, subtopicId]);
+  }, [allModeQuestions, selectedQuestionIds, qbTopics, topicId, subtopicId, usedQuestionIds]);
 
   const selectedQuestions = useMemo(() => {
     const byId = new Map(allModeQuestions.map((q) => [q.id, q]));
@@ -488,7 +523,6 @@ export function AdminPracticeExamsPage() {
       writtenStyle: mode === "WRITTEN" ? writtenStyle : undefined,
       durationMin: Number.parseInt(durationMin, 10),
       totalQuestions: selectedQuestionIds.length,
-      passMarkPercent: mode === "WRITTEN" ? (editId ? null : undefined) : 50,
       blueprint,
       accessTier,
       isPublished,
@@ -500,18 +534,30 @@ export function AdminPracticeExamsPage() {
 
     try {
       if (editId) {
-        await updateTemplate.mutateAsync({ id: editId, payload });
+        await updateTemplate.mutateAsync({
+          id: editId,
+          payload: {
+            ...payload,
+            passMarkPercent: mode === "WRITTEN" ? null : 50,
+          } as import("@/types/practice-exam.types").UpdatePracticeExamTemplateInput,
+        });
       } else {
         await createTemplate.mutateAsync({
           programId: effectiveModalProgramId,
+          ...(courseId ? { courseId } : {}),
           ...payload,
+          passMarkPercent: mode === "WRITTEN" ? undefined : 50,
         });
         // Keep page list on the program we just created into
-        const path = findProgramPath(subjectsTree, effectiveModalProgramId);
-        if (path) {
-          setCategoryId(path.categoryId);
-          setSubjectId(path.subjectId);
-          setProgramId(path.programId);
+        if (useLinkedOnly) {
+          setLinkedProgramId(effectiveModalProgramId);
+        } else {
+          const path = findProgramPath(subjectsTree, effectiveModalProgramId);
+          if (path) {
+            setCategoryId(path.categoryId);
+            setSubjectId(path.subjectId);
+            setProgramId(path.programId);
+          }
         }
       }
       setModalOpen(false);
@@ -531,14 +577,25 @@ export function AdminPracticeExamsPage() {
     }
   };
 
-  if (isLoading && templates.length === 0 && programs.length > 0) {
+  if (useLinkedOnly && (!linkedPrograms || linkedPrograms.length === 0)) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        Link at least one subject program in the Subjects tab before creating Practice Exams for this
+        course.
+      </div>
+    );
+  }
+
+  if (isLoading && templates.length === 0 && Boolean(effectiveProgramId)) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Practice Exams"
-          description="Create and manage MCQ & Written practice exams."
-          className="mb-0"
-        />
+        {!embedded ? (
+          <PageHeader
+            title="Practice Exams"
+            description="Create and manage MCQ & Written practice exams."
+            className="mb-0"
+          />
+        ) : null}
         <PageLoader label="Loading practice exams..." />
       </div>
     );
@@ -549,11 +606,20 @@ export function AdminPracticeExamsPage() {
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
         <div className="border-b border-border px-5 py-6">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <PageHeader
-              title="Practice Exams"
-              description="Create, edit, publish, or delete templates. Students take them from the subject Practice Exams hub."
-              className="mb-0"
-            />
+            {!embedded ? (
+              <PageHeader
+                title="Practice Exams"
+                description="Create, edit, publish, or delete templates. Students take them from the subject Practice Exams hub."
+                className="mb-0"
+              />
+            ) : (
+              <div>
+                <h3 className="text-base font-bold text-foreground">Course Practice Exams</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Exams created here belong to this course only.
+                </p>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               <AdminIconAction
                 label="Refresh"
@@ -563,14 +629,16 @@ export function AdminPracticeExamsPage() {
                 onClick={() => void refetch()}
                 className={isFetching ? "animate-spin" : undefined}
               />
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                asChild
-              >
-                <Link href={ROUTES.admin.practiceExamMarking}>Written Marking</Link>
-              </Button>
+              {!embedded ? (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  asChild
+                >
+                  <Link href={ROUTES.admin.practiceExamMarking}>Written Marking</Link>
+                </Button>
+              ) : null}
               <Button
                 type="button"
                 size="sm"
@@ -593,63 +661,82 @@ export function AdminPracticeExamsPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="block space-y-1.5">
+          {useLinkedOnly ? (
+            <label className="block max-w-md space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Category
-              </span>
-              <select
-                value={effectiveCategoryId}
-                onChange={(e) => {
-                  setCategoryId(e.target.value);
-                  setSubjectId("");
-                  setProgramId("");
-                }}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                {subjectsTree.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Subject
-              </span>
-              <select
-                value={effectiveSubjectId}
-                onChange={(e) => {
-                  setSubjectId(e.target.value);
-                  setProgramId("");
-                }}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Program
+                Linked subject program
               </span>
               <select
                 value={effectiveProgramId}
-                onChange={(e) => setProgramId(e.target.value)}
+                onChange={(e) => setLinkedProgramId(e.target.value)}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
-                {programs.map((p) => (
+                {(linkedPrograms ?? []).map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name}
+                    {p.subjectName} · {p.name}
                   </option>
                 ))}
               </select>
             </label>
-          </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Category
+                </span>
+                <select
+                  value={effectiveCategoryId}
+                  onChange={(e) => {
+                    setCategoryId(e.target.value);
+                    setSubjectId("");
+                    setProgramId("");
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+                >
+                  {subjectsTree.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Subject
+                </span>
+                <select
+                  value={effectiveSubjectId}
+                  onChange={(e) => {
+                    setSubjectId(e.target.value);
+                    setProgramId("");
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+                >
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Program
+                </span>
+                <select
+                  value={effectiveProgramId}
+                  onChange={(e) => setProgramId(e.target.value)}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+                >
+                  {programs.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
 
           {error ? (
             <p className="mt-2 text-sm text-accent">
@@ -1036,68 +1123,91 @@ export function AdminPracticeExamsPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Questionbank scope
             </p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Category</span>
-                <select
-                  value={modalCategoryId || subjectsTree[0]?.id || ""}
-                  disabled={busy || scopeLocked}
-                  onChange={(e) => {
-                    setModalCategoryId(e.target.value);
-                    setModalSubjectId("");
-                    setModalProgramId("");
-                    clearQuestionScope();
-                  }}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
-                >
-                  {subjectsTree.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Subject</span>
-                <select
-                  value={modalSubjectId || modalSubjects[0]?.id || ""}
-                  disabled={busy || scopeLocked || modalSubjects.length === 0}
-                  onChange={(e) => {
-                    setModalSubjectId(e.target.value);
-                    setModalProgramId("");
-                    clearQuestionScope();
-                  }}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
-                >
-                  {modalSubjects.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Program</span>
+            {useLinkedOnly ? (
+              <label className="block max-w-md space-y-1.5">
+                <span className="text-sm font-semibold">Linked subject program</span>
                 <select
                   value={effectiveModalProgramId}
-                  disabled={busy || scopeLocked || modalPrograms.length === 0}
+                  disabled={busy || scopeLocked}
                   onChange={(e) => {
                     setModalProgramId(e.target.value);
                     clearQuestionScope();
                   }}
                   className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
                 >
-                  {modalPrograms.map((p) => (
+                  {(linkedPrograms ?? []).map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name}
+                      {p.subjectName} · {p.name}
                     </option>
                   ))}
                 </select>
               </label>
-            </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-semibold">Category</span>
+                  <select
+                    value={modalCategoryId || subjectsTree[0]?.id || ""}
+                    disabled={busy || scopeLocked}
+                    onChange={(e) => {
+                      setModalCategoryId(e.target.value);
+                      setModalSubjectId("");
+                      setModalProgramId("");
+                      clearQuestionScope();
+                    }}
+                    className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                  >
+                    {subjectsTree.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-semibold">Subject</span>
+                  <select
+                    value={modalSubjectId || modalSubjects[0]?.id || ""}
+                    disabled={busy || scopeLocked || modalSubjects.length === 0}
+                    onChange={(e) => {
+                      setModalSubjectId(e.target.value);
+                      setModalProgramId("");
+                      clearQuestionScope();
+                    }}
+                    className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                  >
+                    {modalSubjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-semibold">Program</span>
+                  <select
+                    value={effectiveModalProgramId}
+                    disabled={busy || scopeLocked || modalPrograms.length === 0}
+                    onChange={(e) => {
+                      setModalProgramId(e.target.value);
+                      clearQuestionScope();
+                    }}
+                    className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                  >
+                    {modalPrograms.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
             {scopeLocked ? (
               <p className="text-xs text-muted-foreground">
-                Category / subject / program stay fixed while editing this exam.
+                {useLinkedOnly
+                  ? "Program stays fixed while editing this exam."
+                  : "Category / subject / program stay fixed while editing this exam."}
               </p>
             ) : null}
 
@@ -1164,6 +1274,12 @@ export function AdminPracticeExamsPage() {
           </div>
 
           <div className="space-y-2">
+            {courseId ? (
+              <p className="text-xs text-muted-foreground">
+                Questions already used in this course&apos;s Practice Exams or Past Papers are
+                hidden.
+              </p>
+            ) : null}
             <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
               <button
                 type="button"

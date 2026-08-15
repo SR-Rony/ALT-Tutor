@@ -16,11 +16,11 @@ function usePracticeExamAuthKey() {
   return userId ?? "anon";
 }
 
-export function usePracticeExamTemplates(programSlug: string) {
+export function usePracticeExamTemplates(programSlug: string, courseId?: string) {
   const authKey = usePracticeExamAuthKey();
   return useQuery({
-    queryKey: queryKeys.practiceExams.program(programSlug, authKey),
-    queryFn: () => practiceExamsService.listTemplates(programSlug),
+    queryKey: queryKeys.practiceExams.program(programSlug, authKey, courseId),
+    queryFn: () => practiceExamsService.listTemplates(programSlug, courseId),
     enabled: Boolean(programSlug),
   });
 }
@@ -103,17 +103,20 @@ export function useSubmitPracticeExamAttempt() {
   });
 }
 
-export function useAdminPracticeExams(programId?: string) {
+export function useAdminPracticeExams(programId?: string, courseId?: string) {
   return useQuery({
-    queryKey: queryKeys.practiceExams.admin(programId),
-    queryFn: () => practiceExamsService.adminList(programId!),
+    queryKey: queryKeys.practiceExams.admin(programId, courseId),
+    queryFn: () => practiceExamsService.adminList(programId!, courseId),
     enabled: Boolean(programId),
   });
 }
 
 function useInvalidatePracticeExams() {
   const qc = useQueryClient();
-  return () => void qc.invalidateQueries({ queryKey: queryKeys.practiceExams.all });
+  return () => {
+    void qc.invalidateQueries({ queryKey: queryKeys.practiceExams.all });
+    void qc.invalidateQueries({ queryKey: ["admin", "courses"] });
+  };
 }
 
 export function useCreatePracticeExamTemplate() {

@@ -11,9 +11,13 @@ import type {
 } from "@/types/past-paper.types";
 
 export const pastPapersService = {
-  async listArchive(programSlug: string): Promise<PastPaperProgramArchive> {
+  async listArchive(
+    programSlug: string,
+    courseId?: string
+  ): Promise<PastPaperProgramArchive> {
+    const params = courseId ? `?courseId=${encodeURIComponent(courseId)}` : "";
     const response = await apiClient.get<PastPaperProgramArchive>(
-      `/past-papers/programs/${encodeURIComponent(programSlug)}`
+      `/past-papers/programs/${encodeURIComponent(programSlug)}${params}`
     );
     return response.data;
   },
@@ -73,9 +77,11 @@ export const pastPapersService = {
     return response.data ?? [];
   },
 
-  async adminList(programId: string): Promise<AdminPastPaperList> {
+  async adminList(programId: string, courseId?: string): Promise<AdminPastPaperList> {
+    const params = new URLSearchParams({ programId });
+    if (courseId) params.set("courseId", courseId);
     const response = await apiClient.get<AdminPastPaperList>(
-      `/past-papers/admin?programId=${encodeURIComponent(programId)}`
+      `/past-papers/admin?${params.toString()}`
     );
     return response.data;
   },

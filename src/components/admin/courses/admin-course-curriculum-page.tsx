@@ -13,6 +13,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { CourseCurriculumManager } from "@/components/curriculum/course-curriculum-manager";
+import { CourseQuestionbankStep } from "@/components/admin/courses/course-questionbank-step";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,10 +22,8 @@ import { ROUTES } from "@/constants";
 import {
   useAdminCategories,
   useAdminCourse,
-  useAdminSubjectsTree,
   useAdminUsers,
   useCourseProgramLinks,
-  useSetCourseProgramLinks,
   useUpdateCourse,
   useUpdateCourseStatus,
 } from "@/hooks";
@@ -40,7 +39,7 @@ type TabId = "overview" | "curriculum" | "programs" | "publish";
 const STEPS: { id: TabId; label: string; hint: string }[] = [
   { id: "overview", label: "Overview", hint: "Basics & description" },
   { id: "curriculum", label: "Curriculum", hint: "Chapters & lessons" },
-  { id: "programs", label: "Questionbank", hint: "Link programs" },
+  { id: "programs", label: "Questionbank", hint: "Subjects & practice" },
   { id: "publish", label: "Preview & publish", hint: "Go live" },
 ];
 
@@ -670,7 +669,7 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
         <CourseCurriculumManager courseId={courseId} courseTitle={course.title} />
       ) : null}
 
-      {tab === "programs" ? <CourseProgramsTab courseId={courseId} /> : null}
+      {tab === "programs" ? <CourseQuestionbankStep courseId={courseId} /> : null}
 
       {tab === "publish" ? (
         <div className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
@@ -744,7 +743,7 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
         </Button>
         <p className="text-xs text-muted-foreground sm:text-sm">
           {tab === "programs"
-            ? "Questionbank is optional — you can skip and publish later."
+            ? "Link subjects and manage Key Concepts, Practice Exams, and Past Papers here."
             : tab === "publish"
               ? "Finish when all readiness checks pass."
               : "Complete this step, then continue."}
@@ -785,117 +784,5 @@ function Field({
       </span>
       {children}
     </label>
-  );
-}
-
-function CourseProgramsTab({ courseId }: { courseId: string }) {
-  const { data: tree = [], isLoading: treeLoading } = useAdminSubjectsTree();
-  const { data: links, isLoading: linksLoading } = useCourseProgramLinks(courseId);
-  const setPrograms = useSetCourseProgramLinks(courseId);
-  const [selected, setSelected] = useState<string[]>([]);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!links) return;
-    const ids = links.map((l) => l.program.id);
-    setSelected((prev) =>
-      prev.length === ids.length && prev.every((id, index) => id === ids[index]) ? prev : ids
-    );
-  }, [links]);
-
-  const allPrograms = useMemo(
-    () =>
-      tree.flatMap((cat) =>
-        cat.subjects.flatMap((subject) =>
-          subject.programs.map((program) => ({
-            id: program.id,
-            label: subject.name,
-            programName: program.name,
-            topicCount: program._count?.qbTopics ?? 0,
-          }))
-        )
-      ),
-    [tree]
-  );
-
-  const toggle = (id: string) => {
-    setSelected((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
-  };
-
-  const onSave = async () => {
-    setMessage(null);
-    setError(null);
-    try {
-      await setPrograms.mutateAsync(selected);
-      setMessage("Linked programs saved. Course questionbank routes will redirect to the first program.");
-    } catch (err) {
-      setError((err as ApiError).message || "Failed to save program links");
-    }
-  };
-
-  if (treeLoading || linksLoading) {
-    return <PageLoader label="Loading subject programs..." />;
-  }
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <h2 className="text-lg font-bold text-foreground">Linked subject programs</h2>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Linking a subject only connects the course. Students see practice sets after you add topics under{" "}
-        <span className="font-medium text-foreground">Admin → Questionbank</span> for that program.
-      </p>
-      {allPrograms.length === 0 ? (
-        <p className="mt-6 text-sm text-muted-foreground">
-          No subject programs found. Create programs under Admin → Subjects first.
-        </p>
-      ) : (
-        <div className="mt-5 max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-border p-3">
-          {allPrograms.map((program) => {
-            const hasTopics = program.topicCount > 0;
-            return (
-              <label
-                key={program.id}
-                className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-muted/50"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 rounded border-border text-primary accent-primary"
-                  checked={selected.includes(program.id)}
-                  onChange={() => toggle(program.id)}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium text-foreground">{program.label}</span>
-                  <span
-                    className={cn(
-                      "mt-0.5 block text-xs",
-                      hasTopics ? "text-muted-foreground" : "text-amber-600"
-                    )}
-                  >
-                    {hasTopics
-                      ? `${program.topicCount} questionbank topic${program.topicCount === 1 ? "" : "s"}`
-                      : "No questionbank topics yet — students will see an empty state"}
-                  </span>
-                </span>
-              </label>
-            );
-          })}
-        </div>
-      )}
-      {selected.some((id) => (allPrograms.find((p) => p.id === id)?.topicCount ?? 0) === 0) ? (
-        <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          One or more selected programs have no topics. Add topics in{" "}
-          <Link href={ROUTES.admin.questionbank} className="font-semibold underline-offset-2 hover:underline">
-            Questionbank
-          </Link>{" "}
-          before students can practice.
-        </p>
-      ) : null}
-      {message ? <p className="mt-3 text-sm text-accent-green">{message}</p> : null}
-      {error ? <p className="mt-3 text-sm text-accent">{error}</p> : null}
-      <Button type="button" className="mt-4" disabled={setPrograms.isPending} onClick={() => void onSave()}>
-        {setPrograms.isPending ? "Saving…" : "Save program links"}
-      </Button>
-    </div>
   );
 }

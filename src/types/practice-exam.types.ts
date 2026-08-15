@@ -16,6 +16,7 @@ export type PracticeExamBlueprintRule = {
 export type PracticeExamTemplate = {
   id: string;
   programId: string;
+  courseId?: string | null;
   title: string;
   slug: string;
   description?: string | null;
@@ -190,6 +191,7 @@ export type SavePracticeExamAnswerFilesResult =
 
 export type CreatePracticeExamTemplateInput = {
   programId: string;
+  courseId?: string;
   title: string;
   slug: string;
   description?: string;

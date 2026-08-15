@@ -167,4 +167,37 @@ export const adminCoursesService = {
     });
     return response.data ?? [];
   },
+
+  async getUsedQuestions(
+    courseId: string,
+    ignoreResourceId?: string
+  ): Promise<{
+    courseId: string;
+    questionIds: string[];
+    usage: Array<{
+      questionId: string;
+      source: "PRACTICE_EXAM" | "PAST_PAPER";
+      resourceId: string;
+      resourceTitle: string;
+    }>;
+  }> {
+    if (env.useMockApi) {
+      await sleep(100);
+      return { courseId, questionIds: [], usage: [] };
+    }
+    const params = new URLSearchParams();
+    if (ignoreResourceId) params.set("ignoreResourceId", ignoreResourceId);
+    const qs = params.toString();
+    const response = await apiClient.get<{
+      courseId: string;
+      questionIds: string[];
+      usage: Array<{
+        questionId: string;
+        source: "PRACTICE_EXAM" | "PAST_PAPER";
+        resourceId: string;
+        resourceTitle: string;
+      }>;
+    }>(`/courses/${courseId}/used-questions${qs ? `?${qs}` : ""}`);
+    return response.data ?? { courseId, questionIds: [], usage: [] };
+  },
 };

@@ -9,9 +9,13 @@ import type {
 } from "@/types/key-concept.types";
 
 export const keyConceptsService = {
-  async listLessons(programSlug: string): Promise<KeyConceptProgramList> {
+  async listLessons(
+    programSlug: string,
+    courseId?: string
+  ): Promise<KeyConceptProgramList> {
+    const params = courseId ? `?courseId=${encodeURIComponent(courseId)}` : "";
     const response = await apiClient.get<KeyConceptProgramList>(
-      `/key-concepts/programs/${encodeURIComponent(programSlug)}`
+      `/key-concepts/programs/${encodeURIComponent(programSlug)}${params}`
     );
     return response.data;
   },
@@ -26,9 +30,11 @@ export const keyConceptsService = {
     return response.data;
   },
 
-  async adminList(programId: string): Promise<AdminKeyConceptList> {
+  async adminList(programId: string, courseId?: string): Promise<AdminKeyConceptList> {
+    const params = new URLSearchParams({ programId });
+    if (courseId) params.set("courseId", courseId);
     const response = await apiClient.get<AdminKeyConceptList>(
-      `/key-concepts/admin?programId=${encodeURIComponent(programId)}`
+      `/key-concepts/admin?${params.toString()}`
     );
     return response.data;
   },

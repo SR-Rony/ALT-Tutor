@@ -16,9 +16,13 @@ import type {
 } from "@/types/practice-exam.types";
 
 export const practiceExamsService = {
-  async listTemplates(programSlug: string): Promise<PracticeExamProgramList> {
+  async listTemplates(
+    programSlug: string,
+    courseId?: string
+  ): Promise<PracticeExamProgramList> {
+    const params = courseId ? `?courseId=${encodeURIComponent(courseId)}` : "";
     const response = await apiClient.get<PracticeExamProgramList>(
-      `/practice-exams/programs/${encodeURIComponent(programSlug)}`
+      `/practice-exams/programs/${encodeURIComponent(programSlug)}${params}`
     );
     return response.data;
   },
@@ -96,9 +100,11 @@ export const practiceExamsService = {
     return response.data;
   },
 
-  async adminList(programId: string): Promise<AdminPracticeExamList> {
+  async adminList(programId: string, courseId?: string): Promise<AdminPracticeExamList> {
+    const params = new URLSearchParams({ programId });
+    if (courseId) params.set("courseId", courseId);
     const response = await apiClient.get<AdminPracticeExamList>(
-      `/practice-exams/admin?programId=${encodeURIComponent(programId)}`
+      `/practice-exams/admin?${params.toString()}`
     );
     return response.data;
   },

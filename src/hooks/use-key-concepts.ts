@@ -14,11 +14,11 @@ function useKeyConceptAuthKey() {
   return userId ?? "anon";
 }
 
-export function useKeyConceptLessons(programSlug: string) {
+export function useKeyConceptLessons(programSlug: string, courseId?: string) {
   const authKey = useKeyConceptAuthKey();
   return useQuery({
-    queryKey: queryKeys.keyConcepts.program(programSlug, authKey),
-    queryFn: () => keyConceptsService.listLessons(programSlug),
+    queryKey: queryKeys.keyConcepts.program(programSlug, authKey, courseId),
+    queryFn: () => keyConceptsService.listLessons(programSlug, courseId),
     enabled: Boolean(programSlug),
   });
 }
@@ -32,10 +32,10 @@ export function useKeyConceptLesson(programSlug: string, lessonSlug: string) {
   });
 }
 
-export function useAdminKeyConcepts(programId?: string) {
+export function useAdminKeyConcepts(programId?: string, courseId?: string) {
   return useQuery({
-    queryKey: queryKeys.keyConcepts.admin(programId),
-    queryFn: () => keyConceptsService.adminList(programId!),
+    queryKey: queryKeys.keyConcepts.admin(programId, courseId),
+    queryFn: () => keyConceptsService.adminList(programId!, courseId),
     enabled: Boolean(programId),
   });
 }

@@ -30,6 +30,22 @@ import { cn } from "@/utils";
 const CONTENT_TYPES: KeyConceptContentType[] = ["ARTICLE", "VIDEO", "MIXED"];
 const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
 
+export type CourseLinkedProgram = {
+  id: string;
+  name: string;
+  slug: string;
+  subjectName: string;
+};
+
+type AdminKeyConceptsPageProps = {
+  /** When set, lessons are scoped to this course workspace. */
+  courseId?: string;
+  /** Restrict program picker to these linked programs (course embed). */
+  linkedPrograms?: CourseLinkedProgram[];
+  /** Hide standalone page chrome when embedded in course wizard. */
+  embedded?: boolean;
+};
+
 function contentLabel(type: KeyConceptContentType) {
   if (type === "VIDEO") return "Video";
   if (type === "MIXED") return "Mixed";
@@ -42,10 +58,17 @@ function formatDuration(sec?: number | null) {
   return `${m} min`;
 }
 
-export function AdminKeyConceptsPage() {
+export function AdminKeyConceptsPage({
+  courseId,
+  linkedPrograms,
+  embedded = false,
+}: AdminKeyConceptsPageProps = {}) {
   const { data: subjectsTree = [] } = useAdminSubjectsTree();
   const [categoryId, setCategoryId] = useState("");
   const [subjectId, setSubjectId] = useState("");
+  const [linkedProgramId, setLinkedProgramId] = useState("");
+
+  const useLinkedOnly = Boolean(courseId && linkedPrograms);
 
   const effectiveCategoryId = categoryId || subjectsTree[0]?.id || "";
   const subjects = useMemo(() => {
@@ -55,11 +78,24 @@ export function AdminKeyConceptsPage() {
   const programs = useMemo(() => {
     return subjects.find((s) => s.id === effectiveSubjectId)?.programs ?? [];
   }, [subjects, effectiveSubjectId]);
-  const effectiveProgramId = programs[0]?.id || "";
-  const selectedProgram = programs[0];
+
+  useEffect(() => {
+    if (!useLinkedOnly || !linkedPrograms?.length) return;
+    if (!linkedProgramId || !linkedPrograms.some((p) => p.id === linkedProgramId)) {
+      setLinkedProgramId(linkedPrograms[0].id);
+    }
+  }, [useLinkedOnly, linkedPrograms, linkedProgramId]);
+
+  const effectiveProgramId = useLinkedOnly
+    ? linkedProgramId || linkedPrograms?.[0]?.id || ""
+    : programs[0]?.id || "";
+  const selectedProgram = useLinkedOnly
+    ? linkedPrograms?.find((p) => p.id === effectiveProgramId)
+    : programs[0];
 
   const { data, isLoading, error, refetch, isFetching } = useAdminKeyConcepts(
-    effectiveProgramId || undefined
+    effectiveProgramId || undefined,
+    courseId
   );
   const { data: qbTopics = [] } = useAdminQuestionbank(effectiveProgramId || undefined);
   const createLesson = useCreateKeyConceptLesson();
@@ -175,6 +211,7 @@ export function AdminKeyConceptsPage() {
       } else {
         await createLesson.mutateAsync({
           programId: effectiveProgramId,
+          ...(courseId ? { courseId } : {}),
           title: title.trim(),
           slug: slug.trim(),
           summary: summary.trim() || undefined,
@@ -196,14 +233,25 @@ export function AdminKeyConceptsPage() {
     }
   };
 
-  if (isLoading && lessons.length === 0 && programs.length > 0) {
+  if (useLinkedOnly && (!linkedPrograms || linkedPrograms.length === 0)) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        Link at least one subject program in the Subjects tab before creating Key Concepts for this
+        course.
+      </div>
+    );
+  }
+
+  if (isLoading && lessons.length === 0 && Boolean(effectiveProgramId)) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Key Concepts"
-          description="Short lessons (article / video). Practice links go to the Questionbank."
-          className="mb-0"
-        />
+        {!embedded ? (
+          <PageHeader
+            title="Key Concepts"
+            description="Short lessons (article / video). Practice links go to the Questionbank."
+            className="mb-0"
+          />
+        ) : null}
         <PageLoader label="Loading key concepts..." />
       </div>
     );
@@ -214,11 +262,20 @@ export function AdminKeyConceptsPage() {
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
         <div className="border-b border-border px-5 py-6">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <PageHeader
-              title="Key Concepts"
-              description="Create short lessons with a preview link. Keep forms light — body markdown + optional video."
-              className="mb-0"
-            />
+            {!embedded ? (
+              <PageHeader
+                title="Key Concepts"
+                description="Create short lessons with a preview link. Keep forms light — body markdown + optional video."
+                className="mb-0"
+              />
+            ) : (
+              <div>
+                <h3 className="text-base font-bold text-foreground">Course Key Concepts</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Lessons created here belong to this course only.
+                </p>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               <AdminIconAction
                 label="Refresh"
@@ -240,43 +297,62 @@ export function AdminKeyConceptsPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <label className="block space-y-1.5">
+          {useLinkedOnly ? (
+            <label className="block max-w-md space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Category
+                Linked subject program
               </span>
               <select
-                value={effectiveCategoryId}
-                onChange={(e) => {
-                  setCategoryId(e.target.value);
-                  setSubjectId("");
-                }}
+                value={effectiveProgramId}
+                onChange={(e) => setLinkedProgramId(e.target.value)}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
-                {subjectsTree.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
+                {(linkedPrograms ?? []).map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.subjectName} · {p.name}
                   </option>
                 ))}
               </select>
             </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Subject
-              </span>
-              <select
-                value={effectiveSubjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Category
+                </span>
+                <select
+                  value={effectiveCategoryId}
+                  onChange={(e) => {
+                    setCategoryId(e.target.value);
+                    setSubjectId("");
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+                >
+                  {subjectsTree.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Subject
+                </span>
+                <select
+                  value={effectiveSubjectId}
+                  onChange={(e) => setSubjectId(e.target.value)}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+                >
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
 
           {error ? (
             <p className="mt-2 text-sm text-accent">

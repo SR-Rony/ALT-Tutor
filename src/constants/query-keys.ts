@@ -37,9 +37,10 @@ export const queryKeys = {
   },
   practiceExams: {
     all: ["practice-exams"] as const,
-    admin: (programId?: string) => ["practice-exams", "admin", programId ?? "all"] as const,
-    program: (slug: string, authKey = "anon") =>
-      ["practice-exams", "program", slug, authKey] as const,
+    admin: (programId?: string, courseId?: string) =>
+      ["practice-exams", "admin", programId ?? "all", courseId ?? "all"] as const,
+    program: (slug: string, authKey = "anon", courseId?: string) =>
+      ["practice-exams", "program", slug, authKey, courseId ?? "shared"] as const,
     template: (programSlug: string, templateSlug: string, authKey = "anon") =>
       ["practice-exams", "template", programSlug, templateSlug, authKey] as const,
     history: (programSlug: string, authKey = "anon") =>
@@ -52,21 +53,23 @@ export const queryKeys = {
   },
   keyConcepts: {
     all: ["key-concepts"] as const,
-    admin: (programId?: string) => ["key-concepts", "admin", programId ?? "all"] as const,
+    admin: (programId?: string, courseId?: string) =>
+      ["key-concepts", "admin", programId ?? "all", courseId ?? "all"] as const,
     teacher: (programId?: string) =>
       ["key-concepts", "teacher", programId ?? "all"] as const,
-    program: (slug: string, authKey = "anon") =>
-      ["key-concepts", "program", slug, authKey] as const,
+    program: (slug: string, authKey = "anon", courseId?: string) =>
+      ["key-concepts", "program", slug, authKey, courseId ?? "shared"] as const,
     lesson: (programSlug: string, lessonSlug: string, authKey = "anon") =>
       ["key-concepts", "lesson", programSlug, lessonSlug, authKey] as const,
   },
   pastPapers: {
     all: ["past-papers"] as const,
-    admin: (programId?: string) => ["past-papers", "admin", programId ?? "all"] as const,
+    admin: (programId?: string, courseId?: string) =>
+      ["past-papers", "admin", programId ?? "all", courseId ?? "all"] as const,
     teacher: (programId?: string) =>
       ["past-papers", "teacher", programId ?? "all"] as const,
-    program: (slug: string, authKey = "anon") =>
-      ["past-papers", "program", slug, authKey] as const,
+    program: (slug: string, authKey = "anon", courseId?: string) =>
+      ["past-papers", "program", slug, authKey, courseId ?? "shared"] as const,
     paper: (programSlug: string, paperSlug: string, authKey = "anon") =>
       ["past-papers", "paper", programSlug, paperSlug, authKey] as const,
     history: (programSlug: string, authKey = "anon") =>
@@ -110,6 +113,8 @@ export const queryKeys = {
     courses: ["admin", "courses"] as const,
     course: (id: string) => ["admin", "courses", id] as const,
     coursePrograms: (id: string) => ["admin", "courses", id, "programs"] as const,
+    courseUsedQuestions: (id: string, ignoreResourceId?: string) =>
+      ["admin", "courses", id, "used-questions", ignoreResourceId ?? "none"] as const,
     categories: ["admin", "categories"] as const,
     subjects: ["admin", "subjects"] as const,
     payments: ["admin", "payments"] as const,

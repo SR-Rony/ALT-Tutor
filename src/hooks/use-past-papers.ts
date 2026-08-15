@@ -15,11 +15,11 @@ function usePastPaperAuthKey() {
   return userId ?? "anon";
 }
 
-export function usePastPaperArchive(programSlug: string) {
+export function usePastPaperArchive(programSlug: string, courseId?: string) {
   const authKey = usePastPaperAuthKey();
   return useQuery({
-    queryKey: queryKeys.pastPapers.program(programSlug, authKey),
-    queryFn: () => pastPapersService.listArchive(programSlug),
+    queryKey: queryKeys.pastPapers.program(programSlug, authKey, courseId),
+    queryFn: () => pastPapersService.listArchive(programSlug, courseId),
     enabled: Boolean(programSlug),
   });
 }
@@ -51,10 +51,10 @@ export function usePastPaperAttempt(attemptId?: string) {
   });
 }
 
-export function useAdminPastPapers(programId?: string) {
+export function useAdminPastPapers(programId?: string, courseId?: string) {
   return useQuery({
-    queryKey: queryKeys.pastPapers.admin(programId),
-    queryFn: () => pastPapersService.adminList(programId!),
+    queryKey: queryKeys.pastPapers.admin(programId, courseId),
+    queryFn: () => pastPapersService.adminList(programId!, courseId),
     enabled: Boolean(programId),
   });
 }
@@ -69,7 +69,10 @@ export function useTeacherPastPapers(programId?: string) {
 
 function useInvalidatePastPapers() {
   const qc = useQueryClient();
-  return () => void qc.invalidateQueries({ queryKey: queryKeys.pastPapers.all });
+  return () => {
+    void qc.invalidateQueries({ queryKey: queryKeys.pastPapers.all });
+    void qc.invalidateQueries({ queryKey: ["admin", "courses"] });
+  };
 }
 
 export function useCreatePastPaper() {

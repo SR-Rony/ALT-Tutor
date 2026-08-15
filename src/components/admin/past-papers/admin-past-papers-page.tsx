@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
+import { type CourseLinkedProgram } from "@/components/admin/key-concepts/admin-key-concepts-page";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +24,7 @@ import {
   useAdminPastPapers,
   useAdminQuestionbank,
   useAdminSubjectsTree,
+  useCourseUsedQuestions,
   useCreatePastPaper,
   useDeletePastPaper,
   useUpdatePastPaper,
@@ -114,11 +116,24 @@ function findProgramPath(
   return null;
 }
 
-export function AdminPastPapersPage() {
+type AdminPastPapersPageProps = {
+  courseId?: string;
+  linkedPrograms?: CourseLinkedProgram[];
+  embedded?: boolean;
+};
+
+export function AdminPastPapersPage({
+  courseId,
+  linkedPrograms,
+  embedded = false,
+}: AdminPastPapersPageProps = {}) {
   const { data: subjectsTree = [] } = useAdminSubjectsTree();
   const [categoryId, setCategoryId] = useState("");
   const [subjectId, setSubjectId] = useState("");
   const [programId, setProgramId] = useState("");
+  const [linkedProgramId, setLinkedProgramId] = useState("");
+
+  const useLinkedOnly = Boolean(courseId && linkedPrograms);
 
   const effectiveCategoryId = categoryId || subjectsTree[0]?.id || "";
   const subjects = useMemo(() => {
@@ -128,11 +143,24 @@ export function AdminPastPapersPage() {
   const programs = useMemo(() => {
     return subjects.find((s) => s.id === effectiveSubjectId)?.programs ?? [];
   }, [subjects, effectiveSubjectId]);
-  const effectiveProgramId = programId || programs[0]?.id || "";
-  const selectedProgram = programs.find((p) => p.id === effectiveProgramId) ?? programs[0];
+
+  useEffect(() => {
+    if (!useLinkedOnly || !linkedPrograms?.length) return;
+    if (!linkedProgramId || !linkedPrograms.some((p) => p.id === linkedProgramId)) {
+      setLinkedProgramId(linkedPrograms[0].id);
+    }
+  }, [useLinkedOnly, linkedPrograms, linkedProgramId]);
+
+  const effectiveProgramId = useLinkedOnly
+    ? linkedProgramId || linkedPrograms?.[0]?.id || ""
+    : programId || programs[0]?.id || "";
+  const selectedProgram = useLinkedOnly
+    ? linkedPrograms?.find((p) => p.id === effectiveProgramId)
+    : programs.find((p) => p.id === effectiveProgramId) ?? programs[0];
 
   const { data, isLoading, error, refetch, isFetching } = useAdminPastPapers(
-    effectiveProgramId || undefined
+    effectiveProgramId || undefined,
+    courseId
   );
 
   const [modalOpen, setModalOpen] = useState(false);
@@ -157,12 +185,21 @@ export function AdminPastPapersPage() {
     const subId = modalSubjectId || modalSubjects[0]?.id || "";
     return modalSubjects.find((s) => s.id === subId)?.programs ?? [];
   }, [modalSubjects, modalSubjectId]);
-  const effectiveModalProgramId =
-    modalProgramId || modalPrograms[0]?.id || effectiveProgramId || "";
+  const effectiveModalProgramId = useLinkedOnly
+    ? modalProgramId || effectiveProgramId || ""
+    : modalProgramId || modalPrograms[0]?.id || effectiveProgramId || "";
   const scopeLocked = Boolean(editId);
 
   const qbProgramId = modalOpen ? effectiveModalProgramId : effectiveProgramId;
   const { data: qbTopics = [] } = useAdminQuestionbank(qbProgramId || undefined);
+  const { data: usedQuestionsData } = useCourseUsedQuestions(
+    courseId ?? "",
+    editId ?? undefined
+  );
+  const usedQuestionIds = useMemo(
+    () => new Set(usedQuestionsData?.questionIds ?? []),
+    [usedQuestionsData]
+  );
   const createPaper = useCreatePastPaper();
   const updatePaper = useUpdatePastPaper();
   const deletePaper = useDeletePastPaper();
@@ -242,12 +279,20 @@ export function AdminPastPapersPage() {
         if (subtopicId && sub.id !== subtopicId) continue;
         for (const q of sub.questions ?? []) {
           if (!isAllowedForMode(questionMode, q.questionType)) continue;
-          if (!selected.has(q.id)) allowedIds.add(q.id);
+          if (!selected.has(q.id) && !usedQuestionIds.has(q.id)) allowedIds.add(q.id);
         }
       }
     }
     return allModeQuestions.filter((q) => allowedIds.has(q.id));
-  }, [allModeQuestions, selectedQuestionIds, qbTopics, topicId, subtopicId, questionMode]);
+  }, [
+    allModeQuestions,
+    selectedQuestionIds,
+    qbTopics,
+    topicId,
+    subtopicId,
+    questionMode,
+    usedQuestionIds,
+  ]);
 
   const selectedQuestions = useMemo(() => {
     const byId = new Map(allModeQuestions.map((q) => [q.id, q]));
@@ -496,13 +541,18 @@ export function AdminPastPapersPage() {
       } else {
         await createPaper.mutateAsync({
           programId: effectiveModalProgramId,
+          ...(courseId ? { courseId } : {}),
           ...payload,
         });
-        const path = findProgramPath(subjectsTree, effectiveModalProgramId);
-        if (path) {
-          setCategoryId(path.categoryId);
-          setSubjectId(path.subjectId);
-          setProgramId(path.programId);
+        if (useLinkedOnly) {
+          setLinkedProgramId(effectiveModalProgramId);
+        } else {
+          const path = findProgramPath(subjectsTree, effectiveModalProgramId);
+          if (path) {
+            setCategoryId(path.categoryId);
+            setSubjectId(path.subjectId);
+            setProgramId(path.programId);
+          }
         }
       }
       setModalOpen(false);
@@ -524,14 +574,25 @@ export function AdminPastPapersPage() {
     }
   };
 
-  if (isLoading && papers.length === 0 && programs.length > 0) {
+  if (useLinkedOnly && (!linkedPrograms || linkedPrograms.length === 0)) {
+    return (
+      <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+        Link at least one subject program in the Subjects tab before creating Past Papers for this
+        course.
+      </div>
+    );
+  }
+
+  if (isLoading && papers.length === 0 && Boolean(effectiveProgramId)) {
     return (
       <div className="space-y-6">
-        <PageHeader
-          title="Past Papers"
-          description="Create and manage year/session exam archives."
-          className="mb-0"
-        />
+        {!embedded ? (
+          <PageHeader
+            title="Past Papers"
+            description="Create and manage year/session exam archives."
+            className="mb-0"
+          />
+        ) : null}
         <PageLoader label="Loading past papers..." />
       </div>
     );
@@ -542,11 +603,20 @@ export function AdminPastPapersPage() {
       <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
         <div className="border-b border-border px-5 py-6">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-            <PageHeader
-              title="Past Papers"
-              description="Create MCQ or Written past papers from the Questionbank. Students browse questions — no timed exam."
-              className="mb-0"
-            />
+            {!embedded ? (
+              <PageHeader
+                title="Past Papers"
+                description="Create MCQ or Written past papers from the Questionbank. Students browse questions — no timed exam."
+                className="mb-0"
+              />
+            ) : (
+              <div>
+                <h3 className="text-base font-bold text-foreground">Course Past Papers</h3>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Papers created here belong to this course only.
+                </p>
+              </div>
+            )}
             <div className="flex flex-wrap gap-2">
               <AdminIconAction
                 label="Refresh"
@@ -578,63 +648,82 @@ export function AdminPastPapersPage() {
             </div>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-3">
-            <label className="block space-y-1.5">
+          {useLinkedOnly ? (
+            <label className="block max-w-md space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Category
-              </span>
-              <select
-                value={effectiveCategoryId}
-                onChange={(e) => {
-                  setCategoryId(e.target.value);
-                  setSubjectId("");
-                  setProgramId("");
-                }}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                {subjectsTree.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Subject
-              </span>
-              <select
-                value={effectiveSubjectId}
-                onChange={(e) => {
-                  setSubjectId(e.target.value);
-                  setProgramId("");
-                }}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                {subjects.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Program
+                Linked subject program
               </span>
               <select
                 value={effectiveProgramId}
-                onChange={(e) => setProgramId(e.target.value)}
+                onChange={(e) => setLinkedProgramId(e.target.value)}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
-                {programs.map((p) => (
+                {(linkedPrograms ?? []).map((p) => (
                   <option key={p.id} value={p.id}>
-                    {p.name}
+                    {p.subjectName} · {p.name}
                   </option>
                 ))}
               </select>
             </label>
-          </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-3">
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Category
+                </span>
+                <select
+                  value={effectiveCategoryId}
+                  onChange={(e) => {
+                    setCategoryId(e.target.value);
+                    setSubjectId("");
+                    setProgramId("");
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+                >
+                  {subjectsTree.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Subject
+                </span>
+                <select
+                  value={effectiveSubjectId}
+                  onChange={(e) => {
+                    setSubjectId(e.target.value);
+                    setProgramId("");
+                  }}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+                >
+                  {subjects.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block space-y-1.5">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Program
+                </span>
+                <select
+                  value={effectiveProgramId}
+                  onChange={(e) => setProgramId(e.target.value)}
+                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+                >
+                  {programs.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
 
           {error ? (
             <p className="mt-2 text-sm text-accent">
@@ -972,65 +1061,86 @@ export function AdminPastPapersPage() {
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Questionbank scope
             </p>
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Category</span>
-                <select
-                  value={modalCategoryId || subjectsTree[0]?.id || ""}
-                  disabled={busy || scopeLocked}
-                  onChange={(e) => {
-                    setModalCategoryId(e.target.value);
-                    setModalSubjectId("");
-                    setModalProgramId("");
-                    clearQuestionScope();
-                  }}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
-                >
-                  {subjectsTree.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Subject</span>
-                <select
-                  value={modalSubjectId || modalSubjects[0]?.id || ""}
-                  disabled={busy || scopeLocked || modalSubjects.length === 0}
-                  onChange={(e) => {
-                    setModalSubjectId(e.target.value);
-                    setModalProgramId("");
-                    clearQuestionScope();
-                  }}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
-                >
-                  {modalSubjects.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Program</span>
+            {useLinkedOnly ? (
+              <label className="block max-w-md space-y-1.5">
+                <span className="text-sm font-semibold">Linked subject program</span>
                 <select
                   value={effectiveModalProgramId}
-                  disabled={busy || scopeLocked || modalPrograms.length === 0}
+                  disabled={busy || scopeLocked}
                   onChange={(e) => {
                     setModalProgramId(e.target.value);
                     clearQuestionScope();
                   }}
                   className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
                 >
-                  {modalPrograms.map((p) => (
+                  {(linkedPrograms ?? []).map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.name}
+                      {p.subjectName} · {p.name}
                     </option>
                   ))}
                 </select>
               </label>
-            </div>
+            ) : (
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-semibold">Category</span>
+                  <select
+                    value={modalCategoryId || subjectsTree[0]?.id || ""}
+                    disabled={busy || scopeLocked}
+                    onChange={(e) => {
+                      setModalCategoryId(e.target.value);
+                      setModalSubjectId("");
+                      setModalProgramId("");
+                      clearQuestionScope();
+                    }}
+                    className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                  >
+                    {subjectsTree.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-semibold">Subject</span>
+                  <select
+                    value={modalSubjectId || modalSubjects[0]?.id || ""}
+                    disabled={busy || scopeLocked || modalSubjects.length === 0}
+                    onChange={(e) => {
+                      setModalSubjectId(e.target.value);
+                      setModalProgramId("");
+                      clearQuestionScope();
+                    }}
+                    className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                  >
+                    {modalSubjects.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-semibold">Program</span>
+                  <select
+                    value={effectiveModalProgramId}
+                    disabled={busy || scopeLocked || modalPrograms.length === 0}
+                    onChange={(e) => {
+                      setModalProgramId(e.target.value);
+                      clearQuestionScope();
+                    }}
+                    className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm disabled:opacity-60"
+                  >
+                    {modalPrograms.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+            )}
 
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-1.5">
@@ -1196,6 +1306,12 @@ export function AdminPastPapersPage() {
           </div>
 
           <div className="space-y-2">
+            {courseId ? (
+              <p className="text-xs text-muted-foreground">
+                Questions already used in this course&apos;s Practice Exams or Past Papers are
+                hidden.
+              </p>
+            ) : null}
             <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
               <button
                 type="button"

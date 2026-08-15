@@ -19,6 +19,7 @@ export type KeyConceptSubtopicRef = {
 export type KeyConceptLesson = {
   id: string;
   programId?: string;
+  courseId?: string | null;
   topicId?: string;
   subtopicId?: string | null;
   title: string;
@@ -60,6 +61,7 @@ export type AdminKeyConceptList = {
 
 export type CreateKeyConceptLessonInput = {
   programId: string;
+  courseId?: string;
   topicId: string;
   subtopicId?: string;
   title: string;
