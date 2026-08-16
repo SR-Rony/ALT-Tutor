@@ -146,7 +146,7 @@ export interface PracticeSessionResult {
   questions: PracticeQuestionResult[];
 }
 
-export interface PracticeHistoryItem extends PracticeSession {
+export interface PracticeHistoryItem extends Omit<PracticeSession, "subtopicId"> {
   answeredCount: number;
   program: { id: string; name: string; slug: string };
   subtopicId?: string | null;
