@@ -8,7 +8,9 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { ROUTES } from "@/constants";
+import { serializeRichText } from "@/lib/rich-text";
 import {
   useAdminKeyConcepts,
   useAdminQuestionbank,
@@ -204,7 +206,7 @@ export function AdminKeyConceptsPage({
             summary: summary.trim() || null,
             videoUrl: videoUrl.trim() || null,
             thumbnailUrl: thumbnailUrl.trim() || null,
-            bodyMarkdown: bodyMarkdown.trim() || null,
+            bodyMarkdown: serializeRichText(bodyMarkdown) || null,
             durationSec: Number.isFinite(duration) ? duration! : null,
           },
         });
@@ -220,7 +222,7 @@ export function AdminKeyConceptsPage({
           contentType,
           videoUrl: videoUrl.trim() || undefined,
           thumbnailUrl: thumbnailUrl.trim() || undefined,
-          bodyMarkdown: bodyMarkdown.trim() || undefined,
+          bodyMarkdown: serializeRichText(bodyMarkdown) || undefined,
           durationSec: Number.isFinite(duration) ? duration : undefined,
           accessTier,
           isPublished,
@@ -265,7 +267,7 @@ export function AdminKeyConceptsPage({
             {!embedded ? (
               <PageHeader
                 title="Key Concepts"
-                description="Create short lessons with a preview link. Keep forms light — body markdown + optional video."
+                description="Create short lessons with a preview link. Keep forms light — rich body + optional video."
                 className="mb-0"
               />
             ) : (
@@ -615,16 +617,16 @@ export function AdminKeyConceptsPage({
             />
           </label>
 
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Body (markdown)</span>
-            <textarea
+          <div className="space-y-1.5">
+            <span className="text-sm font-semibold">Body</span>
+            <RichTextEditor
               value={bodyMarkdown}
-              onChange={(e) => setBodyMarkdown(e.target.value)}
-              rows={8}
-              className="w-full rounded-xl border border-border bg-card px-3 py-2 font-mono text-sm"
-              placeholder="## Goal&#10;…"
+              onChange={setBodyMarkdown}
+              placeholder="Write the lesson body…"
+              minHeight="200px"
+              uploadFolder="lessons"
             />
-          </label>
+          </div>
 
           <label className="flex items-center gap-2 text-sm font-semibold">
             <input

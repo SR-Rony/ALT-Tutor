@@ -6,6 +6,8 @@ import { BookOpen, Clock3, Lock, PlayCircle } from "lucide-react";
 import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
 import { PageLoader, SecureVideoPlayer } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import { RichTextContent } from "@/components/ui/rich-text-content";
+import { looksLikeHtml } from "@/lib/rich-text";
 import { ROUTES } from "@/constants";
 import { useKeyConceptLesson } from "@/hooks";
 import { useAppSelector } from "@/store";
@@ -200,7 +202,14 @@ export function KeyConceptLessonPage({ programSlug, lessonSlug }: Props) {
 
             {lesson.bodyMarkdown ? (
               <section className="rounded-2xl border border-border bg-card p-5 sm:p-6">
-                <MarkdownBody text={lesson.bodyMarkdown} />
+                {looksLikeHtml(lesson.bodyMarkdown) ? (
+                  <RichTextContent
+                    html={lesson.bodyMarkdown}
+                    className="text-sm leading-relaxed text-foreground md:text-base"
+                  />
+                ) : (
+                  <MarkdownBody text={lesson.bodyMarkdown} />
+                )}
               </section>
             ) : (
               <p className="text-sm text-muted-foreground">No lesson body yet.</p>

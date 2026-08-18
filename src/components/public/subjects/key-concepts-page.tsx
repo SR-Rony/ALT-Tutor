@@ -14,6 +14,8 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
 import { PageLoader, SecureVideoPlayer } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import { RichTextContent } from "@/components/ui/rich-text-content";
+import { looksLikeHtml } from "@/lib/rich-text";
 import { ROUTES } from "@/constants";
 import { useKeyConceptLesson, useKeyConceptLessons } from "@/hooks";
 import { useAppSelector } from "@/store";
@@ -146,7 +148,13 @@ function LessonVideoModal({
 
       {!error && videoUrl ? <VideoEmbed url={videoUrl} title={lesson?.title ?? "Lesson video"} /> : null}
 
-      {!error && !isLoading && !videoUrl && body ? <MarkdownBody text={body} /> : null}
+      {!error && !isLoading && !videoUrl && body ? (
+        looksLikeHtml(body) ? (
+          <RichTextContent html={body} className="text-sm leading-relaxed text-foreground" />
+        ) : (
+          <MarkdownBody text={body} />
+        )
+      ) : null}
 
       {!error && !isLoading && !videoUrl && !body ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
@@ -164,7 +172,11 @@ function LessonVideoModal({
 
       {!error && body && videoUrl ? (
         <div className="mt-4 border-t border-border pt-4">
-          <MarkdownBody text={body} />
+          {looksLikeHtml(body) ? (
+            <RichTextContent html={body} className="text-sm leading-relaxed text-foreground" />
+          ) : (
+            <MarkdownBody text={body} />
+          )}
         </div>
       ) : null}
     </AdminModal>
