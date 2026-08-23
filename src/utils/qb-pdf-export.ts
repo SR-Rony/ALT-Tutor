@@ -1,22 +1,30 @@
 import { siteConfig } from "@/config";
+import { isRichTextEmpty, looksLikeHtml } from "@/lib/rich-text";
+import { sanitizeRichHtml } from "@/lib/sanitize-rich-html";
+import { hydrateKatexHtml } from "@/lib/tiptap-math";
+
+type ExportQuestion = {
+  id?: string;
+  paper?: string | null;
+  prompt: string;
+  body?: string | null;
+  diagramUrl?: string | null;
+  difficulty?: string | null;
+  marks?: number | null;
+  options?: string[];
+  questionType?: string | null;
+};
 
 type ExportArgs = {
   title: string;
   subtitle?: string;
   /** Blank ruled lines under each question for handwritten answers (written exams). */
   includeAnswerSpace?: boolean;
-  questions: Array<{
-    id?: string;
-    paper?: string | null;
-    prompt: string;
-    body?: string | null;
-    diagramUrl?: string | null;
-    difficulty?: string | null;
-    marks?: number | null;
-  }>;
+  questions: ExportQuestion[];
 };
 
 const ANSWER_LINE_COUNT = 3;
+const OPTION_LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 /** Opens a printable window with a branded question paper (print → Save as PDF). */
 export function downloadQuestionPaperPdf({
@@ -36,6 +44,7 @@ export function downloadQuestionPaperPdf({
 <head>
   <meta charset="utf-8" />
   <title>${escapeHtml(siteConfig.name)} — ${escapeHtml(title)}</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.18.1/dist/katex.min.css" crossorigin="anonymous" />
   <style>
     :root {
       --ink: #12203a;
@@ -76,7 +85,6 @@ export function downloadQuestionPaperPdf({
       z-index: 1;
     }
 
-    /* Centered brand watermark — prints as page stamp */
     .watermark {
       position: fixed;
       inset: 0;
@@ -211,7 +219,6 @@ export function downloadQuestionPaperPdf({
       margin-bottom: 1.5rem;
       padding-bottom: 1.15rem;
       border-bottom: 1px dashed var(--line);
-      /* Allow tall questions (large diagrams) to span pages — avoid blank first page */
       page-break-inside: auto;
       break-inside: auto;
       position: relative;
@@ -248,16 +255,168 @@ export function downloadQuestionPaperPdf({
       white-space: nowrap;
     }
 
-    .prompt {
-      margin: 0;
+    .rich-text-content {
       font-size: 0.95rem;
+      line-height: 1.55;
+      color: var(--ink);
     }
 
-    .body {
-      white-space: pre-wrap;
-      font-size: 0.9rem;
+    .rich-text-content.prompt {
+      margin: 0;
+    }
+
+    .rich-text-content.body {
       margin-top: 0.55rem;
+      font-size: 0.9rem;
       color: #24324d;
+    }
+
+    .rich-text-content p {
+      margin: 0.25rem 0;
+      line-height: 1.55;
+    }
+
+    .rich-text-content p:first-child {
+      margin-top: 0;
+    }
+
+    .rich-text-content p:last-child {
+      margin-bottom: 0;
+    }
+
+    .rich-text-content ul,
+    .rich-text-content ol {
+      margin: 0.5rem 0;
+      padding-left: 1.35rem;
+    }
+
+    .rich-text-content ul { list-style: disc; }
+    .rich-text-content ol { list-style: decimal; }
+
+    .rich-text-content h2 {
+      margin: 0.75rem 0 0.35rem;
+      font-size: 1rem;
+      font-weight: 700;
+    }
+
+    .rich-text-content h3 {
+      margin: 0.5rem 0 0.25rem;
+      font-size: 0.92rem;
+      font-weight: 700;
+    }
+
+    .rich-text-content strong { font-weight: 600; }
+
+    .rich-text-content sup {
+      vertical-align: super;
+      font-size: 0.75em;
+    }
+
+    .rich-text-content sub {
+      vertical-align: sub;
+      font-size: 0.75em;
+    }
+
+    .rich-text-content img,
+    .rich-text-content img.qb-inline-image {
+      max-width: 100%;
+      width: auto;
+      height: auto;
+      max-height: 95mm;
+      object-fit: contain;
+      margin: 0.75rem 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .rich-text-content img.qb-img-align-left {
+      display: block;
+      margin-left: 0;
+      margin-right: auto;
+    }
+
+    .rich-text-content img.qb-img-align-center {
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .rich-text-content img.qb-img-align-right {
+      display: block;
+      margin-left: auto;
+      margin-right: 0;
+    }
+
+    .rich-text-content img[style*="margin-left: auto"][style*="margin-right: auto"] {
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .rich-text-content img[style*="margin-right: 0"] {
+      display: block;
+      margin-left: auto;
+      margin-right: 0;
+    }
+
+    .rich-text-content p[style*="text-align: center"] img {
+      display: block;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .rich-text-content p[style*="text-align: right"] img {
+      display: block;
+      margin-left: auto;
+      margin-right: 0;
+    }
+
+    .rich-text-content .qb-math {
+      display: inline-block;
+      vertical-align: middle;
+      margin: 0 0.1rem;
+    }
+
+    .mcq-options {
+      margin: 0.75rem 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .mcq-options li {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.45rem;
+      margin-bottom: 0.45rem;
+      font-size: 0.9rem;
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+
+    .mcq-option-label {
+      flex-shrink: 0;
+      font-weight: 700;
+      line-height: 1.55;
+    }
+
+    .mcq-options .rich-text-content {
+      flex: 1;
+      min-width: 0;
+      font-size: 0.9rem;
+    }
+
+    .mcq-options .rich-text-content--inline,
+    .mcq-options .rich-text-content--inline p {
+      display: inline;
+      margin: 0 !important;
+      padding: 0;
+      line-height: inherit;
+    }
+
+    .mcq-options .rich-text-content p:first-child {
+      margin-top: 0;
     }
 
     .diagram {
@@ -346,7 +505,8 @@ export function downloadQuestionPaperPdf({
         break-inside: auto;
       }
 
-      .diagram {
+      .diagram,
+      .rich-text-content img {
         max-height: 90mm;
       }
 
@@ -494,19 +654,22 @@ export function downloadQuestionPaperPdf({
             .join("")}
         </div>`
             : "";
+          const promptHtml = renderRichBlock(q.prompt, origin, "prompt");
+          const bodyHtml = q.body ? renderRichBlock(q.body, origin, "body") : "";
+          const optionsHtml = renderMcqOptions(q, origin);
+          const diagramHtml = q.diagramUrl
+            ? `<img class="diagram" src="${escapeAttr(absolutizeUrl(q.diagramUrl, origin))}" alt="Diagram for question ${serial}" />`
+            : "";
           return `
       <div class="q">
         <div class="q-head">
           <div class="q-num">Question ${serial}</div>
           ${chip ? `<div class="q-chip">${chip}</div>` : ""}
         </div>
-        <p class="prompt">${escapeHtml(stripHtml(q.prompt))}</p>
-        ${q.body ? `<div class="body">${escapeHtml(stripHtml(q.body))}</div>` : ""}
-        ${
-          q.diagramUrl
-            ? `<img class="diagram" src="${escapeAttr(q.diagramUrl)}" alt="Diagram for question ${serial}" />`
-            : ""
-        }
+        ${promptHtml}
+        ${bodyHtml}
+        ${diagramHtml}
+        ${optionsHtml}
         ${answerBlock}
       </div>`;
         })
@@ -551,9 +714,64 @@ export function downloadQuestionPaperPdf({
   });
 }
 
-function uniquePapersLabel(
-  questions: Array<{ paper?: string | null }>
-) {
+function renderRichBlock(html: string, origin: string, className: string): string {
+  const content = prepareRichHtml(html, origin);
+  if (!content) return "";
+  return `<div class="rich-text-content ${className}">${content}</div>`;
+}
+
+function prepareRichHtml(html: string, origin: string): string {
+  if (!html?.trim()) return "";
+  let content: string;
+  if (looksLikeHtml(html)) {
+    content = sanitizeRichHtml(html);
+  } else {
+    content = `<p>${escapeHtml(decodeHtmlEntities(html))}</p>`;
+  }
+  content = hydrateKatexHtml(content);
+  return absolutizeHtmlMediaUrls(content, origin);
+}
+
+function renderMcqOptions(question: ExportQuestion, origin: string): string {
+  const filled = (question.options ?? [])
+    .map((opt, index) => ({ opt, index }))
+    .filter(({ opt }) => !isRichTextEmpty(opt));
+  if (filled.length < 2) return "";
+  return `<ul class="mcq-options">${filled
+    .map(({ opt, index }) => {
+      const letter = OPTION_LETTERS[index] ?? String(index + 1);
+      const content = prepareRichHtml(opt, origin);
+      return `<li style="display:flex;align-items:baseline;gap:0.45rem;">
+        <span class="mcq-option-label">${letter}.</span>
+        <span class="rich-text-content rich-text-content--inline">${content}</span>
+      </li>`;
+    })
+    .join("")}</ul>`;
+}
+
+function decodeHtmlEntities(text: string): string {
+  if (typeof document === "undefined") return text;
+  const el = document.createElement("textarea");
+  el.innerHTML = text;
+  return el.value;
+}
+
+function absolutizeUrl(url: string, origin: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith("data:")) return trimmed;
+  if (trimmed.startsWith("//")) return `${window.location.protocol}${trimmed}`;
+  if (trimmed.startsWith("/")) return `${origin}${trimmed}`;
+  return trimmed;
+}
+
+function absolutizeHtmlMediaUrls(html: string, origin: string): string {
+  return html.replace(/\ssrc=(["'])([^"']+)\1/gi, (_match, quote, src) => {
+    return ` src=${quote}${absolutizeUrl(src, origin)}${quote}`;
+  });
+}
+
+function uniquePapersLabel(questions: Array<{ paper?: string | null }>) {
   const papers = [
     ...new Set(
       questions
@@ -563,15 +781,6 @@ function uniquePapersLabel(
     ),
   ];
   return papers.length ? papers.join(", ") : "All papers";
-}
-
-function stripHtml(s: string) {
-  return s
-    .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>/gi, "\n")
-    .replace(/<[^>]+>/g, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
 }
 
 function escapeHtml(s: string) {

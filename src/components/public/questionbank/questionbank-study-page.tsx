@@ -153,6 +153,7 @@ function QuestionCard({
         videoUrl: feedback?.videoUrl ?? question.videoUrl,
         correctAnswer: feedback?.correctAnswer ?? question.correctAnswer,
         isCorrect: feedback ? feedback.isCorrect : null,
+        questionType: question.questionType,
       }}
     />
   );

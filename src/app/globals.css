@@ -365,6 +365,22 @@
   @apply my-1 leading-relaxed;
 }
 
+/* MCQ option rows: A. text on one baseline (overrides paragraph margins) */
+.rich-text-content--inline,
+.rich-text-content--inline p,
+.rich-text-content--inline div {
+  display: inline;
+  margin: 0 !important;
+  padding: 0;
+  line-height: inherit;
+}
+
+.rich-text-content--inline img {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0.25rem 0;
+}
+
 .rich-text-content a {
   @apply text-primary underline underline-offset-2;
 }
@@ -375,8 +391,34 @@
 
 .rich-text-editor__content img.qb-inline-image,
 .rich-text-content img.qb-inline-image,
+.rich-text-editor__content img,
 .rich-text-content img {
   @apply my-3 max-h-[420px] max-w-full rounded-lg border border-border object-contain;
+}
+
+.rich-text-editor__content img.qb-img-align-left,
+.rich-text-content img.qb-img-align-left {
+  @apply ml-0 mr-auto block;
+}
+
+.rich-text-editor__content img.qb-img-align-center,
+.rich-text-content img.qb-img-align-center {
+  @apply mx-auto block;
+}
+
+.rich-text-editor__content img.qb-img-align-right,
+.rich-text-content img.qb-img-align-right {
+  @apply ml-auto mr-0 block;
+}
+
+.rich-text-editor__content p[style*="text-align: center"] img,
+.rich-text-content p[style*="text-align: center"] img {
+  @apply mx-auto block;
+}
+
+.rich-text-editor__content p[style*="text-align: right"] img,
+.rich-text-content p[style*="text-align: right"] img {
+  @apply ml-auto mr-0 block;
 }
 
 .rich-text-editor__content .qb-math,
@@ -392,4 +434,9 @@
 .rich-text-editor__content sub,
 .rich-text-content sub {
   @apply align-sub text-[0.75em];
+}
+
+.rich-text-editor__content [style*="text-align"],
+.rich-text-content [style*="text-align"] {
+  display: block;
 }

@@ -5,6 +5,25 @@ import { cn } from "@/utils";
 
 export const STUDY_QUESTION_LETTERS = ["A", "B", "C", "D", "E", "F"] as const;
 
+/** MCQ when typed as MULTIPLE_CHOICE or when at least two option strings exist. */
+export function resolveStudyQuestionMcq(input: {
+  questionType?: string | null;
+  paper?: string | null;
+  options?: string[];
+}): boolean {
+  const type = String(input.questionType ?? "").toUpperCase();
+  if (type === "SHORT_ANSWER" || type === "DATA_BASED") return false;
+  if (type === "MULTIPLE_CHOICE") return true;
+  if ((input.options?.length ?? 0) >= 2) return true;
+  const paper = String(input.paper ?? "").toUpperCase();
+  return /^PAPER_1$|^P1$|^1$/.test(paper);
+}
+
+export function mcqAnswerLetters(optionsLength: number, isMcq: boolean): string[] {
+  const count = optionsLength >= 2 ? optionsLength : isMcq ? 4 : 0;
+  return [...STUDY_QUESTION_LETTERS.slice(0, count)];
+}
+
 export function paperDisplayLabel(paper?: string | null) {
   if (!paper) return "Paper";
   const match = String(paper).toUpperCase().match(/PAPER_?(\d+)/);

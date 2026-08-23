@@ -288,13 +288,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
     setActionError(null);
     try {
       const isMcq = questionKind === "MCQ";
-      const options = isMcq
-        ? optionHtmls.map((html) => serializeRichText(html)).filter((html) => !isRichTextEmpty(html))
-        : [];
-      if (isMcq && options.length < 2) {
-        setActionError("MCQ needs at least 2 options.");
-        return;
-      }
+      const options = isMcq ? optionHtmls.map((html) => serializeRichText(html)) : [];
       if (isRichTextEmpty(prompt)) {
         setActionError("Prompt is required.");
         return;
@@ -719,7 +713,13 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
 
             {questionKind === "MCQ" ? (
               <div className="space-y-3">
-                <span className="text-sm font-semibold">Options (text and/or images)</span>
+                <div className="space-y-1">
+                  <span className="text-sm font-semibold">Options (text and/or images)</span>
+                  <p className="text-xs text-muted-foreground">
+                    Optional when options are already shown in the prompt, body, or a diagram/table
+                    image. Set the correct letter below.
+                  </p>
+                </div>
                 {OPTION_LETTERS.map((letter, index) => (
                   <div key={letter} className="space-y-1.5">
                     <span className="text-xs font-semibold text-muted-foreground">Option {letter}</span>

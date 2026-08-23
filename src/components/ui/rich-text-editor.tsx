@@ -2,12 +2,16 @@
 
 import { useEffect, useRef, useState } from "react";
 import { EditorContent, useEditor } from "@tiptap/react";
-import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
+import TextAlign from "@tiptap/extension-text-align";
+import type { Editor } from "@tiptap/core";
 import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
   Bold,
   ImageIcon,
   Italic,
@@ -21,6 +25,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { normalizeRichTextContent } from "@/lib/rich-text";
+import { QbImage, type QbImageAlign } from "@/lib/tiptap-image";
 import { MathInline } from "@/lib/tiptap-math";
 import { uploadService } from "@/services/upload.service";
 import { cn } from "@/utils";
@@ -68,6 +73,26 @@ function ToolbarButton({
   );
 }
 
+function setEditorAlignment(editor: Editor, align: QbImageAlign) {
+  if (editor.isActive("image")) {
+    editor.chain().focus().updateAttributes("image", { align }).run();
+    return;
+  }
+  const { state } = editor;
+  const { selection } = state;
+  const node = state.doc.nodeAt(selection.from);
+  if (node?.type.name === "image") {
+    editor.chain().focus().updateAttributes("image", { align }).run();
+    return;
+  }
+  editor.chain().focus().setTextAlign(align).run();
+}
+
+function isEditorAlignmentActive(editor: Editor, align: QbImageAlign) {
+  if (editor.isActive("image", { align })) return true;
+  return editor.isActive({ textAlign: align });
+}
+
 export function RichTextEditor({
   value,
   onChange,
@@ -87,15 +112,13 @@ export function RichTextEditor({
         heading: { levels: [2, 3] },
       }),
       Placeholder.configure({ placeholder }),
-      Image.configure({
-        inline: true,
-        allowBase64: false,
-        HTMLAttributes: {
-          class: "qb-inline-image",
-        },
-      }),
+      QbImage,
       Superscript,
       Subscript,
+      TextAlign.configure({
+        types: ["heading", "paragraph"],
+        alignments: ["left", "center", "right"],
+      }),
       MathInline,
     ],
     content: normalizeRichTextContent(value),
@@ -134,7 +157,12 @@ export function RichTextEditor({
     setUploading(true);
     try {
       const result = await uploadService.upload(file, uploadFolder);
-      editor.chain().focus().setImage({ src: result.url, alt: file.name }).run();
+      editor
+        .chain()
+        .focus()
+        .setImage({ src: result.url, alt: file.name })
+        .updateAttributes("image", { align: "center" })
+        .run();
     } catch {
       window.alert("Image upload failed. Try again or paste an image URL.");
     } finally {
@@ -229,6 +257,31 @@ export function RichTextEditor({
           onClick={() => editor.chain().focus().toggleOrderedList().run()}
         >
           <ListOrdered className="h-4 w-4" />
+        </ToolbarButton>
+        <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+        <ToolbarButton
+          label="Align left"
+          disabled={disabled}
+          active={isEditorAlignmentActive(editor, "left")}
+          onClick={() => setEditorAlignment(editor, "left")}
+        >
+          <AlignLeft className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Align center"
+          disabled={disabled}
+          active={isEditorAlignmentActive(editor, "center")}
+          onClick={() => setEditorAlignment(editor, "center")}
+        >
+          <AlignCenter className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Align right"
+          disabled={disabled}
+          active={isEditorAlignmentActive(editor, "right")}
+          onClick={() => setEditorAlignment(editor, "right")}
+        >
+          <AlignRight className="h-4 w-4" />
         </ToolbarButton>
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
         <ToolbarButton

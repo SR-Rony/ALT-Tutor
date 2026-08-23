@@ -16,13 +16,15 @@ import {
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
 import { RichTextContent } from "@/components/ui/rich-text-content";
-import { richTextToPlain } from "@/lib/rich-text";
+import { isRichTextEmpty, richTextToPlain } from "@/lib/rich-text";
 import { cn } from "@/utils";
 import {
   DifficultyDots,
   STUDY_QUESTION_LETTERS,
   VideoEmbed,
+  mcqAnswerLetters,
   paperDisplayLabel,
+  resolveStudyQuestionMcq,
 } from "./study-question-helpers";
 
 export type StudyQuestionView = {
@@ -41,6 +43,7 @@ export type StudyQuestionView = {
   correctAnswer?: string | null;
   isCorrect?: boolean | null;
   paperMarkSchemeUrl?: string | null;
+  questionType?: string | null;
 };
 
 export type StudyQuestionCardProps = {
@@ -100,7 +103,11 @@ export function StudyQuestionCard({
     onToggleComplete ?? (() => setLocalCompleted((v) => !v));
 
   const qLabel = `Question ${question.displayNumber}`;
-  const isMcq = question.options.length >= 2;
+  const isMcq = resolveStudyQuestionMcq(question);
+  const filledOptions = question.options
+    .map((opt, index) => ({ opt, index }))
+    .filter(({ opt }) => !isRichTextEmpty(opt));
+  const hasOptionList = filledOptions.length >= 2;
   const selected = selectedAnswer ?? null;
   const answered = selected !== null;
   const correctAnswer = (question.correctAnswer ?? "").toUpperCase();
@@ -108,7 +115,7 @@ export function StudyQuestionCard({
   const markScheme = question.markScheme;
   const videoUrl = question.videoUrl;
   const hasScheme = Boolean(markScheme) || Boolean(question.paperMarkSchemeUrl);
-  const letters = STUDY_QUESTION_LETTERS.slice(0, question.options.length);
+  const letters = mcqAnswerLetters(question.options.length, isMcq);
 
   const maxMarkMatch =
     contentMode === "rich"
@@ -214,76 +221,74 @@ export function StudyQuestionCard({
             </div>
           ) : null}
 
-          {isMcq ? (
-            <>
-              <ul className="mt-4 space-y-3 text-sm text-foreground">
-                {question.options.map((opt, i) => (
-                  <li key={`${question.id}-opt-${i}`} className="flex gap-2">
-                    <span className="shrink-0 font-semibold">
-                      {STUDY_QUESTION_LETTERS[i] ?? i + 1}.
-                    </span>
-                    {contentMode === "rich" ? (
-                      <RichTextContent html={opt} className="min-w-0 flex-1" />
-                    ) : (
-                      <span className="min-w-0 flex-1">{opt}</span>
-                    )}
-                  </li>
-                ))}
-              </ul>
+          {isMcq && hasOptionList ? (
+            <ul className="mt-4 space-y-3 text-sm leading-relaxed text-foreground">
+              {filledOptions.map(({ opt, index }) => (
+                <li key={`${question.id}-opt-${index}`} className="flex items-baseline gap-x-2">
+                  <span className="shrink-0 font-semibold tabular-nums">
+                    {STUDY_QUESTION_LETTERS[index] ?? index + 1}.
+                  </span>
+                  {contentMode === "rich" ? (
+                    <RichTextContent html={opt} inline className="min-w-0 flex-1" />
+                  ) : (
+                    <span className="min-w-0">{opt}</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          ) : null}
 
-              {onSelectAnswer ? (
-                <div className="mt-5">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Choose an answer
-                  </p>
-                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    {letters.map((letter) => {
-                      const isSelected = selected === letter;
-                      const isCorrectChoice = correctAnswer ? letter === correctAnswer : false;
-                      return (
-                        <button
-                          key={letter}
-                          type="button"
-                          disabled={saving || answerDisabled || (examMode && solutionsUnlocked)}
-                          onClick={() => onSelectAnswer(letter)}
-                          className={cn(
-                            "relative flex h-12 items-center justify-center rounded-xl border text-sm font-bold transition",
-                            !answered &&
-                              "border-border bg-muted/40 hover:border-primary hover:bg-primary-muted",
-                            answered &&
-                              solutionsUnlocked &&
-                              isCorrectChoice &&
-                              "border-accent-green bg-[#ecfdf3] text-accent-green",
-                            answered &&
-                              solutionsUnlocked &&
-                              isSelected &&
-                              !correct &&
-                              "border-accent bg-accent/10 text-accent",
-                            answered &&
-                              solutionsUnlocked &&
-                              !isSelected &&
-                              !isCorrectChoice &&
-                              "opacity-50",
-                            answered &&
-                              !solutionsUnlocked &&
-                              isSelected &&
-                              "border-primary bg-primary-muted text-primary"
-                          )}
-                        >
-                          {letter}
-                          {answered && solutionsUnlocked && isCorrectChoice ? (
-                            <CheckCircle2 className="absolute right-2 h-4 w-4" />
-                          ) : null}
-                          {answered && solutionsUnlocked && isSelected && !correct ? (
-                            <XCircle className="absolute right-2 h-4 w-4" />
-                          ) : null}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null}
-            </>
+          {isMcq && onSelectAnswer ? (
+            <div className={hasOptionList ? "mt-5" : "mt-4"}>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Choose an answer
+              </p>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {letters.map((letter) => {
+                  const isSelected = selected === letter;
+                  const isCorrectChoice = correctAnswer ? letter === correctAnswer : false;
+                  return (
+                    <button
+                      key={letter}
+                      type="button"
+                      disabled={saving || answerDisabled || (examMode && solutionsUnlocked)}
+                      onClick={() => onSelectAnswer(letter)}
+                      className={cn(
+                        "relative flex h-12 items-center justify-center rounded-xl border text-sm font-bold transition",
+                        !answered &&
+                          "border-border bg-muted/40 hover:border-primary hover:bg-primary-muted",
+                        answered &&
+                          solutionsUnlocked &&
+                          isCorrectChoice &&
+                          "border-accent-green bg-[#ecfdf3] text-accent-green",
+                        answered &&
+                          solutionsUnlocked &&
+                          isSelected &&
+                          !correct &&
+                          "border-accent bg-accent/10 text-accent",
+                        answered &&
+                          solutionsUnlocked &&
+                          !isSelected &&
+                          !isCorrectChoice &&
+                          "opacity-50",
+                        answered &&
+                          !solutionsUnlocked &&
+                          isSelected &&
+                          "border-primary bg-primary-muted text-primary"
+                      )}
+                    >
+                      {letter}
+                      {answered && solutionsUnlocked && isCorrectChoice ? (
+                        <CheckCircle2 className="absolute right-2 h-4 w-4" />
+                      ) : null}
+                      {answered && solutionsUnlocked && isSelected && !correct ? (
+                        <XCircle className="absolute right-2 h-4 w-4" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ) : null}
 
           {footer ? <div className="mt-4">{footer}</div> : null}
