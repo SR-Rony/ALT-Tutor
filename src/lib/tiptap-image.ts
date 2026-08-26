@@ -45,7 +45,7 @@ export const QbImage = Image.extend({
             };
           }
           return {
-            class: "qb-inline-image",
+            class: "qb-inline-image qb-img-align-left",
             "data-align": "left",
           };
         },
@@ -57,7 +57,7 @@ export const QbImage = Image.extend({
     return [
       "img",
       mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
-        class: HTMLAttributes.class ?? "qb-inline-image",
+        class: HTMLAttributes.class ?? "qb-inline-image qb-img-align-left",
       }),
     ];
   },
@@ -65,7 +65,7 @@ export const QbImage = Image.extend({
   inline: false,
   allowBase64: false,
   HTMLAttributes: {
-    class: "qb-inline-image",
+    class: "qb-inline-image qb-img-align-left",
   },
 });
 

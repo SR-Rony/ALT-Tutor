@@ -365,20 +365,36 @@
   @apply my-1 leading-relaxed;
 }
 
-/* MCQ option rows: A. text on one baseline (overrides paragraph margins) */
+/* MCQ option rows: A. + text/math vertically centered */
 .rich-text-content--inline,
 .rich-text-content--inline p,
-.rich-text-content--inline div {
+.rich-text-content--inline div,
+.rich-text-content--inline em,
+.rich-text-content--inline i,
+.rich-text-content--inline strong {
   display: inline;
   margin: 0 !important;
   padding: 0;
   line-height: inherit;
+  font-style: normal;
 }
 
 .rich-text-content--inline img {
   display: inline-block;
   vertical-align: middle;
   margin: 0.25rem 0;
+}
+
+.rich-text-content--inline .qb-math,
+.rich-text-content--inline .katex {
+  display: inline-block;
+  vertical-align: middle;
+  margin: 0;
+  font-style: normal;
+}
+
+.rich-text-content .qb-math-equation .katex {
+  font-size: 1.05em;
 }
 
 .rich-text-content a {
@@ -389,26 +405,38 @@
   @apply font-semibold;
 }
 
+/* Same image look in admin editor and student view */
 .rich-text-editor__content img.qb-inline-image,
 .rich-text-content img.qb-inline-image,
 .rich-text-editor__content img,
 .rich-text-content img {
-  @apply my-3 max-h-[420px] max-w-full rounded-lg border border-border object-contain;
+  @apply my-3 ml-0 mr-auto block max-h-[420px] max-w-full rounded-lg border border-border object-contain;
 }
 
 .rich-text-editor__content img.qb-img-align-left,
-.rich-text-content img.qb-img-align-left {
+.rich-text-content img.qb-img-align-left,
+.rich-text-editor__content img[data-align="left"],
+.rich-text-content img[data-align="left"] {
   @apply ml-0 mr-auto block;
 }
 
 .rich-text-editor__content img.qb-img-align-center,
-.rich-text-content img.qb-img-align-center {
+.rich-text-content img.qb-img-align-center,
+.rich-text-editor__content img[data-align="center"],
+.rich-text-content img[data-align="center"] {
   @apply mx-auto block;
 }
 
 .rich-text-editor__content img.qb-img-align-right,
-.rich-text-content img.qb-img-align-right {
+.rich-text-content img.qb-img-align-right,
+.rich-text-editor__content img[data-align="right"],
+.rich-text-content img[data-align="right"] {
   @apply ml-auto mr-0 block;
+}
+
+.rich-text-editor__content p[style*="text-align: left"] img,
+.rich-text-content p[style*="text-align: left"] img {
+  @apply ml-0 mr-auto block;
 }
 
 .rich-text-editor__content p[style*="text-align: center"] img,

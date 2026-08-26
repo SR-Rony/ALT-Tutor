@@ -222,16 +222,16 @@ export function StudyQuestionCard({
           ) : null}
 
           {isMcq && hasOptionList ? (
-            <ul className="mt-4 space-y-3 text-sm leading-relaxed text-foreground">
+            <ul className="mt-4 space-y-4 text-sm text-foreground">
               {filledOptions.map(({ opt, index }) => (
-                <li key={`${question.id}-opt-${index}`} className="flex items-baseline gap-x-2">
-                  <span className="shrink-0 font-semibold tabular-nums">
+                <li key={`${question.id}-opt-${index}`} className="flex items-center gap-x-2.5">
+                  <span className="shrink-0 self-center font-semibold leading-none">
                     {STUDY_QUESTION_LETTERS[index] ?? index + 1}.
                   </span>
                   {contentMode === "rich" ? (
                     <RichTextContent html={opt} inline className="min-w-0 flex-1" />
                   ) : (
-                    <span className="min-w-0">{opt}</span>
+                    <span className="min-w-0 leading-relaxed">{opt}</span>
                   )}
                 </li>
               ))}

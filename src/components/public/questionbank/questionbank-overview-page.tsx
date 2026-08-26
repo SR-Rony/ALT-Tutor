@@ -63,7 +63,7 @@ function StudySetCard({
   const preview =
     richTextToPlain(sub.description ?? "") ||
     `${sub._count?.questions ?? 0} practice questions in this study set.`;
-  const displayTitle = `${serial} ${studySetBaseTitle(sub.title)}`;
+  const displayTitle = `${serial}. ${studySetBaseTitle(sub.title)}`;
 
   return (
     <article className="relative flex h-full flex-col rounded-xl border border-border/80 bg-white px-5 pb-5 pt-7 shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition hover:border-primary/25 hover:shadow-[0_8px_24px_-16px_rgba(24,119,242,0.25)]">
@@ -175,7 +175,7 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
               index > 0 && "border-l border-primary/10"
             )}
           >
-            Topic {topic.number}: {displayTitle}
+            {topic.number}. {displayTitle}
           </a>
         );
       })}
@@ -227,11 +227,13 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
         {data.qbTopics.length === 0 ? (
           <p className="text-center text-muted-foreground">No topics yet for this questionbank.</p>
         ) : null}
-        {data.qbTopics.map((topic) => {
-          const displayTitle = topicDisplayTitle(topic.title);
-          return (
+        {(() => {
+          let studySetSerial = 0;
+          return data.qbTopics.map((topic) => {
+            const displayTitle = topicDisplayTitle(topic.title);
+            return (
             <section key={topic.id} id={`topic-${topic.number}`} className="scroll-mt-28">
-              <p className="text-sm font-medium text-muted-foreground">Topic {topic.number}</p>
+              <p className="text-sm font-medium text-muted-foreground">{topic.number}. {displayTitle}</p>
               <h2 className="mt-1 text-2xl font-bold text-foreground md:text-[1.75rem]">
                 {displayTitle}
               </h2>
@@ -242,13 +244,14 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
                 />
               ) : null}
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {topic.subtopics.map((sub, subIndex) => {
+                {topic.subtopics.map((sub) => {
+                  studySetSerial += 1;
+                  const serial = String(studySetSerial);
                   const userTier = data.access?.userTier ?? "FREE";
                   const locked =
                     Boolean(sub.locked) || !canAccessWithTier(userTier, sub.badge);
                   const studyHref = ROUTES.subjectQuestionbankStudy(programSlug, sub.slug);
                   const loginThenStudy = `${ROUTES.auth.login}?next=${encodeURIComponent(studyHref)}`;
-                  const serial = `${topic.number}.${subIndex + 1}`;
 
                   return (
                     <StudySetCard
@@ -279,8 +282,9 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
                 })}
               </div>
             </section>
-          );
-        })}
+            );
+          });
+        })()}
       </div>
 
       {showTop ? (

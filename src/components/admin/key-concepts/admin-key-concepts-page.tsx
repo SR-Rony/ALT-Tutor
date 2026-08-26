@@ -27,7 +27,7 @@ import type {
   KeyConceptLesson,
 } from "@/types/key-concept.types";
 import type { QbAccessBadge } from "@/types/qb.types";
-import { cn } from "@/utils";
+import { cn, compareByOrderThenNaturalTitle } from "@/utils";
 
 const CONTENT_TYPES: KeyConceptContentType[] = ["ARTICLE", "VIDEO", "MIXED"];
 const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
@@ -104,7 +104,10 @@ export function AdminKeyConceptsPage({
   const updateLesson = useUpdateKeyConceptLesson();
   const deleteLesson = useDeleteKeyConceptLesson();
 
-  const lessons = data?.lessons ?? [];
+  const lessons = useMemo(
+    () => [...(data?.lessons ?? [])].sort(compareByOrderThenNaturalTitle),
+    [data?.lessons]
+  );
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);

@@ -1,4 +1,5 @@
 import { siteConfig } from "@/config";
+import { enhanceSlashEquationsHtml } from "@/lib/equation-display";
 import { isRichTextEmpty, looksLikeHtml } from "@/lib/rich-text";
 import { sanitizeRichHtml } from "@/lib/sanitize-rich-html";
 import { hydrateKatexHtml } from "@/lib/tiptap-math";
@@ -331,42 +332,24 @@ export function downloadQuestionPaperPdf({
       break-inside: avoid;
     }
 
-    .rich-text-content img.qb-img-align-left {
+    .rich-text-content img.qb-img-align-left,
+    .rich-text-content img[data-align="left"],
+    .rich-text-content p[style*="text-align: left"] img {
       display: block;
       margin-left: 0;
       margin-right: auto;
     }
 
-    .rich-text-content img.qb-img-align-center {
-      display: block;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .rich-text-content img.qb-img-align-right {
-      display: block;
-      margin-left: auto;
-      margin-right: 0;
-    }
-
-    .rich-text-content img[style*="margin-left: auto"][style*="margin-right: auto"] {
-      display: block;
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .rich-text-content img[style*="margin-right: 0"] {
-      display: block;
-      margin-left: auto;
-      margin-right: 0;
-    }
-
+    .rich-text-content img.qb-img-align-center,
+    .rich-text-content img[data-align="center"],
     .rich-text-content p[style*="text-align: center"] img {
       display: block;
       margin-left: auto;
       margin-right: auto;
     }
 
+    .rich-text-content img.qb-img-align-right,
+    .rich-text-content img[data-align="right"],
     .rich-text-content p[style*="text-align: right"] img {
       display: block;
       margin-left: auto;
@@ -387,9 +370,9 @@ export function downloadQuestionPaperPdf({
 
     .mcq-options li {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 0.45rem;
-      margin-bottom: 0.45rem;
+      margin-bottom: 0.65rem;
       font-size: 0.9rem;
       page-break-inside: avoid;
       break-inside: avoid;
@@ -398,7 +381,7 @@ export function downloadQuestionPaperPdf({
     .mcq-option-label {
       flex-shrink: 0;
       font-weight: 700;
-      line-height: 1.55;
+      line-height: 1;
     }
 
     .mcq-options .rich-text-content {
@@ -408,11 +391,21 @@ export function downloadQuestionPaperPdf({
     }
 
     .mcq-options .rich-text-content--inline,
-    .mcq-options .rich-text-content--inline p {
+    .mcq-options .rich-text-content--inline p,
+    .mcq-options .rich-text-content--inline em,
+    .mcq-options .rich-text-content--inline i {
       display: inline;
       margin: 0 !important;
       padding: 0;
       line-height: inherit;
+      font-style: normal;
+    }
+
+    .mcq-options .qb-math,
+    .mcq-options .katex {
+      display: inline-block;
+      vertical-align: middle;
+      font-style: normal;
     }
 
     .mcq-options .rich-text-content p:first-child {
@@ -729,6 +722,7 @@ function prepareRichHtml(html: string, origin: string): string {
     content = `<p>${escapeHtml(decodeHtmlEntities(html))}</p>`;
   }
   content = hydrateKatexHtml(content);
+  content = enhanceSlashEquationsHtml(content);
   return absolutizeHtmlMediaUrls(content, origin);
 }
 
@@ -741,7 +735,7 @@ function renderMcqOptions(question: ExportQuestion, origin: string): string {
     .map(({ opt, index }) => {
       const letter = OPTION_LETTERS[index] ?? String(index + 1);
       const content = prepareRichHtml(opt, origin);
-      return `<li style="display:flex;align-items:baseline;gap:0.45rem;">
+      return `<li>
         <span class="mcq-option-label">${letter}.</span>
         <span class="rich-text-content rich-text-content--inline">${content}</span>
       </li>`;

@@ -161,7 +161,7 @@ export function RichTextEditor({
         .chain()
         .focus()
         .setImage({ src: result.url, alt: file.name })
-        .updateAttributes("image", { align: "center" })
+        .updateAttributes("image", { align: "left" })
         .run();
     } catch {
       window.alert("Image upload failed. Try again or paste an image URL.");
@@ -173,7 +173,10 @@ export function RichTextEditor({
 
   const insertMath = () => {
     if (!editor) return;
-    const latex = window.prompt("Enter LaTeX (e.g. \\theta, v_x, m\\,s^{-1})", "");
+    const latex = window.prompt(
+      "Enter LaTeX (examples: \\dfrac{force}{mass} , v_x , m\\,s^{-1})",
+      "\\dfrac{force}{mass}"
+    );
     if (latex == null) return;
     editor.chain().focus().insertMath(latex).run();
   };

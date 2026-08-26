@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import { enhanceSlashEquationsHtml } from "@/lib/equation-display";
 import { looksLikeHtml } from "@/lib/rich-text";
 import { sanitizeRichHtml } from "@/lib/sanitize-rich-html";
 import { hydrateKatexHtml } from "@/lib/tiptap-math";
@@ -22,10 +23,17 @@ export function RichTextContent({
 }: RichTextContentProps) {
   const rendered = useMemo(() => {
     if (!html?.trim()) return null;
-    if (!looksLikeHtml(html)) return { kind: "plain" as const, text: html };
+    if (!looksLikeHtml(html)) {
+      const enhanced = enhanceSlashEquationsHtml(html);
+      if (enhanced !== html && enhanced.includes("qb-math")) {
+        return { kind: "html" as const, html: enhanced };
+      }
+      return { kind: "plain" as const, text: html };
+    }
     const clean = sanitizeRichHtml(html);
-    const withMath = hydrateKatexHtml(clean);
-    return { kind: "html" as const, html: withMath };
+    const withStoredMath = hydrateKatexHtml(clean);
+    const withEquations = enhanceSlashEquationsHtml(withStoredMath);
+    return { kind: "html" as const, html: withEquations };
   }, [html]);
 
   if (!rendered) return null;
@@ -34,7 +42,9 @@ export function RichTextContent({
 
   if (rendered.kind === "plain") {
     return (
-      <ResolvedTag className={cn(inline && "rich-text-content--inline", "whitespace-pre-line", className)}>
+      <ResolvedTag
+        className={cn(inline && "rich-text-content--inline", "whitespace-pre-line", className)}
+      >
         {rendered.text}
       </ResolvedTag>
     );

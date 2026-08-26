@@ -22,7 +22,7 @@ import { useAppSelector } from "@/store";
 import { normalizeAccessBadge, tierBadgeClass, tierLabel } from "@/lib/access-tier";
 import type { ApiError } from "@/types";
 import type { KeyConceptLesson } from "@/types/key-concept.types";
-import { cn } from "@/utils";
+import { cn, compareByOrderThenNaturalTitle, compareNaturalTitle } from "@/utils";
 import { ResourceGridSkeleton } from "./resource-grid-skeleton";
 import { ResourceHero, SubjectBreadcrumbNav, useSubjectBreadcrumbs } from "./";
 import { useProgramContext } from "./use-program-context";
@@ -193,12 +193,21 @@ export function KeyConceptsPage({ programSlug }: Props) {
   }>({ title: "", requiredTier: "GOLD" });
   const [activeLesson, setActiveLesson] = useState<KeyConceptLesson | null>(null);
 
-  const lessons = data?.lessons ?? [];
+  const lessons = useMemo(
+    () => [...(data?.lessons ?? [])].sort(compareByOrderThenNaturalTitle),
+    [data?.lessons]
+  );
 
   const sections = useMemo(() => {
     const map = new Map<
       string,
-      { id: string; chapterTitle: string; topicTitle: string; lessons: KeyConceptLesson[] }
+      {
+        id: string;
+        chapterTitle: string;
+        topicTitle: string;
+        topicNumber: number;
+        lessons: KeyConceptLesson[];
+      }
     >();
     for (const lesson of lessons) {
       const topic = lesson.topic;
@@ -206,14 +215,18 @@ export function KeyConceptsPage({ programSlug }: Props) {
       if (!map.has(key)) {
         map.set(key, {
           id: key,
-          chapterTitle: topic ? `Chapter ${topic.number}: ${topic.title}` : "Lessons",
+          chapterTitle: topic ? `${topic.number}. ${topic.title}` : "Lessons",
           topicTitle: topic?.title ?? "Key Concepts",
+          topicNumber: topic?.number ?? 9999,
           lessons: [],
         });
       }
       map.get(key)!.lessons.push(lesson);
     }
-    return Array.from(map.values());
+    return Array.from(map.values()).sort((a, b) => {
+      if (a.topicNumber !== b.topicNumber) return a.topicNumber - b.topicNumber;
+      return compareNaturalTitle(a.topicTitle, b.topicTitle);
+    });
   }, [lessons]);
 
   const breadcrumbs = useSubjectBreadcrumbs({

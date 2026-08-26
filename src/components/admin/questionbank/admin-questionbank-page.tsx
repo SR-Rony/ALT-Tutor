@@ -51,18 +51,14 @@ import {
   downloadProgramQuestions,
 } from "./qb-admin-shared";
 
-/** Strip leading "1. " / "1:" from stored titles so "Topic 1: Algebra" stays clean. */
+/** Strip leading "1. " / "1:" from stored titles so display stays clean. */
 function topicDisplayName(title: string) {
   return title.replace(/^\s*\d+\s*[.:)\-–—]\s*/, "").trim() || title;
 }
 
-/** Strip leading "1.1 " style serial from study-set titles (serial is shown separately). */
+/** Strip leading "1. " / "1.1 " style serial from study-set titles (serial is shown separately). */
 function studySetBaseTitle(title: string) {
   return title.replace(/^\s*\d+(\.\d+)?\s*[.:)\-–—]?\s*/, "").trim() || title;
-}
-
-function studySetSerialLabel(topicNumber: number, studySetIndex: number) {
-  return `${topicNumber}.${studySetIndex + 1}`;
 }
 
 export function AdminQuestionbankPage() {
@@ -135,6 +131,21 @@ export function AdminQuestionbankPage() {
       hiddenTopics: topics.filter((t) => !t.isActive).length,
     };
   }, [topics]);
+
+  /** Independent study-set serials: 1, 2, 3… across the whole program (not 1.1 / 2.1). */
+  const studySetSerialById = useMemo(() => {
+    const map = new Map<string, number>();
+    let serial = 0;
+    for (const topic of topics) {
+      for (const sub of topic.subtopics) {
+        serial += 1;
+        map.set(sub.id, serial);
+      }
+    }
+    return map;
+  }, [topics]);
+
+  const nextStudySetSerial = (studySetSerialById.size || 0) + 1;
 
   const [collapsedTopics, setCollapsedTopics] = useState<Record<string, boolean>>({});
 
@@ -471,7 +482,7 @@ export function AdminQuestionbankPage() {
                       )}
                     />
                     <p className="text-sm font-bold text-foreground md:text-base">
-                      Topic {topicIndex + 1}: {topicDisplayName(topic.title)}
+                      {topicIndex + 1}. {topicDisplayName(topic.title)}
                     </p>
                     <span className="text-xs text-muted-foreground">
                       ({topic.subtopics.length} study sets)
@@ -538,13 +549,12 @@ export function AdminQuestionbankPage() {
                       </p>
                     ) : null}
 
-                    {topic.subtopics.map((sub, subIndex) => {
+                    {topic.subtopics.map((sub) => {
                       const paperCounts = countByPaper(sub.questions);
                       const total = sub.questions?.length ?? 0;
                       const manageHref = ROUTES.admin.qbStudySet(sub.id, effectiveProgramId);
-                      const topicNumber = topicIndex + 1;
-                      const serial = studySetSerialLabel(topicNumber, subIndex);
-                      const displayTitle = `${serial} ${studySetBaseTitle(sub.title)}`;
+                      const serial = studySetSerialById.get(sub.id) ?? 0;
+                      const displayTitle = `${serial}. ${studySetBaseTitle(sub.title)}`;
 
                       return (
                         <div
@@ -676,7 +686,7 @@ export function AdminQuestionbankPage() {
           modal?.kind === "subtopic"
             ? modal.editId
               ? "ALT Free is open practice. Silver, Gold, and Diamond need a matching Practice Pass."
-              : "Serial number is assigned automatically (e.g. 1.4) and the new study set is added last."
+              : "Serial number is assigned automatically (1, 2, 3…) and the new study set is added last."
             : "Visible on the public Questionbank."
         }
         onClose={() => !busy && setModal(null)}
@@ -697,16 +707,8 @@ export function AdminQuestionbankPage() {
           {modal?.kind === "subtopic" && !modal.editId ? (
             <p className="rounded-lg border border-primary/20 bg-primary-muted/40 px-3 py-2 text-xs text-muted-foreground">
               Next serial:{" "}
-              <strong className="text-foreground">
-                {(() => {
-                  const parent = topics.find((t) => t.id === modal.topicId);
-                  const topicNumber =
-                    (parent ? topics.findIndex((t) => t.id === parent.id) : -1) + 1 || 1;
-                  const nextIndex = parent?.subtopics.length ?? 0;
-                  return studySetSerialLabel(topicNumber, nextIndex);
-                })()}
-              </strong>{" "}
-              — enter title only (e.g. Linear Equations). Number is automatic.
+              <strong className="text-foreground">{nextStudySetSerial}</strong> — enter
+              title only (e.g. Linear Equations). Number is automatic.
             </p>
           ) : null}
           <label className="block space-y-1.5">

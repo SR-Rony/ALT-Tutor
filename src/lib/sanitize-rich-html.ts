@@ -35,41 +35,49 @@ function registerStyleHook() {
   });
 }
 
-function isDiagramStyleImage(img: Element): boolean {
-  const parent = img.parentElement;
-  if (!parent) return false;
-  if (parent.tagName === "P") {
-    return img === parent.querySelector("img:only-child");
+function applyImageAlign(img: Element, align: "left" | "center" | "right") {
+  img.classList.remove("qb-img-align-left", "qb-img-align-center", "qb-img-align-right");
+  img.setAttribute("data-align", align);
+  if (align === "center") {
+    img.classList.add("qb-img-align-center");
+    img.setAttribute("style", "display: block; margin-left: auto; margin-right: auto;");
+    return;
   }
-  const children = [...parent.children];
-  const index = children.indexOf(img);
-  if (index === -1) return false;
-  const hasParagraphBefore = children.slice(0, index).some((node) => node.tagName === "P");
-  const hasParagraphAfter = children.slice(index + 1).some((node) => node.tagName === "P");
-  return hasParagraphBefore && hasParagraphAfter;
+  if (align === "right") {
+    img.classList.add("qb-img-align-right");
+    img.setAttribute("style", "display: block; margin-left: auto; margin-right: 0;");
+    return;
+  }
+  img.classList.add("qb-img-align-left");
+  img.removeAttribute("style");
 }
 
-/** Copy paragraph / wrapper alignment onto images saved before align classes existed. */
+/**
+ * Keep saved alignment only — never force center.
+ * Parent paragraph text-align is copied onto the image when explicit.
+ */
 export function normalizeRichHtmlLayout(html: string): string {
   if (typeof window === "undefined" || !html.includes("<img")) return html;
   try {
     const doc = new DOMParser().parseFromString(html, "text/html");
     doc.querySelectorAll("img").forEach((img) => {
-      if (
-        img.classList.contains("qb-img-align-right") ||
-        img.getAttribute("data-align") === "right"
-      ) {
+      const dataAlign = img.getAttribute("data-align");
+      if (dataAlign === "left" || dataAlign === "center" || dataAlign === "right") {
+        applyImageAlign(img, dataAlign);
         return;
       }
-      if (
-        img.classList.contains("qb-img-align-center") ||
-        img.getAttribute("data-align") === "center"
-      ) {
+      if (img.classList.contains("qb-img-align-center")) {
+        applyImageAlign(img, "center");
         return;
       }
-
-      const diagram = isDiagramStyleImage(img);
-      if (img.getAttribute("data-align") === "left" && !diagram) return;
+      if (img.classList.contains("qb-img-align-right")) {
+        applyImageAlign(img, "right");
+        return;
+      }
+      if (img.classList.contains("qb-img-align-left")) {
+        applyImageAlign(img, "left");
+        return;
+      }
 
       const parent = img.parentElement;
       if (!parent) return;
@@ -77,28 +85,14 @@ export function normalizeRichHtmlLayout(html: string): string {
       const parentAlign =
         parent.getAttribute("data-text-align") ??
         parentStyle.match(/text-align\s*:\s*(left|center|right)/i)?.[1]?.toLowerCase();
-      if (parentAlign === "center" || diagram) {
-        applyImageAlign(img, "center");
-        return;
+      if (parentAlign === "center" || parentAlign === "right" || parentAlign === "left") {
+        applyImageAlign(img, parentAlign);
       }
-      if (parentAlign === "right") {
-        applyImageAlign(img, "right");
-      }
+      // No explicit align → leave as-is (default left in CSS)
     });
     return doc.body.innerHTML;
   } catch {
     return html;
-  }
-}
-
-function applyImageAlign(img: Element, align: "center" | "right") {
-  img.classList.remove("qb-img-align-left", "qb-img-align-center", "qb-img-align-right");
-  img.classList.add(align === "center" ? "qb-img-align-center" : "qb-img-align-right");
-  img.setAttribute("data-align", align);
-  if (align === "center") {
-    img.setAttribute("style", "display: block; margin-left: auto; margin-right: auto;");
-  } else {
-    img.setAttribute("style", "display: block; margin-left: auto; margin-right: 0;");
   }
 }
 
