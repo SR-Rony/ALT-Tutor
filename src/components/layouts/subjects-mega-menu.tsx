@@ -338,7 +338,7 @@ function MegaPanel({
     <div className="overflow-hidden rounded-2xl border border-border/80 bg-card shadow-[0_24px_60px_-16px_rgba(15,23,42,0.18)]">
       <div className="grid grid-cols-1 md:h-[22rem] md:grid-cols-[minmax(13rem,1fr)_minmax(13rem,1fr)_minmax(15rem,1.15fr)]">
         <MegaMenuColumn
-          label="Category"
+          label="Curriculum"
           className="border-b border-border/80 bg-muted/20 md:border-b-0 md:border-r"
         >
           {menu.map((category, index) => {
@@ -593,7 +593,7 @@ export function SubjectsMobileMenu({
             <>
               <div className="space-y-1">
                 <p className="px-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Category
+                  Curriculum
                 </p>
                 <MegaScrollList>
                   {menu.map((category, index) => {

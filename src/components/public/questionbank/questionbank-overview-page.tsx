@@ -40,9 +40,14 @@ function topicDisplayTitle(title: string): string {
   );
 }
 
-/** Strip leading "1.1 " so we can re-apply the serial consistently. */
+/** Strip leading "1.1 " / "A.1 - " so we can re-apply the serial consistently. */
 function studySetBaseTitle(title: string): string {
-  return title.replace(/^\s*\d+(\.\d+)?\s*[.:)\-–—]?\s*/, "").trim() || title;
+  return (
+    title
+      .replace(/^\s*\d+(\.\d+)?\s*[.:)\-–—]?\s*/, "")
+      .replace(/^\s*[A-Za-z]\.\d+\s*[-–—]\s*/, "")
+      .trim() || title
+  );
 }
 
 function StudySetCard({
@@ -63,7 +68,7 @@ function StudySetCard({
   const preview =
     richTextToPlain(sub.description ?? "") ||
     `${sub._count?.questions ?? 0} practice questions in this study set.`;
-  const displayTitle = `${serial}. ${studySetBaseTitle(sub.title)}`;
+  const displayTitle = `${serial} ${studySetBaseTitle(sub.title)}`;
 
   return (
     <article className="relative flex h-full flex-col rounded-xl border border-border/80 bg-white px-5 pb-5 pt-7 shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition hover:border-primary/25 hover:shadow-[0_8px_24px_-16px_rgba(24,119,242,0.25)]">
@@ -227,9 +232,8 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
         {data.qbTopics.length === 0 ? (
           <p className="text-center text-muted-foreground">No topics yet for this questionbank.</p>
         ) : null}
-        {(() => {
-          let studySetSerial = 0;
-          return data.qbTopics.map((topic) => {
+        {(() =>
+          data.qbTopics.map((topic) => {
             const displayTitle = topicDisplayTitle(topic.title);
             return (
             <section key={topic.id} id={`topic-${topic.number}`} className="scroll-mt-28">
@@ -244,9 +248,8 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
                 />
               ) : null}
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {topic.subtopics.map((sub) => {
-                  studySetSerial += 1;
-                  const serial = String(studySetSerial);
+                {topic.subtopics.map((sub, subIndex) => {
+                  const serial = `${topic.number}.${subIndex + 1}`;
                   const userTier = data.access?.userTier ?? "FREE";
                   const locked =
                     Boolean(sub.locked) || !canAccessWithTier(userTier, sub.badge);
@@ -283,8 +286,8 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
               </div>
             </section>
             );
-          });
-        })()}
+          })
+        )()}
       </div>
 
       {showTop ? (
