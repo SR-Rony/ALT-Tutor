@@ -92,7 +92,10 @@ export function AdminMcqExamsPage({ examKind = "MCQ" }: { examKind?: AdminExamKi
     scopeFilter === "program" ? effectiveProgramId : undefined
   );
 
-  const assessmentsRaw = scopeFilter === "course" ? courseQuery.data ?? [] : programQuery.data ?? [];
+  const assessmentsRaw = useMemo(
+    () => (scopeFilter === "course" ? courseQuery.data ?? [] : programQuery.data ?? []),
+    [scopeFilter, courseQuery.data, programQuery.data]
+  );
   const assessments = useMemo(
     () => assessmentsRaw.filter((item) => matchesExamKind(String(item.type), examKind)),
     [assessmentsRaw, examKind]

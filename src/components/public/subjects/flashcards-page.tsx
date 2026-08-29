@@ -27,7 +27,7 @@ export function FlashcardsPage({ programSlug }: Props) {
     requiredTier: string;
   }>({ title: "", requiredTier: "GOLD" });
 
-  const decks = data?.decks ?? [];
+  const decks = useMemo(() => data?.decks ?? [], [data?.decks]);
 
   const sections = useMemo(() => {
     const map = new Map<

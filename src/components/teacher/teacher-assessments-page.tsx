@@ -79,7 +79,7 @@ export function TeacherAssessmentsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: courseData, isLoading: coursesLoading } = useTeacherCourses();
-  const courses = courseData?.all ?? [];
+  const courses = useMemo(() => courseData?.all ?? [], [courseData?.all]);
   const [courseId, setCourseId] = useState("");
   const [kindFilter, setKindFilter] = useState<KindFilter>("all");
   const effectiveCourseId = courseId || courses[0]?.id;
@@ -257,7 +257,8 @@ export function TeacherAssessmentsPage() {
     };
     try {
       if (editMcq?.id) {
-        const { courseId: _c, ...rest } = payload;
+        const { courseId, ...rest } = payload;
+        void courseId;
         await updateExam.mutateAsync({ id: editMcq.id, payload: rest });
       } else {
         await createExam.mutateAsync(payload);

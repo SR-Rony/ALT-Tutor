@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, forwardRef, type ReactNode } from "react";
 import {
-  CheckCircle2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -15,7 +14,6 @@ import {
   ListOrdered,
   Lock,
   SlidersHorizontal,
-  XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/shared";

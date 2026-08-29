@@ -180,7 +180,7 @@ export function AdminAssessmentBuilderModal({
     type === "MCQ" && step === 2 && effectiveQbProgramId ? effectiveQbProgramId : undefined
   );
 
-  const qbTopicsSafe = qbTopics ?? [];
+  const qbTopicsSafe = useMemo(() => qbTopics ?? [], [qbTopics]);
   const activeTopicId = qbTopicId || qbTopicsSafe[0]?.id || "";
   const activeTopic = qbTopicsSafe.find((t) => t.id === activeTopicId);
   const subtopics = activeTopic?.subtopics ?? [];
@@ -442,7 +442,9 @@ export function AdminAssessmentBuilderModal({
           questionbankQuestionIds: selectedQbIds,
         };
         if (isEdit && editItem) {
-          const { courseId: _c, programId: _p, ...rest } = payload;
+          const { courseId, programId, ...rest } = payload;
+          void courseId;
+          void programId;
           await updateExam.mutateAsync({ id: editItem.id, payload: rest });
         } else {
           await createExam.mutateAsync(payload);
@@ -462,7 +464,10 @@ export function AdminAssessmentBuilderModal({
           resultReleaseMode,
         };
         if (isEdit && editItem) {
-          const { courseId: _c, programId: _p, type: _t, ...rest } = payload;
+          const { courseId, programId, type: assignmentType, ...rest } = payload;
+          void courseId;
+          void programId;
+          void assignmentType;
           await updateAssignment.mutateAsync({ id: editItem.id, payload: rest });
         } else {
           await createAssignment.mutateAsync(payload);

@@ -46,7 +46,6 @@ export const authService = {
     if (env.useMockApi) {
       await sleep(300);
       const code = "123456";
-      // eslint-disable-next-line no-console
       console.log(`\n>>> MOCK DEV OTP for ${normalized} (${purpose}): ${code}\n`);
       return {
         message: "OTP generated (mock). Check the browser console.",

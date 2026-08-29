@@ -41,7 +41,7 @@ export function PracticeExamsPage({ programSlug }: Props) {
     requiredTier: string;
   }>({ title: "", requiredTier: "GOLD" });
 
-  const templates = data?.templates ?? [];
+  const templates = useMemo(() => data?.templates ?? [], [data?.templates]);
 
   const filtered = useMemo(() => {
     if (formatFilter === "ANY") return templates;

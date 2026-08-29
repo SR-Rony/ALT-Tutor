@@ -101,7 +101,7 @@ export function HomeAnimatedLessons() {
   const [canTabNext, setCanTabNext] = useState(false);
   const [tabsOverflow, setTabsOverflow] = useState(false);
 
-  const courses = data?.featuredCourses ?? [];
+  const courses = useMemo(() => data?.featuredCourses ?? [], [data?.featuredCourses]);
 
   /** Categories with published courses only (API filters; client also hides empty tabs). */
   const categories = useMemo(() => {

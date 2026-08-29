@@ -10,7 +10,6 @@ import {
   BookOpen,
   CheckCircle2,
   ChevronDown,
-  Clock,
   FileText,
   GraduationCap,
   Layers,
@@ -21,7 +20,6 @@ import {
   PlayCircle,
   Sparkles,
   Star,
-  Users,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -209,7 +207,6 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
     }
   }, [allLessons, canOpenLessonInline, course, searchParams]);
 
-  const lessonCountPre = course?.chapters.reduce((sum, ch) => sum + ch.lessons.length, 0) ?? 0;
   const totalSecondsPre =
     course?.chapters.reduce(
       (sum, ch) => sum + ch.lessons.reduce((s, l) => s + (l.duration ?? 0), 0),
@@ -321,13 +318,8 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
   }
 
   const lessonCountResolved = course.chapters.reduce((sum, ch) => sum + ch.lessons.length, 0);
-  const totalSecondsResolved = course.chapters.reduce(
-    (sum, ch) => sum + ch.lessons.reduce((s, l) => s + (l.duration ?? 0), 0),
-    0
-  );
   const avgRating = averageReviewRating(course.reviews.map((r) => r.rating));
   const lessonCount = lessonCountResolved;
-  const totalSeconds = totalSecondsResolved;
   const learnHref = ROUTES.student.courseLearn(slug);
   const loginNextHref = `${ROUTES.auth.login}?next=${encodeURIComponent(ROUTES.courseDetail(slug))}`;
   const isFree = Number(course.price) <= 0;
@@ -720,7 +712,6 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
             <CourseSidebarCard
               course={course}
               includes={sidebarIncludes}
-              previewCount={previewLessons.length}
               showVideoPreview={showSidebarVideoPreview}
               hasPromoVideo={Boolean(course.promoVideoUrl)}
               isEnrolled={isEnrolled}
@@ -1091,7 +1082,6 @@ function StaffSidebarActions({
 function CourseSidebarCard({
   course,
   includes,
-  previewCount,
   showVideoPreview,
   hasPromoVideo,
   isEnrolled,
@@ -1111,7 +1101,6 @@ function CourseSidebarCard({
 }: {
   course: CourseDetail;
   includes: string[];
-  previewCount: number;
   showVideoPreview: boolean;
   hasPromoVideo: boolean;
   isEnrolled: boolean;

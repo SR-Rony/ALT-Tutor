@@ -10,7 +10,6 @@ import {
   FileText,
   HelpCircle,
   Lock,
-  XCircle,
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageLoader } from "@/components/shared";

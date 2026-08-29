@@ -38,7 +38,7 @@ export function TeacherPastPapersPage() {
   const { data, isLoading, error, refetch, isFetching } = useTeacherPastPapers(
     effectiveProgramId || undefined
   );
-  const papers = data?.papers ?? [];
+  const papers = useMemo(() => data?.papers ?? [], [data?.papers]);
 
   const papersByYear = useMemo(() => {
     const map = new Map<number, typeof papers>();

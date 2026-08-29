@@ -277,7 +277,10 @@ function MegaPanel({
     [menu, categoryId]
   );
 
-  const subjects = selectedCategory?.subjects ?? [];
+  const subjects = useMemo(
+    () => selectedCategory?.subjects ?? [],
+    [selectedCategory?.subjects]
+  );
 
   const selectedSubject = useMemo(
     () => subjects.find((s) => s.id === subjectId) ?? subjects[0] ?? null,
@@ -547,7 +550,10 @@ export function SubjectsMobileMenu({
   const active = isSubjectsPathActive(pathname);
 
   const selectedCategory = menu.find((c) => c.id === categoryId) ?? menu[0] ?? null;
-  const subjects = selectedCategory?.subjects ?? [];
+  const subjects = useMemo(
+    () => selectedCategory?.subjects ?? [],
+    [selectedCategory?.subjects]
+  );
   const selectedSubject = subjects.find((s) => s.id === subjectId) ?? subjects[0] ?? null;
 
   useEffect(() => {

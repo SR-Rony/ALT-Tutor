@@ -130,16 +130,17 @@ export function CourseCurriculumManager({ courseId, courseTitle }: Props) {
     [chapters]
   );
 
+  const editingLessonId = editingLesson?.id;
   useEffect(() => {
-    if (!editingLesson) return;
+    if (!editingLessonId) return;
     for (const chapter of chapters) {
-      const found = chapter.lessons.find((l) => l.id === editingLesson.id);
+      const found = chapter.lessons.find((l) => l.id === editingLessonId);
       if (found) {
         setEditingLesson(found);
         break;
       }
     }
-  }, [chapters, editingLesson?.id]);
+  }, [chapters, editingLessonId]);
 
   const openCreateChapter = () => {
     setEditingChapter(null);

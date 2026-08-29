@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Download, RefreshCw } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
@@ -23,7 +23,7 @@ type OverrideTarget = {
 export function TeacherGradebookPage() {
   const searchParams = useSearchParams();
   const { data: courseData } = useTeacherCourses();
-  const courses = courseData?.all ?? [];
+  const courses = useMemo(() => courseData?.all ?? [], [courseData?.all]);
   const [courseId, setCourseId] = useState("");
   const effectiveCourseId = courseId || courses[0]?.id;
   const { data, isLoading, error, refetch, isFetching } = useGradebook({

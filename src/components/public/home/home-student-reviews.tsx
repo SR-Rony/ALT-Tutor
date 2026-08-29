@@ -139,7 +139,7 @@ function ReviewCard({ review, index }: { review: HomeFeaturedReview; index: numb
 export function HomeStudentReviews() {
   const prefersReducedMotion = useReducedMotion();
   const { data, isLoading } = useHomeData();
-  const reviews = data?.featuredReviews ?? [];
+  const reviews = useMemo(() => data?.featuredReviews ?? [], [data?.featuredReviews]);
   const visible = useVisibleCount();
 
   const [index, setIndex] = useState(0);

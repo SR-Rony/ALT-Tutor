@@ -335,7 +335,7 @@ export function HomePracticeQuestions() {
   const { data, isLoading, isError } = useHomeData();
   const practice = data?.practiceQuestions;
 
-  const tabs: HomePracticeTab[] = practice?.tabs ?? [];
+  const tabs: HomePracticeTab[] = useMemo(() => practice?.tabs ?? [], [practice?.tabs]);
   const [activeTab, setActiveTab] = useState<string>("");
 
   useEffect(() => {

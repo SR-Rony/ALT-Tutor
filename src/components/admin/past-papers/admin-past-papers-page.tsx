@@ -204,7 +204,7 @@ export function AdminPastPapersPage({
   const updatePaper = useUpdatePastPaper();
   const deletePaper = useDeletePastPaper();
 
-  const papers = data?.papers ?? [];
+  const papers = useMemo(() => data?.papers ?? [], [data?.papers]);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<ListStatusFilter>("ALL");

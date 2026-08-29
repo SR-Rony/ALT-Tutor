@@ -15,13 +15,13 @@ import { uiReducer } from "./slices/ui.slice";
 
 function createNoopStorage() {
   return {
-    getItem(_key: string) {
+    getItem() {
       return Promise.resolve(null);
     },
-    setItem(_key: string, value: string) {
+    setItem(_: string, value: string) {
       return Promise.resolve(value);
     },
-    removeItem(_key: string) {
+    removeItem() {
       return Promise.resolve();
     },
   };

@@ -67,7 +67,7 @@ export function TeacherCoursesPage() {
   const updateCourse = useTeacherUpdateCourse();
   const deleteCourse = useTeacherDeleteCourse();
 
-  const courses = data?.all ?? [];
+  const courses = useMemo(() => data?.all ?? [], [data?.all]);
   const ownedIds = useMemo(() => new Set((data?.owned ?? []).map((c) => c.id)), [data?.owned]);
 
   const [search, setSearch] = useState("");

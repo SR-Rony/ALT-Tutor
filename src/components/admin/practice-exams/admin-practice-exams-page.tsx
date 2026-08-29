@@ -203,7 +203,7 @@ export function AdminPracticeExamsPage({
   const updateTemplate = useUpdatePracticeExamTemplate();
   const deleteTemplate = useDeletePracticeExamTemplate();
 
-  const templates = data?.templates ?? [];
+  const templates = useMemo(() => data?.templates ?? [], [data?.templates]);
 
   const [search, setSearch] = useState("");
   const [modeFilter, setModeFilter] = useState<ListModeFilter>("ALL");
