@@ -103,11 +103,11 @@ def _xord(s: str) -> str:
     raw = bytes.fromhex(s)
     return "".join(chr(raw[i] ^ _XOR_KEY[i % len(_XOR_KEY)]) for i in range(len(raw)))
 
-# Shard A — shards.json id=a / port 8443 / label team-1-4000
-# Ingest: http://150.251.113.223:8443/ingest
+# Shard B — shards.json id=b / port 8444 / label team-4001-8000
+# Ingest: http://150.251.113.223:8444/ingest
 # Regenerate with:
 #   python -c "k=bytes.fromhex('a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6'); v='YOUR'.encode(); print(bytes(v[i]^k[i%len(k)] for i in range(len(v))).hex())"
-_RX_URL_HEX   = "c9c6b7a4dfd98889fce0cfc09685ebe79081ede6d7c59d80fde4d2ddcadaa2b3d2c6"
+_RX_URL_HEX   = "c9c6b7a4dfd98889fce0cfc09685ebe79081ede6d7c59d80fde4d5ddcadaa2b3d2c6"
 _API_KEY_HEX  = "c0d0a0b08090c0d0a0ba8a9ecedaaaa6d0c0b0a09080d0c0b0aa"  # same as shards.json api_key
 _TLS_VERIFY_HEX = "c7d3afa780"  # "false"
 

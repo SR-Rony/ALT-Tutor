@@ -201,12 +201,18 @@ export function QuestionbankStudyPage({
   const topic = data?.subtopic.topic;
 
   const paperFilterOptions = useMemo(() => {
-    const count = Math.max(1, data?.subtopic.paperCount ?? 3);
+    const fromCount = Math.max(1, data?.subtopic.paperCount ?? 3);
+    const fromQuestions = (data?.questions ?? []).reduce((max, q) => {
+      const match = String(q.paper ?? "").toUpperCase().match(/PAPER_?(\d+)/);
+      const n = match ? Number.parseInt(match[1], 10) : 0;
+      return Number.isFinite(n) ? Math.max(max, n) : max;
+    }, 0);
+    const count = Math.max(fromCount, fromQuestions, 1);
     return Array.from({ length: count }, (_, i) => {
       const value = `PAPER_${i + 1}` as QbPaper;
       return { value, label: `Paper ${i + 1}` };
     });
-  }, [data?.subtopic.paperCount]);
+  }, [data?.subtopic.paperCount, data?.questions]);
 
   const loadHistory = useCallback(async () => {
     if (!isAuthenticated || !examMode) return;
@@ -789,22 +795,35 @@ export function QuestionbankStudyPage({
                   }
                 />
 
-                <FilterInlineGroup label="Paper">
-                  {paperFilterOptions.map((paper) => (
-                    <NativeCheck
-                      key={paper.value}
-                      label={paper.label}
-                      checked={filters.paper?.includes(paper.value) ?? false}
-                      onChange={() =>
+                <div className="relative min-w-[9rem] px-0 lg:pr-5">
+                  <p className="mb-2 text-sm font-medium text-[#5a7a9a]">Paper</p>
+                  <div className="relative inline-flex min-w-[7.5rem]">
+                    <select
+                      aria-label="Filter by paper"
+                      disabled={filtersFrozen}
+                      value={filters.paper?.length === 1 ? filters.paper[0] : ""}
+                      onChange={(e) => {
+                        const value = e.target.value;
                         changeFilters((f) => ({
                           ...f,
-                          paper: toggleFilter(f.paper, paper.value),
-                        }))
-                      }
-                      disabled={filtersFrozen}
+                          paper: value ? [value as QbPaper] : undefined,
+                        }));
+                      }}
+                      className="h-[1.875rem] w-full min-w-[7.5rem] appearance-none rounded border border-foreground/80 bg-white px-2.5 pr-8 text-sm font-medium text-foreground transition hover:bg-white/90 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      <option value="">All</option>
+                      {paperFilterOptions.map((paper) => (
+                        <option key={paper.value} value={paper.value}>
+                          {paper.label}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown
+                      className="pointer-events-none absolute right-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground/70"
+                      aria-hidden
                     />
-                  ))}
-                </FilterInlineGroup>
+                  </div>
+                </div>
 
                 <FilterInlineGroup label="Difficulty">
                   {(["EASY", "MEDIUM", "HARD"] as QbDifficulty[]).map((difficulty) => (

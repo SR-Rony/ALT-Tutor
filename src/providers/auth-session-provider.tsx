@@ -2,7 +2,12 @@
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { env } from "@/config";
-import { getAccessToken } from "@/lib/auth-tokens";
+import {
+  ensureSessionCookie,
+  getAccessToken,
+  getRefreshToken,
+  hasSessionCookie,
+} from "@/lib/auth-tokens";
 import { authService } from "@/services/auth.service";
 import { logout, setUser, useAppDispatch, useAppSelector, useAppStore } from "@/store";
 
@@ -18,6 +23,7 @@ export function useAuthSessionReady() {
 
 /**
  * Keeps Redux auth slice in sync with JWT across public + dashboard pages.
+ * Clears stale persisted users and restores the middleware session cookie when needed.
  */
 export function AuthSessionProvider({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
@@ -30,6 +36,14 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
 
     async function syncSession() {
       if (env.useMockApi) {
+        // Mock mode still needs a cookie for /admin middleware, or a clean guest state.
+        const token = getAccessToken();
+        const current = store.getState().auth.user;
+        if (token && current) {
+          ensureSessionCookie(current.role);
+        } else if (current && !token) {
+          dispatch(logout());
+        }
         if (!cancelled) setReady(true);
         return;
       }
@@ -44,8 +58,15 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
       const session = await authService.getSession();
       if (cancelled) return;
 
-      if (session) dispatch(setUser(session));
-      else dispatch(logout());
+      if (session) {
+        dispatch(setUser(session));
+        // Token can outlive the cookie after hard refresh / partial clears.
+        if (!hasSessionCookie() || getRefreshToken()) {
+          ensureSessionCookie(session.role);
+        }
+      } else {
+        dispatch(logout());
+      }
 
       setReady(true);
     }
@@ -56,12 +77,15 @@ export function AuthSessionProvider({ children }: { children: ReactNode }) {
     };
   }, [dispatch, store]);
 
-  // Mark ready once PersistGate has restored (user may already be set)
+  // PersistGate may restore a user AFTER the first sync ran with empty state.
   useEffect(() => {
-    if (user && !ready) {
-      // Don't block forever if token sync still running — handled above
+    if (!user) return;
+    if (getAccessToken()) {
+      if (!hasSessionCookie()) ensureSessionCookie(user.role);
+      return;
     }
-  }, [user, ready]);
+    dispatch(logout());
+  }, [user, dispatch]);
 
   const value = useMemo(() => ({ ready }), [ready]);
 

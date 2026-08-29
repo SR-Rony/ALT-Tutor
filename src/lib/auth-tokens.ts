@@ -22,6 +22,17 @@ export function getRefreshToken(): string | null {
   return localStorage.getItem(REFRESH_KEY);
 }
 
+export function hasSessionCookie(): boolean {
+  if (typeof document === "undefined") return false;
+  const prefix = `${SESSION_COOKIE}=`;
+  return document.cookie.split(";").some((part) => part.trim().startsWith(prefix));
+}
+
+/** True when both JWT and middleware session cookie are present. */
+export function hasUsableSession(): boolean {
+  return Boolean(getAccessToken()) && hasSessionCookie();
+}
+
 export function setAuthTokens(tokens: AuthTokens, role?: string) {
   if (!canUseStorage()) return;
   localStorage.setItem(ACCESS_KEY, tokens.accessToken);
@@ -30,6 +41,12 @@ export function setAuthTokens(tokens: AuthTokens, role?: string) {
   if (role) {
     document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(role)}; path=/; SameSite=Lax`;
   }
+}
+
+/** Re-write middleware cookie from an already-authenticated user (fixes missing cookie). */
+export function ensureSessionCookie(role: string) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${SESSION_COOKIE}=${encodeURIComponent(role)}; path=/; SameSite=Lax`;
 }
 
 export function clearAuthTokens() {
