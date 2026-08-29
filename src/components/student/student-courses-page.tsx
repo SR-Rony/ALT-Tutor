@@ -11,21 +11,27 @@ import {
   Percent,
   Play,
 } from "lucide-react";
-import { PageHeader, PageLoader } from "@/components/shared";
-import { Button } from "@/components/ui/button";
+import { ListPagination, PageLoader } from "@/components/shared";
 import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants";
-import { useStudentCourses } from "@/hooks";
+import { useClientPagination, useStudentCourses } from "@/hooks";
 import { formatAccessRemaining, formatShortDate } from "@/lib/format";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
 
 function ProgressBar({ value }: { value: number }) {
+  const clamped = Math.min(100, Math.max(0, value));
   return (
-    <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+    <div
+      className="h-2 w-full overflow-hidden rounded-full bg-[#e8edf5]"
+      role="progressbar"
+      aria-valuenow={clamped}
+      aria-valuemin={0}
+      aria-valuemax={100}
+    >
       <div
-        className="h-full rounded-full bg-primary transition-all"
-        style={{ width: `${Math.min(100, Math.max(0, value))}%` }}
+        className="h-full rounded-full bg-primary transition-[width] duration-300"
+        style={{ width: `${clamped}%` }}
       />
     </div>
   );
@@ -33,17 +39,23 @@ function ProgressBar({ value }: { value: number }) {
 
 function statusMeta(status: string) {
   const s = status.toUpperCase();
-  if (s === "COMPLETED") return { label: "Completed", className: "bg-[#ecfdf3] text-accent-green" };
-  if (s === "CANCELLED") return { label: "Cancelled", className: "bg-accent/10 text-accent" };
-  return { label: "In Progress", className: "bg-primary/10 text-primary" };
+  if (s === "COMPLETED") {
+    return { label: "Completed", className: "bg-[#ecfdf3] text-accent-green ring-1 ring-[#abefc6]/60" };
+  }
+  if (s === "CANCELLED") {
+    return { label: "Cancelled", className: "bg-accent/10 text-accent ring-1 ring-accent/15" };
+  }
+  return { label: "In Progress", className: "bg-primary/10 text-primary ring-1 ring-primary/15" };
 }
 
 function CourseActionsMenu({
   learnHref,
   detailHref,
+  learnLabel,
 }: {
   learnHref: string | null;
   detailHref: string | null;
+  learnLabel: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -53,42 +65,55 @@ function CourseActionsMenu({
     const onClickOutside = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", onClickOutside);
-    return () => document.removeEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [open]);
 
   return (
-    <div ref={ref} className="relative inline-block text-left">
+    <div ref={ref} className="relative">
       <button
         type="button"
-        aria-label="Course actions"
+        aria-label="More course actions"
         aria-expanded={open}
+        aria-haspopup="menu"
         onClick={() => setOpen((v) => !v)}
-        className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
       >
         <MoreHorizontal className="h-5 w-5" aria-hidden />
       </button>
 
       {open ? (
-        <div className="absolute right-0 z-20 mt-1 w-44 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-lg">
+        <div
+          role="menu"
+          className="absolute right-0 bottom-full z-30 mb-1.5 w-48 overflow-hidden rounded-xl border border-border bg-card py-1 shadow-[0_12px_32px_-8px_rgba(15,23,42,0.18)]"
+        >
           {learnHref ? (
             <Link
               href={learnHref}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted"
+              role="menuitem"
+              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground hover:bg-muted"
               onClick={() => setOpen(false)}
             >
-              <Play className="h-4 w-4 text-primary" aria-hidden />
-              Start Course
+              <Play className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+              {learnLabel}
             </Link>
           ) : null}
           {detailHref ? (
             <Link
               href={detailHref}
-              className="flex items-center gap-2 px-3 py-2 text-sm text-foreground hover:bg-muted"
+              role="menuitem"
+              className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-foreground hover:bg-muted"
               onClick={() => setOpen(false)}
             >
-              <Eye className="h-4 w-4 text-muted-foreground" aria-hidden />
-              View Details
+              <Eye className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              View details
             </Link>
           ) : null}
         </div>
@@ -148,6 +173,20 @@ export function StudentCoursesPage() {
     });
   }, [data, search, statusFilter]);
 
+  const {
+    page,
+    setPage,
+    pageItems,
+    total,
+    totalPages,
+    from,
+    to,
+  } = useClientPagination(visible);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search, statusFilter, setPage]);
+
   const stats = useMemo(() => {
     const purchased = data.length;
     const completed = data.filter(
@@ -163,7 +202,6 @@ export function StudentCoursesPage() {
   if (isLoading && data.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title="My Courses" description="All enrolled courses and progress." className="mb-0" />
         <PageLoader label="Loading your courses..." />
       </div>
     );
@@ -171,24 +209,15 @@ export function StudentCoursesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
-        <PageHeader
-          title="My Courses"
-          description="Track progress and continue learning across enrollments."
-          className="mb-0"
-        />
-        {error ? (
-          <p className="mt-3 text-sm text-accent">
-            {(error as unknown as ApiError)?.message}
-            <button type="button" className="ml-2 underline" onClick={() => void refetch()}>
-              Retry
-            </button>
-          </p>
-        ) : null}
-      </div>
+      {error ? (
+        <p className="text-sm text-accent">
+          {(error as unknown as ApiError)?.message}
+          <button type="button" className="ml-2 underline" onClick={() => void refetch()}>
+            Retry
+          </button>
+        </p>
+      ) : null}
 
-      {/* Learning statistics */}
       <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
         <h2 className="mb-4 text-base font-bold text-foreground">My Learning Statistics</h2>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -216,7 +245,6 @@ export function StudentCoursesPage() {
         </div>
       </div>
 
-      {/* Purchased courses table */}
       <div className="rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
         <div className="border-b border-border px-5 py-4">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -270,31 +298,46 @@ export function StudentCoursesPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[860px] text-left text-sm">
+            <table className="w-full min-w-[920px] table-fixed text-left text-sm">
               <thead>
                 <tr className="border-b border-border bg-muted/40 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  <th className="px-5 py-3">Course</th>
-                  <th className="px-5 py-3">Progress</th>
-                  <th className="px-5 py-3">Status</th>
-                  <th className="px-5 py-3">Certificate</th>
-                  <th className="px-5 py-3">Enrolled / Access</th>
-                  <th className="px-5 py-3 text-right">Actions</th>
+                  <th className="w-[32%] px-5 py-3">Course</th>
+                  <th className="w-[16%] px-5 py-3">Progress</th>
+                  <th className="w-[12%] px-5 py-3">Status</th>
+                  <th className="w-[14%] px-5 py-3">Certificate</th>
+                  <th className="w-[14%] px-5 py-3">Enrolled / Access</th>
+                  <th className="w-[12%] px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
-                {visible.map((item) => {
+                {pageItems.map((item) => {
                   const status = statusMeta(String(item.status));
                   const isCompleted = String(item.status).toUpperCase() === "COMPLETED";
+                  const isCancelled = String(item.status).toUpperCase() === "CANCELLED";
+                  const progress = Math.min(100, Math.max(0, item.progress ?? 0));
+                  const learnHref = item.course.slug
+                    ? ROUTES.student.courseLearn(item.course.slug)
+                    : null;
+                  const detailHref = item.course.slug
+                    ? ROUTES.courseDetail(item.course.slug)
+                    : null;
+                  const learnLabel =
+                    progress > 0 && !isCompleted ? "Continue learning" : "Start course";
+                  const access = formatAccessRemaining(item.expiresAt);
+
                   return (
-                    <tr key={item.id} className="border-b border-border/70 last:border-0">
-                      <td className="px-5 py-4">
-                        <div className="flex items-center gap-3">
-                          <div className="h-14 w-20 shrink-0 overflow-hidden rounded-lg bg-gradient-to-br from-[#e8f2fe] to-[#fff5f2]">
+                    <tr
+                      key={item.id}
+                      className="border-b border-border/70 transition-colors last:border-0 hover:bg-[#f8fafc]/80"
+                    >
+                      <td className="px-5 py-4 align-middle">
+                        <div className="flex min-w-0 items-center gap-3.5">
+                          <div className="h-14 w-20 shrink-0 overflow-hidden rounded-xl bg-gradient-to-br from-[#e8f2fe] to-[#fff5f2] ring-1 ring-border/60">
                             {item.course.thumbnail ? (
                               // eslint-disable-next-line @next/next/no-img-element
                               <img
                                 src={item.course.thumbnail}
-                                alt={item.course.title}
+                                alt=""
                                 className="h-full w-full object-cover"
                               />
                             ) : (
@@ -303,85 +346,95 @@ export function StudentCoursesPage() {
                               </div>
                             )}
                           </div>
-                          <div>
-                            <p className="font-bold text-foreground">{item.course.title}</p>
-                            <p className="mt-0.5 text-xs text-muted-foreground">
-                              {item.course.teacher?.name ?? "Instructor"}
+                          <div className="min-w-0">
+                            <p className="truncate font-semibold leading-snug text-foreground">
+                              {item.course.title}
                             </p>
-                            {item.course.slug ? (
-                              <Button asChild size="sm" className="mt-2 h-7 gap-1.5 px-3 text-xs">
-                                <Link href={ROUTES.student.courseLearn(item.course.slug)}>
-                                  <Play className="h-3 w-3" aria-hidden />
-                                  Continue
-                                </Link>
-                              </Button>
-                            ) : null}
+                            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                              {item.course.teacher?.name ?? "Instructor"}
+                              {item.course.category?.name
+                                ? ` · ${item.course.category.name}`
+                                : null}
+                            </p>
                           </div>
                         </div>
                       </td>
-                      <td className="px-5 py-4">
-                        <div className="w-36">
-                          <div className="flex items-center justify-between text-xs text-muted-foreground">
-                            <span>Progress</span>
-                            <span className="font-semibold text-foreground">{item.progress}%</span>
+
+                      <td className="px-5 py-4 align-middle">
+                        <div className="max-w-[11rem]">
+                          <div className="mb-1.5 text-right text-xs font-semibold tabular-nums text-foreground">
+                            {progress}%
                           </div>
-                          <div className="mt-1.5">
-                            <ProgressBar value={item.progress} />
-                          </div>
-                          <p className="mt-1.5 text-xs text-muted-foreground">{status.label}</p>
+                          <ProgressBar value={progress} />
                         </div>
                       </td>
-                      <td className="px-5 py-4">
+
+                      <td className="px-5 py-4 align-middle">
                         <span
                           className={cn(
-                            "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                            "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
                             status.className
                           )}
                         >
                           {status.label}
                         </span>
                       </td>
-                      <td className="px-5 py-4">
+
+                      <td className="px-5 py-4 align-middle">
                         {isCompleted ? (
                           <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-accent-green">
-                            <Award className="h-4 w-4" aria-hidden />
-                            Available
+                            <Award className="h-3.5 w-3.5" aria-hidden />
+                            Ready
                           </span>
                         ) : (
-                          <span className="text-xs text-muted-foreground">Not available</span>
+                          <span
+                            className="inline-flex items-center gap-1.5 text-xs text-muted-foreground"
+                            title="Finish the course to unlock your certificate"
+                          >
+                            <Award className="h-3.5 w-3.5 opacity-50" aria-hidden />
+                            Locked
+                          </span>
                         )}
                       </td>
-                      <td className="px-5 py-4 text-xs text-muted-foreground">
-                        <div>Enrolled {item.enrolledAt ? formatShortDate(item.enrolledAt) : "—"}</div>
-                        {(() => {
-                          const access = formatAccessRemaining(item.expiresAt);
-                          return (
-                            <div
-                              className={cn(
-                                "mt-0.5 font-medium",
-                                access.expired
-                                  ? "text-accent"
-                                  : access.daysLeft != null && access.daysLeft <= 7
-                                    ? "text-amber-600"
-                                    : "text-foreground"
-                              )}
-                            >
-                              {access.label}
-                            </div>
-                          );
-                        })()}
+
+                      <td className="px-5 py-4 align-middle text-xs leading-relaxed text-muted-foreground">
+                        <p>
+                          Enrolled{" "}
+                          <span className="font-medium text-foreground">
+                            {item.enrolledAt ? formatShortDate(item.enrolledAt) : "—"}
+                          </span>
+                        </p>
+                        <p
+                          className={cn(
+                            "mt-0.5 font-medium",
+                            access.expired
+                              ? "text-accent"
+                              : access.daysLeft != null && access.daysLeft <= 7
+                                ? "text-amber-600"
+                                : "text-foreground"
+                          )}
+                        >
+                          {access.label}
+                        </p>
                       </td>
-                      <td className="px-5 py-4 text-right">
-                        <CourseActionsMenu
-                          learnHref={
-                            item.course.slug
-                              ? ROUTES.student.courseLearn(item.course.slug)
-                              : null
-                          }
-                          detailHref={
-                            item.course.slug ? ROUTES.courseDetail(item.course.slug) : null
-                          }
-                        />
+
+                      <td className="px-5 py-4 align-middle">
+                        <div className="flex items-center justify-end gap-2">
+                          {learnHref && !isCancelled ? (
+                            <Link
+                              href={learnHref}
+                              className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground shadow-sm transition-colors hover:bg-primary-hover"
+                            >
+                              <Play className="h-3.5 w-3.5 fill-current" aria-hidden />
+                              {progress > 0 && !isCompleted ? "Continue" : "Start"}
+                            </Link>
+                          ) : null}
+                          <CourseActionsMenu
+                            learnHref={isCancelled ? null : learnHref}
+                            detailHref={detailHref}
+                            learnLabel={learnLabel}
+                          />
+                        </div>
                       </td>
                     </tr>
                   );
@@ -390,6 +443,15 @@ export function StudentCoursesPage() {
             </table>
           </div>
         )}
+        <ListPagination
+          page={page}
+          totalPages={totalPages}
+          total={total}
+          from={from}
+          to={to}
+          onPageChange={setPage}
+          label="courses"
+        />
       </div>
     </div>
   );

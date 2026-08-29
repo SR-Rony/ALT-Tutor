@@ -68,6 +68,7 @@ export {
   useUpdateStudentProfile,
 } from "./use-student";
 export { useIsMobile } from "./use-mobile";
+export { useClientPagination, STUDENT_LIST_PAGE_SIZE } from "./use-client-pagination";
 export {
   useSubjectsMenu,
   useAdminSubjectsTree,

@@ -1,8 +1,9 @@
 "use client";
 
-import { PageHeader, PageLoader } from "@/components/shared";
+import { ListPagination, PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import {
+  useClientPagination,
   useMarkAllNotificationsRead,
   useMarkNotificationRead,
   useStudentNotifications,
@@ -15,6 +16,8 @@ export function StudentNotificationsPage() {
   const { data = [], isLoading, error, refetch } = useStudentNotifications();
   const markRead = useMarkNotificationRead();
   const markAll = useMarkAllNotificationsRead();
+  const { page, setPage, pageItems, total, totalPages, from, to } =
+    useClientPagination(data);
 
   const unread = data.filter((n) => !n.isRead).length;
 
@@ -60,37 +63,58 @@ export function StudentNotificationsPage() {
           No notifications yet.
         </div>
       ) : (
-        <ul className="space-y-3">
-          {data.map((note) => (
-            <li
-              key={note.id}
-              className={cn(
-                "flex items-start justify-between gap-4 rounded-2xl border px-4 py-4",
-                note.isRead
-                  ? "border-border bg-card"
-                  : "border-primary/20 bg-primary/[0.04] shadow-[0_8px_24px_rgba(24,119,242,0.06)]"
-              )}
-            >
-              <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground">{note.message}</p>
-                <p className="mt-1 text-xs text-muted-foreground">{formatShortDate(note.createdAt)}</p>
-              </div>
-              {!note.isRead ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={markRead.isPending}
-                  onClick={() => void markRead.mutateAsync(note.id)}
-                >
-                  Mark read
-                </Button>
-              ) : (
-                <span className="shrink-0 text-xs font-medium text-muted-foreground">Read</span>
-              )}
-            </li>
-          ))}
-        </ul>
+        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
+          <ul className="divide-y divide-border/80">
+            {pageItems.map((note) => (
+              <li
+                key={note.id}
+                className={cn(
+                  "flex items-start justify-between gap-4 px-4 py-4 sm:px-5",
+                  note.isRead ? "bg-card" : "bg-primary/[0.04]"
+                )}
+              >
+                <div className="min-w-0">
+                  {!note.isRead ? (
+                    <span className="mb-1.5 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                      Unread
+                    </span>
+                  ) : null}
+                  <p className="text-sm font-medium leading-relaxed text-foreground">
+                    {note.message}
+                  </p>
+                  <p className="mt-1.5 text-xs text-muted-foreground">
+                    {formatShortDate(note.createdAt)}
+                  </p>
+                </div>
+                {!note.isRead ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0"
+                    disabled={markRead.isPending}
+                    onClick={() => void markRead.mutateAsync(note.id)}
+                  >
+                    Mark read
+                  </Button>
+                ) : (
+                  <span className="shrink-0 pt-1 text-xs font-medium text-muted-foreground">
+                    Read
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+          <ListPagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            from={from}
+            to={to}
+            onPageChange={setPage}
+            label="notifications"
+          />
+        </div>
       )}
     </div>
   );

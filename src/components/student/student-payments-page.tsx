@@ -3,10 +3,15 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { CalendarDays, Loader2, ShoppingBag } from "lucide-react";
-import { PageHeader, PageLoader } from "@/components/shared";
+import { ListPagination, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
-import { useAccessProducts, useCheckout, useStudentPayments } from "@/hooks";
+import {
+  useAccessProducts,
+  useCheckout,
+  useClientPagination,
+  useStudentPayments,
+} from "@/hooks";
 import {
   accessTierRank,
   normalizeAccessBadge,
@@ -175,6 +180,8 @@ export function StudentPaymentsPage() {
   const checkout = useCheckout();
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
+  const { page, setPage, pageItems, total, totalPages, from, to } =
+    useClientPagination(data);
 
   const sortedProducts = useMemo(() => {
     return [...products].sort((a, b) => {
@@ -206,7 +213,6 @@ export function StudentPaymentsPage() {
   if (isLoading && data.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Payments" description="Your purchase history." className="mb-0" />
         <PageLoader label="Loading payments..." />
       </div>
     );
@@ -214,21 +220,14 @@ export function StudentPaymentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-border bg-card p-5 shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
-        <PageHeader
-          title="Payments"
-          description="Course purchases and Practice Pass checkout."
-          className="mb-0"
-        />
-        {error ? (
-          <p className="mt-3 text-sm text-accent">
-            {(error as unknown as ApiError)?.message || "Failed to load"}
-            <button type="button" className="ml-2 underline" onClick={() => void refetch()}>
-              Retry
-            </button>
-          </p>
-        ) : null}
-      </div>
+      {error ? (
+        <p className="text-sm text-accent">
+          {(error as unknown as ApiError)?.message || "Failed to load"}
+          <button type="button" className="ml-2 underline" onClick={() => void refetch()}>
+            Retry
+          </button>
+        </p>
+      ) : null}
 
       <section
         id="practice-pass"
@@ -296,43 +295,54 @@ export function StudentPaymentsPage() {
             </Button>
           </div>
         ) : (
-          <div className="overflow-hidden rounded-2xl border border-border bg-card">
-            <table className="w-full min-w-[640px] text-left text-sm">
-              <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
-                <tr>
-                  <th className="px-5 py-3 font-semibold">Item</th>
-                  <th className="px-5 py-3 font-semibold">Amount</th>
-                  <th className="px-5 py-3 font-semibold">Status</th>
-                  <th className="px-5 py-3 font-semibold">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.map((payment) => (
-                  <tr
-                    key={payment.id}
-                    className="border-b border-border last:border-0 hover:bg-muted/30"
-                  >
-                    <td className="px-5 py-4 font-semibold text-foreground">
-                      {payment.accessProduct?.title ?? payment.course?.title ?? "Purchase"}
-                    </td>
-                    <td className="px-5 py-4 font-medium">{formatMoney(payment.amount)}</td>
-                    <td className="px-5 py-4">
-                      <span
-                        className={cn(
-                          "rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase",
-                          statusClass(String(payment.status))
-                        )}
-                      >
-                        {String(payment.status).toLowerCase()}
-                      </span>
-                    </td>
-                    <td className="px-5 py-4 text-muted-foreground">
-                      {formatShortDate(payment.createdAt)}
-                    </td>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[640px] text-left text-sm">
+                <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold">Item</th>
+                    <th className="px-5 py-3 font-semibold">Amount</th>
+                    <th className="px-5 py-3 font-semibold">Status</th>
+                    <th className="px-5 py-3 font-semibold">Date</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {pageItems.map((payment) => (
+                    <tr
+                      key={payment.id}
+                      className="border-b border-border/70 last:border-0 hover:bg-muted/30"
+                    >
+                      <td className="px-5 py-4 font-semibold text-foreground">
+                        {payment.accessProduct?.title ?? payment.course?.title ?? "Purchase"}
+                      </td>
+                      <td className="px-5 py-4 font-medium">{formatMoney(payment.amount)}</td>
+                      <td className="px-5 py-4">
+                        <span
+                          className={cn(
+                            "rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase",
+                            statusClass(String(payment.status))
+                          )}
+                        >
+                          {String(payment.status).toLowerCase()}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-muted-foreground">
+                        {formatShortDate(payment.createdAt)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <ListPagination
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              from={from}
+              to={to}
+              onPageChange={setPage}
+              label="payments"
+            />
           </div>
         )}
       </section>
