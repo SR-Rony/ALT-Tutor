@@ -178,14 +178,8 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
 
   const canOpenLessonInline = useCallback(
     (lesson: CourseLesson) =>
-      Boolean(
-        isStudent &&
-          isAuthenticated &&
-          lesson.isPreview &&
-          !isEnrolled &&
-          Number(course?.price ?? 0) > 0
-      ),
-    [course?.price, isAuthenticated, isEnrolled, isStudent]
+      Boolean(isAuthenticated && lesson.isPreview && !isEnrolled),
+    [isAuthenticated, isEnrolled]
   );
 
   const closeVideoModal = useCallback(() => {
@@ -367,25 +361,28 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
 
   const onOpenLesson = (lessonId: string, isPreview?: boolean) => {
     const lesson = allLessons.find((item) => item.id === lessonId);
-    const canOpenPreview = Boolean(isStudent && isAuthenticated && isPreview);
 
-    if (isEnrolled || (isStudent && isFree)) {
+    // Enrolled → full learn player
+    if (isEnrolled) {
       router.push(lessonHref(lessonId));
       return;
     }
 
-    if (canOpenPreview && lesson && canOpenLessonInline(lesson)) {
+    // Free-preview lesson → watch in modal on this page
+    if (isPreview && lesson) {
+      if (!isAuthenticated) {
+        router.push(
+          `${ROUTES.auth.login}?next=${encodeURIComponent(
+            `${ROUTES.courseDetail(slug)}?lesson=${encodeURIComponent(lessonId)}`
+          )}`
+        );
+        return;
+      }
       openLessonModal(lessonId);
       return;
     }
 
-    if (!isAuthenticated && isPreview) {
-      router.push(
-        `${ROUTES.auth.login}?next=${encodeURIComponent(`${ROUTES.courseDetail(slug)}?lesson=${encodeURIComponent(lessonId)}`)}`
-      );
-      return;
-    }
-
+    // Locked lesson → login or enroll CTA
     if (!isAuthenticated) {
       router.push(`${ROUTES.auth.login}?next=${encodeURIComponent(ROUTES.courseDetail(slug))}`);
       return;
@@ -408,7 +405,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
     }
 
     const videoPreview = sidebarVideoPreviewLesson;
-    if (videoPreview && isStudent && canOpenLessonInline(videoPreview)) {
+    if (videoPreview && canOpenLessonInline(videoPreview)) {
       openLessonModal(videoPreview.id);
       return;
     }
@@ -522,9 +519,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                       lessons={chapter.lessons}
                       defaultOpen={index === 0}
                       isEnrolled={isEnrolled}
-                      isFree={isFree}
                       isAuthenticated={isAuthenticated}
-                      isStudent={isStudent}
                       isPending={enrollCourse.isPending}
                       activeLessonId={modalLessonId}
                       onOpenLesson={onOpenLesson}
@@ -1453,9 +1448,7 @@ function ChapterAccordion({
   lessons,
   defaultOpen,
   isEnrolled,
-  isFree,
   isAuthenticated,
-  isStudent,
   isPending,
   activeLessonId,
   onOpenLesson,
@@ -1472,9 +1465,7 @@ function ChapterAccordion({
   }[];
   defaultOpen?: boolean;
   isEnrolled: boolean;
-  isFree: boolean;
   isAuthenticated: boolean;
-  isStudent: boolean;
   isPending: boolean;
   activeLessonId?: string | null;
   onOpenLesson: (lessonId: string, isPreview?: boolean) => void;
@@ -1523,12 +1514,11 @@ function ChapterAccordion({
         <ul className="divide-y divide-[#eee7f8] border-t border-[#eee7f8] bg-[#fdfcff]">
           {lessons.map((lesson) => {
             const duration = formatLessonDuration(lesson.duration);
-            const canOpen =
-              isEnrolled ||
-              (isAuthenticated && isFree) ||
-              Boolean(isStudent && isAuthenticated && lesson.isPreview);
+            const hasFullAccess = isEnrolled;
+            const isFreePreview = Boolean(lesson.isPreview);
+            const canOpen = hasFullAccess || isFreePreview;
             const isActive = activeLessonId === lesson.id;
-            const isPreviewLesson = Boolean(lesson.isPreview && !isFree);
+            const showPreviewBadge = isFreePreview && !hasFullAccess;
 
             return (
               <li key={lesson.id}>
@@ -1540,7 +1530,7 @@ function ChapterAccordion({
                     "group flex w-full items-center gap-3 px-4 py-3.5 text-left text-sm transition-colors disabled:cursor-wait disabled:opacity-60 sm:px-5",
                     isActive ? "bg-[#eef5ff]" : "hover:bg-[#f8fafc]"
                   )}
-                  aria-label={`${canOpen ? "Preview" : "Unlock"} lesson ${lesson.title}`}
+                  aria-label={`${canOpen ? (showPreviewBadge ? "Preview" : "Open") : "Locked"} lesson ${lesson.title}`}
                   aria-current={isActive ? "true" : undefined}
                 >
                   <span
@@ -1558,9 +1548,9 @@ function ChapterAccordion({
                   <span className="min-w-0 flex-1">
                     <span className="flex flex-wrap items-center gap-2">
                       <span className="font-medium text-[#1a2b5e]">{lesson.title}</span>
-                      {isPreviewLesson && canOpen ? (
+                      {showPreviewBadge ? (
                         <span className="rounded bg-[#1a2b5e] px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white">
-                          Preview
+                          Free
                         </span>
                       ) : null}
                     </span>
@@ -1571,7 +1561,7 @@ function ChapterAccordion({
                   <span
                     className={cn(
                       "shrink-0 text-xs font-semibold",
-                      canOpen && isPreviewLesson
+                      showPreviewBadge
                         ? "text-[#0d9488] group-hover:underline"
                         : canOpen
                           ? "text-[#1877f2]"
@@ -1579,10 +1569,10 @@ function ChapterAccordion({
                     )}
                   >
                     {canOpen
-                      ? isPreviewLesson
+                      ? showPreviewBadge
                         ? "Preview"
                         : "Open"
-                      : !isAuthenticated && (lesson.isPreview || isFree)
+                      : !isAuthenticated && isFreePreview
                         ? "Log in"
                         : "Locked"}
                   </span>

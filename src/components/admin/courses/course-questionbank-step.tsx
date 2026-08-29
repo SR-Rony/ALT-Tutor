@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { BookOpen, ClipboardList, FileText, Layers3 } from "lucide-react";
+import { BookOpen, ClipboardList, FileText, Layers3, Search } from "lucide-react";
 import { AdminKeyConceptsPage } from "@/components/admin/key-concepts/admin-key-concepts-page";
 import { AdminPastPapersPage } from "@/components/admin/past-papers/admin-past-papers-page";
 import { AdminPracticeExamsPage } from "@/components/admin/practice-exams/admin-practice-exams-page";
 import { PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants";
 import {
   useAdminSubjectsTree,
@@ -127,6 +128,7 @@ function CourseSubjectsPanel({ courseId }: { courseId: string }) {
   const { data: links, isLoading: linksLoading } = useCourseProgramLinks(courseId);
   const setPrograms = useSetCourseProgramLinks(courseId);
   const [selected, setSelected] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -146,12 +148,22 @@ function CourseSubjectsPanel({ courseId }: { courseId: string }) {
             id: program.id,
             label: subject.name,
             programName: program.name,
+            categoryName: cat.name,
             topicCount: program._count?.qbTopics ?? 0,
           }))
         )
       ),
     [tree]
   );
+
+  const filteredPrograms = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return allPrograms;
+    return allPrograms.filter((program) => {
+      const haystack = `${program.label} ${program.programName} ${program.categoryName}`.toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [allPrograms, search]);
 
   const toggle = (id: string) => {
     setSelected((prev) => (prev.includes(id) ? prev.filter((v) => v !== id) : [...prev, id]));
@@ -188,37 +200,67 @@ function CourseSubjectsPanel({ courseId }: { courseId: string }) {
           No subject programs found. Create programs under Admin → Subjects first.
         </p>
       ) : (
-        <div className="mt-5 max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-border p-3">
-          {allPrograms.map((program) => {
-            const hasTopics = program.topicCount > 0;
-            return (
-              <label
-                key={program.id}
-                className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-muted/50"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1 h-4 w-4 rounded border-border text-primary accent-primary"
-                  checked={selected.includes(program.id)}
-                  onChange={() => toggle(program.id)}
-                />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-sm font-medium text-foreground">{program.label}</span>
-                  <span
-                    className={cn(
-                      "mt-0.5 block text-xs",
-                      hasTopics ? "text-muted-foreground" : "text-amber-600"
-                    )}
+        <>
+          <div className="relative mt-5">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden
+            />
+            <Input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search subjects…"
+              aria-label="Search subjects"
+              className="h-10 pl-9"
+            />
+          </div>
+          <p className="mt-2 text-xs text-muted-foreground">
+            {filteredPrograms.length === allPrograms.length
+              ? `${allPrograms.length} subject${allPrograms.length === 1 ? "" : "s"}`
+              : `${filteredPrograms.length} of ${allPrograms.length} subjects`}
+            {selected.length > 0 ? ` · ${selected.length} selected` : ""}
+          </p>
+          <div className="mt-3 max-h-[28rem] space-y-2 overflow-y-auto rounded-xl border border-border p-3">
+            {filteredPrograms.length === 0 ? (
+              <p className="px-2 py-6 text-center text-sm text-muted-foreground">
+                No subjects match “{search.trim()}”.
+              </p>
+            ) : (
+              filteredPrograms.map((program) => {
+                const hasTopics = program.topicCount > 0;
+                return (
+                  <label
+                    key={program.id}
+                    className="flex cursor-pointer items-start gap-3 rounded-lg px-2 py-2 hover:bg-muted/50"
                   >
-                    {hasTopics
-                      ? `${program.topicCount} questionbank topic${program.topicCount === 1 ? "" : "s"}`
-                      : "No questionbank topics yet — students will see an empty state"}
-                  </span>
-                </span>
-              </label>
-            );
-          })}
-        </div>
+                    <input
+                      type="checkbox"
+                      className="mt-1 h-4 w-4 rounded border-border text-primary accent-primary"
+                      checked={selected.includes(program.id)}
+                      onChange={() => toggle(program.id)}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-medium text-foreground">
+                        {program.label}
+                      </span>
+                      <span
+                        className={cn(
+                          "mt-0.5 block text-xs",
+                          hasTopics ? "text-muted-foreground" : "text-amber-600"
+                        )}
+                      >
+                        {hasTopics
+                          ? `${program.topicCount} questionbank topic${program.topicCount === 1 ? "" : "s"}`
+                          : "No questionbank topics yet — students will see an empty state"}
+                      </span>
+                    </span>
+                  </label>
+                );
+              })
+            )}
+          </div>
+        </>
       )}
       {selected.some((id) => (allPrograms.find((p) => p.id === id)?.topicCount ?? 0) === 0) ? (
         <p className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
