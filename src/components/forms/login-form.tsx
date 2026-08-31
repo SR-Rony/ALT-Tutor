@@ -17,29 +17,6 @@ import { loginSchema, type LoginFormValues } from "@/validations";
 import { cn } from "@/utils";
 import type { ApiError } from "@/types";
 
-const DEMO_PASSWORD = "Password123!";
-
-const demoAccounts = [
-  {
-    role: "Admin",
-    phone: "01700000001",
-    password: DEMO_PASSWORD,
-    hint: "Full platform control",
-  },
-  {
-    role: "Teacher",
-    phone: "01700000002",
-    password: DEMO_PASSWORD,
-    hint: "Courses & students",
-  },
-  {
-    role: "Student",
-    phone: "01700000003",
-    password: DEMO_PASSWORD,
-    hint: "Learning dashboard",
-  },
-] as const;
-
 function FieldError({ message }: { message?: string }) {
   if (!message) return null;
   return <p className="mt-1.5 text-xs font-medium text-[#ef3239]">{message}</p>;
@@ -53,8 +30,6 @@ export function LoginForm() {
   const {
     register,
     handleSubmit,
-    setValue,
-    watch,
     formState: { errors, isSubmitting, isSubmitted },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -65,7 +40,6 @@ export function LoginForm() {
       : { phone: "", password: "" },
   });
 
-  const activePhone = watch("phone");
   const busy = isSubmitting || redirecting;
 
   async function onSubmit(values: LoginFormValues) {
@@ -84,44 +58,8 @@ export function LoginForm() {
     }
   }
 
-  function fillDemo(phone: string, password: string) {
-    setValue("phone", phone, { shouldValidate: true });
-    setValue("password", password, { shouldValidate: true });
-    setError(null);
-  }
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
-      {!env.useMockApi ? (
-        <div className="space-y-2">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Quick demo login
-          </p>
-          <div className="grid grid-cols-3 gap-2">
-            {demoAccounts.map((account) => {
-              const selected = activePhone === account.phone;
-              return (
-                <button
-                  key={account.role}
-                  type="button"
-                  disabled={busy}
-                  onClick={() => fillDemo(account.phone, account.password)}
-                  className={cn(
-                    "rounded-xl border px-2 py-2.5 text-center transition-colors",
-                    selected
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-muted/40 text-muted-foreground hover:border-primary/40 hover:text-foreground"
-                  )}
-                >
-                  <span className="block text-xs font-bold">{account.role}</span>
-                  <span className="mt-0.5 block text-[10px] leading-tight opacity-80">{account.hint}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      ) : null}
-
       <div>
         <label htmlFor="login-phone" className="mb-2 block text-sm font-semibold text-[#1a2b5e]">
           Phone number
@@ -191,13 +129,6 @@ export function LoginForm() {
           "Sign in"
         )}
       </Button>
-
-      {!env.useMockApi ? (
-        <p className="text-center text-xs leading-relaxed text-muted-foreground">
-          Demo password for all roles:{" "}
-          <span className="font-medium text-[#1a2b5e]">{DEMO_PASSWORD}</span>
-        </p>
-      ) : null}
     </form>
   );
 }

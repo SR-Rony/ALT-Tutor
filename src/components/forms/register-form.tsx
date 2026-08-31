@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { env } from "@/config";
 import { getSafeNextParam } from "@/lib/next-param";
 import { authService, roleHomeRoutes } from "@/services/auth.service";
 import { setUser, useAppDispatch } from "@/store";
@@ -74,7 +75,9 @@ export function RegisterForm() {
       setStep("otp");
       setInfo(
         result.message ||
-          "OTP sent. In development, check the backend terminal console for the code."
+          (env.useMockApi
+            ? "OTP generated. Check the browser console for the code."
+            : "OTP sent to your phone. Enter the 6-digit code below.")
       );
       startResendCooldown();
       otpForm.reset({ otp: "" });
@@ -126,8 +129,9 @@ export function RegisterForm() {
         <div className="rounded-xl border border-[#1877f2]/20 bg-[#1877f2]/5 px-4 py-3 text-sm text-[#1a2b5e]">
           <p className="font-semibold">Verify {pending.phone}</p>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
-            Enter the 6-digit OTP. In development mode the code is printed in the{" "}
-            <span className="font-semibold text-[#1a2b5e]">backend terminal</span>.
+            {env.useMockApi
+              ? "Enter the 6-digit OTP from the browser console (mock mode)."
+              : "Enter the 6-digit OTP sent to your phone number."}
           </p>
         </div>
 
@@ -331,8 +335,9 @@ export function RegisterForm() {
       </Button>
 
       <p className="text-center text-xs leading-relaxed text-muted-foreground">
-        We verify your phone with OTP before creating the account. In development, the OTP appears
-        in the backend terminal.
+        {env.useMockApi
+          ? "We verify your phone with OTP before creating the account. In mock mode, the OTP appears in the browser console."
+          : "We verify your phone with a one-time code before creating your account."}
       </p>
     </form>
   );
