@@ -1,4 +1,4 @@
-import type { QbAccessBadge, QbDifficulty, QbPaper, QbQuestionType } from "@/types/qb.types";
+import type { QbAccessBadge, QbDifficulty, QbPaper, QbPaperKind, QbQuestionType } from "@/types/qb.types";
 
 export type CreateQbTopicInput = {
   programId: string;
@@ -51,4 +51,14 @@ export type QbImportResult = {
   imported: number;
   skipped: number;
   errors: QbImportError[];
+};
+
+export type AddQbPaperInput = {
+  label?: string;
+  questionKind: QbPaperKind;
+};
+
+export type UpdateQbPaperConfigInput = {
+  label?: string;
+  questionKind?: QbPaperKind;
 };

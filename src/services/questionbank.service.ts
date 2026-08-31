@@ -78,9 +78,21 @@ export const questionbankService = {
   updateSubtopic(id: string, payload: Partial<CreateQbSubtopicInput>) {
     return apiClient.patch(`/questionbank/subtopics/${id}`, payload).then((r) => r.data);
   },
-  addPaper(subtopicId: string) {
+  addPaper(subtopicId: string, payload: import("./questionbank-admin.types").AddQbPaperInput) {
     return apiClient
-      .post<{ paperCount: number }>(`/questionbank/subtopics/${subtopicId}/papers`)
+      .post<{ paperCount: number; paperConfig?: Record<string, unknown> }>(
+        `/questionbank/subtopics/${subtopicId}/papers`,
+        payload
+      )
+      .then((r) => r.data);
+  },
+  updatePaperConfig(
+    subtopicId: string,
+    paper: string,
+    payload: import("./questionbank-admin.types").UpdateQbPaperConfigInput
+  ) {
+    return apiClient
+      .patch(`/questionbank/subtopics/${subtopicId}/papers/${encodeURIComponent(paper)}`, payload)
       .then((r) => r.data);
   },
   removePaper(subtopicId: string, paper: string) {

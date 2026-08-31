@@ -103,7 +103,29 @@ export function useUpdateQbSubtopic() {
 export function useAddQbPaper() {
   const invalidate = useInvalidateQb();
   return useMutation({
-    mutationFn: (subtopicId: string) => questionbankService.addPaper(subtopicId),
+    mutationFn: ({
+      subtopicId,
+      payload,
+    }: {
+      subtopicId: string;
+      payload: import("@/services/questionbank-admin.types").AddQbPaperInput;
+    }) => questionbankService.addPaper(subtopicId, payload),
+    onSuccess: invalidate,
+  });
+}
+
+export function useUpdateQbPaperConfig() {
+  const invalidate = useInvalidateQb();
+  return useMutation({
+    mutationFn: ({
+      subtopicId,
+      paper,
+      payload,
+    }: {
+      subtopicId: string;
+      paper: string;
+      payload: import("@/services/questionbank-admin.types").UpdateQbPaperConfigInput;
+    }) => questionbankService.updatePaperConfig(subtopicId, paper, payload),
     onSuccess: invalidate,
   });
 }

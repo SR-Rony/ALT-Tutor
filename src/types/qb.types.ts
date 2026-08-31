@@ -28,6 +28,15 @@ export interface QbQuestion {
   subtopicId: string;
 }
 
+export type QbPaperKind = "MCQ" | "WRITTEN";
+
+export interface QbPaperConfigEntry {
+  label: string;
+  questionKind: QbPaperKind;
+}
+
+export type QbPaperConfig = Record<string, QbPaperConfigEntry>;
+
 export interface QbSubtopic {
   id: string;
   title: string;
@@ -37,6 +46,8 @@ export interface QbSubtopic {
   badge: QbAccessBadge | string;
   /** Number of Paper tabs (Paper 1 … Paper N). */
   paperCount?: number;
+  /** Per-paper label and MCQ/Written kind. */
+  paperConfig?: QbPaperConfig | null;
   isActive: boolean;
   topicId: string;
   /** True when the current user lacks the required Free/Silver/Gold/Diamond tier. */

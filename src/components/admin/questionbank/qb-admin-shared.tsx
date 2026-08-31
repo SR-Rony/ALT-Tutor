@@ -16,7 +16,7 @@ import { Button } from "@/components/ui/button";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { tierBadgeClass, tierLabel } from "@/lib/access-tier";
 import { richTextExcerpt } from "@/lib/rich-text";
-import type { QbDifficulty, QbPaper, QbQuestion, QbTopic } from "@/types/qb.types";
+import type { QbDifficulty, QbPaper, QbPaperConfig, QbPaperKind, QbQuestion, QbTopic } from "@/types/qb.types";
 import { cn } from "@/utils";
 
 export const DIFFICULTIES: QbDifficulty[] = ["EASY", "MEDIUM", "HARD"];
@@ -69,22 +69,67 @@ export function AccessBadgePill({ badge }: { badge?: string | null }) {
   );
 }
 
-export function paperShortLabel(paper: string) {
+export function defaultPaperConfigEntry(n: number): { label: string; questionKind: QbPaperKind } {
+  return {
+    label: `Paper ${n}`,
+    questionKind: n === 1 ? "MCQ" : "WRITTEN",
+  };
+}
+
+export function resolvePaperConfig(
+  paperCount: number | null | undefined,
+  raw?: QbPaperConfig | null
+): QbPaperConfig {
+  const count = Math.max(1, paperCount ?? 3);
+  const base: QbPaperConfig = {};
+  for (let i = 1; i <= count; i++) {
+    const key = paperKey(i);
+    base[key] = defaultPaperConfigEntry(i);
+  }
+  if (!raw) return base;
+  for (const [key, entry] of Object.entries(raw)) {
+    const normalized = paperKey(parsePaperNumber(key));
+    if (!entry) continue;
+    base[normalized] = {
+      label: entry.label?.trim() || base[normalized]?.label || `Paper ${parsePaperNumber(normalized)}`,
+      questionKind:
+        entry.questionKind === "WRITTEN" || entry.questionKind === "MCQ"
+          ? entry.questionKind
+          : base[normalized]?.questionKind ?? (parsePaperNumber(normalized) === 1 ? "MCQ" : "WRITTEN"),
+    };
+  }
+  return base;
+}
+
+export function paperShortLabel(paper: string, config?: QbPaperConfig | null) {
+  const key = paperKey(parsePaperNumber(paper));
+  const label = config?.[key]?.label?.trim();
+  if (label) return label;
   const n = parsePaperNumber(paper);
   return `Paper ${n}`;
 }
 
-/** Paper 1 = MCQ only; Paper 2+ = Written only. */
-export function isMcqPaper(paper: string | null | undefined) {
+/** Uses paperConfig when available; legacy fallback Paper 1 = MCQ. */
+export function isMcqPaper(paper: string | null | undefined, config?: QbPaperConfig | null) {
+  const key = paperKey(parsePaperNumber(paper ?? "PAPER_1"));
+  const kind = config?.[key]?.questionKind;
+  if (kind) return kind === "MCQ";
   return parsePaperNumber(paper) <= 1;
 }
 
-export function kindForPaper(paper: string | null | undefined): "MCQ" | "WRITTEN" {
-  return isMcqPaper(paper) ? "MCQ" : "WRITTEN";
+export function kindForPaper(
+  paper: string | null | undefined,
+  config?: QbPaperConfig | null
+): "MCQ" | "WRITTEN" {
+  return isMcqPaper(paper, config) ? "MCQ" : "WRITTEN";
 }
 
-export function papersForKind(kind: "MCQ" | "WRITTEN", tabs: QbPaper[]): QbPaper[] {
-  return tabs.filter((p) => (kind === "MCQ" ? isMcqPaper(p) : !isMcqPaper(p)));
+export function papersForKind(
+  kind: "MCQ" | "WRITTEN",
+  tabs: QbPaper[],
+  config?: QbPaperConfig | null
+): QbPaper[] {
+  return tabs.filter((p) => (kind === "MCQ" ? isMcqPaper(p, config) : !isMcqPaper(p, config)));
 }
 
 export function countByPaper(questions: QbQuestion[] | undefined) {
