@@ -7,6 +7,7 @@ export function getInlinePdfUrl(url: string): string {
         parsed.pathname = parsed.pathname.replace("/upload/", "/upload/fl_attachment:false/");
       }
     }
+    // VPS local media (/media/*.pdf) is served with Content-Disposition: inline — no transform needed.
     return parsed.toString();
   } catch {
     return url;
