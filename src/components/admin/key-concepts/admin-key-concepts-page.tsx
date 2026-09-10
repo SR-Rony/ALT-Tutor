@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, Pencil, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Eye, EyeOff, Pencil, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
@@ -21,6 +21,7 @@ import {
 } from "@/hooks";
 import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
 import { slugify } from "@/lib/slugify";
+import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type {
   KeyConceptContentType,
@@ -29,7 +30,7 @@ import type {
 import type { QbAccessBadge } from "@/types/qb.types";
 import { cn, compareByOrderThenNaturalTitle } from "@/utils";
 
-const CONTENT_TYPES: KeyConceptContentType[] = ["ARTICLE", "VIDEO", "MIXED"];
+const CONTENT_TYPES: KeyConceptContentType[] = ["ARTICLE", "VIDEO", "MIXED", "PDF"];
 const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
 
 export type CourseLinkedProgram = {
@@ -51,6 +52,7 @@ type AdminKeyConceptsPageProps = {
 function contentLabel(type: KeyConceptContentType) {
   if (type === "VIDEO") return "Video";
   if (type === "MIXED") return "Mixed";
+  if (type === "PDF") return "PDF";
   return "Article";
 }
 
@@ -120,14 +122,19 @@ export function AdminKeyConceptsPage({
   const [subtopicId, setSubtopicId] = useState("");
   const [contentType, setContentType] = useState<KeyConceptContentType>("ARTICLE");
   const [videoUrl, setVideoUrl] = useState("");
+  const [pdfUrl, setPdfUrl] = useState("");
   const [thumbnailUrl, setThumbnailUrl] = useState("");
   const [bodyMarkdown, setBodyMarkdown] = useState("");
   const [durationSec, setDurationSec] = useState("480");
   const [accessTier, setAccessTier] = useState<QbAccessBadge>("FREE");
   const [isPublished, setIsPublished] = useState(false);
+  const [uploadingPdf, setUploadingPdf] = useState(false);
 
   const busy =
-    createLesson.isPending || updateLesson.isPending || deleteLesson.isPending;
+    createLesson.isPending ||
+    updateLesson.isPending ||
+    deleteLesson.isPending ||
+    uploadingPdf;
 
   const selectedTopic = qbTopics.find((t) => t.id === topicId);
   const subtopics = selectedTopic?.subtopics ?? [];
@@ -147,11 +154,13 @@ export function AdminKeyConceptsPage({
     setSubtopicId("");
     setContentType("ARTICLE");
     setVideoUrl("");
+    setPdfUrl("");
     setThumbnailUrl("");
     setBodyMarkdown("");
     setDurationSec("480");
     setAccessTier("FREE");
     setIsPublished(false);
+    setUploadingPdf(false);
     setActionError(null);
   };
 
@@ -170,6 +179,7 @@ export function AdminKeyConceptsPage({
     setSubtopicId(item.subtopicId || item.subtopic?.id || "");
     setContentType(item.contentType);
     setVideoUrl(item.videoUrl ?? "");
+    setPdfUrl(item.pdfUrl ?? "");
     setThumbnailUrl(item.thumbnailUrl ?? "");
     setBodyMarkdown(item.bodyMarkdown ?? "");
     setDurationSec(item.durationSec != null ? String(item.durationSec) : "");
@@ -177,6 +187,22 @@ export function AdminKeyConceptsPage({
     setIsPublished(Boolean(item.isPublished));
     setActionError(null);
     setModalOpen(true);
+  };
+
+  const onUploadPdf = async (file: File) => {
+    setUploadingPdf(true);
+    setActionError(null);
+    try {
+      const result = await uploadService.upload(file, "lessons");
+      setPdfUrl(result.url);
+      if (contentType !== "PDF" && contentType !== "MIXED") {
+        setContentType("PDF");
+      }
+    } catch (err) {
+      setActionError((err as ApiError)?.message || "PDF upload failed");
+    } finally {
+      setUploadingPdf(false);
+    }
   };
 
   const onSave = async () => {
@@ -190,6 +216,10 @@ export function AdminKeyConceptsPage({
     }
     if (!effectiveProgramId) {
       setActionError("Select a program first");
+      return;
+    }
+    if (contentType === "PDF" && !pdfUrl.trim()) {
+      setActionError("PDF URL or upload is required for PDF lessons");
       return;
     }
     setActionError(null);
@@ -208,6 +238,7 @@ export function AdminKeyConceptsPage({
             subtopicId: subtopicId ? subtopicId : null,
             summary: summary.trim() || null,
             videoUrl: videoUrl.trim() || null,
+            pdfUrl: pdfUrl.trim() || null,
             thumbnailUrl: thumbnailUrl.trim() || null,
             bodyMarkdown: serializeRichText(bodyMarkdown) || null,
             durationSec: Number.isFinite(duration) ? duration! : null,
@@ -224,6 +255,7 @@ export function AdminKeyConceptsPage({
           subtopicId: subtopicId || undefined,
           contentType,
           videoUrl: videoUrl.trim() || undefined,
+          pdfUrl: pdfUrl.trim() || undefined,
           thumbnailUrl: thumbnailUrl.trim() || undefined,
           bodyMarkdown: serializeRichText(bodyMarkdown) || undefined,
           durationSec: Number.isFinite(duration) ? duration : undefined,
@@ -270,7 +302,7 @@ export function AdminKeyConceptsPage({
             {!embedded ? (
               <PageHeader
                 title="Key Concepts"
-                description="Create short lessons with a preview link. Keep forms light — rich body + optional video."
+                description="Create short lessons with a preview link. Article, video, mixed, or PDF."
                 className="mb-0"
               />
             ) : (
@@ -611,6 +643,37 @@ export function AdminKeyConceptsPage({
             </label>
           )}
 
+          {(contentType === "PDF" || contentType === "MIXED") && (
+            <div className="space-y-1.5 rounded-xl border border-border bg-muted/30 p-3">
+              <span className="text-sm font-semibold">PDF</span>
+              <Input
+                value={pdfUrl}
+                onChange={(e) => setPdfUrl(e.target.value)}
+                placeholder="Paste PDF URL or upload below"
+              />
+              <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted">
+                <Upload className="h-4 w-4" aria-hidden />
+                {uploadingPdf ? "Uploading…" : "Upload PDF"}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="application/pdf,.pdf"
+                  disabled={busy}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) void onUploadPdf(file);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
+              {pdfUrl ? (
+                <p className="mt-2 truncate text-xs text-primary" title={pdfUrl}>
+                  {pdfUrl}
+                </p>
+              ) : null}
+            </div>
+          )}
+
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold">Thumbnail URL (optional)</span>
             <Input
@@ -620,16 +683,29 @@ export function AdminKeyConceptsPage({
             />
           </label>
 
-          <div className="space-y-1.5">
-            <span className="text-sm font-semibold">Body</span>
-            <RichTextEditor
-              value={bodyMarkdown}
-              onChange={setBodyMarkdown}
-              placeholder="Write the lesson body…"
-              minHeight="200px"
-              uploadFolder="lessons"
-            />
-          </div>
+          {contentType !== "PDF" ? (
+            <div className="space-y-1.5">
+              <span className="text-sm font-semibold">Body</span>
+              <RichTextEditor
+                value={bodyMarkdown}
+                onChange={setBodyMarkdown}
+                placeholder="Write the lesson body…"
+                minHeight="200px"
+                uploadFolder="lessons"
+              />
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <span className="text-sm font-semibold">Notes (optional)</span>
+              <RichTextEditor
+                value={bodyMarkdown}
+                onChange={setBodyMarkdown}
+                placeholder="Optional notes shown under the PDF…"
+                minHeight="120px"
+                uploadFolder="lessons"
+              />
+            </div>
+          )}
 
           <label className="flex items-center gap-2 text-sm font-semibold">
             <input

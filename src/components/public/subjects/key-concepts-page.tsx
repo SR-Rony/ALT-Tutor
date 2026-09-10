@@ -16,6 +16,7 @@ import { PageLoader, SecureVideoPlayer } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { looksLikeHtml } from "@/lib/rich-text";
+import { getInlinePdfUrl } from "@/utils/pdf-viewer";
 import { ROUTES } from "@/constants";
 import { useKeyConceptLesson, useKeyConceptLessons } from "@/hooks";
 import { useAppSelector } from "@/store";
@@ -40,6 +41,7 @@ function formatDuration(sec?: number | null) {
 function contentLabel(type: string) {
   if (type === "VIDEO") return "Video";
   if (type === "MIXED") return "Mixed";
+  if (type === "PDF") return "PDF";
   return "Article";
 }
 
@@ -116,7 +118,9 @@ function LessonVideoModal({
   const { data, isLoading, error } = useKeyConceptLesson(programSlug, slug);
   const detail = data?.lesson;
   const videoUrl = detail?.videoUrl || lesson?.videoUrl || null;
+  const pdfUrl = detail?.pdfUrl || lesson?.pdfUrl || null;
   const body = detail?.bodyMarkdown || null;
+  const inlinePdfUrl = pdfUrl ? getInlinePdfUrl(pdfUrl) : null;
 
   return (
     <AdminModal
@@ -133,7 +137,7 @@ function LessonVideoModal({
         </div>
       }
     >
-      {isLoading && !detail && !videoUrl ? (
+      {isLoading && !detail && !videoUrl && !pdfUrl ? (
         <div className="flex min-h-[12rem] flex-col items-center justify-center gap-2 py-8 text-sm text-muted-foreground">
           <Loader2 className="h-6 w-6 animate-spin text-primary" aria-hidden />
           Loading lesson…
@@ -146,23 +150,34 @@ function LessonVideoModal({
         </p>
       ) : null}
 
+      {!error && inlinePdfUrl ? (
+        <iframe
+          key={inlinePdfUrl}
+          src={inlinePdfUrl}
+          title={lesson?.title ?? "Lesson PDF"}
+          className="h-[70vh] w-full rounded-xl border border-border bg-white"
+        />
+      ) : null}
+
       {!error && videoUrl ? <VideoEmbed url={videoUrl} title={lesson?.title ?? "Lesson video"} /> : null}
 
-      {!error && !isLoading && !videoUrl && body ? (
+      {!error && !isLoading && !videoUrl && !pdfUrl && body ? (
         looksLikeHtml(body) ? (
-          <RichTextContent html={body} className="text-sm leading-relaxed text-foreground" />
+          <RichTextContent html={body} className="text-base leading-relaxed text-foreground" />
         ) : (
           <MarkdownBody text={body} />
         )
       ) : null}
 
-      {!error && !isLoading && !videoUrl && !body ? (
+      {!error && !isLoading && !videoUrl && !pdfUrl && !body ? (
         <div className="rounded-xl border border-dashed border-border bg-muted/20 px-4 py-10 text-center">
           <PlayCircle className="mx-auto h-8 w-8 text-muted-foreground" aria-hidden />
           <p className="mt-3 text-sm text-muted-foreground">
-            {lesson?.hasVideo
-              ? "Video is unavailable right now."
-              : "No video is attached to this lesson."}
+            {lesson?.hasPdf
+              ? "PDF is unavailable right now."
+              : lesson?.hasVideo
+                ? "Video is unavailable right now."
+                : "No content is attached to this lesson."}
           </p>
           {lesson?.summary ? (
             <p className="mt-4 text-left text-sm text-foreground">{lesson.summary}</p>
@@ -170,10 +185,10 @@ function LessonVideoModal({
         </div>
       ) : null}
 
-      {!error && body && videoUrl ? (
+      {!error && body && (videoUrl || pdfUrl) ? (
         <div className="mt-4 border-t border-border pt-4">
           {looksLikeHtml(body) ? (
-            <RichTextContent html={body} className="text-sm leading-relaxed text-foreground" />
+            <RichTextContent html={body} className="text-base leading-relaxed text-foreground" />
           ) : (
             <MarkdownBody text={body} />
           )}

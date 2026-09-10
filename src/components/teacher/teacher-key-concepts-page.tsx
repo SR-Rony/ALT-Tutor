@@ -14,6 +14,7 @@ import { cn } from "@/utils";
 function contentLabel(type: string) {
   if (type === "VIDEO") return "Video";
   if (type === "MIXED") return "Mixed";
+  if (type === "PDF") return "PDF";
   return "Article";
 }
 

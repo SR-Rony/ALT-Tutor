@@ -14,6 +14,7 @@ import { useAppSelector } from "@/store";
 import { normalizeAccessBadge, tierBadgeClass, tierLabel } from "@/lib/access-tier";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
+import { getInlinePdfUrl } from "@/utils/pdf-viewer";
 import { ResourceHero, SubjectBreadcrumbNav, useSubjectBreadcrumbs } from "./";
 import { useProgramContext } from "./use-program-context";
 
@@ -172,7 +173,7 @@ export function KeyConceptLessonPage({ programSlug, lessonSlug }: Props) {
               Unlock {tierLabel(badge)} to read this lesson
             </h2>
             <p className="mt-2 text-sm text-muted-foreground">
-              Summary is visible; full article and video stay locked until you have access.
+              Summary is visible; full article, video, and PDF stay locked until you have access.
             </p>
             {lesson.summary ? (
               <p className="mt-4 rounded-xl border border-border bg-card px-4 py-3 text-left text-sm text-foreground">
@@ -190,6 +191,15 @@ export function KeyConceptLessonPage({ programSlug, lessonSlug }: Props) {
           </section>
         ) : (
           <>
+            {lesson.pdfUrl ? (
+              <iframe
+                key={lesson.pdfUrl}
+                src={getInlinePdfUrl(lesson.pdfUrl)}
+                title={lesson.title}
+                className="h-[70vh] w-full rounded-2xl border border-border bg-white shadow-sm"
+              />
+            ) : null}
+
             {lesson.videoUrl ? (
               <SecureVideoPlayer
                 title={lesson.title}
@@ -205,15 +215,15 @@ export function KeyConceptLessonPage({ programSlug, lessonSlug }: Props) {
                 {looksLikeHtml(lesson.bodyMarkdown) ? (
                   <RichTextContent
                     html={lesson.bodyMarkdown}
-                    className="text-sm leading-relaxed text-foreground md:text-base"
+                    className="text-base leading-relaxed text-foreground"
                   />
                 ) : (
                   <MarkdownBody text={lesson.bodyMarkdown} />
                 )}
               </section>
-            ) : (
+            ) : !lesson.videoUrl && !lesson.pdfUrl ? (
               <p className="text-sm text-muted-foreground">No lesson body yet.</p>
-            )}
+            ) : null}
           </>
         )}
 

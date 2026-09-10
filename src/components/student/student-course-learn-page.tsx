@@ -529,7 +529,9 @@ function ProgramKeyConceptsSection({
                   ? "Video lesson"
                   : lesson.contentType === "MIXED"
                     ? "Mixed lesson"
-                    : "Article lesson",
+                    : lesson.contentType === "PDF"
+                      ? "PDF lesson"
+                      : "Article lesson",
               ]
                 .filter(Boolean)
                 .join(" · ")}

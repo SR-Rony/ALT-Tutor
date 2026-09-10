@@ -1,6 +1,6 @@
 import type { QbAccessBadge } from "@/types/qb.types";
 
-export type KeyConceptContentType = "VIDEO" | "ARTICLE" | "MIXED";
+export type KeyConceptContentType = "VIDEO" | "ARTICLE" | "MIXED" | "PDF";
 
 export type KeyConceptTopicRef = {
   id: string;
@@ -27,6 +27,7 @@ export type KeyConceptLesson = {
   summary?: string | null;
   contentType: KeyConceptContentType;
   videoUrl?: string | null;
+  pdfUrl?: string | null;
   thumbnailUrl?: string | null;
   bodyMarkdown?: string | null;
   durationSec?: number | null;
@@ -37,6 +38,7 @@ export type KeyConceptLesson = {
   locked?: boolean;
   hasBody?: boolean;
   hasVideo?: boolean;
+  hasPdf?: boolean;
   practiceSubtopicSlug?: string | null;
   topic?: KeyConceptTopicRef;
   subtopic?: KeyConceptSubtopicRef | null;
@@ -69,6 +71,7 @@ export type CreateKeyConceptLessonInput = {
   summary?: string;
   contentType: KeyConceptContentType;
   videoUrl?: string;
+  pdfUrl?: string;
   thumbnailUrl?: string;
   bodyMarkdown?: string;
   durationSec?: number;
@@ -86,6 +89,7 @@ export type UpdateKeyConceptLessonInput = {
   summary?: string | null;
   contentType?: KeyConceptContentType;
   videoUrl?: string | null;
+  pdfUrl?: string | null;
   thumbnailUrl?: string | null;
   bodyMarkdown?: string | null;
   durationSec?: number | null;
