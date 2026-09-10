@@ -485,7 +485,7 @@ export function AdminPracticeExamsPage({
     if (!Number.parseInt(durationMin, 10) || Number.parseInt(durationMin, 10) < 1) {
       return "Duration must be at least 1 minute";
     }
-    if (!effectiveModalProgramId) return "Select a category, subject, and program";
+    if (!effectiveModalProgramId) return "Select a curriculum, subject, and program";
     if (selectedQuestionIds.length < 1) {
       return "Select at least one question from the Questionbank";
     }
@@ -682,7 +682,7 @@ export function AdminPracticeExamsPage({
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Category
+                  Curriculum
                 </span>
                 <select
                   value={effectiveCategoryId}
@@ -984,7 +984,7 @@ export function AdminPracticeExamsPage({
       <AdminModal
         open={modalOpen}
         title={editId ? "Edit practice exam" : "Create practice exam"}
-        description="Choose category → subject → program, then pick questions."
+        description="Choose curriculum → subject → program, then pick questions."
         onClose={() => !busy && setModalOpen(false)}
         className="sm:max-w-2xl"
         footer={
@@ -1145,7 +1145,7 @@ export function AdminPracticeExamsPage({
             ) : (
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="block space-y-1.5">
-                  <span className="text-sm font-semibold">Category</span>
+                  <span className="text-sm font-semibold">Curriculum</span>
                   <select
                     value={modalCategoryId || subjectsTree[0]?.id || ""}
                     disabled={busy || scopeLocked}
@@ -1207,7 +1207,7 @@ export function AdminPracticeExamsPage({
               <p className="text-xs text-muted-foreground">
                 {useLinkedOnly
                   ? "Program stays fixed while editing this exam."
-                  : "Category / subject / program stay fixed while editing this exam."}
+                  : "Curriculum / subject / program stay fixed while editing this exam."}
               </p>
             ) : null}
 

@@ -119,7 +119,7 @@ export function TeacherCoursesPage() {
     const slug = form.slug.trim();
     const description = serializeRichText(form.description);
     if (!title || !slug || isRichTextEmpty(description) || !form.categoryId) {
-      setActionError("Title, slug, description, and category are required");
+      setActionError("Title, slug, description, and curriculum are required");
       return;
     }
     const payload = {
@@ -233,7 +233,7 @@ export function TeacherCoursesPage() {
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
               {search.trim()
-                ? "Try a different title, slug, or category."
+                ? "Try a different title, slug, or curriculum."
                 : "Create a course, then add chapters and lessons."}
             </p>
             {!search.trim() ? (
@@ -296,7 +296,7 @@ export function TeacherCoursesPage() {
                         </span>
                       </div>
                       <p className="mt-1.5 text-sm text-muted-foreground">
-                        {course.category?.name ?? "Uncategorized"}
+                        {course.category?.name ?? "No curriculum"}
                         {" · "}
                         {String(course.level).toLowerCase()}
                         {" · "}
@@ -446,13 +446,13 @@ export function TeacherCoursesPage() {
             </select>
           </label>
           <label className="block space-y-1.5 sm:col-span-2">
-            <span className="text-sm font-semibold">Category</span>
+            <span className="text-sm font-semibold">Curriculum</span>
             <select
               value={form.categoryId}
               onChange={(e) => setForm((p) => ({ ...p, categoryId: e.target.value }))}
               className={fieldClass()}
             >
-              <option value="">Select category</option>
+              <option value="">Select curriculum</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>
                   {cat.name}

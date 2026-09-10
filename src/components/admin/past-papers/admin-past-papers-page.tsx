@@ -465,7 +465,7 @@ export function AdminPastPapersPage({
     if (!Number.parseInt(durationMin, 10) || Number.parseInt(durationMin, 10) < 1) {
       return "Duration must be at least 1 minute";
     }
-    if (!effectiveModalProgramId) return "Select a category, subject, and program";
+    if (!effectiveModalProgramId) return "Select a curriculum, subject, and program";
     if (selectedQuestionIds.length < 1) {
       return `Select at least one ${modeLabel(questionMode)} question from the Questionbank`;
     }
@@ -669,7 +669,7 @@ export function AdminPastPapersPage({
             <div className="grid gap-3 sm:grid-cols-3">
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Category
+                  Curriculum
                 </span>
                 <select
                   value={effectiveCategoryId}
@@ -1083,7 +1083,7 @@ export function AdminPastPapersPage({
             ) : (
               <div className="grid gap-3 sm:grid-cols-3">
                 <label className="block space-y-1.5">
-                  <span className="text-sm font-semibold">Category</span>
+                  <span className="text-sm font-semibold">Curriculum</span>
                   <select
                     value={modalCategoryId || subjectsTree[0]?.id || ""}
                     disabled={busy || scopeLocked}

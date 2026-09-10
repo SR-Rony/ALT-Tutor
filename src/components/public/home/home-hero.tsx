@@ -36,7 +36,7 @@ export function HomeHero() {
     return [
       { label: "Students", value: formatStat(data.stats.totalStudents), color: "#ef3239" },
       { label: "Live Courses", value: formatStat(data.stats.totalCourses), color: "#1877f2" },
-      { label: "Categories", value: formatStat(data.categories.length), color: "#22c55e" },
+      { label: "Curricula", value: formatStat(data.categories.length), color: "#22c55e" },
       {
         label: "Featured",
         value: formatStat(data.featuredCourses.length),

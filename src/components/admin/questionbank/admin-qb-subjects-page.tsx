@@ -60,7 +60,7 @@ export function AdminQbSubjectsPage() {
   const openCreate = () => {
     const categoryId = categoryFilter !== "ALL" ? categoryFilter : tree[0]?.id;
     if (!categoryId) {
-      setActionError("Create a category first.");
+      setActionError("Create a curriculum first.");
       return;
     }
     setForm({ kind: "subject", categoryId });
@@ -104,7 +104,7 @@ export function AdminQbSubjectsPage() {
       <div className="space-y-6">
         <PageHeader
           title="Subjects"
-          description="Manage subjects under each category and assign teachers."
+          description="Manage subjects under each curriculum and assign teachers."
           className="mb-0"
         />
         <PageLoader label="Loading subjects..." />
@@ -119,7 +119,7 @@ export function AdminQbSubjectsPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Subjects"
-              description="Create a category, then add subjects. Each subject automatically gets Questionbank, Key Concepts, Practice Exams, and Past Papers in the mega menu."
+              description="Create a curriculum, then add subjects. Each subject automatically gets Questionbank, Key Concepts, Practice Exams, and Past Papers in the mega menu."
               className="mb-0"
             />
             <div className="flex items-center gap-2">
@@ -170,7 +170,7 @@ export function AdminQbSubjectsPage() {
               href={ROUTES.admin.categories}
               className="ml-auto text-xs font-semibold text-primary hover:underline"
             >
-              Manage categories
+              Manage curricula
             </Link>
           </div>
 
@@ -187,7 +187,7 @@ export function AdminQbSubjectsPage() {
             <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
                 <th className="px-5 py-3 font-semibold">Subject</th>
-                <th className="px-5 py-3 font-semibold">Category</th>
+                <th className="px-5 py-3 font-semibold">Curriculum</th>
                 <th className="px-5 py-3 font-semibold">Programs</th>
                 <th className="px-5 py-3 font-semibold">Teachers</th>
                 <th className="px-5 py-3 font-semibold text-right">Actions</th>
@@ -198,7 +198,7 @@ export function AdminQbSubjectsPage() {
                 <tr>
                   <td colSpan={5} className="px-5 py-10 text-center text-muted-foreground">
                     {tree.length === 0
-                      ? "Create a category first, then add subjects."
+                      ? "Create a curriculum first, then add subjects."
                       : "No subjects in this filter."}
                   </td>
                 </tr>
@@ -268,7 +268,7 @@ export function AdminQbSubjectsPage() {
         description={
           form?.kind === "teachers"
             ? "Teachers assigned here can manage related program content."
-            : "Subjects appear under the selected category."
+            : "Subjects appear under the selected curriculum."
         }
         onClose={() => {
           if (!busy) setForm(null);
@@ -312,7 +312,7 @@ export function AdminQbSubjectsPage() {
           <div className="space-y-3">
             {form?.kind === "subject" && !form.id ? (
               <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Category</span>
+                <span className="text-sm font-semibold">Curriculum</span>
                 <select
                   value={form.categoryId}
                   onChange={(e) => setForm({ kind: "subject", categoryId: e.target.value })}

@@ -348,7 +348,7 @@ export function AdminQuestionbankPage() {
           <div className="mb-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
             <span>Manage structure:</span>
             <Link href={ROUTES.admin.categories} className="font-semibold text-primary hover:underline">
-              Categories
+              Curricula
             </Link>
             <Link href={ROUTES.admin.qbSubjects} className="font-semibold text-primary hover:underline">
               Subjects
@@ -365,7 +365,7 @@ export function AdminQuestionbankPage() {
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="block space-y-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Category
+                Curriculum
               </span>
               <select
                 value={effectiveCategoryId}
@@ -376,7 +376,7 @@ export function AdminQuestionbankPage() {
                 }}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
-                {subjectsTree.length === 0 ? <option value="">No categories</option> : null}
+                {subjectsTree.length === 0 ? <option value="">No curricula</option> : null}
                 {subjectsTree.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}

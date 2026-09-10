@@ -74,7 +74,7 @@ export const adminCategoriesService = {
     if (env.useMockApi) {
       await sleep(200);
       const item = mockCategories.find((c) => c.id === id);
-      if (!item) throw { message: "Category not found", status: 404 };
+      if (!item) throw { message: "Curriculum not found", status: 404 };
       Object.assign(item, payload, { updatedAt: new Date().toISOString() });
       return { ...item };
     }
@@ -86,11 +86,11 @@ export const adminCategoriesService = {
     if (env.useMockApi) {
       await sleep(200);
       const index = mockCategories.findIndex((c) => c.id === id);
-      if (index < 0) throw { message: "Category not found", status: 404 };
+      if (index < 0) throw { message: "Curriculum not found", status: 404 };
       mockCategories.splice(index, 1);
-      return { message: "Category deleted successfully" };
+      return { message: "Curriculum deleted successfully" };
     }
     const response = await apiClient.delete<{ message: string }>(`/categories/${id}`);
-    return response.data ?? { message: "Category deleted successfully" };
+    return response.data ?? { message: "Curriculum deleted successfully" };
   },
 };

@@ -355,7 +355,7 @@ export function AdminKeyConceptsPage({
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-1.5">
                 <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Category
+                  Curriculum
                 </span>
                 <select
                   value={effectiveCategoryId}

@@ -27,7 +27,7 @@ const actions: {
     tone: "bg-accent/10 text-accent",
   },
   {
-    title: "Categories",
+    title: "Curricula",
     description: "Organize the course catalog",
     href: ROUTES.admin.categories,
     icon: Tags,

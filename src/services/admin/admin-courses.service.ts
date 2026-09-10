@@ -122,7 +122,7 @@ export const adminCoursesService = {
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
         teacher: { id: payload.teacherId ?? "teacher-1", name: "Mock Teacher" },
-        category: { id: payload.categoryId, name: "Category", slug: "category" },
+        category: { id: payload.categoryId, name: "Curriculum", slug: "category" },
         _count: { enrollments: 0 },
       };
       mockAdminCourses.unshift(created);

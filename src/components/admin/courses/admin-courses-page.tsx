@@ -244,7 +244,7 @@ export function AdminCoursesPage() {
     const teacherId = form.teacherId;
 
     if (!title || !slug || isRichTextEmpty(description) || !categoryId) {
-      setActionError("Title, slug, description, and category are required");
+      setActionError("Title, slug, description, and curriculum are required");
       return;
     }
     if (!teacherId) {
@@ -342,7 +342,7 @@ export function AdminCoursesPage() {
             <Input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search title, teacher, or category..."
+              placeholder="Search title, teacher, or curriculum..."
               className="max-w-md"
             />
             <div className="flex flex-wrap gap-2">
@@ -377,9 +377,9 @@ export function AdminCoursesPage() {
 
           {categories.length === 0 ? (
             <p className="mt-3 text-sm text-muted-foreground">
-              No categories yet.{" "}
+              No curricula yet.{" "}
               <Link href={ROUTES.admin.categories} className="font-semibold text-primary underline">
-                Create a category
+                Create a curriculum
               </Link>{" "}
               before adding courses.
             </p>
@@ -754,13 +754,13 @@ export function AdminCoursesPage() {
           </label>
 
           <label className="block space-y-1.5">
-            <span className="text-sm font-semibold text-foreground">Category</span>
+            <span className="text-sm font-semibold text-foreground">Curriculum</span>
             <select
               value={form.categoryId}
               onChange={(e) => setForm((prev) => ({ ...prev, categoryId: e.target.value }))}
               className={fieldClassName()}
             >
-              <option value="">Select category</option>
+              <option value="">Select curriculum</option>
               {categories.map((category) => (
                 <option key={category.id} value={category.id}>
                   {category.name}

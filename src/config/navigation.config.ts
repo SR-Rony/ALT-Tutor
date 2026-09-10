@@ -63,7 +63,7 @@ export const adminNav: NavItem[] = [
   { title: "Practice Exams", href: ROUTES.admin.practiceExams, iconName: "clipboard" },
   { title: "Written Marking", href: ROUTES.admin.practiceExamMarking, iconName: "clipboard" },
   { title: "Past Papers", href: ROUTES.admin.pastPapers, iconName: "clipboard" },
-  { title: "Categories", href: ROUTES.admin.categories, iconName: "tags" },
+  { title: "Curricula", href: ROUTES.admin.categories, iconName: "tags" },
   { title: "Subjects", href: ROUTES.admin.qbSubjects, iconName: "book" },
   { title: "Key Concepts", href: ROUTES.admin.keyConcepts, iconName: "book" },
   { title: "Pass Pricing", href: ROUTES.admin.accessProducts, iconName: "wallet" },

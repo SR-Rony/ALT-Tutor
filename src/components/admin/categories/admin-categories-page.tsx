@@ -116,7 +116,7 @@ export function AdminCategoriesPage() {
       setModalOpen(false);
       setEditing(null);
     } catch (err) {
-      setActionError((err as ApiError)?.message || "Failed to save category");
+      setActionError((err as ApiError)?.message || "Failed to save curriculum");
     } finally {
       setPendingId(null);
     }
@@ -124,7 +124,7 @@ export function AdminCategoriesPage() {
 
   const onDelete = async (category: AdminCategory) => {
     const confirmed = window.confirm(
-      `Delete category "${category.name}"? Linked subjects and courses may be affected.`
+      `Delete curriculum "${category.name}"? Linked subjects and courses may be affected.`
     );
     if (!confirmed) return;
 
@@ -133,7 +133,7 @@ export function AdminCategoriesPage() {
     try {
       await deleteCategory.mutateAsync(category.id);
     } catch (err) {
-      setActionError((err as ApiError)?.message || "Failed to delete category");
+      setActionError((err as ApiError)?.message || "Failed to delete curriculum");
     } finally {
       setPendingId(null);
     }
@@ -143,11 +143,11 @@ export function AdminCategoriesPage() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Categories"
-          description="One category list for questionbank subjects and courses."
+          title="Curricula"
+          description="One curriculum list for questionbank subjects and courses."
           className="mb-0"
         />
-        <PageLoader label="Loading categories..." />
+        <PageLoader label="Loading curricula..." />
       </div>
     );
   }
@@ -158,8 +158,8 @@ export function AdminCategoriesPage() {
         <div className="border-b border-border px-5 py-6">
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
-              title="Categories"
-              description="Shared categories — use the same group for questionbank subjects and courses (e.g. SSC, Web Development)."
+              title="Curricula"
+              description="Shared curricula — use the same group for questionbank subjects and courses (e.g. SSC, Web Development)."
               className="mb-0"
             />
             <div className="flex items-center gap-2">
@@ -173,7 +173,7 @@ export function AdminCategoriesPage() {
               />
               <Button type="button" size="sm" onClick={openCreate}>
                 <Plus className="h-4 w-4" aria-hidden />
-                Add category
+                Add curriculum
               </Button>
             </div>
           </div>
@@ -181,12 +181,12 @@ export function AdminCategoriesPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search categories..."
+            placeholder="Search curricula..."
             className="max-w-md"
           />
 
           <p className="mt-3 text-sm text-muted-foreground">
-            {data.length} categories · {totalSubjects} subjects · {totalCourses} courses ·{" "}
+            {data.length} curricula · {totalSubjects} subjects · {totalCourses} courses ·{" "}
             <Link href={ROUTES.admin.qbSubjects} className="font-medium text-primary hover:underline">
               Manage subjects
             </Link>
@@ -219,7 +219,7 @@ export function AdminCategoriesPage() {
               {visible.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-5 py-10 text-center text-muted-foreground">
-                    No categories found. Create one to organize subjects and courses together.
+                    No curricula found. Create one to organize subjects and courses together.
                   </td>
                 </tr>
               ) : null}
@@ -238,14 +238,14 @@ export function AdminCategoriesPage() {
                     <td className="px-5 py-4 text-right">
                       <AdminActionsBar>
                         <AdminIconAction
-                          label="Edit category"
+                          label="Edit curriculum"
                           icon={Pencil}
                           tone="primary"
                           disabled={rowBusy}
                           onClick={() => openEdit(category)}
                         />
                         <AdminIconAction
-                          label="Delete category"
+                          label="Delete curriculum"
                           icon={Trash2}
                           tone="danger"
                           disabled={rowBusy}
@@ -263,7 +263,7 @@ export function AdminCategoriesPage() {
 
       <AdminModal
         open={modalOpen}
-        title={editing ? "Update category" : "Create category"}
+        title={editing ? "Update curriculum" : "Create curriculum"}
         description="Used for both questionbank subjects and courses — no separate types."
         onClose={closeModal}
         footer={

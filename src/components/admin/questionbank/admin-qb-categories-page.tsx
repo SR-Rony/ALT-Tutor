@@ -67,11 +67,11 @@ export function AdminQbCategoriesPage() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Categories"
-          description="Manage SSC / HSC style categories for the questionbank tree."
+          title="Curricula"
+          description="Manage SSC / HSC style curricula for the questionbank tree."
           className="mb-0"
         />
-        <PageLoader label="Loading categories..." />
+        <PageLoader label="Loading curricula..." />
       </div>
     );
   }
@@ -82,7 +82,7 @@ export function AdminQbCategoriesPage() {
         <div className="border-b border-border px-5 py-6">
           <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
-              title="Categories"
+              title="Curricula"
               description="Top-level groups (e.g. SSC, HSC). Subjects and programs sit under these."
               className="mb-0"
             />
@@ -97,12 +97,12 @@ export function AdminQbCategoriesPage() {
               />
               <Button type="button" size="sm" onClick={openCreate}>
                 <Plus className="h-4 w-4" aria-hidden />
-                Add category
+                Add curriculum
               </Button>
             </div>
           </div>
           <p className="text-sm text-muted-foreground">
-            {tree.length} categories · {totalSubjects} subjects ·{" "}
+            {tree.length} curricula · {totalSubjects} subjects ·{" "}
             <Link href={ROUTES.admin.qbSubjects} className="font-medium text-primary hover:underline">
               Manage subjects
             </Link>
@@ -118,7 +118,7 @@ export function AdminQbCategoriesPage() {
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-5 py-3 font-semibold">Category</th>
+                <th className="px-5 py-3 font-semibold">Curriculum</th>
                 <th className="px-5 py-3 font-semibold">Slug</th>
                 <th className="px-5 py-3 font-semibold">Subjects</th>
                 <th className="px-5 py-3 font-semibold text-right">Actions</th>
@@ -128,7 +128,7 @@ export function AdminQbCategoriesPage() {
               {tree.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-5 py-10 text-center text-muted-foreground">
-                    No categories yet. Add SSC or HSC to get started.
+                    No curricula yet. Add SSC or HSC to get started.
                   </td>
                 </tr>
               ) : null}
@@ -153,7 +153,7 @@ export function AdminQbCategoriesPage() {
                         onClick={() => {
                           if (
                             window.confirm(
-                              `Delete category "${category.name}"? All subjects inside will be removed.`
+                              `Delete curriculum "${category.name}"? All subjects inside will be removed.`
                             )
                           ) {
                             void deleteCategory.mutateAsync(category.id);
@@ -171,7 +171,7 @@ export function AdminQbCategoriesPage() {
 
       <AdminModal
         open={Boolean(form)}
-        title={form?.id ? "Edit category" : "Add category"}
+        title={form?.id ? "Edit curriculum" : "Add curriculum"}
         description="Shown in the public Subjects menu and questionbank filters."
         onClose={() => {
           if (!busy) setForm(null);

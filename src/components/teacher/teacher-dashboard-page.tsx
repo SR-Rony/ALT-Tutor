@@ -224,7 +224,7 @@ export function TeacherDashboardPage() {
                         ) : null}
                       </div>
                       <p className="mt-1 text-xs text-muted-foreground">
-                        {course.category?.name ?? "Uncategorized"}
+                        {course.category?.name ?? "No curriculum"}
                         {" · "}
                         {course._count.enrollments} enrolled
                         {" · "}

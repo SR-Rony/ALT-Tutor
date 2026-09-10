@@ -173,7 +173,7 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
     if (tab === "overview") {
       const payload = buildPayload();
       if (!payload?.title || isRichTextEmpty(payload.description) || !payload.categoryId) {
-        setActionError("Complete title, description, and category before continuing.");
+        setActionError("Complete title, description, and curriculum before continuing.");
         return;
       }
       if (!payload.teacherId) {
@@ -236,7 +236,7 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
   const onSave = async () => {
     const payload = buildPayload();
     if (!payload?.title || isRichTextEmpty(payload.description) || !payload.categoryId) {
-      setActionError("Title, description, and category are required.");
+      setActionError("Title, description, and curriculum are required.");
       return;
     }
     setActionError(null);
@@ -455,13 +455,13 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
               minHeight="160px"
             />
           </Field>
-          <Field label="Category">
+          <Field label="Curriculum">
             <select
               value={form.categoryId}
               onChange={(e) => setField("categoryId", e.target.value)}
               className="flex h-10 w-full rounded-xl border border-border bg-background px-3 text-sm"
             >
-              <option value="">Select category</option>
+              <option value="">Select curriculum</option>
               {categories.map((cat) => (
                 <option key={cat.id} value={cat.id}>{cat.name}</option>
               ))}

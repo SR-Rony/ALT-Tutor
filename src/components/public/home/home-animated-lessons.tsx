@@ -216,7 +216,7 @@ export function HomeAnimatedLessons() {
             <>
               <button
                 type="button"
-                aria-label="Previous categories"
+                aria-label="Previous curricula"
                 disabled={!canTabPrev}
                 onClick={() => scrollTabs(-1)}
                 className={cn(
@@ -228,7 +228,7 @@ export function HomeAnimatedLessons() {
               </button>
               <button
                 type="button"
-                aria-label="Next categories"
+                aria-label="Next curricula"
                 disabled={!canTabNext}
                 onClick={() => scrollTabs(1)}
                 className={cn(
@@ -244,7 +244,7 @@ export function HomeAnimatedLessons() {
           <div
             ref={tabsRef}
             role="tablist"
-            aria-label="Course categories"
+            aria-label="Course curricula"
             className={cn(
               "flex items-center gap-1 overflow-x-auto scroll-smooth scrollbar-none sm:gap-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
               showTabSlider ? "justify-start px-10 sm:px-12" : "justify-start sm:justify-center"
@@ -326,7 +326,7 @@ export function HomeAnimatedLessons() {
 
             {!isLoading && !isError && filtered.length === 0 ? (
               <p className="w-full py-10 text-center text-sm text-[#64748b]">
-                No published courses in this category yet.
+                No published courses in this curriculum yet.
               </p>
             ) : null}
 

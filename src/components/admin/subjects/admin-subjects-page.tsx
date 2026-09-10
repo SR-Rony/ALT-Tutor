@@ -166,7 +166,7 @@ export function AdminSubjectsPage() {
 
   const modalTitle = useMemo(() => {
     if (!form) return "";
-    if (form.kind === "category") return form.id ? "Edit category" : "Add category";
+    if (form.kind === "category") return form.id ? "Edit curriculum" : "Add curriculum";
     if (form.kind === "subject") return form.id ? "Edit subject" : "Add subject";
     if (form.kind === "program") return form.id ? "Edit program" : "Add program (SL/HL)";
     if (form.kind === "resource") return form.id ? "Edit resource" : "Add resource";
@@ -176,7 +176,7 @@ export function AdminSubjectsPage() {
   if (isLoading && tree.length === 0) {
     return (
       <div className="space-y-6">
-        <PageHeader title="Subjects" description="Manage mega-menu categories, subjects, and topics." className="mb-0" />
+        <PageHeader title="Subjects" description="Manage mega-menu curricula, subjects, and topics." className="mb-0" />
         <PageLoader label="Loading subjects..." />
       </div>
     );
@@ -189,7 +189,7 @@ export function AdminSubjectsPage() {
           <div className="mb-2 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Subjects"
-              description="Categories → subjects → programs. Resources (Questionbank, Key Concepts, etc.) are created automatically."
+              description="Curricula → subjects → programs. Resources (Questionbank, Key Concepts, etc.) are created automatically."
               className="mb-0"
             />
             <div className="flex items-center gap-2">
@@ -203,7 +203,7 @@ export function AdminSubjectsPage() {
               />
               <Button type="button" size="sm" onClick={openCreateCategory}>
                 <Plus className="h-4 w-4" aria-hidden />
-                Add category
+                Add curriculum
               </Button>
             </div>
           </div>
@@ -216,7 +216,7 @@ export function AdminSubjectsPage() {
 
         <div className="divide-y divide-border">
           {tree.length === 0 ? (
-            <p className="px-5 py-10 text-center text-muted-foreground">No subject categories yet.</p>
+            <p className="px-5 py-10 text-center text-muted-foreground">No subject curricula yet.</p>
           ) : null}
 
           {tree.map((category) => {
@@ -257,7 +257,7 @@ export function AdminSubjectsPage() {
                       variant="ghost"
                       className="text-accent"
                       onClick={() => {
-                        if (window.confirm(`Delete category "${category.name}"?`)) {
+                        if (window.confirm(`Delete curriculum "${category.name}"?`)) {
                           void deleteCategory.mutateAsync(category.id);
                         }
                       }}

@@ -170,11 +170,11 @@ export function CoursesCatalogPage() {
             </div>
 
             <div className="mt-5">
-              <p className="text-xs font-bold uppercase tracking-wide text-[#94a3b8]">Category</p>
+              <p className="text-xs font-bold uppercase tracking-wide text-[#94a3b8]">Curriculum</p>
               <div className="mt-3 flex flex-wrap gap-2 lg:flex-col">
                 <FilterChip
                   active={!categoryId}
-                  label="All categories"
+                  label="All curricula"
                   onClick={() => syncUrl({ categoryId: "", page: 1 })}
                 />
                 {categories.map((cat) => (

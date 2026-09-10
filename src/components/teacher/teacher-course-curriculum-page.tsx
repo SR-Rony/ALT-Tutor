@@ -60,7 +60,7 @@ export function TeacherCourseCurriculumPage({ courseId }: Props) {
               Build chapters and lessons · click a chapter to expand · click a lesson to edit
             </p>
             <p className="mt-1 text-xs text-muted-foreground">
-              {course.category?.name ?? "Uncategorized"} · {String(course.level).toLowerCase()}
+              {course.category?.name ?? "No curriculum"} · {String(course.level).toLowerCase()}
             </p>
           </div>
 
