@@ -494,7 +494,7 @@ export function AdminQuestionDropdown({
               </p>
               <RichTextContent
                 html={question.prompt}
-                className="text-sm leading-relaxed text-foreground"
+                className="text-base leading-relaxed text-foreground"
               />
               {question.body ? (
                 <RichTextContent
@@ -540,7 +540,7 @@ export function AdminQuestionDropdown({
               </div>
               <RichTextContent
                 html={question.options[step]}
-                className="text-sm leading-relaxed text-foreground"
+                className="text-base leading-relaxed text-foreground"
               />
               {question.markScheme && isCorrect ? (
                 <div className="rounded-lg border border-primary/20 bg-primary-muted/40 p-3 text-sm text-foreground">

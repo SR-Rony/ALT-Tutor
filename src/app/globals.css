@@ -324,9 +324,11 @@
   }
 }
 
-/* TipTap rich text editor & rendered HTML */
-.rich-text-editor__content {
-  @apply text-sm leading-relaxed text-foreground;
+/* TipTap rich text editor & rendered HTML — shared base size */
+.rich-text-editor__content,
+.rich-text-content {
+  @apply text-base leading-relaxed text-foreground;
+  font-size: 16px;
 }
 
 .rich-text-editor__content p.is-editor-empty:first-child::before {
@@ -351,18 +353,19 @@
   @apply my-2 list-decimal pl-5;
 }
 
+/* Keep headings same size as body text so questions don't look randomly large/small */
 .rich-text-editor__content h2,
-.rich-text-content h2 {
-  @apply mt-3 text-base font-bold;
-}
-
+.rich-text-content h2,
 .rich-text-editor__content h3,
 .rich-text-content h3 {
-  @apply mt-2 text-sm font-bold;
+  @apply mt-2 font-bold;
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .rich-text-content p {
   @apply my-1 leading-relaxed;
+  font-size: inherit;
 }
 
 /* MCQ option rows: A. + text/math vertically centered */
@@ -394,7 +397,7 @@
 }
 
 .rich-text-content .qb-math-equation .katex {
-  font-size: 1.05em;
+  font-size: 1em;
 }
 
 .rich-text-content a {
@@ -451,7 +454,20 @@
 
 .rich-text-editor__content .qb-math,
 .rich-text-content .qb-math {
-  @apply mx-0.5 inline-block align-middle text-[1.05em];
+  @apply mx-0.5 inline-block align-middle;
+  font-size: 1em;
+}
+
+.rich-text-editor__content .katex,
+.rich-text-content .katex {
+  font-size: 1em;
+}
+
+.rich-text-editor__content [data-font-size],
+.rich-text-content [data-font-size],
+.rich-text-editor__content .qb-font-size,
+.rich-text-content .qb-font-size {
+  line-height: inherit;
 }
 
 .rich-text-editor__content sup,

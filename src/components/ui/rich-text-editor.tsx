@@ -29,6 +29,12 @@ import {
 } from "lucide-react";
 import { normalizeRichTextContent } from "@/lib/rich-text";
 import { Indent } from "@/lib/tiptap-indent";
+import {
+  FontSize,
+  FONT_SIZE_OPTIONS,
+  TextStyle,
+  normalizeFontSize,
+} from "@/lib/tiptap-font-size";
 import { QbImage, type QbImageAlign } from "@/lib/tiptap-image";
 import { MathInline } from "@/lib/tiptap-math";
 import { uploadService } from "@/services/upload.service";
@@ -47,6 +53,10 @@ type RichTextEditorProps = {
 };
 
 type TextAlignValue = QbImageAlign | "justify";
+
+function normalizeActiveFontSize(raw: unknown): string {
+  return normalizeFontSize(typeof raw === "string" ? raw : null) ?? "";
+}
 
 function ToolbarButton({
   active,
@@ -145,6 +155,8 @@ export function RichTextEditor({
         alignments: ["left", "center", "right", "justify"],
       }),
       Indent,
+      TextStyle,
+      FontSize,
       MathInline,
     ],
     content: normalizeRichTextContent(value),
@@ -271,6 +283,33 @@ export function RichTextEditor({
         >
           <SubscriptIcon className="h-4 w-4" />
         </ToolbarButton>
+        <label className="ml-1 inline-flex items-center">
+          <span className="sr-only">Font size</span>
+          <select
+            aria-label="Font size"
+            title="Font size"
+            disabled={disabled}
+            className="h-8 max-w-[6.5rem] rounded-lg border border-border bg-card px-1.5 text-xs font-semibold text-foreground outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-40"
+            value={
+              normalizeActiveFontSize(editor.getAttributes("textStyle").fontSize) ?? ""
+            }
+            onChange={(e) => {
+              const next = e.target.value;
+              if (!next) {
+                editor.chain().focus().unsetFontSize().run();
+                return;
+              }
+              editor.chain().focus().setFontSize(next).run();
+            }}
+          >
+            <option value="">Size</option>
+            {FONT_SIZE_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </label>
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
         <ToolbarButton
           label="Bullet list"

@@ -257,7 +257,7 @@ export function downloadQuestionPaperPdf({
     }
 
     .rich-text-content {
-      font-size: 0.95rem;
+      font-size: 16px;
       line-height: 1.55;
       color: var(--ink);
     }

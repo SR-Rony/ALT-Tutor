@@ -197,15 +197,15 @@ export function StudyQuestionCard({
           <ContentBlock
             htmlOrText={question.prompt}
             contentMode={contentMode}
-            className="text-sm leading-relaxed text-foreground md:text-base"
+            className="text-base leading-relaxed text-foreground"
           />
           {question.body ? (
             <ContentBlock
               htmlOrText={question.body}
               contentMode={contentMode}
               className={cn(
-                "mt-2 text-sm",
-                isMcq ? "text-muted-foreground" : "leading-relaxed text-foreground md:text-[15px]"
+                "mt-2 text-base leading-relaxed",
+                isMcq ? "text-muted-foreground" : "text-foreground"
               )}
             />
           ) : null}
@@ -222,16 +222,16 @@ export function StudyQuestionCard({
           ) : null}
 
           {isMcq && hasOptionList ? (
-            <ul className="mt-4 space-y-4 text-sm text-foreground">
+            <ul className="mt-4 space-y-4 text-base text-foreground">
               {filledOptions.map(({ opt, index }) => (
                 <li key={`${question.id}-opt-${index}`} className="flex items-center gap-x-2.5">
-                  <span className="shrink-0 self-center font-semibold leading-none">
+                  <span className="shrink-0 self-center text-base font-semibold leading-none">
                     {STUDY_QUESTION_LETTERS[index] ?? index + 1}.
                   </span>
                   {contentMode === "rich" ? (
-                    <RichTextContent html={opt} inline className="min-w-0 flex-1" />
+                    <RichTextContent html={opt} inline className="min-w-0 flex-1 text-base" />
                   ) : (
-                    <span className="min-w-0 leading-relaxed">{opt}</span>
+                    <span className="min-w-0 text-base leading-relaxed">{opt}</span>
                   )}
                 </li>
               ))}
@@ -397,7 +397,7 @@ export function StudyQuestionCard({
             Solution notes
           </div>
           {markScheme ? (
-            <div className="rounded-xl border border-border bg-muted/20 p-4 text-sm leading-relaxed text-foreground md:text-[15px]">
+            <div className="rounded-xl border border-border bg-muted/20 p-4 text-base leading-relaxed text-foreground">
               {contentMode === "rich" ? (
                 <RichTextContent html={markScheme} />
               ) : (

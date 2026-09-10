@@ -5,12 +5,27 @@ const TEXT_ALIGN_RE =
 
 const PADDING_LEFT_RE = /(?:^|;)\s*padding-left\s*:\s*(\d+(?:\.\d+)?)px\s*;?/i;
 const MARGIN_LEFT_RE = /(?:^|;)\s*margin-left\s*:\s*(\d+(?:\.\d+)?)px\s*;?/i;
+const FONT_SIZE_RE = /(?:^|;)\s*font-size\s*:\s*([^;]+)\s*;?/i;
 
 const IMG_BLOCK_STYLE =
   /display\s*:\s*block\s*;?\s*(margin-left\s*:\s*auto\s*;?\s*margin-right\s*:\s*(auto|0)\s*;?)?/i;
 
 const INDENT_STEP_PX = 24;
 const MAX_INDENT = 8;
+
+function normalizeAllowedFontSize(raw: string | null | undefined): string | null {
+  if (!raw) return null;
+  const cleaned = raw.trim().toLowerCase();
+  const match = cleaned.match(/^(\d+(?:\.\d+)?)(px|pt|rem|em)?$/);
+  if (!match) return null;
+  const n = Number.parseFloat(match[1]!);
+  if (!Number.isFinite(n) || n < 10 || n > 32) return null;
+  const unit = match[2] || "px";
+  if (unit === "px") return `${Math.round(n)}px`;
+  if (unit === "pt") return `${Math.round(n * 1.333)}px`;
+  if (unit === "rem" || unit === "em") return `${Math.round(n * 16)}px`;
+  return null;
+}
 
 let styleHookRegistered = false;
 
@@ -37,6 +52,14 @@ function registerStyleHook() {
     const alignMatch = data.attrValue.match(TEXT_ALIGN_RE);
     if (alignMatch) {
       parts.push(`text-align: ${alignMatch[1].toLowerCase()}`);
+    }
+
+    const fontSize = normalizeAllowedFontSize(data.attrValue.match(FONT_SIZE_RE)?.[1]);
+    if (fontSize) {
+      parts.push(`font-size: ${fontSize}`);
+      if (el instanceof HTMLElement) {
+        el.setAttribute("data-font-size", fontSize);
+      }
     }
 
     const padMatch = data.attrValue.match(PADDING_LEFT_RE);
@@ -179,6 +202,7 @@ export function sanitizeRichHtml(html: string): string {
       "data-align",
       "data-text-align",
       "data-indent",
+      "data-font-size",
       "width",
       "height",
       "style",
