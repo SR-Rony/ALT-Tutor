@@ -32,14 +32,25 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
+/** Keep consecutive / leading spaces as NBSP so layout survives HTML collapse. */
+function preserveSpacesAsNbsp(text: string): string {
+  return text
+    .replace(/ {2,}/g, (chunk) => "\u00A0".repeat(chunk.length))
+    .replace(/^ /gm, "\u00A0")
+    .replace(/ $/gm, "\u00A0");
+}
+
 /** Convert legacy plain-text descriptions for TipTap. */
 export function normalizeRichTextContent(value: string | null | undefined): string {
   if (!value?.trim()) return "";
   if (looksLikeHtml(value)) return value;
-  const paragraphs = value.split(/\n{2,}/).map((block) => block.trim()).filter(Boolean);
+  const paragraphs = value.split(/\n{2,}/).map((block) => block.replace(/\s+$/, "")).filter(Boolean);
   if (!paragraphs.length) return "";
   return paragraphs
-    .map((block) => `<p>${escapeHtml(block).replace(/\n/g, "<br>")}</p>`)
+    .map((block) => {
+      const html = preserveSpacesAsNbsp(escapeHtml(block)).replace(/\n/g, "<br>");
+      return `<p>${html}</p>`;
+    })
     .join("");
 }
 

@@ -10,10 +10,13 @@ import TextAlign from "@tiptap/extension-text-align";
 import type { Editor } from "@tiptap/core";
 import {
   AlignCenter,
+  AlignJustify,
   AlignLeft,
   AlignRight,
   Bold,
   ImageIcon,
+  IndentIncrease,
+  IndentDecrease,
   Italic,
   List,
   ListOrdered,
@@ -25,6 +28,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { normalizeRichTextContent } from "@/lib/rich-text";
+import { Indent } from "@/lib/tiptap-indent";
 import { QbImage, type QbImageAlign } from "@/lib/tiptap-image";
 import { MathInline } from "@/lib/tiptap-math";
 import { uploadService } from "@/services/upload.service";
@@ -41,6 +45,8 @@ type RichTextEditorProps = {
   /** Folder used when uploading inline images. */
   uploadFolder?: "questionbank" | "lessons" | "courses" | "assignments" | "blogs" | "avatars";
 };
+
+type TextAlignValue = QbImageAlign | "justify";
 
 function ToolbarButton({
   active,
@@ -73,24 +79,43 @@ function ToolbarButton({
   );
 }
 
-function setEditorAlignment(editor: Editor, align: QbImageAlign) {
-  if (editor.isActive("image")) {
-    editor.chain().focus().updateAttributes("image", { align }).run();
-    return;
-  }
-  const { state } = editor;
-  const { selection } = state;
-  const node = state.doc.nodeAt(selection.from);
-  if (node?.type.name === "image") {
-    editor.chain().focus().updateAttributes("image", { align }).run();
-    return;
+function setEditorAlignment(editor: Editor, align: TextAlignValue) {
+  if (align !== "justify") {
+    if (editor.isActive("image")) {
+      editor.chain().focus().updateAttributes("image", { align }).run();
+      return;
+    }
+    const { state } = editor;
+    const { selection } = state;
+    const node = state.doc.nodeAt(selection.from);
+    if (node?.type.name === "image") {
+      editor.chain().focus().updateAttributes("image", { align }).run();
+      return;
+    }
   }
   editor.chain().focus().setTextAlign(align).run();
 }
 
-function isEditorAlignmentActive(editor: Editor, align: QbImageAlign) {
-  if (editor.isActive("image", { align })) return true;
+function isEditorAlignmentActive(editor: Editor, align: TextAlignValue) {
+  if (align !== "justify" && editor.isActive("image", { align })) return true;
   return editor.isActive({ textAlign: align });
+}
+
+/** Keep consecutive spaces as NBSP so indentation-by-space survives save/render. */
+function handlePreserveSpaces(
+  view: { state: Editor["state"]; dispatch: (tr: Editor["state"]["tr"]) => void },
+  event: KeyboardEvent
+) {
+  if (event.key !== " " || event.ctrlKey || event.metaKey || event.altKey) {
+    return false;
+  }
+  const { state } = view;
+  const { from, empty } = state.selection;
+  if (!empty || from === 0) return false;
+  const before = state.doc.textBetween(from - 1, from, "\n", "\n");
+  if (before !== " " && before !== "\u00A0") return false;
+  view.dispatch(state.tr.insertText("\u00A0", from, from).scrollIntoView());
+  return true;
 }
 
 export function RichTextEditor({
@@ -117,8 +142,9 @@ export function RichTextEditor({
       Subscript,
       TextAlign.configure({
         types: ["heading", "paragraph"],
-        alignments: ["left", "center", "right"],
+        alignments: ["left", "center", "right", "justify"],
       }),
+      Indent,
       MathInline,
     ],
     content: normalizeRichTextContent(value),
@@ -134,6 +160,7 @@ export function RichTextEditor({
         class: "rich-text-editor__content outline-none",
         style: `min-height: ${minHeight}`,
       },
+      handleKeyDown: (view, event) => handlePreserveSpaces(view, event),
     },
   });
 
@@ -285,6 +312,29 @@ export function RichTextEditor({
           onClick={() => setEditorAlignment(editor, "right")}
         >
           <AlignRight className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Justify"
+          disabled={disabled}
+          active={isEditorAlignmentActive(editor, "justify")}
+          onClick={() => setEditorAlignment(editor, "justify")}
+        >
+          <AlignJustify className="h-4 w-4" />
+        </ToolbarButton>
+        <span className="mx-1 h-5 w-px bg-border" aria-hidden />
+        <ToolbarButton
+          label="Indent (Tab)"
+          disabled={disabled}
+          onClick={() => editor.chain().focus().indent().run()}
+        >
+          <IndentIncrease className="h-4 w-4" />
+        </ToolbarButton>
+        <ToolbarButton
+          label="Outdent (Shift+Tab)"
+          disabled={disabled}
+          onClick={() => editor.chain().focus().outdent().run()}
+        >
+          <IndentDecrease className="h-4 w-4" />
         </ToolbarButton>
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
         <ToolbarButton

@@ -275,6 +275,9 @@ export function downloadQuestionPaperPdf({
     .rich-text-content p {
       margin: 0.25rem 0;
       line-height: 1.55;
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      word-break: break-word;
     }
 
     .rich-text-content p:first-child {
@@ -283,6 +286,19 @@ export function downloadQuestionPaperPdf({
 
     .rich-text-content p:last-child {
       margin-bottom: 0;
+    }
+
+    .rich-text-content [data-indent="1"], .rich-text-content .qb-indent-1 { padding-left: 24px; }
+    .rich-text-content [data-indent="2"], .rich-text-content .qb-indent-2 { padding-left: 48px; }
+    .rich-text-content [data-indent="3"], .rich-text-content .qb-indent-3 { padding-left: 72px; }
+    .rich-text-content [data-indent="4"], .rich-text-content .qb-indent-4 { padding-left: 96px; }
+    .rich-text-content [data-indent="5"], .rich-text-content .qb-indent-5 { padding-left: 120px; }
+    .rich-text-content [data-indent="6"], .rich-text-content .qb-indent-6 { padding-left: 144px; }
+    .rich-text-content [data-indent="7"], .rich-text-content .qb-indent-7 { padding-left: 168px; }
+    .rich-text-content [data-indent="8"], .rich-text-content .qb-indent-8 { padding-left: 192px; }
+
+    .rich-text-content [style*="text-align"] {
+      display: block;
     }
 
     .rich-text-content ul,
