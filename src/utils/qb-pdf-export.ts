@@ -380,10 +380,25 @@ export function downloadQuestionPaperPdf({
       margin-right: auto;
     }
 
-    .rich-text-content .qb-math {
+    .rich-text-content .qb-math:not(.qb-math-display) {
       display: inline-block;
       vertical-align: middle;
       margin: 0 0.1rem;
+    }
+
+    .rich-text-content .qb-math-display {
+      display: block;
+      width: 100%;
+      margin: 0.9rem 0;
+      overflow-x: auto;
+      text-align: center;
+    }
+
+    .rich-text-content .qb-math-display .katex,
+    .rich-text-content .qb-math-display .katex-display {
+      margin: 0;
+      font-size: 1.15em;
+      text-align: center;
     }
 
     .mcq-options {

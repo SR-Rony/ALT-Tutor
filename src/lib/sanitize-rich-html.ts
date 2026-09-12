@@ -251,13 +251,14 @@ export function sanitizeRichHtml(html: string): string {
   registerStyleHook();
   const clean = DOMPurify.sanitize(html, {
     USE_PROFILES: { html: true },
-    ADD_TAGS: ["img", "span", "sup", "sub"],
+    ADD_TAGS: ["img", "span", "sup", "sub", "div"],
     ADD_ATTR: [
       "src",
       "alt",
       "title",
       "class",
       "data-latex",
+      "data-display",
       "data-align",
       "data-offset",
       "data-text-align",

@@ -1,4 +1,5 @@
-import { Node, mergeAttributes } from "@tiptap/core";
+import { Node, mergeAttributes, type Editor } from "@tiptap/core";
+import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import katex from "katex";
 
 export type MathInlineOptions = {
@@ -8,9 +9,88 @@ export type MathInlineOptions = {
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
     mathInline: {
-      insertMath: (latex: string) => ReturnType;
+      insertMath: (latex: string, options?: { display?: boolean }) => ReturnType;
     };
   }
+}
+
+export const MATH_OPEN_EVENT = "qb-open-math-editor";
+
+function latexFromElement(element: HTMLElement): string {
+  return element.getAttribute("data-latex") ?? element.textContent ?? "";
+}
+
+export function isDisplayMathElement(element: HTMLElement): boolean {
+  return (
+    element.classList.contains("qb-math-display") ||
+    element.getAttribute("data-display") === "true"
+  );
+}
+
+export function renderKatex(latex: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(latex, {
+      throwOnError: false,
+      displayMode,
+    });
+  } catch {
+    return latex;
+  }
+}
+
+function paintKatex(dom: HTMLElement, latex: string, display: boolean) {
+  const value = String(latex ?? "");
+  dom.setAttribute("data-latex", value);
+  try {
+    katex.render(value, dom, {
+      throwOnError: false,
+      displayMode: display,
+    });
+  } catch {
+    dom.textContent = value;
+  }
+}
+
+function createMathNodeView(display: boolean) {
+  return ({
+    node,
+    editor,
+    getPos,
+  }: {
+    node: ProseMirrorNode;
+    editor: Editor;
+    getPos: () => number | undefined;
+  }) => {
+    const dom = document.createElement(display ? "div" : "span");
+    dom.className = display ? "qb-math qb-math-display" : "qb-math";
+    if (display) dom.setAttribute("data-display", "true");
+    dom.contentEditable = "false";
+    paintKatex(dom, String(node.attrs.latex ?? ""), display);
+
+    const openEditor = () => {
+      const pos = getPos();
+      if (pos !== undefined) {
+        editor.chain().setNodeSelection(pos).run();
+      }
+      editor.view.dom.dispatchEvent(new CustomEvent(MATH_OPEN_EVENT, { bubbles: true }));
+    };
+
+    dom.addEventListener("dblclick", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      openEditor();
+    });
+
+    return {
+      dom,
+      ignoreMutation: () => true,
+      update: (updated: ProseMirrorNode) => {
+        if (updated.type !== node.type) return false;
+        paintKatex(dom, String(updated.attrs.latex ?? ""), display);
+        return true;
+      },
+    };
+  };
 }
 
 /** Inline KaTeX node stored as `<span class="qb-math" data-latex="...">`. */
@@ -29,7 +109,7 @@ export const MathInline = Node.create<MathInlineOptions>({
     return {
       latex: {
         default: "",
-        parseHTML: (element) => element.getAttribute("data-latex") ?? element.textContent ?? "",
+        parseHTML: (element) => latexFromElement(element as HTMLElement),
         renderHTML: (attributes) => ({
           "data-latex": attributes.latex,
         }),
@@ -38,7 +118,10 @@ export const MathInline = Node.create<MathInlineOptions>({
   },
 
   parseHTML() {
-    return [{ tag: "span.qb-math[data-latex]" }, { tag: 'span[data-latex]' }];
+    return [
+      { tag: 'span.qb-math[data-latex]:not(.qb-math-display):not([data-display="true"])' },
+      { tag: 'span[data-latex]:not(.qb-math-display):not([data-display="true"])' },
+    ];
   },
 
   renderHTML({ node, HTMLAttributes }) {
@@ -55,12 +138,13 @@ export const MathInline = Node.create<MathInlineOptions>({
   addCommands() {
     return {
       insertMath:
-        (latex: string) =>
+        (latex: string, options) =>
         ({ commands }) => {
           const trimmed = latex.trim();
           if (!trimmed) return false;
+          const display = options?.display !== false;
           return commands.insertContent({
-            type: this.name,
+            type: display ? "mathDisplay" : this.name,
             attrs: { latex: trimmed },
           });
         },
@@ -68,21 +152,55 @@ export const MathInline = Node.create<MathInlineOptions>({
   },
 
   addNodeView() {
-    return ({ node }) => {
-      const dom = document.createElement("span");
-      dom.className = "qb-math";
-      dom.setAttribute("data-latex", node.attrs.latex);
-      dom.contentEditable = "false";
-      try {
-        katex.render(String(node.attrs.latex ?? ""), dom, {
-          throwOnError: false,
-          displayMode: false,
-        });
-      } catch {
-        dom.textContent = String(node.attrs.latex ?? "");
-      }
-      return { dom };
+    if (typeof document === "undefined") return null;
+    return createMathNodeView(false);
+  },
+});
+
+/** Centered display equation — Revision Village / exam-paper style. */
+export const MathDisplay = Node.create({
+  name: "mathDisplay",
+  group: "block",
+  atom: true,
+  selectable: true,
+  draggable: false,
+
+  addAttributes() {
+    return {
+      latex: {
+        default: "",
+        parseHTML: (element) => latexFromElement(element as HTMLElement),
+        renderHTML: (attributes) => ({
+          "data-latex": attributes.latex,
+          "data-display": "true",
+        }),
+      },
     };
+  },
+
+  parseHTML() {
+    return [
+      { tag: "div.qb-math-display" },
+      { tag: "span.qb-math-display" },
+      { tag: '[data-display="true"]' },
+    ];
+  },
+
+  renderHTML({ node, HTMLAttributes }) {
+    return [
+      "div",
+      mergeAttributes(HTMLAttributes, {
+        class: "qb-math qb-math-display",
+        "data-latex": node.attrs.latex,
+        "data-display": "true",
+      }),
+      node.attrs.latex,
+    ];
+  },
+
+  addNodeView() {
+    if (typeof document === "undefined") return null;
+    return createMathNodeView(true);
   },
 });
 
@@ -93,12 +211,11 @@ export function hydrateKatexHtml(html: string): string {
     const doc = new DOMParser().parseFromString(html, "text/html");
     doc.querySelectorAll("[data-latex]").forEach((el) => {
       const latex = el.getAttribute("data-latex") ?? "";
+      const display = isDisplayMathElement(el as HTMLElement);
       try {
-        el.innerHTML = katex.renderToString(latex, {
-          throwOnError: false,
-          displayMode: false,
-        });
+        el.innerHTML = renderKatex(latex, display);
         el.classList.add("qb-math");
+        if (display) el.classList.add("qb-math-display");
       } catch {
         el.textContent = latex;
       }
@@ -107,4 +224,31 @@ export function hydrateKatexHtml(html: string): string {
   } catch {
     return html;
   }
+}
+
+export function readSelectedMath(editor: Editor): { latex: string; display: boolean } | null {
+  if (editor.isActive("mathDisplay")) {
+    return {
+      latex: String(editor.getAttributes("mathDisplay").latex ?? ""),
+      display: true,
+    };
+  }
+  if (editor.isActive("mathInline")) {
+    return {
+      latex: String(editor.getAttributes("mathInline").latex ?? ""),
+      display: false,
+    };
+  }
+  return null;
+}
+
+export function applyEditorMath(editor: Editor, latex: string, display: boolean): boolean {
+  const trimmed = latex.trim();
+  if (!trimmed) return false;
+  const type = display ? "mathDisplay" : "mathInline";
+  const chain = editor.chain().focus();
+  if (editor.isActive("mathInline") || editor.isActive("mathDisplay")) {
+    chain.deleteSelection();
+  }
+  return chain.insertContent({ type, attrs: { latex: trimmed } }).run();
 }

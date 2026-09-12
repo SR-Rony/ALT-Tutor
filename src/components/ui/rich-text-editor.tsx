@@ -36,7 +36,14 @@ import {
   normalizeFontSize,
 } from "@/lib/tiptap-font-size";
 import { QbImage, type QbImageSnapAlign } from "@/lib/tiptap-image";
-import { MathInline } from "@/lib/tiptap-math";
+import {
+  applyEditorMath,
+  MATH_OPEN_EVENT,
+  MathDisplay,
+  MathInline,
+  readSelectedMath,
+} from "@/lib/tiptap-math";
+import { MathEquationDialog } from "@/components/ui/math-equation-dialog";
 import { uploadService } from "@/services/upload.service";
 import { cn } from "@/utils";
 
@@ -140,6 +147,9 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [mathOpen, setMathOpen] = useState(false);
+  const [mathDraft, setMathDraft] = useState({ latex: "", display: true });
+  const mathOpenerRef = useRef<() => void>(() => {});
 
   const editor = useEditor({
     extensions: [
@@ -158,6 +168,7 @@ export function RichTextEditor({
       TextStyle,
       FontSize,
       MathInline,
+      MathDisplay,
     ],
     content: normalizeRichTextContent(value),
     editable: !disabled,
@@ -172,7 +183,14 @@ export function RichTextEditor({
         class: "rich-text-editor__content outline-none",
         style: `min-height: ${minHeight}`,
       },
-      handleKeyDown: (view, event) => handlePreserveSpaces(view, event),
+      handleKeyDown: (view, event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "m") {
+          event.preventDefault();
+          mathOpenerRef.current();
+          return true;
+        }
+        return handlePreserveSpaces(view, event);
+      },
     },
   });
 
@@ -190,6 +208,22 @@ export function RichTextEditor({
     if (!editor) return;
     editor.setEditable(!disabled);
   }, [editor, disabled]);
+
+  const openMathDialog = () => {
+    if (!editor) return;
+    const selected = readSelectedMath(editor);
+    setMathDraft(selected ?? { latex: "", display: true });
+    setMathOpen(true);
+  };
+  mathOpenerRef.current = openMathDialog;
+
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom;
+    const onOpen = () => mathOpenerRef.current();
+    dom.addEventListener(MATH_OPEN_EVENT, onOpen);
+    return () => dom.removeEventListener(MATH_OPEN_EVENT, onOpen);
+  }, [editor]);
 
   const insertImageFile = async (file: File | undefined) => {
     if (!file || !editor) return;
@@ -210,16 +244,6 @@ export function RichTextEditor({
     }
   };
 
-  const insertMath = () => {
-    if (!editor) return;
-    const latex = window.prompt(
-      "Enter LaTeX (examples: \\dfrac{force}{mass} , v_x , m\\,s^{-1})",
-      "\\dfrac{force}{mass}"
-    );
-    if (latex == null) return;
-    editor.chain().focus().insertMath(latex).run();
-  };
-
   if (!editor) {
     return (
       <div
@@ -235,6 +259,7 @@ export function RichTextEditor({
   }
 
   return (
+    <>
     <div
       className={cn(
         "overflow-hidden rounded-xl border border-border bg-card transition focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/15",
@@ -383,7 +408,7 @@ export function RichTextEditor({
         >
           <ImageIcon className="h-4 w-4" />
         </ToolbarButton>
-        <ToolbarButton label="Insert math" disabled={disabled} onClick={insertMath}>
+        <ToolbarButton label="Insert equation" disabled={disabled} onClick={openMathDialog}>
           <Sigma className="h-4 w-4" />
         </ToolbarButton>
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
@@ -416,5 +441,13 @@ export function RichTextEditor({
         onChange={(e) => void insertImageFile(e.target.files?.[0])}
       />
     </div>
+    <MathEquationDialog
+      open={mathOpen}
+      initialLatex={mathDraft.latex}
+      initialDisplay={mathDraft.display}
+      onClose={() => setMathOpen(false)}
+      onInsert={(latex, display) => applyEditorMath(editor, latex, display)}
+    />
+    </>
   );
 }
