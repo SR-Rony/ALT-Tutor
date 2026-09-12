@@ -342,8 +342,10 @@ export function downloadQuestionPaperPdf({
       max-height: 95mm;
       object-fit: contain;
       margin: 0.75rem 0;
-      border: 1px solid var(--line);
-      border-radius: 8px;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      box-shadow: none;
       page-break-inside: avoid;
       break-inside: avoid;
     }
@@ -370,6 +372,12 @@ export function downloadQuestionPaperPdf({
       display: block;
       margin-left: auto;
       margin-right: 0;
+    }
+
+    .rich-text-content img.qb-img-align-custom,
+    .rich-text-content img[data-align="custom"] {
+      display: block;
+      margin-right: auto;
     }
 
     .rich-text-content .qb-math {

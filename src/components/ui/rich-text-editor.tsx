@@ -35,7 +35,7 @@ import {
   TextStyle,
   normalizeFontSize,
 } from "@/lib/tiptap-font-size";
-import { QbImage, type QbImageAlign } from "@/lib/tiptap-image";
+import { QbImage, type QbImageSnapAlign } from "@/lib/tiptap-image";
 import { MathInline } from "@/lib/tiptap-math";
 import { uploadService } from "@/services/upload.service";
 import { cn } from "@/utils";
@@ -52,7 +52,7 @@ type RichTextEditorProps = {
   uploadFolder?: "questionbank" | "lessons" | "courses" | "assignments" | "blogs" | "avatars";
 };
 
-type TextAlignValue = QbImageAlign | "justify";
+type TextAlignValue = QbImageSnapAlign | "justify";
 
 function normalizeActiveFontSize(raw: unknown): string {
   return normalizeFontSize(typeof raw === "string" ? raw : null) ?? "";
@@ -92,14 +92,14 @@ function ToolbarButton({
 function setEditorAlignment(editor: Editor, align: TextAlignValue) {
   if (align !== "justify") {
     if (editor.isActive("image")) {
-      editor.chain().focus().updateAttributes("image", { align }).run();
+      editor.chain().focus().updateAttributes("image", { align, offset: 0 }).run();
       return;
     }
     const { state } = editor;
     const { selection } = state;
     const node = state.doc.nodeAt(selection.from);
     if (node?.type.name === "image") {
-      editor.chain().focus().updateAttributes("image", { align }).run();
+      editor.chain().focus().updateAttributes("image", { align, offset: 0 }).run();
       return;
     }
   }
@@ -200,7 +200,7 @@ export function RichTextEditor({
         .chain()
         .focus()
         .setImage({ src: result.url, alt: file.name })
-        .updateAttributes("image", { align: "left" })
+        .updateAttributes("image", { align: "left", offset: 0 })
         .run();
     } catch {
       window.alert("Image upload failed. Try again or paste an image URL.");

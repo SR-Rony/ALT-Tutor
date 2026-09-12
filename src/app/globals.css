@@ -408,12 +408,32 @@
   @apply font-semibold;
 }
 
-/* Same image look in admin editor and student view */
+/* Same image look in admin editor and student view — no frame around diagrams */
 .rich-text-editor__content img.qb-inline-image,
 .rich-text-content img.qb-inline-image,
 .rich-text-editor__content img,
 .rich-text-content img {
-  @apply my-3 ml-0 mr-auto block max-h-[420px] max-w-full rounded-lg border border-border object-contain;
+  @apply my-3 block max-h-[420px] max-w-full object-contain;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+}
+
+.rich-text-editor__content img {
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+
+.rich-text-editor__content img.qb-img-dragging {
+  cursor: grabbing;
+}
+
+.rich-text-editor__content img.ProseMirror-selectednode {
+  outline: 2px solid color-mix(in oklab, var(--primary) 50%, transparent);
+  outline-offset: 2px;
 }
 
 .rich-text-editor__content img.qb-img-align-left,
@@ -437,18 +457,26 @@
   @apply ml-auto mr-0 block;
 }
 
-.rich-text-editor__content p[style*="text-align: left"] img,
-.rich-text-content p[style*="text-align: left"] img {
+.rich-text-editor__content img.qb-img-align-custom,
+.rich-text-content img.qb-img-align-custom,
+.rich-text-editor__content img[data-align="custom"],
+.rich-text-content img[data-align="custom"] {
+  display: block;
+  margin-right: auto;
+}
+
+.rich-text-editor__content p[style*="text-align: left"] img:not([data-align="custom"]),
+.rich-text-content p[style*="text-align: left"] img:not([data-align="custom"]) {
   @apply ml-0 mr-auto block;
 }
 
-.rich-text-editor__content p[style*="text-align: center"] img,
-.rich-text-content p[style*="text-align: center"] img {
+.rich-text-editor__content p[style*="text-align: center"] img:not([data-align="custom"]),
+.rich-text-content p[style*="text-align: center"] img:not([data-align="custom"]) {
   @apply mx-auto block;
 }
 
-.rich-text-editor__content p[style*="text-align: right"] img,
-.rich-text-content p[style*="text-align: right"] img {
+.rich-text-editor__content p[style*="text-align: right"] img:not([data-align="custom"]),
+.rich-text-content p[style*="text-align: right"] img:not([data-align="custom"]) {
   @apply ml-auto mr-0 block;
 }
 

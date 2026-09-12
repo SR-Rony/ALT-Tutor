@@ -211,12 +211,12 @@ export function StudyQuestionCard({
           ) : null}
 
           {question.diagramUrl ? (
-            <div className="mt-4 overflow-hidden rounded-xl border border-border bg-muted/20">
+            <div className="mt-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={question.diagramUrl}
                 alt={`Diagram for ${qLabel}`}
-                className="mx-auto max-h-[28rem] w-auto max-w-full object-contain p-3"
+                className="mx-auto max-h-[28rem] w-auto max-w-full object-contain"
               />
             </div>
           ) : null}

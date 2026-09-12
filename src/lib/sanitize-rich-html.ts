@@ -10,6 +10,15 @@ const FONT_SIZE_RE = /(?:^|;)\s*font-size\s*:\s*([^;]+)\s*;?/i;
 const IMG_BLOCK_STYLE =
   /display\s*:\s*block\s*;?\s*(margin-left\s*:\s*auto\s*;?\s*margin-right\s*:\s*(auto|0)\s*;?)?/i;
 
+const IMG_CUSTOM_MARGIN_RE = /margin-left\s*:\s*(\d+(?:\.\d+)?)px/i;
+const IMG_MARGIN_LEFT_AUTO_RE = /margin-left\s*:\s*auto/i;
+const MAX_IMAGE_OFFSET = 720;
+
+function clampImageOffset(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.max(0, Math.min(MAX_IMAGE_OFFSET, Math.round(value)));
+}
+
 const INDENT_STEP_PX = 24;
 const MAX_INDENT = 8;
 
@@ -35,16 +44,24 @@ function registerStyleHook() {
   DOMPurify.addHook("uponSanitizeAttribute", (node, data) => {
     if (data.attrName !== "style") return;
     const el = node as Element;
-    if (el.tagName === "IMG" && IMG_BLOCK_STYLE.test(data.attrValue)) {
-      const isCenter = /margin-right\s*:\s*auto/i.test(data.attrValue);
-      const isRight = /margin-right\s*:\s*0/i.test(data.attrValue);
-      if (isCenter) {
-        data.attrValue = "display: block; margin-left: auto; margin-right: auto;";
+    if (el.tagName === "IMG") {
+      const customMatch = data.attrValue.match(IMG_CUSTOM_MARGIN_RE);
+      if (customMatch && !IMG_MARGIN_LEFT_AUTO_RE.test(data.attrValue)) {
+        const offset = clampImageOffset(Number.parseFloat(customMatch[1] ?? "0"));
+        data.attrValue = `display: block; margin-left: ${offset}px; margin-right: auto;`;
         return;
       }
-      if (isRight) {
-        data.attrValue = "display: block; margin-left: auto; margin-right: 0;";
-        return;
+      if (IMG_BLOCK_STYLE.test(data.attrValue)) {
+        const isCenter = /margin-right\s*:\s*auto/i.test(data.attrValue);
+        const isRight = /margin-right\s*:\s*0/i.test(data.attrValue);
+        if (isCenter) {
+          data.attrValue = "display: block; margin-left: auto; margin-right: auto;";
+          return;
+        }
+        if (isRight) {
+          data.attrValue = "display: block; margin-left: auto; margin-right: 0;";
+          return;
+        }
       }
     }
 
@@ -82,8 +99,42 @@ function registerStyleHook() {
   });
 }
 
+function parseImageOffset(img: Element): number {
+  const data = img.getAttribute("data-offset");
+  if (data != null && data !== "") {
+    const n = Number.parseFloat(data);
+    if (Number.isFinite(n)) return clampImageOffset(n);
+  }
+  const style = img.getAttribute("style") ?? "";
+  if (IMG_MARGIN_LEFT_AUTO_RE.test(style)) return 0;
+  const match = style.match(IMG_CUSTOM_MARGIN_RE);
+  if (match?.[1]) return clampImageOffset(Number.parseFloat(match[1]));
+  return 0;
+}
+
+function applyImageCustom(img: Element, offset: number) {
+  const px = clampImageOffset(offset);
+  img.classList.remove(
+    "qb-img-align-left",
+    "qb-img-align-center",
+    "qb-img-align-right",
+    "qb-img-align-custom"
+  );
+  img.classList.add("qb-inline-image", "qb-img-align-custom");
+  img.setAttribute("data-align", "custom");
+  img.setAttribute("data-offset", String(px));
+  img.setAttribute("style", `display: block; margin-left: ${px}px; margin-right: auto;`);
+}
+
 function applyImageAlign(img: Element, align: "left" | "center" | "right") {
-  img.classList.remove("qb-img-align-left", "qb-img-align-center", "qb-img-align-right");
+  img.classList.remove(
+    "qb-img-align-left",
+    "qb-img-align-center",
+    "qb-img-align-right",
+    "qb-img-align-custom"
+  );
+  img.classList.add("qb-inline-image");
+  img.removeAttribute("data-offset");
   img.setAttribute("data-align", align);
   if (align === "center") {
     img.classList.add("qb-img-align-center");
@@ -154,6 +205,14 @@ export function normalizeRichHtmlLayout(html: string): string {
 
     doc.querySelectorAll("img").forEach((img) => {
       const dataAlign = img.getAttribute("data-align");
+      if (
+        dataAlign === "custom" ||
+        img.classList.contains("qb-img-align-custom") ||
+        parseImageOffset(img) > 0
+      ) {
+        applyImageCustom(img, parseImageOffset(img));
+        return;
+      }
       if (dataAlign === "left" || dataAlign === "center" || dataAlign === "right") {
         applyImageAlign(img, dataAlign);
         return;
@@ -200,6 +259,7 @@ export function sanitizeRichHtml(html: string): string {
       "class",
       "data-latex",
       "data-align",
+      "data-offset",
       "data-text-align",
       "data-indent",
       "data-font-size",
