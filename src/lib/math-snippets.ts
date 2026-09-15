@@ -43,7 +43,7 @@ export function applyLatexSnippet(
 
 /** Unwrap common math delimiters pasted from Word / ChatGPT / textbooks. */
 export function stripWrappedLatex(raw: string): { latex: string; display?: boolean } {
-  let trimmed = raw.trim();
+  const trimmed = raw.trim();
   if (!trimmed) return { latex: "" };
 
   // Remove outer \( \) / \[ \] / $ $ / $$ $$
