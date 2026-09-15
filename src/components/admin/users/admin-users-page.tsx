@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Ban, CheckCircle2, RefreshCw, Trash2, UserCog } from "lucide-react";
 import { AdminActionsBar, AdminIconAction } from "@/components/admin/shared/admin-icon-action";
+import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Input } from "@/components/ui/input";
 import { ROUTES } from "@/constants";
@@ -130,14 +131,17 @@ export function AdminUsersPage() {
             description="Manage accounts — update roles, activate, deactivate, or delete."
             className="mb-0"
           />
-          <AdminIconAction
-            label="Refresh"
-            icon={RefreshCw}
-            tone="primary"
-            disabled={isFetching}
-            onClick={() => void refetch()}
-            className={isFetching ? "animate-spin" : undefined}
-          />
+          <div className="flex items-center gap-2">
+            <AdminAddUserButton defaultGrantPractice defaultEnrollCourse={false} />
+            <AdminIconAction
+              label="Refresh"
+              icon={RefreshCw}
+              tone="primary"
+              disabled={isFetching}
+              onClick={() => void refetch()}
+              className={isFetching ? "animate-spin" : undefined}
+            />
+          </div>
         </div>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
           <Input

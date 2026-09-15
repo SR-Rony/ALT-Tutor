@@ -14,6 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
+import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { type CourseLinkedProgram } from "@/components/admin/key-concepts/admin-key-concepts-page";
 import { PageHeader, PageLoader } from "@/components/shared";
@@ -347,7 +348,8 @@ export function AdminPracticeExamsPage({
       subtitle: `${programLabel} · ${selectedQuestions.length} selected question${
         selectedQuestions.length === 1 ? "" : "s"
       } · admin preview`,
-      includeAnswerSpace: true,
+      includeAnswerSpace: false,
+      oneQuestionPerPage: true,
       questions: selectedQuestions.map((q) => ({
         id: q.id,
         paper: null,
@@ -621,6 +623,12 @@ export function AdminPracticeExamsPage({
               </div>
             )}
             <div className="flex flex-wrap gap-2">
+              {!embedded ? (
+                <AdminAddUserButton
+                  defaultGrantPractice
+                  defaultProgramId={effectiveProgramId}
+                />
+              ) : null}
               <AdminIconAction
                 label="Refresh"
                 icon={RefreshCw}

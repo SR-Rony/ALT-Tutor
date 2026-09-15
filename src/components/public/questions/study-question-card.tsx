@@ -197,14 +197,14 @@ export function StudyQuestionCard({
           <ContentBlock
             htmlOrText={question.prompt}
             contentMode={contentMode}
-            className="text-base leading-relaxed text-foreground"
+            className="w-full max-w-none text-base leading-relaxed text-foreground"
           />
           {question.body ? (
             <ContentBlock
               htmlOrText={question.body}
               contentMode={contentMode}
               className={cn(
-                "mt-2 text-base leading-relaxed",
+                "mt-2 w-full max-w-none text-base leading-relaxed",
                 isMcq ? "text-muted-foreground" : "text-foreground"
               )}
             />

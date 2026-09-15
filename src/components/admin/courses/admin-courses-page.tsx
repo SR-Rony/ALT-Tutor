@@ -18,6 +18,7 @@ import {
   Upload,
 } from "lucide-react";
 import { AdminActionsBar, AdminIconAction } from "@/components/admin/shared/admin-icon-action";
+import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -323,6 +324,10 @@ export function AdminCoursesPage() {
               className="mb-0"
             />
             <div className="flex items-center gap-2">
+              <AdminAddUserButton
+                defaultGrantPractice={false}
+                defaultEnrollCourse
+              />
               <AdminIconAction
                 label="Refresh"
                 icon={RefreshCw}

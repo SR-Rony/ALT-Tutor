@@ -14,7 +14,7 @@ import {
 import type { AdminEnrollmentsQuery } from "@/services/admin/admin-enrollments.service";
 import type { CategoryInput } from "@/services/admin/admin-categories.service";
 import type { CourseUpsertInput } from "@/services/admin/admin-courses.service";
-import type { TeacherInput } from "@/services/admin/admin-users.service";
+import type { TeacherInput, StudentInput } from "@/services/admin/admin-users.service";
 import type {
   BackendRole,
   CourseStatus,
@@ -82,6 +82,18 @@ export function useAdminUser(id: string) {
     queryKey: queryKeys.admin.user(id),
     queryFn: () => adminUsersService.getUser(id),
     enabled: Boolean(id),
+  });
+}
+
+export function useCreateStudent() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: StudentInput) => adminUsersService.createStudent(payload),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.users });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
+      void queryClient.invalidateQueries({ queryKey: queryKeys.admin.navBadges });
+    },
   });
 }
 

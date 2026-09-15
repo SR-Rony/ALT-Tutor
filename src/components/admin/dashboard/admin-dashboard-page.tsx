@@ -24,6 +24,7 @@ import { AdminDashboardCharts } from "./admin-dashboard-charts";
 import { AdminQuickActions } from "./admin-quick-actions";
 import { AdminRecentCourses, AdminRecentPayments, AdminRecentUsers } from "./admin-recent-panels";
 import { AdminStatCard } from "./admin-stat-card";
+import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 
 export function AdminDashboardPage() {
   const statsQuery = useAdminStats();
@@ -67,17 +68,24 @@ export function AdminDashboardPage() {
           description="Production overview of users, courses, enrollments, and revenue."
           className="mb-0"
         />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={refetchAll}
-          disabled={initialLoading || refreshing}
-          className="shrink-0"
-        >
-          <RefreshCw className={`h-4 w-4 ${initialLoading || refreshing ? "animate-spin" : ""}`} />
-          Refresh data
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <AdminAddUserButton
+            variant="default"
+            defaultGrantPractice
+            defaultEnrollCourse={false}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={refetchAll}
+            disabled={initialLoading || refreshing}
+            className="shrink-0"
+          >
+            <RefreshCw className={`h-4 w-4 ${initialLoading || refreshing ? "animate-spin" : ""}`} />
+            Refresh data
+          </Button>
+        </div>
       </div>
 
       {error ? (

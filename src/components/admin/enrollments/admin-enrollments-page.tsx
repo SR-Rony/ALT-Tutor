@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { AdminGrantPracticeAccessModal } from "@/components/admin/shared/admin-grant-practice-access-modal";
+import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { AdminActionsBar, AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -311,6 +312,7 @@ export function AdminEnrollmentsPage() {
             className="mb-0"
           />
           <div className="flex items-center gap-2">
+            <AdminAddUserButton defaultGrantPractice defaultEnrollCourse />
             <Button type="button" size="sm" variant="outline" onClick={() => setGrantPracticeOpen(true)}>
               <UserPlus className="h-4 w-4" aria-hidden />
               Grant practice access

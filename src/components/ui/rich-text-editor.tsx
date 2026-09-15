@@ -141,7 +141,7 @@ export function RichTextEditor({
   placeholder = "Write a description…",
   disabled = false,
   id,
-  minHeight = "120px",
+  minHeight = "160px",
   className,
   uploadFolder = "questionbank",
 }: RichTextEditorProps) {
@@ -430,7 +430,7 @@ export function RichTextEditor({
           <span className="ml-2 text-xs text-muted-foreground">Uploading…</span>
         ) : null}
       </div>
-      <div className="px-3 py-2">
+      <div className="max-h-[min(52vh,28rem)] overflow-y-auto px-4 py-3">
         <EditorContent editor={editor} />
       </div>
       <input

@@ -681,7 +681,9 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 : "Questions appear on the student study page for this paper."
         }
         onClose={() => !busy && setModal(null)}
-        className="sm:max-w-3xl"
+        className={
+          modal?.kind === "question" ? "sm:max-w-5xl" : "sm:max-w-3xl"
+        }
         footer={
           modal?.kind === "import" ? (
             <div className="flex justify-end gap-2">
@@ -842,7 +844,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 value={prompt}
                 onChange={setPrompt}
                 placeholder="Question stem — text, math, and diagrams…"
-                minHeight="140px"
+                minHeight={questionKind === "WRITTEN" ? "280px" : "180px"}
                 disabled={busy}
               />
             </div>
@@ -854,7 +856,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                   value={bodyText}
                   onChange={setBodyText}
                   placeholder="(a) … [2]  (b) … [3]"
-                  minHeight="160px"
+                  minHeight="300px"
                   disabled={busy}
                 />
               </div>

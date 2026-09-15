@@ -21,6 +21,8 @@ type ExportArgs = {
   subtitle?: string;
   /** Blank ruled lines under each question for handwritten answers (written exams). */
   includeAnswerSpace?: boolean;
+  /** Start every question after the first on a fresh printed page. */
+  oneQuestionPerPage?: boolean;
   questions: ExportQuestion[];
 };
 
@@ -33,6 +35,7 @@ export function downloadQuestionPaperPdf({
   subtitle,
   questions,
   includeAnswerSpace = false,
+  oneQuestionPerPage = false,
 }: ExportArgs) {
   const origin = typeof window !== "undefined" ? window.location.origin : siteConfig.url;
   const logoUrl = `${origin}${siteConfig.logo.startsWith("/") ? siteConfig.logo : `/${siteConfig.logo}`}`;
@@ -231,6 +234,17 @@ export function downloadQuestionPaperPdf({
       padding-bottom: 0;
     }
 
+    .sheet.one-q-per-page .q {
+      border-bottom: none;
+      margin-bottom: 0;
+      padding-bottom: 0;
+    }
+
+    .sheet.one-q-per-page .q + .q {
+      page-break-before: always;
+      break-before: page;
+    }
+
     .q-head {
       display: flex;
       align-items: baseline;
@@ -276,8 +290,9 @@ export function downloadQuestionPaperPdf({
       margin: 0.25rem 0;
       line-height: 1.55;
       white-space: pre-wrap;
-      overflow-wrap: anywhere;
-      word-break: break-word;
+      overflow-wrap: break-word;
+      word-break: normal;
+      width: 100%;
     }
 
     .rich-text-content p:first-child {
@@ -537,6 +552,14 @@ export function downloadQuestionPaperPdf({
         break-inside: auto;
       }
 
+      .sheet.one-q-per-page .q + .q {
+        page-break-before: always;
+        break-before: page;
+        margin-top: 0;
+        padding-top: 0;
+        border-top: none;
+      }
+
       .diagram,
       .rich-text-content img {
         max-height: 90mm;
@@ -603,6 +626,11 @@ export function downloadQuestionPaperPdf({
         box-shadow: 0 18px 40px -24px rgba(18, 32, 58, 0.35);
         overflow: hidden;
       }
+      .sheet.one-q-per-page .q + .q {
+        margin-top: 2.5rem;
+        padding-top: 2rem;
+        border-top: 2px dashed var(--line);
+      }
       .watermark {
         position: absolute;
         border-radius: 14px;
@@ -615,7 +643,7 @@ export function downloadQuestionPaperPdf({
     <img src="${escapeAttr(logoUrl)}" alt="" />
   </div>
 
-  <div class="sheet">
+  <div class="sheet${oneQuestionPerPage ? " one-q-per-page" : ""}">
     <header class="print-header">
       <div class="brand-bar">
         <div class="brand-left">

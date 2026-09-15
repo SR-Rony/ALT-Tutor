@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Eye, EyeOff, Pencil, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
+import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -314,6 +315,12 @@ export function AdminKeyConceptsPage({
               </div>
             )}
             <div className="flex flex-wrap gap-2">
+              {!embedded ? (
+                <AdminAddUserButton
+                  defaultGrantPractice
+                  defaultProgramId={effectiveProgramId}
+                />
+              ) : null}
               <AdminIconAction
                 label="Refresh"
                 icon={RefreshCw}

@@ -17,6 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
+import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -302,6 +303,10 @@ export function AdminQuestionbankPage() {
               className="mb-0"
             />
             <div className="flex flex-wrap items-center gap-2">
+              <AdminAddUserButton
+                defaultGrantPractice
+                defaultProgramId={effectiveProgramId}
+              />
               <AdminIconAction
                 label="Refresh"
                 icon={RefreshCw}

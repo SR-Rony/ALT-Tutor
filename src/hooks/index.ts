@@ -9,6 +9,7 @@ export {
   useAdminAnalytics,
   useAdminUsers,
   useAdminUser,
+  useCreateStudent,
   useCreateTeacher,
   useUpdateTeacher,
   useAdminCourses,

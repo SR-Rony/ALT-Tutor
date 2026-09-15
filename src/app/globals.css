@@ -329,6 +329,14 @@
 .rich-text-content {
   @apply text-base leading-relaxed text-foreground;
   font-size: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.rich-text-editor__content {
+  /* Comfortable writing surface; matches student card line length better */
+  line-height: 1.65;
 }
 
 .rich-text-editor__content p.is-editor-empty:first-child::before {
@@ -341,6 +349,8 @@
 
 .rich-text-editor__content p {
   @apply my-1;
+  width: 100%;
+  max-width: 100%;
 }
 
 .rich-text-editor__content ul,
@@ -526,11 +536,6 @@
   @apply align-sub text-[0.75em];
 }
 
-.rich-text-editor__content [style*="text-align"],
-.rich-text-content [style*="text-align"] {
-  display: block;
-}
-
 /* Indent levels (Tab / Indent toolbar) — keep editor + student view identical */
 .rich-text-editor__content [data-indent="1"],
 .rich-text-content [data-indent="1"],
@@ -581,7 +586,7 @@
   padding-left: 192px;
 }
 
-/* Preserve intentional NBSP / multi-space indentation without breaking wrap */
+/* Preserve intentional NBSP / multi-space indentation without mid-word breaks */
 .rich-text-editor__content p,
 .rich-text-content p,
 .rich-text-editor__content h2,
@@ -589,6 +594,18 @@
 .rich-text-editor__content h3,
 .rich-text-content h3 {
   white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: break-word;
+  word-break: normal;
+  text-align: inherit;
+}
+
+/* Keep left / center / right / justify stable across multi-line paragraphs */
+.rich-text-editor__content p[style*="text-align"],
+.rich-text-content p[style*="text-align"],
+.rich-text-editor__content h2[style*="text-align"],
+.rich-text-content h2[style*="text-align"],
+.rich-text-editor__content h3[style*="text-align"],
+.rich-text-content h3[style*="text-align"] {
+  display: block;
+  width: 100%;
 }

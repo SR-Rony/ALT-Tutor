@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { CourseCurriculumManager } from "@/components/curriculum/course-curriculum-manager";
 import { CourseQuestionbankStep } from "@/components/admin/courses/course-questionbank-step";
+import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -323,6 +324,11 @@ export function AdminCourseCurriculumPage({ courseId }: Props) {
           />
         </div>
         <div className="flex flex-wrap gap-2">
+          <AdminAddUserButton
+            defaultGrantPractice={false}
+            defaultEnrollCourse
+            defaultCourseId={courseId}
+          />
           <Button asChild variant="outline" size="sm">
             <Link href={ROUTES.courseDetail(course.slug)} target="_blank">
               <ExternalLink className="h-4 w-4" aria-hidden />

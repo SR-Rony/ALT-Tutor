@@ -14,6 +14,15 @@ export type TeacherInput = {
   isActive?: boolean;
 };
 
+export type StudentInput = {
+  name: string;
+  phone: string;
+  password: string;
+  email?: string | null;
+  address?: string | null;
+  isActive?: boolean;
+};
+
 export const adminUsersService = {
   async getUsers(role?: BackendRole): Promise<AdminUser[]> {
     if (env.useMockApi) {
@@ -35,6 +44,11 @@ export const adminUsersService = {
     }
 
     const response = await apiClient.get<AdminUser>(`/users/${id}`);
+    return response.data;
+  },
+
+  async createStudent(payload: StudentInput): Promise<AdminUser> {
+    const response = await apiClient.post<AdminUser>("/users/students", payload);
     return response.data;
   },
 
