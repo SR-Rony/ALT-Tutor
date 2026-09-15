@@ -408,7 +408,11 @@ export function RichTextEditor({
         >
           <ImageIcon className="h-4 w-4" />
         </ToolbarButton>
-        <ToolbarButton label="Insert equation" disabled={disabled} onClick={openMathDialog}>
+        <ToolbarButton
+          label="Equation (Σ) — any math formula"
+          disabled={disabled}
+          onClick={openMathDialog}
+        >
           <Sigma className="h-4 w-4" />
         </ToolbarButton>
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />

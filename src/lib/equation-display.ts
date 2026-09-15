@@ -38,6 +38,7 @@ function renderEquationKatex(latex: string): string {
   try {
     return katex.renderToString(latex, {
       throwOnError: false,
+      strict: "ignore",
       displayMode: false,
     });
   } catch {

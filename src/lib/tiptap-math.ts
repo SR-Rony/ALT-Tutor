@@ -2,9 +2,60 @@ import { Node, mergeAttributes, type Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import katex from "katex";
 
-export type MathInlineOptions = {
-  HTMLAttributes: Record<string, unknown>;
+/** Shared KaTeX options — exam / Revision Village style math. */
+export const KATEX_OPTIONS = {
+  throwOnError: false,
+  strict: "ignore" as const,
+  trust: false,
+  macros: {
+    "\\R": "\\mathbb{R}",
+    "\\N": "\\mathbb{N}",
+    "\\Z": "\\mathbb{Z}",
+    "\\Q": "\\mathbb{Q}",
+    "\\C": "\\mathbb{C}",
+  },
 };
+
+export function renderKatex(latex: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(latex, {
+      ...KATEX_OPTIONS,
+      displayMode,
+    });
+  } catch {
+    return latex;
+  }
+}
+
+/** Returns a human-readable parse error, or null if latex is valid. */
+export function getKatexParseError(latex: string, displayMode = true): string | null {
+  const trimmed = latex.trim();
+  if (!trimmed) return null;
+  try {
+    katex.renderToString(trimmed, {
+      ...KATEX_OPTIONS,
+      throwOnError: true,
+      displayMode,
+    });
+    return null;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return message.replace(/^KaTeX parse error:\s*/i, "");
+  }
+}
+
+function paintKatex(dom: HTMLElement, latex: string, display: boolean) {
+  const value = String(latex ?? "");
+  dom.setAttribute("data-latex", value);
+  try {
+    katex.render(value, dom, {
+      ...KATEX_OPTIONS,
+      displayMode: display,
+    });
+  } catch {
+    dom.textContent = value;
+  }
+}
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -27,29 +78,9 @@ export function isDisplayMathElement(element: HTMLElement): boolean {
   );
 }
 
-export function renderKatex(latex: string, displayMode: boolean): string {
-  try {
-    return katex.renderToString(latex, {
-      throwOnError: false,
-      displayMode,
-    });
-  } catch {
-    return latex;
-  }
-}
-
-function paintKatex(dom: HTMLElement, latex: string, display: boolean) {
-  const value = String(latex ?? "");
-  dom.setAttribute("data-latex", value);
-  try {
-    katex.render(value, dom, {
-      throwOnError: false,
-      displayMode: display,
-    });
-  } catch {
-    dom.textContent = value;
-  }
-}
+export type MathInlineOptions = {
+  HTMLAttributes: Record<string, unknown>;
+};
 
 function createMathNodeView(display: boolean) {
   return ({
