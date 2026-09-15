@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
+import { LiveClassAttendanceModal } from "@/components/live-classes/live-class-attendance-modal";
 import {
   LIVE_CLASS_PROVIDERS,
   LiveClassStatusBadge,
@@ -31,7 +32,6 @@ import {
   useDeleteLiveClass,
   useEndLiveClass,
   useGoLiveLiveClass,
-  useLiveClassAttendance,
   useStaffLiveClasses,
   useUpdateLiveClass,
 } from "@/hooks";
@@ -105,8 +105,6 @@ export function StaffLiveClassesPage({ roleLabel, courses, coursesLoading }: Pro
   const [form, setForm] = useState<FormState>(emptyForm());
   const [actionError, setActionError] = useState<string | null>(null);
   const [attendanceId, setAttendanceId] = useState<string | null>(null);
-
-  const attendanceQuery = useLiveClassAttendance(attendanceId ?? undefined, Boolean(attendanceId));
 
   const openCreate = () => {
     setActionError(null);
@@ -308,8 +306,16 @@ export function StaffLiveClassesPage({ roleLabel, courses, coursesLoading }: Pro
                       <td className="px-4 py-3 align-top">
                         <LiveClassStatusBadge status={row.status} />
                       </td>
-                      <td className="px-4 py-3 align-top text-muted-foreground">
-                        {row._count?.attendance ?? 0}
+                      <td className="px-4 py-3 align-top">
+                        <button
+                          type="button"
+                          onClick={() => setAttendanceId(row.id)}
+                          className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-semibold tabular-nums text-foreground transition hover:bg-muted"
+                          title="View who joined and when"
+                        >
+                          <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                          {row._count?.attendance ?? 0}
+                        </button>
                       </td>
                       <td className="px-4 py-3 align-top">
                         <div className="flex flex-wrap justify-end gap-1">
@@ -508,38 +514,10 @@ export function StaffLiveClassesPage({ roleLabel, courses, coursesLoading }: Pro
         </div>
       </AdminModal>
 
-      <AdminModal
-        open={Boolean(attendanceId)}
-        title="Attendance"
-        description={
-          attendanceQuery.data
-            ? `${attendanceQuery.data.total} student(s) joined · ${attendanceQuery.data.liveClass.title}`
-            : "Students who opened the join link"
-        }
+      <LiveClassAttendanceModal
+        liveClassId={attendanceId}
         onClose={() => setAttendanceId(null)}
-      >
-        {attendanceQuery.isLoading ? (
-          <PageLoader label="Loading attendance..." />
-        ) : attendanceQuery.data?.records.length ? (
-          <ul className="divide-y divide-border rounded-xl border border-border">
-            {attendanceQuery.data.records.map((r) => (
-              <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
-                <div>
-                  <p className="font-medium text-foreground">{r.student.name}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {r.student.email || r.student.phone || "—"}
-                  </p>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {formatLiveClassWhen(r.joinedAt)}
-                </p>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-sm text-muted-foreground">No students have joined yet.</p>
-        )}
-      </AdminModal>
+      />
     </div>
   );
 }

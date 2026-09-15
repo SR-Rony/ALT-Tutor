@@ -41,6 +41,10 @@ export function useLiveClassAttendance(id?: string, open = false) {
     queryKey: queryKeys.liveClasses.attendance(id ?? "none"),
     queryFn: () => liveClassesService.attendance(id!),
     enabled: Boolean(id) && open,
+    refetchInterval: (query) => {
+      if (!open) return false;
+      return query.state.data?.liveClass.status === "LIVE" ? 15_000 : false;
+    },
   });
 }
 

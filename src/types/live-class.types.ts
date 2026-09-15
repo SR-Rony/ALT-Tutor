@@ -89,6 +89,11 @@ export type LiveClassAttendanceRecord = {
 export type LiveClassAttendanceResponse = {
   liveClass: LiveClass;
   total: number;
+  enrolledCount: number;
+  /** Percentage of enrolled students who joined (null when no enrollments). */
+  attendanceRate: number | null;
+  firstJoinedAt?: string | null;
+  lastJoinedAt?: string | null;
   records: LiveClassAttendanceRecord[];
 };
 

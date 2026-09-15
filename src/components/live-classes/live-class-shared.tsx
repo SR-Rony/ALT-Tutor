@@ -28,6 +28,33 @@ export function formatLiveClassWhen(iso: string, timeZone = "Asia/Dhaka") {
   }
 }
 
+/** Compact clock time for attendance rows. */
+export function formatLiveClassTime(iso: string, timeZone = "Asia/Dhaka") {
+  try {
+    return new Intl.DateTimeFormat("en-GB", {
+      timeZone,
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }).format(new Date(iso));
+  } catch {
+    return new Date(iso).toLocaleTimeString();
+  }
+}
+
+/** How early/late a student joined relative to class start. */
+export function formatJoinOffset(joinedAt: string, startsAt: string) {
+  const deltaMs = new Date(joinedAt).getTime() - new Date(startsAt).getTime();
+  const absMins = Math.round(Math.abs(deltaMs) / 60000);
+  if (absMins < 1) return "At start";
+  const label =
+    absMins < 60
+      ? `${absMins}m`
+      : `${Math.floor(absMins / 60)}h ${absMins % 60}m`;
+  if (deltaMs < 0) return `${label} early`;
+  return `${label} after start`;
+}
+
 export function liveClassCountdown(startsAt: string, status: LiveClassStatus) {
   if (status === "LIVE") return "Live now";
   if (status === "ENDED") return "Ended";
