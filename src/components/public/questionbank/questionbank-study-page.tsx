@@ -42,6 +42,7 @@ import type {
 } from "@/types/qb.types";
 import { cn } from "@/utils";
 import { downloadQuestionPaperPdf } from "@/utils/qb-pdf-export";
+import { richTextToPlain } from "@/lib/rich-text";
 import {
   isMcqPaper as isMcqPaperWithConfig,
   paperShortLabel,
@@ -356,12 +357,19 @@ export function QuestionbankStudyPage({
     ]
   );
 
+  const subtopicPlainTitle = data?.subtopic.title
+    ? richTextToPlain(data.subtopic.title) || data.subtopic.title
+    : undefined;
+  const topicPlainTitle = topic?.title
+    ? richTextToPlain(topic.title) || topic.title
+    : undefined;
+
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
     resourceSlug: "questionbank",
     resourceLabel: "Questionbank",
     resourceHref: ROUTES.subjectQuestionbank(programSlug),
-    topicLabel: data?.subtopic.title,
+    topicLabel: subtopicPlainTitle,
   });
 
   useEffect(() => {
@@ -618,8 +626,8 @@ export function QuestionbankStudyPage({
   const handleDownloadQuestions = () => {
     const pack = theoryPackQuestions.length > 0 ? theoryPackQuestions : visibleQuestions;
     downloadQuestionPaperPdf({
-      title: `${program?.name ?? "Questionbank"} — ${data?.subtopic.title ?? "Questions"}`,
-      subtitle: `${topic?.title ?? ""} · ${pack.length} questions`,
+      title: `${program?.name ?? "Questionbank"} — ${subtopicPlainTitle ?? "Questions"}`,
+      subtitle: `${topicPlainTitle ?? ""} · ${pack.length} questions`,
       includeAnswerSpace: theoryPackQuestions.length > 0,
       paperConfig,
       questions: pack,
@@ -744,7 +752,11 @@ export function QuestionbankStudyPage({
     <div className="bg-background pb-16">
       <ResourceHero
         title={`${program?.name ?? ""} - Questionbank`}
-        subtitle={topic ? `${data.subtopic.title} — ${topic.title}` : data.subtopic.title}
+        subtitle={
+          topicPlainTitle
+            ? `${subtopicPlainTitle ?? data.subtopic.title} — ${topicPlainTitle}`
+            : (subtopicPlainTitle ?? data.subtopic.title)
+        }
         description={
           examMode
             ? "Exam mode is active. Mark schemes and video solutions remain locked until you submit."
@@ -1048,8 +1060,8 @@ export function QuestionbankStudyPage({
                   className="border-primary/30"
                   onClick={() =>
                     downloadQuestionPaperPdf({
-                      title: `${program?.name ?? "Exam"} — ${data.subtopic.title}`,
-                      subtitle: topic?.title,
+                      title: `${program?.name ?? "Exam"} — ${subtopicPlainTitle ?? data.subtopic.title}`,
+                      subtitle: topicPlainTitle ?? topic?.title,
                       paperConfig,
                       questions: visibleQuestions,
                     })
@@ -1235,7 +1247,7 @@ export function QuestionbankStudyPage({
           programId={programOverview.id}
           programName={programOverview.name}
           programSlug={programSlug}
-          subtopicTitle={data.subtopic.title}
+          subtopicTitle={subtopicPlainTitle ?? data.subtopic.title}
           requiredTier={data.subtopic.badge}
         />
       ) : null}

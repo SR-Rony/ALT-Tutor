@@ -31,7 +31,7 @@ import {
   useUpdateQbQuestion,
 } from "@/hooks";
 import { normalizeAccessBadge } from "@/lib/access-tier";
-import { isRichTextEmpty, serializeRichText } from "@/lib/rich-text";
+import { isRichTextEmpty, serializeRichText, richTextToPlain } from "@/lib/rich-text";
 import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type { QbImportResult } from "@/services/questionbank-admin.types";
@@ -460,8 +460,8 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <PageHeader
-                title={sub.title}
-                description={`${topic.title}${programMeta ? ` · ${programMeta.program.name}` : ""}`}
+                title={richTextToPlain(sub.title) || sub.title}
+                description={`${richTextToPlain(topic.title) || topic.title}${programMeta ? ` · ${programMeta.program.name}` : ""}`}
                 className="mb-0"
               />
               <div className="mt-2 flex flex-wrap items-center gap-2">

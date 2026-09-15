@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { ROUTES } from "@/constants";
-import { serializeRichText } from "@/lib/rich-text";
+import { serializeRichText, richTextToPlain } from "@/lib/rich-text";
 import { slugify } from "@/lib/slugify";
 import {
   useAdminQuestionbank,
@@ -57,16 +57,18 @@ import {
 
 /** Strip leading "1. " / "1:" from stored titles so display stays clean. */
 function topicDisplayName(title: string) {
-  return title.replace(/^\s*\d+\s*[.:)\-–—]\s*/, "").trim() || title;
+  const plain = richTextToPlain(title) || title;
+  return plain.replace(/^\s*\d+\s*[.:)\-–—]\s*/, "").trim() || plain;
 }
 
 /** Strip leading "1. " / "1.1 " / "A.1 - " style serial from study-set titles. */
 function studySetBaseTitle(title: string) {
+  const plain = richTextToPlain(title) || title;
   return (
-    title
+    plain
       .replace(/^\s*\d+(\.\d+)?\s*[.:)\-–—]?\s*/, "")
       .replace(/^\s*[A-Za-z]\.\d+\s*[-–—]\s*/, "")
-      .trim() || title
+      .trim() || plain
   );
 }
 
@@ -180,7 +182,7 @@ export function AdminQuestionbankPage() {
   const openEditTopic = (topic: QbTopic) => {
     setActionError(null);
     setModal({ kind: "topic", editId: topic.id });
-    setTitle(topic.title);
+    setTitle(richTextToPlain(topic.title) || topic.title);
     setSlug(topic.slug);
     setDescription(topic.description ?? "");
   };
@@ -188,7 +190,7 @@ export function AdminQuestionbankPage() {
   const openEditSubtopic = (topicId: string, subtopic: QbTopic["subtopics"][number]) => {
     setActionError(null);
     setModal({ kind: "subtopic", topicId, editId: subtopic.id });
-    setTitle(subtopic.title);
+    setTitle(richTextToPlain(subtopic.title) || subtopic.title);
     setSlug(subtopic.slug);
     setDescription(subtopic.description ?? "");
     setAccessBadge(normalizeAccessBadge(subtopic.badge));
@@ -240,9 +242,10 @@ export function AdminQuestionbankPage() {
     try {
       if (modal.kind === "topic") {
         if (!effectiveProgramId) throw new Error("Select a program first");
+        const cleanTitle = richTextToPlain(title.trim()) || title.trim();
         const payload = {
-          title: title.trim(),
-          slug: slug.trim() || slugify(title),
+          title: cleanTitle,
+          slug: slug.trim() || slugify(cleanTitle),
           description: serializeRichText(description) || undefined,
         };
         if (modal.editId) {

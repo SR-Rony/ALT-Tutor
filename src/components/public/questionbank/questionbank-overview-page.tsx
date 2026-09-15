@@ -32,21 +32,23 @@ type UnlockTarget = {
 
 /** "1. Algebra" / "Topic 1: Algebra" → "Algebra" for display. */
 function topicDisplayTitle(title: string): string {
+  const plain = richTextToPlain(title) || title;
   return (
-    title
+    plain
       .replace(/^\s*topic\s*\d+\s*[.:)\-–—]\s*/i, "")
       .replace(/^\s*\d+(?:\.\d+)?\s*[.:)\-–—]\s*/, "")
-      .trim() || title
+      .trim() || plain
   );
 }
 
 /** Strip leading "1.1 " / "A.1 - " so we can re-apply the serial consistently. */
 function studySetBaseTitle(title: string): string {
+  const plain = richTextToPlain(title) || title;
   return (
-    title
+    plain
       .replace(/^\s*\d+(\.\d+)?\s*[.:)\-–—]?\s*/, "")
       .replace(/^\s*[A-Za-z]\.\d+\s*[-–—]\s*/, "")
-      .trim() || title
+      .trim() || plain
   );
 }
 
@@ -125,7 +127,12 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
   });
 
   const openUnlock = useCallback((subtopicTitle?: string | null, requiredTier?: string) => {
-    setUnlockTarget({ subtopicTitle, requiredTier });
+    setUnlockTarget({
+      subtopicTitle: subtopicTitle
+        ? richTextToPlain(subtopicTitle) || subtopicTitle
+        : subtopicTitle,
+      requiredTier,
+    });
     setUnlockOpen(true);
   }, []);
 

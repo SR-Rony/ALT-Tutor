@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { richTextToPlain } from "@/lib/rich-text";
 import { cn } from "@/utils";
 
 type Props = {
@@ -23,6 +24,12 @@ export function ResourceHero({
   children,
   className,
 }: Props) {
+  const plainTitle = richTextToPlain(title) || title;
+  const plainSubtitle = subtitle ? richTextToPlain(subtitle) || subtitle : undefined;
+  const plainDescription = description
+    ? richTextToPlain(description) || undefined
+    : undefined;
+
   return (
     <header
       className={cn(
@@ -35,15 +42,17 @@ export function ResourceHero({
 
         <div className="flex flex-wrap items-start justify-between gap-6">
           <div className="min-w-0 flex-1">
-            {subtitle ? (
-              <p className="text-sm font-semibold uppercase tracking-wide text-primary">{subtitle}</p>
+            {plainSubtitle ? (
+              <p className="text-sm font-semibold uppercase tracking-wide text-primary">
+                {plainSubtitle}
+              </p>
             ) : null}
             <h1 className="mt-1 text-2xl font-bold tracking-tight text-foreground md:text-3xl lg:text-[2rem] lg:leading-tight">
-              {title}
+              {plainTitle}
             </h1>
-            {description ? (
+            {plainDescription ? (
               <p className="mt-3 max-w-3xl text-sm leading-relaxed text-muted-foreground md:text-base">
-                {description}
+                {plainDescription}
               </p>
             ) : null}
             {children ? <div className="mt-5 flex flex-wrap gap-3">{children}</div> : null}
