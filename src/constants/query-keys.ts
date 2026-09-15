@@ -137,4 +137,11 @@ export const queryKeys = {
     myAssignments: ["student", "my-assignments"] as const,
     navBadges: ["student", "nav-badges"] as const,
   },
+  liveClasses: {
+    all: ["live-classes"] as const,
+    mine: ["live-classes", "mine"] as const,
+    staff: (query: object = {}) => ["live-classes", "staff", query] as const,
+    course: (courseId: string) => ["live-classes", "course", courseId] as const,
+    attendance: (id: string) => ["live-classes", "attendance", id] as const,
+  },
 } as const;

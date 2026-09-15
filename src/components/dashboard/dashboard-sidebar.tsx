@@ -21,6 +21,7 @@ import {
   Tags,
   UserCog,
   Users,
+  Video,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -55,6 +56,7 @@ const navIcons: Record<string, LucideIcon> = {
   graduation: GraduationCap,
   bell: Bell,
   wallet: Wallet,
+  video: Video,
 };
 
 interface DashboardSidebarProps {

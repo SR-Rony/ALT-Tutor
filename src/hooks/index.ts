@@ -167,6 +167,18 @@ export {
   useDeleteFlashcardCard,
 } from "./use-flashcards";
 export {
+  useStudentLiveClasses,
+  useStaffLiveClasses,
+  useCourseLiveClasses,
+  useLiveClassAttendance,
+  useCreateLiveClass,
+  useUpdateLiveClass,
+  useDeleteLiveClass,
+  useGoLiveLiveClass,
+  useEndLiveClass,
+  useJoinLiveClass,
+} from "./use-live-classes";
+export {
   useMyAssignments,
   useCourseAssignments,
   useProgramAssignments,

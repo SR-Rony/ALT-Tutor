@@ -31,6 +31,7 @@ export const publicFooterCompanyLinks = [
 export const studentNav: NavItem[] = [
   { title: "Overview", href: ROUTES.student.root, iconName: "dashboard" },
   { title: "My Courses", href: ROUTES.student.courses, iconName: "book" },
+  { title: "Live Classes", href: ROUTES.student.liveClasses, iconName: "video" },
   { title: "Notifications", href: ROUTES.student.notifications, iconName: "bell" },
   { title: "Payments", href: ROUTES.student.payments, iconName: "wallet" },
 ];
@@ -42,6 +43,7 @@ export const studentFooterNav: NavItem[] = [
 export const teacherNav: NavItem[] = [
   { title: "Dashboard", href: ROUTES.teacher.root, iconName: "dashboard" },
   { title: "My Courses", href: ROUTES.teacher.courses, iconName: "book" },
+  { title: "Live Classes", href: ROUTES.teacher.liveClasses, iconName: "video" },
   { title: "My Subjects", href: ROUTES.teacher.subjects, iconName: "book" },
   { title: "Practice Exams", href: ROUTES.teacher.practiceExams, iconName: "clipboard" },
   { title: "Key Concepts", href: ROUTES.teacher.keyConcepts, iconName: "book" },
@@ -57,6 +59,7 @@ export const adminNav: NavItem[] = [
   { title: "Users", href: ROUTES.admin.users, iconName: "userCog" },
   { title: "Teachers", href: ROUTES.admin.teachers, iconName: "userCog" },
   { title: "Courses", href: ROUTES.admin.courses, iconName: "book" },
+  { title: "Live Classes", href: ROUTES.admin.liveClasses, iconName: "video" },
   { title: "Enrollments", href: ROUTES.admin.enrollments, iconName: "users" },
   { title: "Reviews", href: ROUTES.admin.reviews, iconName: "messages" },
   { title: "Questionbank", href: ROUTES.admin.questionbank, iconName: "clipboard" },
