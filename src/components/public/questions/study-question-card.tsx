@@ -35,6 +35,8 @@ export type StudyQuestionView = {
   diagramUrl?: string | null;
   difficulty?: string | null;
   paper?: string | null;
+  /** Custom paper name from study-set config (e.g. Paper-11). */
+  paperLabel?: string | null;
   calculatorAllowed?: boolean | null;
   marks?: number | null;
   options: string[];
@@ -171,7 +173,7 @@ export function StudyQuestionCard({
               ) : null}
               {question.paper ? (
                 <span className="rounded-md border border-primary/15 bg-primary-muted/40 px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                  {paperDisplayLabel(question.paper)}
+                  {question.paperLabel?.trim() || paperDisplayLabel(question.paper)}
                   {isMcq ? " · MCQ" : ""}
                 </span>
               ) : isMcq ? (

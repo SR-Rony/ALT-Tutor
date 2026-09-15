@@ -24,11 +24,19 @@ export function mcqAnswerLetters(optionsLength: number, isMcq: boolean): string[
   return [...STUDY_QUESTION_LETTERS.slice(0, count)];
 }
 
-export function paperDisplayLabel(paper?: string | null) {
+export function paperDisplayLabel(
+  paper?: string | null,
+  config?: Record<string, { label?: string | null }> | null
+) {
   if (!paper) return "Paper";
-  const match = String(paper).toUpperCase().match(/PAPER_?(\d+)/);
-  const n = match ? match[1] : "1";
-  return `Paper ${n}`;
+  const raw = String(paper).toUpperCase();
+  const match = raw.match(/PAPER_?(\d+)/) || raw.match(/^P?(\d+)$/);
+  const n = match ? match[1] : null;
+  const key = n ? `PAPER_${n}` : raw;
+  const configured = config?.[key]?.label?.trim() || config?.[raw]?.label?.trim();
+  if (configured) return configured;
+  if (n) return `Paper ${n}`;
+  return String(paper).replace(/_/g, " ");
 }
 
 function difficultyMeta(d: string) {

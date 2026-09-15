@@ -23,6 +23,8 @@ type ExportArgs = {
   includeAnswerSpace?: boolean;
   /** Start every question after the first on a fresh printed page. */
   oneQuestionPerPage?: boolean;
+  /** Custom paper labels from study-set config (Paper-11, etc.). */
+  paperConfig?: Record<string, { label?: string | null }> | null;
   questions: ExportQuestion[];
 };
 
@@ -36,11 +38,12 @@ export function downloadQuestionPaperPdf({
   questions,
   includeAnswerSpace = false,
   oneQuestionPerPage = false,
+  paperConfig = null,
 }: ExportArgs) {
   const origin = typeof window !== "undefined" ? window.location.origin : siteConfig.url;
   const logoUrl = `${origin}${siteConfig.logo.startsWith("/") ? siteConfig.logo : `/${siteConfig.logo}`}`;
   const generatedAt = new Date().toLocaleString();
-  const paperLabel = uniquePapersLabel(questions);
+  const paperLabel = uniquePapersLabel(questions, paperConfig);
   const showPaperMeta = questions.some((q) => Boolean(q.paper));
 
   const html = `<!DOCTYPE html>
@@ -700,7 +703,7 @@ export function downloadQuestionPaperPdf({
               ).length
             : index + 1;
           const chip = showPaperMeta
-            ? `Paper ${escapeHtml(String(q.paper ?? "").replace("PAPER_", ""))}${
+            ? `${escapeHtml(formatPaperLabel(q.paper, paperConfig))}${
                 q.difficulty ? ` · ${escapeHtml(String(q.difficulty))}` : ""
               }`
             : q.difficulty
@@ -832,13 +835,31 @@ function absolutizeHtmlMediaUrls(html: string, origin: string): string {
   });
 }
 
-function uniquePapersLabel(questions: Array<{ paper?: string | null }>) {
+function formatPaperLabel(
+  paper?: string | null,
+  config?: Record<string, { label?: string | null }> | null
+) {
+  if (!paper) return "Paper";
+  const raw = String(paper).toUpperCase();
+  const match = raw.match(/PAPER_?(\d+)/) || raw.match(/^P?(\d+)$/);
+  const n = match ? match[1] : null;
+  const key = n ? `PAPER_${n}` : raw;
+  const configured = config?.[key]?.label?.trim() || config?.[raw]?.label?.trim();
+  if (configured) return configured;
+  if (n) return `Paper ${n}`;
+  return String(paper).replace(/_/g, " ");
+}
+
+function uniquePapersLabel(
+  questions: Array<{ paper?: string | null }>,
+  config?: Record<string, { label?: string | null }> | null
+) {
   const papers = [
     ...new Set(
       questions
         .map((q) => q.paper)
         .filter((p): p is string => Boolean(p && String(p).trim()))
-        .map((p) => String(p).replace("PAPER_", "Paper "))
+        .map((p) => formatPaperLabel(p, config))
     ),
   ];
   return papers.length ? papers.join(", ") : "All papers";

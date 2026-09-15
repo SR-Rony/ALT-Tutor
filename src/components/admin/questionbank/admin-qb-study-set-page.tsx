@@ -643,6 +643,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                   key={q.id}
                   question={q}
                   displayNumber={index + 1}
+                  paperLabel={paperShortLabel(String(q.paper), paperConfig)}
                   onEdit={() => openEditQuestion(q)}
                   onToggleHide={() => toggleQuestionVisibility(q)}
                   togglePending={updateQuestion.isPending}

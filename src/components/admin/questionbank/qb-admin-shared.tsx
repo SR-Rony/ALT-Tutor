@@ -296,6 +296,7 @@ const LETTERS = ["A", "B", "C", "D"] as const;
 export function AdminQuestionDropdown({
   question,
   displayNumber,
+  paperLabel,
   onDelete,
   onEdit,
   onToggleHide,
@@ -303,6 +304,8 @@ export function AdminQuestionDropdown({
 }: {
   question: QbQuestion;
   displayNumber: number;
+  /** Resolved label from paperConfig (e.g. Paper-11). */
+  paperLabel?: string | null;
   onDelete: () => void;
   onEdit: () => void;
   onToggleHide: () => void;
@@ -346,7 +349,9 @@ export function AdminQuestionDropdown({
             <span className="font-semibold text-foreground">Q{displayNumber}</span>
             <span className="text-xs uppercase">
               {String(question.difficulty).toLowerCase()} ·{" "}
-              {String(question.paper).replace("_", " ")}
+              {paperLabel?.trim() ||
+                paperShortLabel(String(question.paper), null) ||
+                String(question.paper).replace(/_/g, " ")}
               {question.marks != null ? ` · [${question.marks}]` : ""}
             </span>
             <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">

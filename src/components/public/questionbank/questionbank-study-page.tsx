@@ -36,11 +36,18 @@ import type {
   QbDifficulty,
   QbFilters,
   QbPaper,
+  QbPaperConfig,
   QbQuestion,
   QbQuestionType,
 } from "@/types/qb.types";
 import { cn } from "@/utils";
 import { downloadQuestionPaperPdf } from "@/utils/qb-pdf-export";
+import {
+  isMcqPaper as isMcqPaperWithConfig,
+  paperShortLabel,
+  resolvePaperConfig,
+} from "@/components/admin/questionbank/qb-admin-shared";
+import { paperDisplayLabel } from "@/components/public/questions/study-question-helpers";
 
 type Props = {
   programSlug: string;
@@ -67,21 +74,22 @@ type QuestionCountLimit = (typeof QUESTION_COUNT_OPTIONS)[number];
 /** Default browse page size when not using a Paper 2/3 exam pack filter. */
 const STUDY_PAGE_SIZE = 10;
 
-function isMcqPaper(paper: string) {
-  return String(paper).toUpperCase() === "PAPER_1";
-}
-
-function isTheoryPaper(paper: string) {
-  return !isMcqPaper(paper);
-}
-
-function isMcqQuestion(question: { questionType?: string | null; paper?: string | null; options?: string[] }) {
+function isMcqQuestion(
+  question: { questionType?: string | null; paper?: string | null; options?: string[] },
+  paperConfig?: QbPaperConfig | null
+) {
   const type = String(question.questionType ?? "").toUpperCase();
   if (type === "SHORT_ANSWER" || type === "DATA_BASED") return false;
   if (type === "MULTIPLE_CHOICE") return true;
   if ((question.options?.length ?? 0) >= 2) return true;
-  // Legacy rows: Paper 1 was MCQ by convention.
-  return isMcqPaper(String(question.paper ?? "PAPER_1"));
+  return isMcqPaperWithConfig(String(question.paper ?? "PAPER_1"), paperConfig);
+}
+
+function isTheoryQuestion(
+  question: { questionType?: string | null; paper?: string | null; options?: string[] },
+  paperConfig?: QbPaperConfig | null
+) {
+  return !isMcqQuestion(question, paperConfig);
 }
 
 function toggleFilter<T extends string>(list: T[] | undefined, value: T): T[] {
@@ -104,6 +112,8 @@ function filterSelectionLabel<T extends string>(
 function QuestionCard({
   question,
   displayNumber,
+  paperLabel,
+  paperConfig,
   completed,
   onToggleComplete,
   solutionsUnlocked = true,
@@ -115,6 +125,8 @@ function QuestionCard({
 }: {
   question: QbQuestion;
   displayNumber: number;
+  paperLabel?: string | null;
+  paperConfig?: QbPaperConfig | null;
   completed?: boolean;
   onToggleComplete?: () => void;
   solutionsUnlocked?: boolean;
@@ -124,7 +136,7 @@ function QuestionCard({
   onSelectAnswer?: (letter: string) => void;
   saving?: boolean;
 }) {
-  const mcq = isMcqQuestion(question);
+  const mcq = isMcqQuestion(question, paperConfig);
   return (
     <StudyQuestionCard
       contentMode="rich"
@@ -144,6 +156,8 @@ function QuestionCard({
         diagramUrl: question.diagramUrl,
         difficulty: question.difficulty,
         paper: question.paper,
+        paperLabel:
+          paperLabel?.trim() || paperDisplayLabel(question.paper, paperConfig),
         calculatorAllowed: question.calculatorAllowed,
         marks: question.marks,
         options: mcq ? question.options ?? [] : [],
@@ -198,6 +212,15 @@ export function QuestionbankStudyPage({
   const program = data?.subtopic.topic.program;
   const topic = data?.subtopic.topic;
 
+  const paperConfig = useMemo(
+    () =>
+      resolvePaperConfig(
+        data?.subtopic.paperCount,
+        (data?.subtopic.paperConfig as QbPaperConfig | null | undefined) ?? null
+      ),
+    [data?.subtopic.paperCount, data?.subtopic.paperConfig]
+  );
+
   const paperFilterOptions = useMemo(() => {
     const fromCount = Math.max(1, data?.subtopic.paperCount ?? 3);
     const fromQuestions = (data?.questions ?? []).reduce((max, q) => {
@@ -208,9 +231,12 @@ export function QuestionbankStudyPage({
     const count = Math.max(fromCount, fromQuestions, 1);
     return Array.from({ length: count }, (_, i) => {
       const value = `PAPER_${i + 1}` as QbPaper;
-      return { value, label: `Paper ${i + 1}` };
+      return {
+        value,
+        label: paperShortLabel(value, paperConfig),
+      };
     });
-  }, [data?.subtopic.paperCount, data?.questions]);
+  }, [data?.subtopic.paperCount, data?.questions, paperConfig]);
 
   const loadHistory = useCallback(async () => {
     if (!isAuthenticated || !examMode) return;
@@ -518,27 +544,29 @@ export function QuestionbankStudyPage({
 
   const showTheoryPaperTools = useMemo(() => {
     if (filters.paper?.length) {
-      return filters.paper.some((paper) => isTheoryPaper(paper));
+      return filters.paper.some((paper) => !isMcqPaperWithConfig(paper, paperConfig));
     }
-    if (initialPaper && isTheoryPaper(initialPaper)) return true;
+    if (initialPaper && !isMcqPaperWithConfig(initialPaper, paperConfig)) return true;
     return (
       filteredQuestions.length > 0 &&
-      filteredQuestions.every((question) => isTheoryPaper(String(question.paper)))
+      filteredQuestions.every((question) => isTheoryQuestion(question, paperConfig))
     );
-  }, [filters.paper, filteredQuestions, initialPaper]);
+  }, [filters.paper, filteredQuestions, initialPaper, paperConfig]);
 
   const theoryPackQuestions = useMemo(() => {
     if (!showTheoryPaperTools) return [];
     return filteredQuestions
-      .filter((question) => !isMcqQuestion(question))
+      .filter((question) => isTheoryQuestion(question, paperConfig))
       .slice(0, questionCountLimit);
-  }, [filteredQuestions, questionCountLimit, showTheoryPaperTools]);
+  }, [filteredQuestions, questionCountLimit, showTheoryPaperTools, paperConfig]);
 
   const visibleQuestions = useMemo(() => {
     if (!showTheoryPaperTools) return filteredQuestions;
-    const mcqAlongside = filteredQuestions.filter((question) => isMcqQuestion(question));
+    const mcqAlongside = filteredQuestions.filter((question) =>
+      isMcqQuestion(question, paperConfig)
+    );
     return [...theoryPackQuestions, ...mcqAlongside];
-  }, [filteredQuestions, showTheoryPaperTools, theoryPackQuestions]);
+  }, [filteredQuestions, showTheoryPaperTools, theoryPackQuestions, paperConfig]);
 
   /**
    * Paper 2/3 exam pack (10/20/30 filter): one page with the full pack for download.
@@ -593,6 +621,7 @@ export function QuestionbankStudyPage({
       title: `${program?.name ?? "Questionbank"} — ${data?.subtopic.title ?? "Questions"}`,
       subtitle: `${topic?.title ?? ""} · ${pack.length} questions`,
       includeAnswerSpace: theoryPackQuestions.length > 0,
+      paperConfig,
       questions: pack,
     });
   };
@@ -939,9 +968,9 @@ export function QuestionbankStudyPage({
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   Showing {theoryPackQuestions.length} question
                   {theoryPackQuestions.length === 1 ? "" : "s"}
-                  {filteredQuestions.filter((q) => isTheoryPaper(String(q.paper))).length >
+                  {filteredQuestions.filter((q) => isTheoryQuestion(q, paperConfig)).length >
                   theoryPackQuestions.length
-                    ? ` of ${filteredQuestions.filter((q) => isTheoryPaper(String(q.paper))).length} matched`
+                    ? ` of ${filteredQuestions.filter((q) => isTheoryQuestion(q, paperConfig)).length} matched`
                     : ""}
                   . Download the set to practise offline.
                 </p>
@@ -1021,6 +1050,7 @@ export function QuestionbankStudyPage({
                     downloadQuestionPaperPdf({
                       title: `${program?.name ?? "Exam"} — ${data.subtopic.title}`,
                       subtitle: topic?.title,
+                      paperConfig,
                       questions: visibleQuestions,
                     })
                   }
@@ -1044,6 +1074,8 @@ export function QuestionbankStudyPage({
                 key={question.id}
                 question={question}
                 displayNumber={displayNumberById[question.id] ?? index + 1}
+                paperLabel={paperShortLabel(String(question.paper), paperConfig)}
+                paperConfig={paperConfig}
                 completed={completedIds.has(question.id)}
                 onToggleComplete={() => toggleComplete(question.id)}
                 solutionsUnlocked={solutionsUnlocked}

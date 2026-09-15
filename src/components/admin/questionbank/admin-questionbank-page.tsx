@@ -50,6 +50,9 @@ import {
   countByPaper,
   downloadExcelTemplate,
   downloadProgramQuestions,
+  paperShortLabel,
+  parsePaperNumber,
+  resolvePaperConfig,
 } from "./qb-admin-shared";
 
 /** Strip leading "1. " / "1:" from stored titles so display stays clean. */
@@ -550,6 +553,14 @@ export function AdminQuestionbankPage() {
 
                     {topic.subtopics.map((sub, subIndex) => {
                       const paperCounts = countByPaper(sub.questions);
+                      const subPaperConfig = resolvePaperConfig(sub.paperCount, sub.paperConfig);
+                      const paperSummary = Object.keys(paperCounts)
+                        .sort((a, b) => parsePaperNumber(a) - parsePaperNumber(b))
+                        .map(
+                          (key) =>
+                            `${paperShortLabel(key, subPaperConfig)}: ${paperCounts[key] ?? 0}`
+                        )
+                        .join(" · ");
                       const total = sub.questions?.length ?? 0;
                       const manageHref = ROUTES.admin.qbStudySet(sub.id, effectiveProgramId);
                       const topicNumber = topic.number ?? topicIndex + 1;
@@ -583,12 +594,7 @@ export function AdminQuestionbankPage() {
                                 ) : null}
                               </div>
                               <p className="mt-0.5 text-[11px] text-muted-foreground">
-                                P1 {paperCounts.PAPER_1 ?? 0} · P2 {paperCounts.PAPER_2 ?? 0} · P3{" "}
-                                {paperCounts.PAPER_3 ?? 0}
-                                {(sub.paperCount ?? 3) > 3
-                                  ? ` · +${(sub.paperCount ?? 3) - 3} more`
-                                  : ""}{" "}
-                                — click to manage questions
+                                {paperSummary || "No questions"} — click to manage questions
                               </p>
                             </div>
                           </Link>
