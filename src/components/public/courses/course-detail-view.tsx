@@ -442,7 +442,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
       </CourseVideoModal>
 
       {/* Dark hero — 10 Minute School style */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#0b1220] via-[#162033] to-[#1e1b4b] text-white">
+      <section className="relative overflow-hidden bg-gradient-to-br from-[#0b1220] via-[#162033] to-[#1e1b4b] text-white [&_h1]:text-white [&_h2]:text-white [&_h3]:text-white">
         <div aria-hidden className="pointer-events-none absolute inset-0 opacity-40">
           <div className="absolute -left-24 top-0 h-80 w-80 rounded-full bg-[#12b76a]/30 blur-3xl" />
           <div className="absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-[#6366f1]/25 blur-3xl" />
@@ -465,7 +465,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                 {course.category.name}
               </span>
             ) : null}
-            <h1 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight sm:text-4xl lg:text-[2.75rem]">
+            <h1 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.45)] sm:text-4xl lg:text-[2.75rem]">
               {course.title}
             </h1>
             {(course.summary?.trim() || course.description?.trim()) ? (

@@ -16,6 +16,13 @@ import {
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
+import {
+  isMcqPaper,
+  parsePaperNumber,
+  paperKey,
+  paperShortLabel,
+  resolvePaperConfig,
+} from "@/components/admin/questionbank/qb-admin-shared";
 import { type CourseLinkedProgram } from "@/components/admin/key-concepts/admin-key-concepts-page";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -35,7 +42,7 @@ import { richTextToPlain } from "@/lib/rich-text";
 import { slugify } from "@/lib/slugify";
 import type { ApiError } from "@/types";
 import type { PastPaper, PastPaperSourceType } from "@/types/past-paper.types";
-import type { QbAccessBadge } from "@/types/qb.types";
+import type { QbAccessBadge, QbPaperConfig, QbTopic } from "@/types/qb.types";
 import { cn } from "@/utils";
 
 type QuestionPickerTab = "selected" | "available";
@@ -56,7 +63,65 @@ type PickerQuestionRow = {
 
 const SOURCE_TYPES: PastPaperSourceType[] = ["INTERACTIVE", "PDF", "HYBRID"];
 const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
-const PAPER_CODES = ["P1", "P2", "P3"];
+
+type QbPaperOption = {
+  /** Stored past-paper code, e.g. P1 — matches Questionbank Paper 1 */
+  value: string;
+  number: number;
+  label: string;
+  kind: "MCQ" | "WRITTEN";
+};
+
+function paperCodeFromNumber(n: number) {
+  return `P${Math.max(1, Math.floor(n))}`;
+}
+
+/** Normalize legacy values (P1, PAPER_1, "1", "Paper 1") → Pn */
+function normalizePastPaperCode(raw: string | null | undefined): string {
+  return paperCodeFromNumber(parsePaperNumber(raw));
+}
+
+/**
+ * Build paper options from Questionbank study-set paperCount / paperConfig / questions,
+ * so Past Papers shows the same numbers and names as Questionbank.
+ */
+function buildQbPaperOptions(topics: QbTopic[]): QbPaperOption[] {
+  let maxN = 0;
+  const mergedConfig: QbPaperConfig = {};
+
+  for (const topic of topics) {
+    for (const sub of topic.subtopics ?? []) {
+      const count = Math.max(1, sub.paperCount ?? 0);
+      maxN = Math.max(maxN, count);
+      const resolved = resolvePaperConfig(sub.paperCount, sub.paperConfig);
+      for (const [key, entry] of Object.entries(resolved)) {
+        const n = parsePaperNumber(key);
+        maxN = Math.max(maxN, n);
+        const pk = paperKey(n);
+        if (!mergedConfig[pk] || (entry.label?.trim() && entry.label !== `Paper ${n}`)) {
+          mergedConfig[pk] = entry;
+        }
+      }
+      for (const q of sub.questions ?? []) {
+        maxN = Math.max(maxN, parsePaperNumber(String(q.paper)));
+      }
+    }
+  }
+
+  if (maxN < 1) maxN = 3;
+  const config = resolvePaperConfig(maxN, mergedConfig);
+  const options: QbPaperOption[] = [];
+  for (let n = 1; n <= maxN; n += 1) {
+    const key = paperKey(n);
+    options.push({
+      value: paperCodeFromNumber(n),
+      number: n,
+      label: paperShortLabel(key, config),
+      kind: isMcqPaper(key, config) ? "MCQ" : "WRITTEN",
+    });
+  }
+  return options;
+}
 
 function sourceLabel(type: PastPaperSourceType) {
   if (type === "PDF") return "PDF";
@@ -92,7 +157,7 @@ function questionTypeLabel(type: string) {
 function friendlySaveError(message: string | undefined, fallback: string) {
   const text = message || fallback;
   if (/Unique constraint failed/i.test(text) && /paperCode|programId/i.test(text)) {
-    return "A past paper already exists for this Year + Session + Paper code. Change year, session, or paper code (e.g. P2), then try again.";
+    return "A past paper already exists for this Year + Session + Paper code. Change year, session, or paper code, then try again.";
   }
   if (/Unique constraint failed/i.test(text)) {
     return "This past paper conflicts with an existing one. Change year, session, paper code, or slug and try again.";
@@ -236,6 +301,25 @@ export function AdminPastPapersPage({
       selectedQuestionIds.some((id, i) => id !== initialQuestionIds[i]));
 
   const selectedTopic = qbTopics.find((t) => t.id === topicId);
+  const qbPaperOptions = useMemo(() => buildQbPaperOptions(qbTopics), [qbTopics]);
+  const paperOptionsForMode = useMemo(() => {
+    const matched = qbPaperOptions.filter((p) =>
+      questionMode === "MCQ" ? p.kind === "MCQ" : p.kind === "WRITTEN"
+    );
+    return matched.length > 0 ? matched : qbPaperOptions;
+  }, [qbPaperOptions, questionMode]);
+
+  useEffect(() => {
+    if (!modalOpen || paperOptionsForMode.length === 0) return;
+    const normalized = normalizePastPaperCode(paperCode);
+    const stillValid = paperOptionsForMode.some((p) => p.value === normalized);
+    if (!stillValid) {
+      setPaperCode(paperOptionsForMode[0]!.value);
+      return;
+    }
+    if (paperCode !== normalized) setPaperCode(normalized);
+  }, [modalOpen, paperOptionsForMode, paperCode]);
+
   const subtopicOptions = useMemo(() => {
     if (topicId && selectedTopic) {
       return selectedTopic.subtopics.map((s) => ({ id: s.id, label: s.title }));
@@ -397,7 +481,7 @@ export function AdminPastPapersPage({
     setQuestionMode(preset?.mode ?? "MCQ");
     setYear(String(new Date().getFullYear() - 1));
     setSession("Annual");
-    setPaperCode("P1");
+    setPaperCode("");
     setTitle("");
     setSlug("");
     setDescription("");
@@ -440,7 +524,7 @@ export function AdminPastPapersPage({
     setQuestionMode(item.questionMode === "WRITTEN" ? "WRITTEN" : "MCQ");
     setYear(String(item.year));
     setSession(item.session);
-    setPaperCode(item.paperCode);
+    setPaperCode(normalizePastPaperCode(item.paperCode));
     setTitle(item.title);
     setSlug(item.slug);
     setDescription(item.description ?? "");
@@ -475,16 +559,16 @@ export function AdminPastPapersPage({
     }
     const yearNum = Number.parseInt(year, 10);
     const sessionKey = session.trim().toLowerCase();
-    const codeKey = paperCode.trim().toLowerCase();
+    const codeKey = normalizePastPaperCode(paperCode).toLowerCase();
     const duplicate = papers.some(
       (p) =>
         p.id !== editId &&
         p.year === yearNum &&
         p.session.trim().toLowerCase() === sessionKey &&
-        p.paperCode.trim().toLowerCase() === codeKey
+        normalizePastPaperCode(p.paperCode).toLowerCase() === codeKey
     );
     if (duplicate) {
-      return "A past paper already exists for this Year + Session + Paper code. Use another paper code (e.g. P2) or change year/session.";
+      return "A past paper already exists for this Year + Session + Paper code. Pick another paper or change year/session.";
     }
     return null;
   };
@@ -524,7 +608,7 @@ export function AdminPastPapersPage({
     const payload = {
       year: Number.parseInt(year, 10),
       session: session.trim(),
-      paperCode: paperCode.trim(),
+      paperCode: normalizePastPaperCode(paperCode),
       title: title.trim(),
       slug: slug.trim(),
       description: description.trim(),
@@ -871,7 +955,11 @@ export function AdminPastPapersPage({
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-semibold text-foreground">{item.title}</p>
                               <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
-                                {item.paperCode}
+                                {(() => {
+                                  const code = normalizePastPaperCode(item.paperCode);
+                                  const opt = qbPaperOptions.find((o) => o.value === code);
+                                  return opt ? `${opt.number}. ${opt.label}` : item.paperCode;
+                                })()}
                               </span>
                               <span
                                 className={cn(
@@ -1221,16 +1309,24 @@ export function AdminPastPapersPage({
             <label className="block space-y-1.5">
               <span className="text-sm font-semibold">Paper code</span>
               <select
-                value={paperCode}
+                value={normalizePastPaperCode(paperCode)}
                 onChange={(e) => setPaperCode(e.target.value)}
                 className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
               >
-                {PAPER_CODES.map((code) => (
-                  <option key={code} value={code}>
-                    {code}
-                  </option>
-                ))}
+                {paperOptionsForMode.length === 0 ? (
+                  <option value="">No papers in Questionbank</option>
+                ) : (
+                  paperOptionsForMode.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.number}. {opt.label}
+                      {opt.kind === "MCQ" ? " (MCQ)" : " (Written)"}
+                    </option>
+                  ))
+                )}
               </select>
+              <p className="text-xs text-muted-foreground">
+                Same paper numbers and names as Questionbank for this program.
+              </p>
             </label>
             <label className="block space-y-1.5">
               <span className="text-sm font-semibold">Duration (min)</span>
