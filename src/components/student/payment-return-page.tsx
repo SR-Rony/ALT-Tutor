@@ -73,7 +73,9 @@ export function PaymentReturnPage() {
         <p className="mt-1 text-sm text-muted-foreground">
           {transactionId
             ? `Transaction ${transactionId.slice(0, 8)}…`
-            : "Missing transaction reference."}
+            : params.get("spOrderId")
+              ? `Gateway order ${String(params.get("spOrderId")).slice(0, 12)}…`
+              : "Missing transaction reference."}
         </p>
 
         {isLoading ? (
