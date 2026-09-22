@@ -694,7 +694,7 @@ export function AdminQuestionbankPage() {
         description={
           modal?.kind === "subtopic"
             ? modal.editId
-              ? "ALT Free is open practice. Silver, Gold, and Diamond need a matching Practice Pass."
+              ? "ALT Free is open practice. ALT Gold needs a Gold Pass."
               : "Serial number is assigned automatically (e.g. 1.1, 1.2 under topic 1) and the new study set is added last."
             : "Visible on the public Questionbank."
         }

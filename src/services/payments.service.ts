@@ -11,7 +11,7 @@ export type AccessProductInput = {
   regularPrice?: number;
   programId?: string | null;
   durationDays?: number | null;
-  tier?: "SILVER" | "GOLD" | "DIAMOND";
+  tier?: "GOLD";
   isActive?: boolean;
 };
 
@@ -43,7 +43,7 @@ export const paymentsService = {
   adminGrantPracticeAccess(payload: {
     studentId: string;
     programId?: string | null;
-    accessTier: "SILVER" | "GOLD" | "DIAMOND";
+    accessTier: "GOLD";
     durationDays?: number | null;
   }) {
     return apiClient.post("/payments/admin/grant-access", payload).then((r) => r.data);

@@ -46,7 +46,7 @@ import Link from "next/link";
 
 const EXAM_MODES: PracticeExamMode[] = ["MCQ", "WRITTEN"];
 const WRITTEN_STYLES: PracticeExamWrittenStyle[] = ["PER_QUESTION", "PACK"];
-const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
+const TIERS: QbAccessBadge[] = ["FREE", "GOLD"];
 
 type ListModeFilter = "ALL" | PracticeExamMode;
 type ListStatusFilter = "ALL" | "PUBLISHED" | "DRAFT";

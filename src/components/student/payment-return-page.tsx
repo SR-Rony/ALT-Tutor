@@ -64,7 +64,7 @@ export function PaymentReturnPage() {
     ? "Back to questionbank"
     : payment?.course?.slug
       ? "Go to course"
-      : "Practice Pass";
+      : "Gold Pass";
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-4 py-12">

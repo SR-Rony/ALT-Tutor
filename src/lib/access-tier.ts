@@ -1,19 +1,21 @@
-/** Questionbank / Practice Pass access tiers. */
+/** Questionbank / Practice Pass access tiers (Free vs Gold only). */
 export type QbAccessBadge = "FREE" | "SILVER" | "GOLD" | "DIAMOND";
 
-export const ACCESS_TIER_ORDER: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
+/** Admin toggle cycles Free ↔ Gold only. */
+export const ACCESS_TIER_ORDER: QbAccessBadge[] = ["FREE", "GOLD"];
 
 export const ACCESS_TIER_RANK: Record<QbAccessBadge, number> = {
   FREE: 0,
   SILVER: 1,
-  GOLD: 2,
-  DIAMOND: 3,
+  GOLD: 1,
+  DIAMOND: 1,
 };
 
+/** Collapse legacy Silver/Diamond onto Gold for UI + gating. */
 export function normalizeAccessBadge(value?: string | null): QbAccessBadge {
   const key = String(value ?? "FREE").toUpperCase();
-  if (key === "SILVER" || key === "GOLD" || key === "DIAMOND") return key;
-  return "FREE";
+  if (key === "FREE") return "FREE";
+  return "GOLD";
 }
 
 export function accessTierRank(tier?: string | null): number {
@@ -25,28 +27,18 @@ export function canAccessWithTier(userTier?: string | null, required?: string | 
 }
 
 export function tierLabel(tier?: string | null): string {
-  const key = normalizeAccessBadge(tier);
-  if (key === "SILVER") return "ALT Silver";
-  if (key === "GOLD") return "ALT Gold";
-  if (key === "DIAMOND") return "ALT Diamond";
-  return "ALT Free";
+  return normalizeAccessBadge(tier) === "GOLD" ? "ALT Gold" : "ALT Free";
 }
 
 export function tierBadgeClass(tier?: string | null): string {
-  const key = normalizeAccessBadge(tier);
-  if (key === "SILVER") return "bg-[#94a3b8]";
-  if (key === "GOLD") return "bg-[#d4a017]";
-  if (key === "DIAMOND") return "bg-[#6366f1]";
-  return "bg-primary";
+  return normalizeAccessBadge(tier) === "GOLD" ? "bg-[#d4a017]" : "bg-primary";
 }
 
-/** Cycle Free → Silver → Gold → Diamond → Free for admin quick toggle. */
+/** Cycle Free → Gold → Free for admin quick toggle. */
 export function nextAccessBadge(current?: string | null): QbAccessBadge {
-  const key = normalizeAccessBadge(current);
-  const idx = ACCESS_TIER_ORDER.indexOf(key);
-  return ACCESS_TIER_ORDER[(idx + 1) % ACCESS_TIER_ORDER.length]!;
+  return normalizeAccessBadge(current) === "GOLD" ? "FREE" : "GOLD";
 }
 
-export function paidProductTier(): Exclude<QbAccessBadge, "FREE">[] {
-  return ["SILVER", "GOLD", "DIAMOND"];
+export function paidProductTier(): Exclude<QbAccessBadge, "FREE" | "SILVER" | "DIAMOND">[] {
+  return ["GOLD"];
 }

@@ -50,7 +50,7 @@ export interface QbSubtopic {
   paperConfig?: QbPaperConfig | null;
   isActive: boolean;
   topicId: string;
-  /** True when the current user lacks the required Free/Silver/Gold/Diamond tier. */
+  /** True when the current user lacks the required Free/Gold tier. */
   locked?: boolean;
   _count?: { questions: number };
   questions?: QbQuestion[];

@@ -19,7 +19,7 @@ import type { ApiError } from "@/types";
 import type { AccessProduct } from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
 
-type ProductTier = "SILVER" | "GOLD" | "DIAMOND";
+type ProductTier = "GOLD";
 
 type TierDraft = {
   tier: ProductTier;
@@ -40,41 +40,22 @@ const GLOBAL_TIERS: Array<{
   includes: string[];
 }> = [
   {
-    tier: "SILVER",
-    slug: "global-silver-pass",
-    title: "Silver Pass",
-    defaultPrice: "199",
-    defaultDays: "30",
-    blurb: "Unlocks Free + Silver content across Questionbank, Key Concepts, Practice Exams, and Past Papers.",
-    includes: ["Free content", "Silver content", "All subjects"],
-  },
-  {
     tier: "GOLD",
     slug: "global-gold-pass",
     title: "Gold Pass",
     defaultPrice: "399",
     defaultDays: "30",
-    blurb: "Unlocks Free + Silver + Gold content across Questionbank, Key Concepts, Practice Exams, and Past Papers.",
-    includes: ["Everything in Silver", "Gold content", "All subjects"],
-  },
-  {
-    tier: "DIAMOND",
-    slug: "global-diamond-pass",
-    title: "Diamond Pass",
-    defaultPrice: "999",
-    defaultDays: "90",
-    blurb: "Full unlock — Free through Diamond content for Questionbank, Key Concepts, Practice Exams, and Past Papers.",
-    includes: ["Everything in Gold", "Diamond content", "All subjects"],
+    blurb:
+      "Unlocks all Gold questionbank study sets, Key Concepts, Practice Exams, Past Papers, and Flashcards across every subject.",
+    includes: ["Free content", "Gold content", "All subjects"],
   },
 ];
 
 const solidBtn =
   "border-0 text-white shadow-none hover:translate-y-0 hover:shadow-none";
 
-function tierButtonClass(tier: ProductTier) {
-  if (tier === "SILVER") return "bg-[#94a3b8] hover:bg-[#7f8fa6]";
-  if (tier === "GOLD") return "bg-[#d4a017] hover:bg-[#b88912]";
-  return "bg-[#6366f1] hover:bg-[#4f52d5]";
+function tierButtonClass(_tier: ProductTier) {
+  return "bg-[#d4a017] hover:bg-[#b88912]";
 }
 
 function draftFromProduct(
@@ -119,9 +100,7 @@ export function AdminAccessProductsPage() {
   const deactivateProduct = useDeactivateAccessProduct();
 
   const [drafts, setDrafts] = useState<Record<ProductTier, TierDraft>>({
-    SILVER: draftFromProduct(GLOBAL_TIERS[0]!),
-    GOLD: draftFromProduct(GLOBAL_TIERS[1]!),
-    DIAMOND: draftFromProduct(GLOBAL_TIERS[2]!),
+    GOLD: draftFromProduct(GLOBAL_TIERS[0]!),
   });
   const [savingTier, setSavingTier] = useState<ProductTier | null>(null);
   const [setupBusy, setSetupBusy] = useState(false);
@@ -157,9 +136,7 @@ export function AdminAccessProductsPage() {
 
   useEffect(() => {
     setDrafts({
-      SILVER: draftFromProduct(GLOBAL_TIERS[0]!, globalBySlug.get("global-silver-pass")),
-      GOLD: draftFromProduct(GLOBAL_TIERS[1]!, globalBySlug.get("global-gold-pass")),
-      DIAMOND: draftFromProduct(GLOBAL_TIERS[2]!, globalBySlug.get("global-diamond-pass")),
+      GOLD: draftFromProduct(GLOBAL_TIERS[0]!, globalBySlug.get("global-gold-pass")),
     });
     // Sync only when server product fields change — not on every Map identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- draftSyncKey captures product snapshot
@@ -258,7 +235,7 @@ export function AdminAccessProductsPage() {
       for (const product of extraActive) {
         await deactivateProduct.mutateAsync(product.id);
       }
-      setActionOk("Silver, Gold, and Diamond passes are set. Extra products disabled.");
+      setActionOk("Gold Pass is set. Extra products disabled.");
       await refetch();
     } catch (err) {
       setActionError((err as ApiError)?.message || "Failed to apply standard pricing");
@@ -271,7 +248,7 @@ export function AdminAccessProductsPage() {
     if (extraActive.length === 0) return;
     if (
       !window.confirm(
-        `Disable ${extraActive.length} extra product(s)? Students will only see Silver / Gold / Diamond.`
+        `Disable ${extraActive.length} extra product(s)? Students will only see Gold Pass.`
       )
     ) {
       return;
@@ -283,7 +260,7 @@ export function AdminAccessProductsPage() {
       for (const product of extraActive) {
         await deactivateProduct.mutateAsync(product.id);
       }
-      setActionOk("Extra products disabled. Only the 3 tier prices remain active.");
+      setActionOk("Extra products disabled. Only Gold Pass remains active.");
       await refetch();
     } catch (err) {
       setActionError((err as ApiError)?.message || "Failed to disable extras");
@@ -302,7 +279,7 @@ export function AdminAccessProductsPage() {
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-6">
           <PageHeader
             title="Pass pricing"
-            description="Only 3 paid plans: Silver, Gold, and Diamond. These unlock Questionbank, Key Concepts, Practice Exams, and Past Papers."
+            description="One paid plan: Gold Pass. Unlocks Questionbank, Key Concepts, Practice Exams, Past Papers, and Flashcards."
             className="mb-0"
           />
           <div className="flex flex-wrap items-center gap-2">
@@ -323,7 +300,7 @@ export function AdminAccessProductsPage() {
                 ) : (
                   <Sparkles className="h-4 w-4" />
                 )}
-                Set up all 3 passes
+                Set up Gold Pass
               </Button>
             ) : null}
             <AdminIconAction
@@ -339,23 +316,20 @@ export function AdminAccessProductsPage() {
 
         <div className="space-y-3 px-5 py-4 text-sm text-muted-foreground">
           <p>
-            Higher tiers include lower ones: Diamond ⊃ Gold ⊃ Silver ⊃ Free. Content is tagged by
-            tier; students buy one pass for all subjects.
+            Content is tagged Free or Gold (like Revision Village). Students buy Gold Pass for all
+            subjects; Free study sets stay open.
           </p>
 
           {needsSetup ? (
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-950">
               <div className="space-y-1">
                 {missingCount > 0 ? (
-                  <p className="font-medium">
-                    {missingCount} pass{missingCount === 1 ? "" : "es"} not created yet (Silver /
-                    Gold / Diamond).
-                  </p>
+                  <p className="font-medium">Gold Pass is not created yet.</p>
                 ) : null}
                 {extraActive.length > 0 ? (
                   <p>
                     {extraActive.length} old extra product{extraActive.length === 1 ? "" : "s"} still
-                    active — disable so students only see these 3 prices.
+                    active — disable so students only see Gold Pass.
                   </p>
                 ) : null}
               </div>
@@ -386,7 +360,7 @@ export function AdminAccessProductsPage() {
           ) : (
             <div className="inline-flex items-center gap-2 rounded-xl border border-accent-green/25 bg-accent-green/5 px-3 py-2 text-accent-green">
               <CheckCircle2 className="h-4 w-4" aria-hidden />
-              All 3 passes are active. No extra products.
+              Gold Pass is active. No extra products.
             </div>
           )}
 
@@ -398,7 +372,7 @@ export function AdminAccessProductsPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-1 lg:max-w-xl">
         {GLOBAL_TIERS.map((meta) => {
           const draft = drafts[meta.tier];
           const existing = globalBySlug.get(meta.slug);

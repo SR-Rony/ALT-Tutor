@@ -64,35 +64,11 @@ function sortProductsForProgram(
 }
 
 function unlockedTier(tier: QbAccessBadge): string[] {
-  if (tier === "DIAMOND") return ["Free", "Silver", "Gold", "Diamond"];
-  if (tier === "GOLD") return ["Free", "Silver", "Gold"];
-  if (tier === "SILVER") return ["Free", "Silver"];
+  if (normalizeAccessBadge(tier) === "GOLD") return ["Free", "Gold"];
   return ["Free"];
 }
 
-function tierTheme(tier: QbAccessBadge) {
-  if (tier === "SILVER") {
-    return {
-      hero: "from-[#eef2f7] via-[#f8fafc] to-white",
-      accent: "text-[#475569]",
-      accentSoft: "bg-[#e2e8f0]/70 text-[#334155]",
-      iconWrap: "bg-[#e2e8f0] text-[#475569]",
-      cta: "!bg-none bg-[#64748b] text-white shadow-none hover:!bg-[#475569] hover:translate-y-0 hover:shadow-none",
-      ring: "ring-[#94a3b8]/40",
-      selected: "border-[#64748b] bg-[#f8fafc]",
-    };
-  }
-  if (tier === "DIAMOND") {
-    return {
-      hero: "from-[#eff6ff] via-[#f8fbff] to-white",
-      accent: "text-[#1d4ed8]",
-      accentSoft: "bg-[#dbeafe]/70 text-[#1e40af]",
-      iconWrap: "bg-[#dbeafe] text-[#1d4ed8]",
-      cta: "!bg-none bg-[#1d4ed8] text-white shadow-none hover:!bg-[#1e40af] hover:translate-y-0 hover:shadow-none",
-      ring: "ring-[#3b82f6]/35",
-      selected: "border-[#3b82f6] bg-[#eff6ff]",
-    };
-  }
+function tierTheme(_tier: QbAccessBadge) {
   return {
     hero: "from-[#fff7ed] via-[#fffbeb] to-white",
     accent: "text-[#b45309]",
@@ -137,7 +113,7 @@ export function GoldUnlockModal({
   const loginHref = `${ROUTES.auth.login}?next=${encodeURIComponent(returnPath)}`;
 
   const ranked = useMemo(
-    () => sortProductsForProgram(products, programId, required).slice(0, 3),
+    () => sortProductsForProgram(products, programId, required).slice(0, 1),
     [products, programId, required]
   );
 
@@ -319,7 +295,7 @@ export function GoldUnlockModal({
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-foreground">Choose a Practice Pass</p>
+                <p className="text-sm font-semibold text-foreground">Choose Gold Pass</p>
                 <button
                   type="button"
                   className="text-xs font-semibold text-primary hover:underline"
@@ -342,7 +318,7 @@ export function GoldUnlockModal({
                 </div>
               ) : ranked.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                  No Practice Pass products are available yet. You can still unlock{" "}
+                  No Gold Pass product is available yet. You can still unlock{" "}
                   {requiredName} by enrolling in a linked course.
                   <div className="mt-3">
                     <Button asChild variant="outline" size="sm">

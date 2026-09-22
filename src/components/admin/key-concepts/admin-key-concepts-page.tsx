@@ -32,7 +32,7 @@ import type { QbAccessBadge } from "@/types/qb.types";
 import { cn, compareByOrderThenNaturalTitle } from "@/utils";
 
 const CONTENT_TYPES: KeyConceptContentType[] = ["ARTICLE", "VIDEO", "MIXED", "PDF"];
-const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
+const TIERS: QbAccessBadge[] = ["FREE", "GOLD"];
 
 export type CourseLinkedProgram = {
   id: string;

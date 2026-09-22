@@ -10,7 +10,7 @@ import { useAdminSubjectsTree } from "@/hooks/use-subjects";
 import { tierLabel } from "@/lib/access-tier";
 import type { ApiError } from "@/types";
 
-type ProductTier = "SILVER" | "GOLD" | "DIAMOND";
+type ProductTier = "GOLD";
 
 type Props = {
   open: boolean;
@@ -169,9 +169,7 @@ export function AdminGrantPracticeAccessModal({ open, onClose }: Props) {
             onChange={(e) => setTier(e.target.value as ProductTier)}
             className="h-10 w-full rounded-xl border border-border bg-background px-3 text-sm outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
           >
-            <option value="SILVER">{tierLabel("SILVER")} — Free + Silver</option>
-            <option value="GOLD">{tierLabel("GOLD")} — through Gold</option>
-            <option value="DIAMOND">{tierLabel("DIAMOND")} — full unlock</option>
+            <option value="GOLD">{tierLabel("GOLD")} — unlocks Free + Gold</option>
           </select>
         </div>
 

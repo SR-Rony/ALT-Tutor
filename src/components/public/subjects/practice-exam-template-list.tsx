@@ -99,7 +99,7 @@ export function PracticeExamTemplateList({
                 {template.passMarkPercent != null ? (
                   <span>Pass {template.passMarkPercent}%</span>
                 ) : null}
-                {locked ? <span>· Practice Pass / course required</span> : null}
+                {locked ? <span>· Gold Pass / course required</span> : null}
               </p>
             </div>
             <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:min-w-[9.5rem]">

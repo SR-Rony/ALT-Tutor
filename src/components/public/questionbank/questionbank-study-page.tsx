@@ -689,7 +689,7 @@ export function QuestionbankStudyPage({
             <h1 className="mt-4 text-xl font-extrabold text-foreground">{lockedTitle}</h1>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
               {apiError?.message ||
-                "This study set requires a Practice Pass or enrollment in a linked course."}
+                "This study set requires a Gold Pass or enrollment in a linked course."}
             </p>
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               {programOverview ? (
@@ -698,7 +698,7 @@ export function QuestionbankStudyPage({
                 </Button>
               ) : (
                 <Button asChild size="pill">
-                  <Link href={unlockHref}>Unlock with Practice Pass</Link>
+                  <Link href={unlockHref}>Unlock with Gold Pass</Link>
                 </Button>
               )}
               {!isAuthenticated ? (
@@ -959,7 +959,7 @@ export function QuestionbankStudyPage({
               className="font-semibold underline underline-offset-2"
               onClick={() => setUnlockOpen(true)}
             >
-              Practice Pass
+              Gold Pass
             </button>{" "}
             or linked course enrollment.
           </div>

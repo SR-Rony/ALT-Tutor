@@ -40,7 +40,7 @@ import type {
 import type { QbAccessBadge } from "@/types/qb.types";
 import { cn } from "@/utils";
 
-const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
+const TIERS: QbAccessBadge[] = ["FREE", "GOLD"];
 
 /** Parse bulk lines: `front | back` or `front || back` (optional hint after second `|`). */
 export function parseBulkFlashcardLines(text: string): BulkFlashcardItem[] {

@@ -62,7 +62,7 @@ type PickerQuestionRow = {
 };
 
 const SOURCE_TYPES: PastPaperSourceType[] = ["INTERACTIVE", "PDF", "HYBRID"];
-const TIERS: QbAccessBadge[] = ["FREE", "SILVER", "GOLD", "DIAMOND"];
+const TIERS: QbAccessBadge[] = ["FREE", "GOLD"];
 
 type QbPaperOption = {
   /** Stored past-paper code, e.g. P1 — matches Questionbank Paper 1 */

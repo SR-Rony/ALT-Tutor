@@ -33,25 +33,11 @@ function statusClass(status: string) {
 
 function tierAccent(tier?: string | null) {
   const key = normalizeAccessBadge(tier);
-  if (key === "SILVER") {
-    return {
-      bar: "from-[#64748b] to-[#94a3b8]",
-      soft: "bg-[#f8fafc]",
-      ring: "hover:border-[#94a3b8]/50",
-    };
-  }
   if (key === "GOLD") {
     return {
       bar: "from-[#b45309] to-[#d4a017]",
       soft: "bg-[#fffbeb]",
       ring: "hover:border-[#d4a017]/45",
-    };
-  }
-  if (key === "DIAMOND") {
-    return {
-      bar: "from-[#1d4ed8] to-[#3b82f6]",
-      soft: "bg-[#eff6ff]",
-      ring: "hover:border-[#3b82f6]/40",
     };
   }
   return {
@@ -63,9 +49,7 @@ function tierAccent(tier?: string | null) {
 
 function unlockedTiers(tier?: string | null): string[] {
   const key = normalizeAccessBadge(tier);
-  if (key === "DIAMOND") return ["Free", "Silver", "Gold", "Diamond"];
-  if (key === "GOLD") return ["Free", "Silver", "Gold"];
-  if (key === "SILVER") return ["Free", "Silver"];
+  if (key === "GOLD") return ["Free", "Gold"];
   return ["Free"];
 }
 
@@ -239,9 +223,9 @@ export function StudentPaymentsPage() {
               <p className="text-[11px] font-bold uppercase tracking-[0.14em] text-muted-foreground">
                 Unlock content
               </p>
-              <h2 className="mt-1 text-xl font-bold text-foreground">Practice Pass</h2>
+              <h2 className="mt-1 text-xl font-bold text-foreground">Gold Pass</h2>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Unlock questionbanks and practice — pick a pass by tier, program, and duration.
+                Unlock Gold questionbank study sets and practice tools — one pass for all subjects.
               </p>
             </div>
             <p className="text-xs font-semibold text-muted-foreground">
@@ -261,7 +245,7 @@ export function StudentPaymentsPage() {
             <PageLoader label="Loading products..." />
           ) : sortedProducts.length === 0 ? (
             <div className="rounded-2xl border border-dashed border-border px-4 py-10 text-center text-sm text-muted-foreground">
-              No Practice Pass products are available yet.
+              No Gold Pass product is available yet.
             </div>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
@@ -283,7 +267,7 @@ export function StudentPaymentsPage() {
         <div className="flex items-end justify-between gap-3 px-1">
           <div>
             <h2 className="text-lg font-bold text-foreground">Payment history</h2>
-            <p className="text-sm text-muted-foreground">Course and Practice Pass purchases</p>
+            <p className="text-sm text-muted-foreground">Course and Gold Pass purchases</p>
           </div>
         </div>
 

@@ -13,7 +13,7 @@ import { formatCoursePrice } from "@/lib/course-format";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
 
-type ProductTier = "SILVER" | "GOLD" | "DIAMOND";
+type ProductTier = "GOLD";
 type StudentMode = "new" | "existing";
 
 const selectClass =
@@ -337,9 +337,7 @@ export function AdminAddUserModal({
                   onChange={(e) => setTier(e.target.value as ProductTier)}
                   className={selectClass}
                 >
-                  <option value="SILVER">{tierLabel("SILVER")}</option>
                   <option value="GOLD">{tierLabel("GOLD")}</option>
-                  <option value="DIAMOND">{tierLabel("DIAMOND")}</option>
                 </select>
               </label>
               <label className="block space-y-1.5">

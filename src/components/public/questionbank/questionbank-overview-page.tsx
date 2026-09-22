@@ -198,7 +198,7 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
     <div className="bg-background">
       <ResourceHero
         title={`${data.name} Questionbank`}
-        description="Practice by topic. Free study sets are open to everyone. Silver, Gold, and Diamond sets unlock with a Practice Pass or linked course."
+        description="Practice by topic. Free study sets are open to everyone. Gold sets unlock with a Gold Pass or linked course."
         icon={<Database className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
         footer={themeTabs}
@@ -206,7 +206,7 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
         {data.access?.canStudyGold ? null : (
           <Button type="button" size="pill" onClick={() => openUnlock()}>
             <Sparkles className="h-4 w-4" />
-            Get Practice Pass
+            Get Gold Pass
           </Button>
         )}
       </ResourceHero>
@@ -219,21 +219,20 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
         ) : null}
         {data.access && !data.access.canStudyGold ? (
           <div className="rounded-xl border border-[#f5d0a8] bg-[#fff8ef] px-4 py-3 text-sm text-[#9a3412]">
-            <span className="font-semibold">Paid sets locked.</span> Unlock Silver, Gold, or Diamond
-            study sets with a{" "}
+            <span className="font-semibold">Gold sets locked.</span> Unlock Gold study sets with a{" "}
             <button
               type="button"
               className="font-semibold underline underline-offset-2"
               onClick={() => openUnlock()}
             >
-              Practice Pass
+              Gold Pass
             </button>{" "}
             or by enrolling in a linked course.
           </div>
         ) : data.access?.canStudyGold ? (
           <div className="rounded-xl border border-[#abeec5] bg-[#ecfdf3] px-4 py-3 text-sm text-[#067647]">
-            <span className="font-semibold">Paid access unlocked.</span> You can open study sets your
-            tier covers in this questionbank.
+            <span className="font-semibold">Gold access unlocked.</span> You can open Free and Gold
+            study sets in this questionbank.
           </div>
         ) : null}
         {data.qbTopics.length === 0 ? (

@@ -100,7 +100,7 @@ export function PracticeExamsPage({ programSlug }: Props) {
             <div>
               <h2 className="text-xl font-bold text-foreground md:text-2xl">Choose an exam</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Two formats only — MCQ or Written. Locked exams need a Practice Pass or course
+                Two formats only — MCQ or Written. Locked exams need a Gold Pass or course
                 access.
               </p>
             </div>

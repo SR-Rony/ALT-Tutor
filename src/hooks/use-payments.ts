@@ -92,7 +92,7 @@ export function useAdminGrantPracticeAccess() {
     mutationFn: (payload: {
       studentId: string;
       programId?: string | null;
-      accessTier: "SILVER" | "GOLD" | "DIAMOND";
+      accessTier: "GOLD";
       durationDays?: number | null;
     }) => paymentsService.adminGrantPracticeAccess(payload),
     onSuccess: () => {
