@@ -8,6 +8,10 @@ export const IMAGE_NUDGE_STEP = 8;
 export const IMAGE_INDENT_STEP = 24;
 export const MAX_IMAGE_OFFSET = 720;
 
+// Resize constraints
+export const MIN_IMAGE_WIDTH = 80;
+export const MAX_IMAGE_WIDTH = 1200;
+
 const ALIGN_CLASS: Record<QbImageAlign, string> = {
   left: "qb-img-align-left",
   center: "qb-img-align-center",
@@ -17,271 +21,1071 @@ const ALIGN_CLASS: Record<QbImageAlign, string> = {
 
 export function clampImageOffset(value: number): number {
   if (!Number.isFinite(value)) return 0;
-  return Math.max(0, Math.min(MAX_IMAGE_OFFSET, Math.round(value)));
+
+  return Math.max(
+    0,
+    Math.min(MAX_IMAGE_OFFSET, Math.round(value)),
+  );
 }
 
-export function nextImageOffset(current: number, delta: number): number {
+export function nextImageOffset(
+  current: number,
+  delta: number,
+): number {
   return clampImageOffset(current + delta);
+}
+
+function clampImageWidth(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+
+  return Math.max(
+    MIN_IMAGE_WIDTH,
+    Math.min(MAX_IMAGE_WIDTH, Math.round(value)),
+  );
+}
+
+function parseWidthFromElement(element: HTMLElement): number | null {
+  const dataWidth = element.getAttribute("data-width");
+
+  if (dataWidth != null && dataWidth !== "") {
+    const width = Number.parseFloat(dataWidth);
+
+    if (Number.isFinite(width) && width > 0) {
+      return clampImageWidth(width);
+    }
+  }
+
+  const widthAttribute = element.getAttribute("width");
+
+  if (widthAttribute != null && widthAttribute !== "") {
+    const width = Number.parseFloat(widthAttribute);
+
+    if (Number.isFinite(width) && width > 0) {
+      return clampImageWidth(width);
+    }
+  }
+
+  const style = element.getAttribute("style") ?? "";
+
+  const match = style.match(
+    /(?:^|;)\s*width\s*:\s*(\d+(?:\.\d+)?)px/i,
+  );
+
+  if (match?.[1]) {
+    const width = Number.parseFloat(match[1]);
+
+    if (Number.isFinite(width) && width > 0) {
+      return clampImageWidth(width);
+    }
+  }
+
+  return null;
 }
 
 function parseOffsetFromElement(element: HTMLElement): number {
   const data = element.getAttribute("data-offset");
+
   if (data != null && data !== "") {
     const n = Number.parseFloat(data);
-    if (Number.isFinite(n)) return clampImageOffset(n);
+
+    if (Number.isFinite(n)) {
+      return clampImageOffset(n);
+    }
   }
+
   const style = element.getAttribute("style") ?? "";
-  if (/margin-left\s*:\s*auto/i.test(style)) return 0;
-  const match = style.match(/margin-left\s*:\s*(\d+(?:\.\d+)?)px/i);
-  if (match?.[1]) return clampImageOffset(Number.parseFloat(match[1]));
+
+  if (/margin-left\s*:\s*auto/i.test(style)) {
+    return 0;
+  }
+
+  const match = style.match(
+    /margin-left\s*:\s*(\d+(?:\.\d+)?)px/i,
+  );
+
+  if (match?.[1]) {
+    return clampImageOffset(
+      Number.parseFloat(match[1]),
+    );
+  }
+
   return 0;
 }
 
-function parseAlignFromElement(element: HTMLElement): QbImageAlign {
+function parseAlignFromElement(
+  element: HTMLElement,
+): QbImageAlign {
   if (
     element.classList.contains(ALIGN_CLASS.custom) ||
     element.getAttribute("data-align") === "custom"
   ) {
     return "custom";
   }
+
   const offset = parseOffsetFromElement(element);
-  if (offset > 0) return "custom";
-  for (const align of ["center", "right", "left"] as const) {
-    if (element.classList.contains(ALIGN_CLASS[align])) return align;
+
+  if (offset > 0) {
+    return "custom";
   }
-  const dataAlign = element.getAttribute("data-align");
-  if (dataAlign === "center" || dataAlign === "right" || dataAlign === "left") {
+
+  for (const align of [
+    "center",
+    "right",
+    "left",
+  ] as const) {
+    if (
+      element.classList.contains(
+        ALIGN_CLASS[align],
+      )
+    ) {
+      return align;
+    }
+  }
+
+  const dataAlign = element.getAttribute(
+    "data-align",
+  );
+
+  if (
+    dataAlign === "center" ||
+    dataAlign === "right" ||
+    dataAlign === "left"
+  ) {
     return dataAlign;
   }
+
   return "left";
 }
 
-function imageLayoutAttrs(align: QbImageAlign, offset: number): Record<string, string> {
+function imageLayoutAttrs(
+  align: QbImageAlign,
+  offset: number,
+): Record<string, string> {
   if (align === "custom") {
     const px = clampImageOffset(offset);
+
     return {
       class: `qb-inline-image ${ALIGN_CLASS.custom}`,
       "data-align": "custom",
       "data-offset": String(px),
-      style: `display: block; margin-left: ${px}px; margin-right: auto;`,
+      style: `
+        display: block;
+        margin-left: ${px}px;
+        margin-right: auto;
+      `.replace(/\s+/g, " ").trim(),
     };
   }
+
   if (align === "center") {
     return {
       class: `qb-inline-image ${ALIGN_CLASS.center}`,
       "data-align": "center",
-      style: "display: block; margin-left: auto; margin-right: auto;",
+      style:
+        "display: block; margin-left: auto; margin-right: auto;",
     };
   }
+
   if (align === "right") {
     return {
       class: `qb-inline-image ${ALIGN_CLASS.right}`,
       "data-align": "right",
-      style: "display: block; margin-left: auto; margin-right: 0;",
+      style:
+        "display: block; margin-left: auto; margin-right: 0;",
     };
   }
+
   return {
     class: `qb-inline-image ${ALIGN_CLASS.left}`,
     "data-align": "left",
   };
 }
 
-function applyLayoutToImg(el: HTMLImageElement, attrs: Record<string, unknown>) {
-  const align = (attrs.align as QbImageAlign) || "left";
-  const offset = clampImageOffset(Number(attrs.offset) || 0);
-  const layout = imageLayoutAttrs(align, offset);
+function applyLayoutToImg(
+  el: HTMLImageElement,
+  attrs: Record<string, unknown>,
+) {
+  const align =
+    (attrs.align as QbImageAlign) || "left";
+
+  const offset = clampImageOffset(
+    Number(attrs.offset) || 0,
+  );
+
+  const width =
+    Number(attrs.width) > 0
+      ? clampImageWidth(Number(attrs.width))
+      : null;
+
+  const layout = imageLayoutAttrs(
+    align,
+    offset,
+  );
+
   el.className = layout.class;
-  el.setAttribute("data-align", layout["data-align"]);
-  if (layout["data-offset"]) el.setAttribute("data-offset", layout["data-offset"]);
-  else el.removeAttribute("data-offset");
-  if (layout.style) el.setAttribute("style", layout.style);
-  else el.removeAttribute("style");
-  if (typeof attrs.src === "string" && attrs.src) el.src = attrs.src;
-  el.alt = typeof attrs.alt === "string" ? attrs.alt : "";
-  if (typeof attrs.title === "string" && attrs.title) el.title = attrs.title;
-  else el.removeAttribute("title");
+
+  el.setAttribute(
+    "data-align",
+    layout["data-align"],
+  );
+
+  if (layout["data-offset"]) {
+    el.setAttribute(
+      "data-offset",
+      layout["data-offset"],
+    );
+  } else {
+    el.removeAttribute("data-offset");
+  }
+
+  if (width) {
+    el.setAttribute(
+      "data-width",
+      String(width),
+    );
+
+    el.style.width = `${width}px`;
+    el.style.maxWidth = "100%";
+    el.style.height = "auto";
+  } else {
+    el.removeAttribute("data-width");
+    el.style.width = "";
+    el.style.maxWidth = "100%";
+    el.style.height = "auto";
+  }
+
+  if (layout.style) {
+    const layoutStyle = layout.style;
+
+    const existingWidth =
+      width != null
+        ? ` width: ${width}px; max-width: 100%; height: auto;`
+        : "";
+
+    el.setAttribute(
+      "style",
+      `${layoutStyle}${existingWidth}`,
+    );
+  }
+
+  if (
+    typeof attrs.src === "string" &&
+    attrs.src
+  ) {
+    el.src = attrs.src;
+  }
+
+  el.alt =
+    typeof attrs.alt === "string"
+      ? attrs.alt
+      : "";
+
+  if (
+    typeof attrs.title === "string" &&
+    attrs.title
+  ) {
+    el.title = attrs.title;
+  } else {
+    el.removeAttribute("title");
+  }
 }
 
-function visualOffsetFromDom(el: HTMLElement): number {
+function visualOffsetFromDom(
+  el: HTMLElement,
+): number {
   const parent = el.parentElement;
+
   if (!parent) return 0;
+
   return Math.max(
     0,
-    Math.round(el.getBoundingClientRect().left - parent.getBoundingClientRect().left)
+    Math.round(
+      el.getBoundingClientRect().left -
+        parent.getBoundingClientRect().left,
+    ),
   );
 }
 
-export function getImageHorizontalOffset(editor: Editor): number {
-  const attrs = editor.getAttributes("image");
-  const align = (attrs.align as QbImageAlign) || "left";
-  const stored = clampImageOffset(Number(attrs.offset) || 0);
+export function getImageHorizontalOffset(
+  editor: Editor,
+): number {
+  const attrs =
+    editor.getAttributes("image");
+
+  const align =
+    (attrs.align as QbImageAlign) || "left";
+
+  const stored = clampImageOffset(
+    Number(attrs.offset) || 0,
+  );
+
   if (align === "custom") return stored;
+
   if (align === "left") return stored;
 
   const { view, state } = editor;
-  const dom = view.nodeDOM(state.selection.from);
+
+  const dom = view.nodeDOM(
+    state.selection.from,
+  );
+
   const img =
     dom instanceof HTMLImageElement
       ? dom
       : dom instanceof HTMLElement
         ? dom.querySelector("img")
         : null;
+
   if (!img) return stored;
+
   return visualOffsetFromDom(img);
 }
 
-export function nudgeSelectedImage(editor: Editor, delta: number): boolean {
-  if (!editor.isActive("image")) return false;
-  const next = nextImageOffset(getImageHorizontalOffset(editor), delta);
-  return editor.chain().updateAttributes("image", { align: "custom", offset: next }).run();
+export function nudgeSelectedImage(
+  editor: Editor,
+  delta: number,
+): boolean {
+  if (!editor.isActive("image")) {
+    return false;
+  }
+
+  const next = nextImageOffset(
+    getImageHorizontalOffset(editor),
+    delta,
+  );
+
+  return editor
+    .chain()
+    .focus()
+    .updateAttributes("image", {
+      align: "custom",
+      offset: next,
+    })
+    .run();
 }
 
+/**
+ * Resize handle
+ */
+function createResizeHandle(
+  position: "left" | "right",
+): HTMLDivElement {
+  const handle =
+    document.createElement("div");
+
+  handle.className =
+    `qb-image-resize-handle qb-image-resize-${position}`;
+
+  handle.setAttribute(
+    "data-resize-handle",
+    position,
+  );
+
+  handle.setAttribute(
+    "aria-hidden",
+    "true",
+  );
+
+  return handle;
+}
+
+/**
+ * Creates the image NodeView.
+ *
+ * Features:
+ * - Drag horizontally
+ * - Resize horizontally
+ * - Preserve aspect ratio
+ * - Save width to ProseMirror attributes
+ * - Existing align/offset behavior
+ */
 function createDraggableImageView({
   node,
   editor,
   getPos,
 }: {
-  node: { attrs: Record<string, unknown>; type: { name: string } };
+  node: {
+    attrs: Record<string, unknown>;
+    type: { name: string };
+  };
+
   editor: Editor;
+
   getPos: () => number | undefined;
 }) {
-  const el = document.createElement("img");
+  /**
+   * Wrapper
+   */
+  const wrapper =
+    document.createElement("div");
+
+  wrapper.className =
+    "qb-image-node-view";
+
+  wrapper.style.position = "relative";
+  wrapper.style.display = "block";
+  wrapper.style.width = "fit-content";
+  wrapper.style.maxWidth = "100%";
+
+  /**
+   * Image
+   */
+  const el =
+    document.createElement("img");
+
   el.draggable = false;
-  applyLayoutToImg(el, node.attrs);
+
+  applyLayoutToImg(
+    el,
+    node.attrs,
+  );
+
+  /**
+   * Resize handles
+   */
+  const leftHandle =
+    createResizeHandle("left");
+
+  const rightHandle =
+    createResizeHandle("right");
+
+  wrapper.appendChild(el);
+  wrapper.appendChild(leftHandle);
+  wrapper.appendChild(rightHandle);
 
   let dragging = false;
+
+  let resizing = false;
+
   let startX = 0;
+
   let startOffset = 0;
+
   let latestOffset = 0;
 
-  const commitOffset = (offset: number) => {
+  let startWidth = 0;
+
+  let latestWidth = 0;
+
+  let resizeDirection:
+    | "left"
+    | "right"
+    | null = null;
+
+  /**
+   * Select image
+   */
+  const selectImage = () => {
     const pos = getPos();
+
     if (pos === undefined) return;
+
     editor
       .chain()
       .focus()
       .setNodeSelection(pos)
-      .updateAttributes("image", { align: "custom", offset })
       .run();
   };
 
-  const onPointerMove = (event: PointerEvent) => {
-    if (!dragging) return;
-    const parentWidth = el.parentElement?.clientWidth ?? MAX_IMAGE_OFFSET;
-    const max = Math.max(0, parentWidth - el.offsetWidth);
-    latestOffset = clampImageOffset(
-      Math.min(max, startOffset + (event.clientX - startX))
-    );
-    el.style.display = "block";
-    el.style.marginLeft = `${latestOffset}px`;
-    el.style.marginRight = "auto";
-    el.setAttribute("data-align", "custom");
-    el.setAttribute("data-offset", String(latestOffset));
-    el.className = `qb-inline-image ${ALIGN_CLASS.custom} qb-img-dragging`;
+  /**
+   * Commit horizontal position
+   */
+  const commitOffset = (
+    offset: number,
+  ) => {
+    const pos = getPos();
+
+    if (pos === undefined) return;
+
+    editor
+      .chain()
+      .focus()
+      .setNodeSelection(pos)
+      .updateAttributes("image", {
+        align: "custom",
+        offset,
+      })
+      .run();
   };
 
-  const onPointerUp = (event: PointerEvent) => {
+  /**
+   * Commit image width
+   */
+  const commitWidth = (
+    width: number,
+  ) => {
+    const pos = getPos();
+
+    if (pos === undefined) return;
+
+    editor
+      .chain()
+      .focus()
+      .setNodeSelection(pos)
+      .updateAttributes("image", {
+        width: clampImageWidth(width),
+      })
+      .run();
+  };
+
+  /**
+   * -------------------------
+   * DRAG
+   * -------------------------
+   */
+  const onPointerMove = (
+    event: PointerEvent,
+  ) => {
     if (!dragging) return;
+
+    // Use the actual editor content width, not the image wrapper width.
+    const editorContent =
+    el.closest(".ProseMirror") ??
+    el.parentElement;
+
+    const parentWidth =
+    editorContent?.clientWidth ??
+    MAX_IMAGE_OFFSET;
+
+    const max = Math.max(
+    0,
+    parentWidth - el.offsetWidth,
+    );
+
+    latestOffset =
+      clampImageOffset(
+        Math.min(
+          max,
+          startOffset +
+            (event.clientX - startX),
+        ),
+      );
+
+    el.style.display = "block";
+
+    el.style.marginLeft =
+      `${latestOffset}px`;
+
+    el.style.marginRight = "auto";
+
+    el.setAttribute(
+      "data-align",
+      "custom",
+    );
+
+    el.setAttribute(
+      "data-offset",
+      String(latestOffset),
+    );
+
+    el.className =
+      `qb-inline-image ${ALIGN_CLASS.custom} qb-img-dragging`;
+  };
+
+  const onPointerUp = (
+    event: PointerEvent,
+  ) => {
+    if (!dragging) return;
+
     dragging = false;
-    el.classList.remove("qb-img-dragging");
-    el.releasePointerCapture(event.pointerId);
-    window.removeEventListener("pointermove", onPointerMove);
-    window.removeEventListener("pointerup", onPointerUp);
-    if (Math.abs(event.clientX - startX) < 4) return;
+
+    el.classList.remove(
+      "qb-img-dragging",
+    );
+
+    try {
+      el.releasePointerCapture(
+        event.pointerId,
+      );
+    } catch {
+      // Pointer capture may already be released.
+    }
+
+    window.removeEventListener(
+      "pointermove",
+      onPointerMove,
+    );
+
+    window.removeEventListener(
+      "pointerup",
+      onPointerUp,
+    );
+
+    if (
+      Math.abs(
+        event.clientX - startX,
+      ) < 4
+    ) {
+      return;
+    }
+
     commitOffset(latestOffset);
   };
 
-  el.addEventListener("pointerdown", (event) => {
-    if (!editor.isEditable || event.button !== 0) return;
+  /**
+   * Image drag start
+   */
+  el.addEventListener(
+    "pointerdown",
+    (event) => {
+      if (
+        !editor.isEditable ||
+        event.button !== 0
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+      event.stopPropagation();
+
+      selectImage();
+
+      dragging = true;
+
+      startX = event.clientX;
+
+      startOffset =
+        getImageHorizontalOffset(
+          editor,
+        );
+
+      latestOffset =
+        startOffset;
+
+      el.setPointerCapture(
+        event.pointerId,
+      );
+
+      window.addEventListener(
+        "pointermove",
+        onPointerMove,
+      );
+
+      window.addEventListener(
+        "pointerup",
+        onPointerUp,
+      );
+    },
+  );
+
+  el.addEventListener(
+    "dragstart",
+    (event) =>
+      event.preventDefault(),
+  );
+
+  /**
+   * -------------------------
+   * RESIZE
+   * -------------------------
+   */
+  const onResizeMove = (
+    event: PointerEvent,
+  ) => {
+    if (
+      !resizing ||
+      !resizeDirection
+    ) {
+      return;
+    }
+
+    const delta =
+      event.clientX - startX;
+
+    let nextWidth =
+      startWidth;
+
+    if (
+      resizeDirection === "right"
+    ) {
+      nextWidth =
+        startWidth + delta;
+    }
+
+    if (
+      resizeDirection === "left"
+    ) {
+      nextWidth =
+        startWidth - delta;
+    }
+
+    latestWidth =
+      clampImageWidth(nextWidth);
+
+    el.style.width =
+      `${latestWidth}px`;
+
+    el.style.maxWidth =
+      "100%";
+
+    el.style.height =
+      "auto";
+
+    el.setAttribute(
+      "data-width",
+      String(latestWidth),
+    );
+
+    wrapper.classList.add(
+      "qb-image-resizing",
+    );
+  };
+
+  const onResizeUp = (
+    event: PointerEvent,
+  ) => {
+    if (!resizing) return;
+
+    resizing = false;
+
+    wrapper.classList.remove(
+      "qb-image-resizing",
+    );
+
+    try {
+      (
+        event.target as HTMLElement
+      ).releasePointerCapture(
+        event.pointerId,
+      );
+    } catch {
+      // Pointer capture may already be released.
+    }
+
+    window.removeEventListener(
+      "pointermove",
+      onResizeMove,
+    );
+
+    window.removeEventListener(
+      "pointerup",
+      onResizeUp,
+    );
+
+    commitWidth(latestWidth);
+
+    resizeDirection = null;
+  };
+
+  const startResize = (
+    event: PointerEvent,
+    direction: "left" | "right",
+  ) => {
+    if (
+      !editor.isEditable ||
+      event.button !== 0
+    ) {
+      return;
+    }
+
     event.preventDefault();
     event.stopPropagation();
-    const pos = getPos();
-    if (pos !== undefined) {
-      editor.chain().focus().setNodeSelection(pos).run();
-    }
-    dragging = true;
+
+    selectImage();
+
+    resizing = true;
+
+    resizeDirection =
+      direction;
+
     startX = event.clientX;
-    startOffset = getImageHorizontalOffset(editor);
-    latestOffset = startOffset;
-    el.setPointerCapture(event.pointerId);
-    window.addEventListener("pointermove", onPointerMove);
-    window.addEventListener("pointerup", onPointerUp);
-  });
 
-  el.addEventListener("dragstart", (event) => event.preventDefault());
+    startWidth =
+      el.getBoundingClientRect()
+        .width;
 
+    latestWidth =
+      startWidth;
+
+    const target =
+      event.currentTarget as HTMLElement;
+
+    target.setPointerCapture(
+      event.pointerId,
+    );
+
+    window.addEventListener(
+      "pointermove",
+      onResizeMove,
+    );
+
+    window.addEventListener(
+      "pointerup",
+      onResizeUp,
+    );
+  };
+
+  leftHandle.addEventListener(
+    "pointerdown",
+    (event) =>
+      startResize(
+        event,
+        "left",
+      ),
+  );
+
+  rightHandle.addEventListener(
+    "pointerdown",
+    (event) =>
+      startResize(
+        event,
+        "right",
+      ),
+  );
+
+  /**
+   * Update NodeView
+   */
   return {
-    dom: el,
-    update: (updatedNode: { type: { name: string }; attrs: Record<string, unknown> }) => {
-      if (updatedNode.type.name !== "image") return false;
-      if (!dragging) applyLayoutToImg(el, updatedNode.attrs);
+    dom: wrapper,
+
+    update: (
+      updatedNode: {
+        type: { name: string };
+        attrs: Record<string, unknown>;
+      },
+    ) => {
+      if (
+        updatedNode.type.name !==
+        "image"
+      ) {
+        return false;
+      }
+
+      if (
+        !dragging &&
+        !resizing
+      ) {
+        applyLayoutToImg(
+          el,
+          updatedNode.attrs,
+        );
+      }
+
       return true;
     },
-    ignoreMutation: () => dragging,
+
+    stopEvent: (
+      event: Event,
+    ) => {
+      const target =
+        event.target as HTMLElement;
+
+      if (
+        target?.closest(
+          "[data-resize-handle]",
+        )
+      ) {
+        return true;
+      }
+
+      if (
+        event.type === "pointerdown" &&
+        target === el
+      ) {
+        return true;
+      }
+
+      return false;
+    },
+
+    ignoreMutation: () =>
+      dragging || resizing,
+
     destroy: () => {
-      window.removeEventListener("pointermove", onPointerMove);
-      window.removeEventListener("pointerup", onPointerUp);
+      window.removeEventListener(
+        "pointermove",
+        onPointerMove,
+      );
+
+      window.removeEventListener(
+        "pointerup",
+        onPointerUp,
+      );
+
+      window.removeEventListener(
+        "pointermove",
+        onResizeMove,
+      );
+
+      window.removeEventListener(
+        "pointerup",
+        onResizeUp,
+      );
     },
   };
 }
 
-/** Block image with snap align plus free horizontal offset. */
-export const QbImage = Image.extend({
-  draggable: false,
+/**
+ * Block image with:
+ * - snap alignment
+ * - horizontal drag
+ * - resize
+ * - persistent width
+ */
+export const QbImage =
+  Image.extend({
+    draggable: false,
 
-  addAttributes() {
-    return {
-      ...this.parent?.(),
-      align: {
-        default: "left" as QbImageAlign,
-        parseHTML: (element) => parseAlignFromElement(element as HTMLElement),
-        renderHTML: (attributes) => {
-          const align = (attributes.align as QbImageAlign) || "left";
-          const offset = clampImageOffset(Number(attributes.offset) || 0);
-          return imageLayoutAttrs(align, offset);
+    addAttributes() {
+      return {
+        ...this.parent?.(),
+
+        align: {
+          default:
+            "left" as QbImageAlign,
+
+          parseHTML: (element) =>
+            parseAlignFromElement(
+              element as HTMLElement,
+            ),
+
+          renderHTML: (attributes) => {
+            const align =
+              (attributes.align as QbImageAlign) ||
+              "left";
+
+            const offset =
+              clampImageOffset(
+                Number(attributes.offset) ||
+                  0,
+              );
+
+            return imageLayoutAttrs(
+              align,
+              offset,
+            );
+          },
         },
-      },
-      offset: {
-        default: 0,
-        parseHTML: (element) => parseOffsetFromElement(element as HTMLElement),
-        renderHTML: () => ({}),
-      },
-    };
-  },
 
-  renderHTML({ HTMLAttributes }) {
-    return [
-      "img",
-      mergeAttributes(this.options.HTMLAttributes, HTMLAttributes, {
-        class: HTMLAttributes.class ?? "qb-inline-image qb-img-align-left",
-      }),
-    ];
-  },
+        offset: {
+          default: 0,
 
-  addNodeView() {
-    if (typeof document === "undefined") return null;
-    return ({ node, editor, getPos }) =>
-      createDraggableImageView({
-        node: node as { attrs: Record<string, unknown>; type: { name: string } },
+          parseHTML: (element) =>
+            parseOffsetFromElement(
+              element as HTMLElement,
+            ),
+
+          renderHTML: () => ({}),
+        },
+
+        /**
+         * Image width.
+         *
+         * This is stored inside the
+         * ProseMirror document so
+         * resized images remain resized
+         * after save/reload.
+         */
+        width: {
+          default: null,
+
+          parseHTML: (element) =>
+            parseWidthFromElement(
+              element as HTMLElement,
+            ),
+
+          renderHTML: (attributes) => {
+            const width =
+              Number(attributes.width);
+
+            if (
+              !Number.isFinite(width) ||
+              width <= 0
+            ) {
+              return {};
+            }
+
+            const safeWidth =
+              clampImageWidth(width);
+
+            return {
+              width: String(
+                safeWidth,
+              ),
+              "data-width":
+                String(safeWidth),
+              style: `width: ${safeWidth}px; max-width: 100%; height: auto;`,
+            };
+          },
+        },
+      };
+    },
+
+    renderHTML({
+      HTMLAttributes,
+    }) {
+      return [
+        "img",
+        mergeAttributes(
+          this.options.HTMLAttributes,
+          HTMLAttributes,
+          {
+            class:
+              HTMLAttributes.class ??
+              "qb-inline-image qb-img-align-left",
+          },
+        ),
+      ];
+    },
+
+    addNodeView() {
+      if (
+        typeof document ===
+        "undefined"
+      ) {
+        return null;
+      }
+
+      return ({
+        node,
         editor,
         getPos,
-      });
-  },
+      }) =>
+        createDraggableImageView({
+          node: node as {
+            attrs: Record<
+              string,
+              unknown
+            >;
+            type: {
+              name: string;
+            };
+          },
 
-  addKeyboardShortcuts() {
-    return {
-      ArrowLeft: () => nudgeSelectedImage(this.editor, -IMAGE_NUDGE_STEP),
-      ArrowRight: () => nudgeSelectedImage(this.editor, IMAGE_NUDGE_STEP),
-    };
-  },
-}).configure({
-  inline: false,
-  allowBase64: false,
-  HTMLAttributes: {
-    class: "qb-inline-image qb-img-align-left",
-  },
-});
+          editor,
 
-export function qbImageAlignClass(align: QbImageAlign): string {
+          getPos,
+        });
+    },
+
+    addKeyboardShortcuts() {
+      return {
+        ArrowLeft: () =>
+          nudgeSelectedImage(
+            this.editor,
+            -IMAGE_NUDGE_STEP,
+          ),
+
+        ArrowRight: () =>
+          nudgeSelectedImage(
+            this.editor,
+            IMAGE_NUDGE_STEP,
+          ),
+      };
+    },
+  }).configure({
+    inline: false,
+
+    allowBase64: false,
+
+    HTMLAttributes: {
+      class:
+        "qb-inline-image qb-img-align-left",
+    },
+  });
+
+export function qbImageAlignClass(
+  align: QbImageAlign,
+): string {
   return ALIGN_CLASS[align];
 }

@@ -609,3 +609,349 @@
   display: block;
   width: 100%;
 }
+
+/* =========================================================
+   TIPTAP IMAGE NODE
+   Drag + Resize + Alignment
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   Image NodeView wrapper
+   --------------------------------------------------------- */
+
+   .rich-text-editor__content .qb-image-node-view {
+    position: relative;
+    display: block;
+    width: fit-content;
+    max-width: 100%;
+    line-height: 0;
+    margin-top: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  /*
+   * Important:
+   * Existing rich-text image rules add margin/max-height.
+   * Keep those styles, but make NodeView wrapper responsible
+   * for positioning and resize UI.
+   */
+  .rich-text-editor__content .qb-image-node-view
+    img.qb-inline-image {
+    display: block;
+    width: auto;
+    max-width: 100%;
+    height: auto;
+  
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  
+    border: 0;
+    border-radius: 0;
+    outline: none;
+    background: transparent;
+    box-shadow: none;
+  
+    object-fit: contain;
+  
+    user-select: none;
+    -webkit-user-drag: none;
+  
+    cursor: grab;
+  
+    touch-action: none;
+  }
+  
+  .rich-text-editor__content
+    .qb-image-node-view
+    img.qb-inline-image:active {
+    cursor: grabbing;
+  }
+  
+  /* ---------------------------------------------------------
+     Image alignment
+     --------------------------------------------------------- */
+  
+  .rich-text-editor__content
+    .qb-image-node-view:has(
+      img.qb-img-align-left
+    ) {
+    margin-left: 0;
+    margin-right: auto;
+  }
+  
+  .rich-text-editor__content
+    .qb-image-node-view:has(
+      img.qb-img-align-center
+    ) {
+    margin-left: auto;
+    margin-right: auto;
+  }
+  
+  .rich-text-editor__content
+    .qb-image-node-view:has(
+      img.qb-img-align-right
+    ) {
+    margin-left: auto;
+    margin-right: 0;
+  }
+  
+  .rich-text-editor__content
+    .qb-image-node-view:has(
+      img.qb-img-align-custom
+    ) {
+    margin-right: auto;
+  }
+  
+  /* ---------------------------------------------------------
+     Selected image
+     --------------------------------------------------------- */
+  
+  /*
+   * Tiptap adds ProseMirror-selectednode to the NodeView.
+   */
+  .rich-text-editor__content
+    .qb-image-node-view.ProseMirror-selectednode {
+    outline: 2px solid
+      color-mix(
+        in oklab,
+        var(--primary) 50%,
+        transparent
+      );
+  
+    outline-offset: 3px;
+    border-radius: 2px;
+  }
+  
+  /*
+   * Fallback for browsers / Tiptap selection where the class
+   * is applied directly to the image.
+   */
+  .rich-text-editor__content
+    img.qb-inline-image.ProseMirror-selectednode {
+    outline: 2px solid
+      color-mix(
+        in oklab,
+        var(--primary) 50%,
+        transparent
+      );
+  
+    outline-offset: 3px;
+  }
+  
+  /* ---------------------------------------------------------
+     Resize handles
+     --------------------------------------------------------- */
+  
+  .rich-text-editor__content
+    .qb-image-resize-handle {
+    position: absolute;
+  
+    top: 50%;
+  
+    width: 10px;
+    height: 44px;
+  
+    transform: translateY(-50%);
+  
+    border-radius: 999px;
+  
+    background: var(--primary);
+  
+    border: 2px solid #ffffff;
+  
+    box-shadow:
+      0 2px 8px rgba(0, 0, 0, 0.22);
+  
+    cursor: ew-resize;
+  
+    opacity: 0;
+  
+    pointer-events: none;
+  
+    z-index: 50;
+  
+    transition:
+      opacity 0.15s ease,
+      transform 0.15s ease,
+      box-shadow 0.15s ease;
+  }
+  
+  /*
+   * Show handles when user hovers the image.
+   */
+  .rich-text-editor__content
+    .qb-image-node-view:hover
+    .qb-image-resize-handle {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  
+  /*
+   * Show handles when the NodeView is selected.
+   */
+  .rich-text-editor__content
+    .qb-image-node-view.ProseMirror-selectednode
+    .qb-image-resize-handle {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  
+  /*
+   * Left handle
+   */
+  .rich-text-editor__content
+    .qb-image-resize-left {
+    left: -6px;
+  }
+  
+  /*
+   * Right handle
+   */
+  .rich-text-editor__content
+    .qb-image-resize-right {
+    right: -6px;
+  }
+  
+  /*
+   * Handle hover
+   */
+  .rich-text-editor__content
+    .qb-image-resize-handle:hover {
+    transform:
+      translateY(-50%)
+      scale(1.08);
+  
+    box-shadow:
+      0 3px 10px rgba(0, 0, 0, 0.28);
+  }
+  
+  /* ---------------------------------------------------------
+     Resize state
+     --------------------------------------------------------- */
+  
+  .rich-text-editor__content
+    .qb-image-node-view.qb-image-resizing {
+    user-select: none;
+  }
+  
+  .rich-text-editor__content
+    .qb-image-node-view.qb-image-resizing
+    img.qb-inline-image {
+    cursor: ew-resize !important;
+  }
+  
+  /*
+   * Hide normal drag cursor while resizing.
+   */
+  .rich-text-editor__content
+    .qb-image-node-view.qb-image-resizing
+    .qb-image-resize-handle {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  
+  /* ---------------------------------------------------------
+     Drag state
+     --------------------------------------------------------- */
+  
+  .rich-text-editor__content
+    img.qb-inline-image.qb-img-dragging {
+    cursor: grabbing !important;
+  
+    opacity: 0.82;
+  
+    transition: none;
+  }
+  
+  /*
+   * Prevent accidental selection while dragging/resizing.
+   */
+  .rich-text-editor__content
+    .qb-image-node-view.qb-image-resizing,
+  .rich-text-editor__content
+    .qb-image-node-view:has(
+      img.qb-img-dragging
+    ) {
+    user-select: none;
+  }
+  
+  /* ---------------------------------------------------------
+     Width / height safety
+     --------------------------------------------------------- */
+  
+  /*
+   * Resized images must never overflow the editor.
+   */
+  .rich-text-editor__content
+    .qb-image-node-view
+    img[data-width] {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  /*
+   * Preserve image ratio.
+   */
+  .rich-text-editor__content
+    .qb-image-node-view
+    img.qb-inline-image {
+    aspect-ratio: auto;
+  }
+  
+  /* ---------------------------------------------------------
+     Mobile / tablet
+     --------------------------------------------------------- */
+  
+  @media (max-width: 768px) {
+    .rich-text-editor__content
+      .qb-image-resize-handle {
+      width: 12px;
+      height: 48px;
+    }
+  
+    .rich-text-editor__content
+      .qb-image-resize-left {
+      left: -6px;
+    }
+  
+    .rich-text-editor__content
+      .qb-image-resize-right {
+      right: -6px;
+    }
+  }
+  
+  /* ---------------------------------------------------------
+     Touch devices
+     --------------------------------------------------------- */
+  
+  @media (hover: none) and (pointer: coarse) {
+    .rich-text-editor__content
+      .qb-image-resize-handle {
+      opacity: 1;
+      pointer-events: auto;
+  
+      width: 12px;
+      height: 48px;
+    }
+  
+    .rich-text-editor__content
+      .qb-image-resize-left {
+      left: -6px;
+    }
+  
+    .rich-text-editor__content
+      .qb-image-resize-right {
+      right: -6px;
+    }
+  }
+  
+  /* ---------------------------------------------------------
+     Reduced motion
+     --------------------------------------------------------- */
+  
+  @media (prefers-reduced-motion: reduce) {
+    .rich-text-editor__content
+      .qb-image-resize-handle {
+      transition: none;
+    }
+  }
