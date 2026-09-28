@@ -4,11 +4,14 @@ import {
   applyBlockFrameLayout,
   BLOCK_INDENT_STEP,
   BLOCK_NUDGE_STEP,
+  clampOffsetRatio,
   createBlockMover,
   getSelectedBlockOffset,
   leftWithin,
   MAX_BLOCK_OFFSET,
   nudgeSelectedBlock,
+  offsetToRatio,
+  parseOffsetRatioFromElement,
   type BlockAlign,
   type BlockSnapAlign,
 } from "@/lib/tiptap-block-move";
@@ -177,6 +180,7 @@ function parseAlignFromElement(
 function imageLayoutAttrs(
   align: QbImageAlign,
   offset: number,
+  ratio: number | null,
 ): Record<string, string> {
   if (align === "custom") {
     const px = clampImageOffset(offset);
@@ -185,6 +189,7 @@ function imageLayoutAttrs(
       class: `qb-inline-image ${ALIGN_CLASS.custom}`,
       "data-align": "custom",
       "data-offset": String(px),
+      ...(ratio !== null ? { "data-offset-ratio": String(ratio) } : {}),
       style: `
         display: block;
         margin-left: ${px}px;
@@ -222,8 +227,9 @@ function readLayout(attrs: Record<string, unknown>) {
   const offset = clampImageOffset(Number(attrs.offset) || 0);
   const width =
     Number(attrs.width) > 0 ? clampImageWidth(Number(attrs.width)) : null;
+  const ratio = clampOffsetRatio(attrs.offsetRatio);
 
-  return { align, offset, width };
+  return { align, offset, width, ratio };
 }
 
 /**
@@ -235,9 +241,9 @@ function applyLayoutToFrame(
   img: HTMLImageElement,
   attrs: Record<string, unknown>,
 ) {
-  const { align, offset, width } = readLayout(attrs);
+  const { align, offset, width, ratio } = readLayout(attrs);
 
-  applyBlockFrameLayout(frame, align, offset, width);
+  applyBlockFrameLayout(frame, align, offset, width, ratio);
 
   img.className = "qb-inline-image";
 
@@ -497,16 +503,19 @@ function createDraggableImageView({
     }
 
     const attrs: Record<string, unknown> = { width: clampImageWidth(nextWidth) };
+    const freeSpace = containerWidth - frame.offsetWidth;
 
     if (resizeAnchor === "right" && align !== "right") {
       const offset = clampImageOffset(startLeft + startWidth - nextWidth);
       attrs.align = offset === 0 ? "left" : "custom";
       attrs.offset = offset;
+      attrs.offsetRatio = offset === 0 ? null : offsetToRatio(offset, freeSpace);
     }
 
     if (resizeAnchor === "left" && align !== "left") {
       attrs.align = startLeft === 0 ? "left" : "custom";
       attrs.offset = clampImageOffset(startLeft);
+      attrs.offsetRatio = startLeft === 0 ? null : offsetToRatio(startLeft, freeSpace);
     }
 
     resizeHandle = null;
@@ -546,6 +555,11 @@ function createDraggableImageView({
       resizeAnchor = "center";
     } else {
       resizeAnchor = fromLeft ? "right" : "left";
+    }
+
+    // Live resizing adjusts px margins, so pin a ratio-positioned frame in px first.
+    if (align === "custom") {
+      applyBlockFrameLayout(frame, "custom", startLeft);
     }
 
     wrapper.classList.add("qb-image-resizing");
@@ -595,8 +609,12 @@ function createDraggableImageView({
       const attrs: Record<string, unknown> = { width };
 
       if (getAlign() === "custom") {
-        const offset = clampImageOffset(Number(currentAttrs.offset) || 0);
-        attrs.offset = Math.max(0, Math.min(offset, available - width));
+        const freeSpace = Math.max(0, available - width);
+        const ratio =
+          clampOffsetRatio(currentAttrs.offsetRatio) ??
+          offsetToRatio(leftWithin(wrapper, frame), wrapper.clientWidth - frame.offsetWidth);
+        attrs.offset = clampImageOffset(ratio * freeSpace);
+        attrs.offsetRatio = ratio;
       }
 
       updateAttrs(attrs);
@@ -693,6 +711,7 @@ export const QbImage =
             return imageLayoutAttrs(
               align,
               offset,
+              clampOffsetRatio(attributes.offsetRatio),
             );
           },
         },
@@ -704,6 +723,16 @@ export const QbImage =
             parseOffsetFromElement(
               element as HTMLElement,
             ),
+
+          renderHTML: () => ({}),
+        },
+
+        /** Width-independent position used by the editor and the student view. */
+        offsetRatio: {
+          default: null,
+
+          parseHTML: (element) =>
+            parseOffsetRatioFromElement(element as HTMLElement),
 
           renderHTML: () => ({}),
         },

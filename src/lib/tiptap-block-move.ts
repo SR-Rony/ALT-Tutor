@@ -25,6 +25,27 @@ export function parseBlockAlign(value: unknown, fallback: BlockAlign): BlockAlig
     : fallback;
 }
 
+/**
+ * Horizontal position as a share of the free space beside the block:
+ * 0 = flush left, 0.5 = centered, 1 = flush right. Unlike a px offset this
+ * reproduces the same placement at every container width.
+ */
+export function clampOffsetRatio(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const n = typeof value === "number" ? value : Number.parseFloat(String(value));
+  if (!Number.isFinite(n)) return null;
+  return Math.round(Math.max(0, Math.min(1, n)) * 10000) / 10000;
+}
+
+export function offsetToRatio(offset: number, freeSpace: number): number {
+  if (!Number.isFinite(freeSpace) || freeSpace <= 0) return 0;
+  return clampOffsetRatio(offset / freeSpace) ?? 0;
+}
+
+export function parseOffsetRatioFromElement(element: HTMLElement): number | null {
+  return clampOffsetRatio(element.getAttribute("data-offset-ratio"));
+}
+
 export function leftWithin(container: HTMLElement, el: HTMLElement): number {
   return Math.max(
     0,
@@ -48,18 +69,29 @@ function findScrollParent(el: HTMLElement | null): HTMLElement | null {
 
 /**
  * Positions a movable block's frame inside its full-width wrapper.
- * `width` (when known) keeps custom offsets inside narrower editors.
+ * A saved `ratio` wins over the px `offset`; `width` (when known) keeps legacy
+ * px offsets inside narrower editors.
  */
 export function applyBlockFrameLayout(
   frame: HTMLElement,
   align: BlockAlign,
   offset: number,
   width: number | null = null,
+  ratio: number | null = null,
 ) {
   frame.dataset.align = align;
   frame.style.transform = "";
+  frame.style.left = "";
+  frame.style.translate = "";
 
-  if (align === "center") {
+  if (align === "custom" && ratio !== null) {
+    // `left` resolves against the wrapper, `translate` against the frame: r × (free space).
+    const percent = ratio * 100;
+    frame.style.marginLeft = "0px";
+    frame.style.marginRight = "auto";
+    frame.style.left = `${percent}%`;
+    frame.style.translate = `${-percent}% 0`;
+  } else if (align === "center") {
     frame.style.marginLeft = "auto";
     frame.style.marginRight = "auto";
   } else if (align === "right") {
@@ -78,29 +110,36 @@ export function applyBlockFrameLayout(
 }
 
 /** Visual left offset of the selected movable block (works for centered/right blocks too). */
+function getSelectedBlockDom(editor: Editor) {
+  const dom = editor.view.nodeDOM(editor.state.selection.from);
+  if (!(dom instanceof HTMLElement)) return null;
+  const frame = dom.querySelector<HTMLElement>("[data-block-frame]");
+  return frame ? { wrapper: dom, frame } : null;
+}
+
 export function getSelectedBlockOffset(editor: Editor, nodeName: string): number {
   const attrs = editor.getAttributes(nodeName);
-  const align = parseBlockAlign(attrs.align, "left");
   const stored = clampBlockOffset(Number(attrs.offset) || 0);
-
-  if (align === "custom" || align === "left") return stored;
-
-  const dom = editor.view.nodeDOM(editor.state.selection.from);
-  if (!(dom instanceof HTMLElement)) return stored;
-
-  const frame = dom.querySelector<HTMLElement>("[data-block-frame]");
-  return frame ? leftWithin(dom, frame) : stored;
+  const dom = getSelectedBlockDom(editor);
+  return dom ? leftWithin(dom.wrapper, dom.frame) : stored;
 }
 
 export function nudgeSelectedBlock(editor: Editor, nodeName: string, delta: number): boolean {
   if (!editor.isActive(nodeName)) return false;
 
-  const next = clampBlockOffset(getSelectedBlockOffset(editor, nodeName) + delta);
+  const dom = getSelectedBlockDom(editor);
+  const freeSpace = dom ? Math.max(0, dom.wrapper.clientWidth - dom.frame.offsetWidth) : MAX_BLOCK_OFFSET;
+  const current = getSelectedBlockOffset(editor, nodeName);
+  const next = clampBlockOffset(Math.min(freeSpace, current + delta));
 
   return editor
     .chain()
     .focus()
-    .updateAttributes(nodeName, { align: "custom", offset: next })
+    .updateAttributes(nodeName, {
+      align: "custom",
+      offset: next,
+      offsetRatio: offsetToRatio(next, freeSpace),
+    })
     .run();
 }
 
@@ -273,12 +312,16 @@ export function createBlockMover({ editor, getPos, wrapper, frame, nodeName }: B
     const pos = getPos();
     if (pos === undefined) return;
 
-    let layout: { align: BlockAlign; offset: number } | null = null;
+    let layout: { align: BlockAlign; offset: number; offsetRatio: number | null } | null = null;
 
     if (Math.abs(lastX - startX) >= HORIZONTAL_INTENT_THRESHOLD) {
       layout = snapped
-        ? { align: snapped, offset: 0 }
-        : { align: "custom", offset: clampBlockOffset(nextLeft) };
+        ? { align: snapped, offset: 0, offsetRatio: null }
+        : {
+            align: "custom",
+            offset: clampBlockOffset(nextLeft),
+            offsetRatio: offsetToRatio(nextLeft, maxLeft),
+          };
     }
 
     const target = dropPos;

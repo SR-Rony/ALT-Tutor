@@ -430,6 +430,20 @@ export function downloadQuestionPaperPdf({
       text-align: right;
     }
 
+    .rich-text-content .qb-math-display[data-offset-ratio] > * {
+      grid-column: 2;
+    }
+
+    .rich-text-content .qb-has-push-right {
+      display: flow-root;
+    }
+
+    .rich-text-content .qb-push-right {
+      float: right;
+      margin-left: 1rem;
+      white-space: nowrap;
+    }
+
     .mcq-options {
       margin: 0.75rem 0 0;
       padding: 0;

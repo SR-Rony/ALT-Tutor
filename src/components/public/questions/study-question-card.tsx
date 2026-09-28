@@ -155,8 +155,8 @@ export function StudyQuestionCard({
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_10rem]">
-        <article className="rounded-2xl border border-border bg-card p-4 shadow-[0_8px_28px_-16px_rgba(24,119,242,0.2)] sm:p-5">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[minmax(0,1fr)_10rem]">
+        <article className="min-w-0 rounded-2xl border border-border bg-card p-4 shadow-[0_8px_28px_-16px_rgba(24,119,242,0.2)] sm:p-5">
           <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
             <div className="flex flex-wrap items-center gap-2">
               {question.calculatorAllowed === true ? (
@@ -187,7 +187,7 @@ export function StudyQuestionCard({
                 </span>
               ) : null}
             </div>
-            <Expand className="h-4 w-4 text-muted-foreground" />
+            <Expand className="ml-auto h-4 w-4 shrink-0 text-muted-foreground" />
           </div>
 
           {!isMcq && maxMarks != null && maxMarks > 0 ? (
@@ -296,7 +296,7 @@ export function StudyQuestionCard({
           {footer ? <div className="mt-4">{footer}</div> : null}
         </article>
 
-        <aside className="flex flex-row flex-wrap gap-2 lg:flex-col lg:flex-nowrap">
+        <aside className="flex min-w-0 flex-row flex-wrap gap-2 lg:flex-col lg:flex-nowrap">
           <div className="flex gap-2 lg:justify-end">
             <button
               type="button"

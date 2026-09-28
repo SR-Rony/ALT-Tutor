@@ -334,9 +334,16 @@
   box-sizing: border-box;
 }
 
-.rich-text-editor__content {
-  /* Comfortable writing surface; matches student card line length better */
-  line-height: 1.65;
+/* Deep indents shrink on phones (inline indent styles multiply by this) */
+.rich-text-content {
+  --qb-indent-scale: 1;
+  min-width: 0;
+}
+
+@media (max-width: 639px) {
+  .rich-text-content {
+    --qb-indent-scale: 0.5;
+  }
 }
 
 .rich-text-editor__content p.is-editor-empty:first-child::before {
@@ -414,8 +421,20 @@
   @apply text-primary underline underline-offset-2;
 }
 
+.rich-text-editor__content strong,
 .rich-text-content strong {
   @apply font-semibold;
+}
+
+/* Reference / mark tags the author pushed to the right edge with spaces */
+.rich-text-content:not(.rich-text-content--inline) .qb-has-push-right {
+  display: flow-root;
+}
+
+.rich-text-content:not(.rich-text-content--inline) .qb-push-right {
+  float: right;
+  margin-left: 1rem;
+  white-space: nowrap;
 }
 
 /* Same image look in admin editor and student view — no frame around diagrams */
@@ -533,6 +552,11 @@
 
 .rich-text-content .qb-math-display[data-align="right"] {
   text-align: right;
+}
+
+/* Freely positioned equation: middle grid column between the ratio-sized gutters */
+.rich-text-content .qb-math-display[data-offset-ratio] > * {
+  grid-column: 2;
 }
 
 .rich-text-editor__content .qb-math-display .katex,

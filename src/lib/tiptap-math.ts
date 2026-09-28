@@ -5,9 +5,11 @@ import {
   applyBlockFrameLayout,
   BLOCK_NUDGE_STEP,
   clampBlockOffset,
+  clampOffsetRatio,
   createBlockMover,
   nudgeSelectedBlock,
   parseBlockAlign,
+  parseOffsetRatioFromElement,
   type BlockAlign,
 } from "@/lib/tiptap-block-move";
 
@@ -139,6 +141,7 @@ function readMathLayout(attrs: Record<string, unknown>) {
   return {
     align: parseBlockAlign(attrs.align, "center"),
     offset: clampBlockOffset(Number(attrs.offset) || 0),
+    ratio: clampOffsetRatio(attrs.offsetRatio),
   };
 }
 
@@ -168,8 +171,8 @@ function createDisplayMathView({ node, editor, getPos }: MathNodeViewProps) {
   paintKatex(math, latex, true);
 
   const applyLayout = (attrs: Record<string, unknown>) => {
-    const { align, offset } = readMathLayout(attrs);
-    applyBlockFrameLayout(frame, align, offset);
+    const { align, offset, ratio } = readMathLayout(attrs);
+    applyBlockFrameLayout(frame, align, offset, null, ratio);
   };
   applyLayout(node.attrs);
 
@@ -300,12 +303,13 @@ export const MathDisplay = Node.create({
           return textAlign === "left" || textAlign === "right" ? textAlign : "center";
         },
         renderHTML: (attributes) => {
-          const { align, offset } = readMathLayout(attributes);
+          const { align, offset, ratio } = readMathLayout(attributes);
           if (align === "center") return {};
           if (align === "custom") {
             return {
               "data-align": "custom",
               "data-offset": String(offset),
+              ...(ratio !== null ? { "data-offset-ratio": String(ratio) } : {}),
               style: "text-align: left",
             };
           }
@@ -316,6 +320,11 @@ export const MathDisplay = Node.create({
         default: 0,
         parseHTML: (element) =>
           clampBlockOffset(Number.parseFloat((element as HTMLElement).getAttribute("data-offset") ?? "")),
+        renderHTML: () => ({}),
+      },
+      offsetRatio: {
+        default: null,
+        parseHTML: (element) => parseOffsetRatioFromElement(element as HTMLElement),
         renderHTML: () => ({}),
       },
     };
