@@ -55,6 +55,12 @@ type RichTextEditorProps = {
   disabled?: boolean;
   id?: string;
   minHeight?: string;
+  /**
+   * Grow with the content instead of scrolling inside a capped box; the toolbar
+   * stays pinned while the surrounding page / dialog scrolls. Set
+   * `--rte-sticky-top` on an ancestor to offset it (e.g. negative scroller padding).
+   */
+  fullHeight?: boolean;
   className?: string;
   /** Folder used when uploading inline images. */
   uploadFolder?: "questionbank" | "lessons" | "courses" | "assignments" | "blogs" | "avatars";
@@ -148,6 +154,7 @@ export function RichTextEditor({
   disabled = false,
   id,
   minHeight = "160px",
+  fullHeight = false,
   className,
   uploadFolder = "questionbank",
 }: RichTextEditorProps) {
@@ -268,12 +275,21 @@ export function RichTextEditor({
     <>
     <div
       className={cn(
-        "overflow-hidden rounded-xl border border-border bg-card transition focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/15",
+        // overflow-clip (not hidden) keeps the rounded corners without breaking the sticky toolbar
+        fullHeight ? "overflow-clip" : "overflow-hidden",
+        "rounded-xl border border-border bg-card transition focus-within:border-primary/40 focus-within:ring-2 focus-within:ring-primary/15",
         disabled && "opacity-60",
         className
       )}
     >
-      <div className="flex flex-wrap items-center gap-0.5 border-b border-border bg-muted/40 px-2 py-1.5">
+      <div
+        className={cn(
+          "flex flex-wrap items-center gap-0.5 border-b border-border px-2 py-1.5",
+          fullHeight
+            ? "sticky top-[var(--rte-sticky-top,0px)] z-[60] bg-[color-mix(in_oklab,var(--muted)_40%,var(--card))]"
+            : "bg-muted/40"
+        )}
+      >
         <ToolbarButton
           label="Bold"
           disabled={disabled}
@@ -440,7 +456,12 @@ export function RichTextEditor({
           <span className="ml-2 text-xs text-muted-foreground">Uploading…</span>
         ) : null}
       </div>
-      <div className="max-h-[min(52vh,28rem)] overflow-y-auto px-4 py-3">
+      <div
+        className={cn(
+          "px-3 py-3 sm:px-4",
+          !fullHeight && "max-h-[min(52vh,28rem)] overflow-y-auto"
+        )}
+      >
         <EditorContent editor={editor} />
       </div>
       <input

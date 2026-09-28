@@ -820,25 +820,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
         ) : null}
 
         {modal?.kind === "question" ? (
-          <div className="space-y-4">
-            <div
-              className={cn(
-                "rounded-xl border px-4 py-3",
-                questionKind === "MCQ"
-                  ? "border-primary/25 bg-primary-muted/40"
-                  : "border-[#d4a017]/40 bg-[#fff8ef]"
-              )}
-            >
-              <p className="text-sm font-bold text-foreground">
-                {questionKind === "MCQ" ? "MCQ question" : "Written question"}
-              </p>
-              <p className="mt-1 text-xs text-muted-foreground">
-                {questionKind === "MCQ"
-                  ? "Paper 1 only — written questions go on Paper 2 or Paper 3."
-                  : "Paper 2 / Paper 3 only — MCQ questions go on Paper 1."}
-              </p>
-            </div>
-
+          <div className="space-y-4 [--rte-sticky-top:-1rem]">
             <div className="block space-y-1.5">
               <span className="text-sm font-semibold">Prompt</span>
               <RichTextEditor
@@ -846,6 +828,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 onChange={setPrompt}
                 placeholder="Question stem — text, math, and diagrams…"
                 minHeight={questionKind === "WRITTEN" ? "280px" : "180px"}
+                fullHeight
                 disabled={busy}
               />
             </div>
@@ -858,6 +841,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                   onChange={setBodyText}
                   placeholder="(a) … [2]  (b) … [3]"
                   minHeight="300px"
+                  fullHeight
                   disabled={busy}
                 />
               </div>
