@@ -150,6 +150,26 @@ function applyImageAlign(img: Element, align: "left" | "center" | "right") {
   img.removeAttribute("style");
 }
 
+const MIN_IMAGE_WIDTH = 80;
+const MAX_IMAGE_WIDTH = 1200;
+
+function parseImageWidth(img: Element): number | null {
+  const raw = img.getAttribute("data-width") ?? img.getAttribute("width");
+  const n = Number.parseFloat(raw ?? "");
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.max(MIN_IMAGE_WIDTH, Math.min(MAX_IMAGE_WIDTH, Math.round(n)));
+}
+
+/** Re-append the resized width after alignment rewrote the style attribute. */
+function applyImageWidth(img: Element, width: number | null) {
+  if (width == null) return;
+  img.setAttribute("data-width", String(width));
+  img.setAttribute("width", String(width));
+  const base = (img.getAttribute("style") ?? "").trim().replace(/;?\s*$/, "");
+  const widthStyle = `width: ${width}px; max-width: 100%; height: auto;`;
+  img.setAttribute("style", base ? `${base}; ${widthStyle}` : widthStyle);
+}
+
 function applyParagraphIndent(el: Element) {
   const dataIndent = el.getAttribute("data-indent");
   let level = Number.parseInt(dataIndent ?? "", 10);
@@ -204,45 +224,50 @@ export function normalizeRichHtmlLayout(html: string): string {
     });
 
     doc.querySelectorAll("img").forEach((img) => {
-      const dataAlign = img.getAttribute("data-align");
-      if (
-        dataAlign === "custom" ||
-        img.classList.contains("qb-img-align-custom") ||
-        parseImageOffset(img) > 0
-      ) {
-        applyImageCustom(img, parseImageOffset(img));
-        return;
-      }
-      if (dataAlign === "left" || dataAlign === "center" || dataAlign === "right") {
-        applyImageAlign(img, dataAlign);
-        return;
-      }
-      if (img.classList.contains("qb-img-align-center")) {
-        applyImageAlign(img, "center");
-        return;
-      }
-      if (img.classList.contains("qb-img-align-right")) {
-        applyImageAlign(img, "right");
-        return;
-      }
-      if (img.classList.contains("qb-img-align-left")) {
-        applyImageAlign(img, "left");
-        return;
-      }
-
-      const parent = img.parentElement;
-      if (!parent) return;
-      const parentStyle = parent.getAttribute("style") ?? "";
-      const parentAlign =
-        parent.getAttribute("data-text-align") ??
-        parentStyle.match(/text-align\s*:\s*(left|center|right)/i)?.[1]?.toLowerCase();
-      if (parentAlign === "center" || parentAlign === "right" || parentAlign === "left") {
-        applyImageAlign(img, parentAlign);
-      }
+      applyImageLayout(img);
+      applyImageWidth(img, parseImageWidth(img));
     });
     return doc.body.innerHTML;
   } catch {
     return html;
+  }
+}
+
+function applyImageLayout(img: Element) {
+  const dataAlign = img.getAttribute("data-align");
+  if (
+    dataAlign === "custom" ||
+    img.classList.contains("qb-img-align-custom") ||
+    parseImageOffset(img) > 0
+  ) {
+    applyImageCustom(img, parseImageOffset(img));
+    return;
+  }
+  if (dataAlign === "left" || dataAlign === "center" || dataAlign === "right") {
+    applyImageAlign(img, dataAlign);
+    return;
+  }
+  if (img.classList.contains("qb-img-align-center")) {
+    applyImageAlign(img, "center");
+    return;
+  }
+  if (img.classList.contains("qb-img-align-right")) {
+    applyImageAlign(img, "right");
+    return;
+  }
+  if (img.classList.contains("qb-img-align-left")) {
+    applyImageAlign(img, "left");
+    return;
+  }
+
+  const parent = img.parentElement;
+  if (!parent) return;
+  const parentStyle = parent.getAttribute("style") ?? "";
+  const parentAlign =
+    parent.getAttribute("data-text-align") ??
+    parentStyle.match(/text-align\s*:\s*(left|center|right)/i)?.[1]?.toLowerCase();
+  if (parentAlign === "center" || parentAlign === "right" || parentAlign === "left") {
+    applyImageAlign(img, parentAlign);
   }
 }
 
@@ -261,6 +286,7 @@ export function sanitizeRichHtml(html: string): string {
       "data-display",
       "data-align",
       "data-offset",
+      "data-width",
       "data-text-align",
       "data-indent",
       "data-font-size",

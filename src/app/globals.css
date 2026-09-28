@@ -610,348 +610,261 @@
   width: 100%;
 }
 
+/* Resized images keep their exact width — never letterbox them with max-height */
+.rich-text-editor__content img[data-width],
+.rich-text-content img[data-width] {
+  max-height: none;
+  height: auto;
+}
+
 /* =========================================================
-   TIPTAP IMAGE NODE
-   Drag + Resize + Alignment
+   TIPTAP IMAGE NODE — drag to move, handles to resize
    ========================================================= */
 
-/* ---------------------------------------------------------
-   Image NodeView wrapper
-   --------------------------------------------------------- */
+.rich-text-editor__content .qb-image-node-view {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 0.75rem 0;
+  line-height: 0;
+  outline: none !important;
+}
 
-   .rich-text-editor__content .qb-image-node-view {
-    position: relative;
-    display: block;
-    width: fit-content;
-    max-width: 100%;
-    line-height: 0;
-    margin-top: 0.75rem;
-    margin-bottom: 0.75rem;
-  }
-  
-  /*
-   * Important:
-   * Existing rich-text image rules add margin/max-height.
-   * Keep those styles, but make NodeView wrapper responsible
-   * for positioning and resize UI.
-   */
-  .rich-text-editor__content .qb-image-node-view
-    img.qb-inline-image {
-    display: block;
-    width: auto;
-    max-width: 100%;
-    height: auto;
-  
-    margin-top: 0 !important;
-    margin-bottom: 0 !important;
-  
-    border: 0;
-    border-radius: 0;
-    outline: none;
-    background: transparent;
-    box-shadow: none;
-  
-    object-fit: contain;
-  
-    user-select: none;
-    -webkit-user-drag: none;
-  
-    cursor: grab;
-  
-    touch-action: none;
-  }
-  
-  .rich-text-editor__content
-    .qb-image-node-view
-    img.qb-inline-image:active {
-    cursor: grabbing;
-  }
-  
-  /* ---------------------------------------------------------
-     Image alignment
-     --------------------------------------------------------- */
-  
-  .rich-text-editor__content
-    .qb-image-node-view:has(
-      img.qb-img-align-left
-    ) {
-    margin-left: 0;
-    margin-right: auto;
-  }
-  
-  .rich-text-editor__content
-    .qb-image-node-view:has(
-      img.qb-img-align-center
-    ) {
-    margin-left: auto;
-    margin-right: auto;
-  }
-  
-  .rich-text-editor__content
-    .qb-image-node-view:has(
-      img.qb-img-align-right
-    ) {
-    margin-left: auto;
-    margin-right: 0;
-  }
-  
-  .rich-text-editor__content
-    .qb-image-node-view:has(
-      img.qb-img-align-custom
-    ) {
-    margin-right: auto;
-  }
-  
-  /* ---------------------------------------------------------
-     Selected image
-     --------------------------------------------------------- */
-  
-  /*
-   * Tiptap adds ProseMirror-selectednode to the NodeView.
-   */
-  .rich-text-editor__content
-    .qb-image-node-view.ProseMirror-selectednode {
-    outline: 2px solid
-      color-mix(
-        in oklab,
-        var(--primary) 50%,
-        transparent
-      );
-  
-    outline-offset: 3px;
-    border-radius: 2px;
-  }
-  
-  /*
-   * Fallback for browsers / Tiptap selection where the class
-   * is applied directly to the image.
-   */
-  .rich-text-editor__content
-    img.qb-inline-image.ProseMirror-selectednode {
-    outline: 2px solid
-      color-mix(
-        in oklab,
-        var(--primary) 50%,
-        transparent
-      );
-  
-    outline-offset: 3px;
-  }
-  
-  /* ---------------------------------------------------------
-     Resize handles
-     --------------------------------------------------------- */
-  
-  .rich-text-editor__content
-    .qb-image-resize-handle {
-    position: absolute;
-  
-    top: 50%;
-  
-    width: 10px;
-    height: 44px;
-  
-    transform: translateY(-50%);
-  
-    border-radius: 999px;
-  
-    background: var(--primary);
-  
-    border: 2px solid #ffffff;
-  
-    box-shadow:
-      0 2px 8px rgba(0, 0, 0, 0.22);
-  
-    cursor: ew-resize;
-  
-    opacity: 0;
-  
-    pointer-events: none;
-  
-    z-index: 50;
-  
-    transition:
-      opacity 0.15s ease,
-      transform 0.15s ease,
-      box-shadow 0.15s ease;
-  }
-  
-  /*
-   * Show handles when user hovers the image.
-   */
-  .rich-text-editor__content
-    .qb-image-node-view:hover
-    .qb-image-resize-handle {
+/* The frame hugs the image; alignment/offset margins live here */
+.rich-text-editor__content .qb-image-frame {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 4px;
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+  transition: outline-color 0.15s ease, box-shadow 0.15s ease;
+  will-change: transform;
+}
+
+.rich-text-editor__content .qb-image-node-view img.qb-inline-image {
+  display: block;
+  width: auto;
+  max-width: 100%;
+  height: auto;
+  margin: 0 !important;
+  border: 0;
+  border-radius: 0;
+  outline: none;
+  background: transparent;
+  box-shadow: none;
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+  cursor: grab;
+  touch-action: none;
+}
+
+.rich-text-editor__content .qb-image-node-view:hover .qb-image-frame {
+  outline-color: color-mix(in oklab, var(--primary) 30%, transparent);
+}
+
+.rich-text-editor__content .qb-image-node-view.ProseMirror-selectednode .qb-image-frame {
+  outline-color: color-mix(in oklab, var(--primary) 70%, transparent);
+}
+
+/* Dragging */
+.rich-text-editor__content .qb-image-node-view.qb-image-dragging {
+  z-index: 40;
+}
+
+.rich-text-editor__content .qb-image-node-view.qb-image-dragging .qb-image-frame {
+  outline-color: var(--primary);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
+  opacity: 0.9;
+  transition: none;
+}
+
+.rich-text-editor__content .qb-image-node-view.qb-image-dragging img.qb-inline-image {
+  cursor: grabbing;
+}
+
+.rich-text-editor__content .qb-image-node-view.qb-image-snap-center::after {
+  content: "";
+  position: absolute;
+  top: -0.5rem;
+  bottom: -0.5rem;
+  left: 50%;
+  width: 0;
+  border-left: 2px dashed var(--primary);
+  pointer-events: none;
+  z-index: 41;
+}
+
+.qb-image-drop-indicator {
+  position: fixed;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in oklab, var(--primary) 25%, transparent);
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Resize handles */
+.rich-text-editor__content .qb-image-resize-handle {
+  position: absolute;
+  z-index: 50;
+  box-sizing: border-box;
+  background: #ffffff;
+  border: 2px solid var(--primary);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  touch-action: none;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* Bigger invisible hit area so handles are easy to grab */
+.rich-text-editor__content .qb-image-resize-handle::before {
+  content: "";
+  position: absolute;
+  inset: -8px;
+}
+
+.rich-text-editor__content .qb-image-resize-nw,
+.rich-text-editor__content .qb-image-resize-ne,
+.rich-text-editor__content .qb-image-resize-sw,
+.rich-text-editor__content .qb-image-resize-se {
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+}
+
+.rich-text-editor__content .qb-image-resize-nw { top: -7px; left: -7px; cursor: nwse-resize; }
+.rich-text-editor__content .qb-image-resize-se { bottom: -7px; right: -7px; cursor: nwse-resize; }
+.rich-text-editor__content .qb-image-resize-ne { top: -7px; right: -7px; cursor: nesw-resize; }
+.rich-text-editor__content .qb-image-resize-sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
+
+.rich-text-editor__content .qb-image-resize-w,
+.rich-text-editor__content .qb-image-resize-e {
+  top: 50%;
+  width: 8px;
+  height: 36px;
+  max-height: calc(100% - 28px);
+  min-height: 16px;
+  border-radius: 999px;
+  cursor: ew-resize;
+  transform: translateY(-50%);
+}
+
+.rich-text-editor__content .qb-image-resize-w { left: -5px; }
+.rich-text-editor__content .qb-image-resize-e { right: -5px; }
+
+.rich-text-editor__content .qb-image-node-view:hover .qb-image-resize-handle,
+.rich-text-editor__content .qb-image-node-view.ProseMirror-selectednode .qb-image-resize-handle,
+.rich-text-editor__content .qb-image-node-view.qb-image-resizing .qb-image-resize-handle {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.rich-text-editor__content .qb-image-node-view.qb-image-dragging .qb-image-resize-handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.rich-text-editor__content .qb-image-resize-handle:hover {
+  background: var(--primary);
+}
+
+.rich-text-editor__content .qb-image-node-view.qb-image-resizing,
+.rich-text-editor__content .qb-image-node-view.qb-image-dragging {
+  user-select: none;
+}
+
+.rich-text-editor__content .qb-image-node-view.qb-image-resizing .qb-image-frame {
+  outline-color: var(--primary);
+  transition: none;
+}
+
+/* Live size readout while resizing */
+.rich-text-editor__content .qb-image-size-badge {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  z-index: 51;
+  display: none;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.rich-text-editor__content .qb-image-node-view.qb-image-resizing .qb-image-size-badge {
+  display: block;
+}
+
+/* Quick size presets on the selected image */
+.rich-text-editor__content .qb-image-toolbar {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  z-index: 52;
+  display: none;
+  gap: 2px;
+  transform: translateX(-50%);
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.85);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.rich-text-editor__content .qb-image-toolbar button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.rich-text-editor__content .qb-image-toolbar button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.rich-text-editor__content .qb-image-node-view.ProseMirror-selectednode .qb-image-toolbar {
+  display: flex;
+}
+
+.rich-text-editor__content .qb-image-node-view.qb-image-dragging .qb-image-toolbar,
+.rich-text-editor__content .qb-image-node-view.qb-image-resizing .qb-image-toolbar {
+  display: none;
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .rich-text-editor__content .qb-image-node-view.ProseMirror-selectednode .qb-image-resize-handle {
     opacity: 1;
     pointer-events: auto;
   }
-  
-  /*
-   * Show handles when the NodeView is selected.
-   */
-  .rich-text-editor__content
-    .qb-image-node-view.ProseMirror-selectednode
-    .qb-image-resize-handle {
-    opacity: 1;
-    pointer-events: auto;
+
+  .rich-text-editor__content .qb-image-resize-nw,
+  .rich-text-editor__content .qb-image-resize-ne,
+  .rich-text-editor__content .qb-image-resize-sw,
+  .rich-text-editor__content .qb-image-resize-se {
+    width: 18px;
+    height: 18px;
   }
-  
-  /*
-   * Left handle
-   */
-  .rich-text-editor__content
-    .qb-image-resize-left {
-    left: -6px;
-  }
-  
-  /*
-   * Right handle
-   */
-  .rich-text-editor__content
-    .qb-image-resize-right {
-    right: -6px;
-  }
-  
-  /*
-   * Handle hover
-   */
-  .rich-text-editor__content
-    .qb-image-resize-handle:hover {
-    transform:
-      translateY(-50%)
-      scale(1.08);
-  
-    box-shadow:
-      0 3px 10px rgba(0, 0, 0, 0.28);
-  }
-  
-  /* ---------------------------------------------------------
-     Resize state
-     --------------------------------------------------------- */
-  
-  .rich-text-editor__content
-    .qb-image-node-view.qb-image-resizing {
-    user-select: none;
-  }
-  
-  .rich-text-editor__content
-    .qb-image-node-view.qb-image-resizing
-    img.qb-inline-image {
-    cursor: ew-resize !important;
-  }
-  
-  /*
-   * Hide normal drag cursor while resizing.
-   */
-  .rich-text-editor__content
-    .qb-image-node-view.qb-image-resizing
-    .qb-image-resize-handle {
-    opacity: 1;
-    pointer-events: auto;
-  }
-  
-  /* ---------------------------------------------------------
-     Drag state
-     --------------------------------------------------------- */
-  
-  .rich-text-editor__content
-    img.qb-inline-image.qb-img-dragging {
-    cursor: grabbing !important;
-  
-    opacity: 0.82;
-  
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rich-text-editor__content .qb-image-frame,
+  .rich-text-editor__content .qb-image-resize-handle {
     transition: none;
   }
-  
-  /*
-   * Prevent accidental selection while dragging/resizing.
-   */
-  .rich-text-editor__content
-    .qb-image-node-view.qb-image-resizing,
-  .rich-text-editor__content
-    .qb-image-node-view:has(
-      img.qb-img-dragging
-    ) {
-    user-select: none;
-  }
-  
-  /* ---------------------------------------------------------
-     Width / height safety
-     --------------------------------------------------------- */
-  
-  /*
-   * Resized images must never overflow the editor.
-   */
-  .rich-text-editor__content
-    .qb-image-node-view
-    img[data-width] {
-    max-width: 100%;
-    height: auto;
-  }
-  
-  /*
-   * Preserve image ratio.
-   */
-  .rich-text-editor__content
-    .qb-image-node-view
-    img.qb-inline-image {
-    aspect-ratio: auto;
-  }
-  
-  /* ---------------------------------------------------------
-     Mobile / tablet
-     --------------------------------------------------------- */
-  
-  @media (max-width: 768px) {
-    .rich-text-editor__content
-      .qb-image-resize-handle {
-      width: 12px;
-      height: 48px;
-    }
-  
-    .rich-text-editor__content
-      .qb-image-resize-left {
-      left: -6px;
-    }
-  
-    .rich-text-editor__content
-      .qb-image-resize-right {
-      right: -6px;
-    }
-  }
-  
-  /* ---------------------------------------------------------
-     Touch devices
-     --------------------------------------------------------- */
-  
-  @media (hover: none) and (pointer: coarse) {
-    .rich-text-editor__content
-      .qb-image-resize-handle {
-      opacity: 1;
-      pointer-events: auto;
-  
-      width: 12px;
-      height: 48px;
-    }
-  
-    .rich-text-editor__content
-      .qb-image-resize-left {
-      left: -6px;
-    }
-  
-    .rich-text-editor__content
-      .qb-image-resize-right {
-      right: -6px;
-    }
-  }
-  
-  /* ---------------------------------------------------------
-     Reduced motion
-     --------------------------------------------------------- */
-  
-  @media (prefers-reduced-motion: reduce) {
-    .rich-text-editor__content
-      .qb-image-resize-handle {
-      transition: none;
-    }
-  }
+}
