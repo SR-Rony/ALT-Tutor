@@ -67,6 +67,7 @@ export function PastPaperDetailPage({ programSlug, paperSlug }: Props) {
   return (
     <div className="bg-background pb-16">
       <ResourceHero
+        programSlug={programSlug}
         title={paper.title}
         subtitle={`${programName} · ${paper.year} ${paper.session} · ${paper.paperCode}`}
         description={

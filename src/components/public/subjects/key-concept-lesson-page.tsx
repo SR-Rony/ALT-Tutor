@@ -132,6 +132,7 @@ export function KeyConceptLessonPage({ programSlug, lessonSlug }: Props) {
   return (
     <div className="bg-background pb-16">
       <ResourceHero
+        programSlug={programSlug}
         title={lesson.title}
         subtitle={`${programName}${lesson.topic ? ` · ${lesson.topic.title}` : ""}`}
         description={

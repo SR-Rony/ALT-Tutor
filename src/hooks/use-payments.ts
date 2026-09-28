@@ -22,12 +22,31 @@ export function useAdminAccessProducts() {
   });
 }
 
+export function useMyAccess(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.payments.myAccess,
+    queryFn: () => paymentsService.myAccess(),
+    enabled,
+  });
+}
+
+/** Student's current Gold access for one subject (purchase + expiry dates). */
+export function useMyProgramAccess(programSlug?: string | null, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.payments.programAccess(programSlug ?? ""),
+    queryFn: () => paymentsService.myProgramAccess(programSlug!),
+    enabled: enabled && Boolean(programSlug),
+    staleTime: 30_000,
+  });
+}
+
 export function useCheckout() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (payload: CheckoutInput) => paymentsService.checkout(payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.student.payments });
+      void qc.invalidateQueries({ queryKey: queryKeys.payments.all });
     },
   });
 }
@@ -42,6 +61,7 @@ export function useConfirmStubPayment() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.student.payments });
       void qc.invalidateQueries({ queryKey: queryKeys.student.courses });
+      void qc.invalidateQueries({ queryKey: queryKeys.payments.all });
     },
   });
 }

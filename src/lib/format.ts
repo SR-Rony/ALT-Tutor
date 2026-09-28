@@ -20,6 +20,17 @@ export function formatShortDate(value: string): string {
   }).format(new Date(value));
 }
 
+export function addDays(days: number, from: Date = new Date()): Date {
+  return new Date(from.getTime() + days * 24 * 60 * 60 * 1000);
+}
+
+/** "30 days · until Oct 28, 2026" for a pass bought now (null/0 days = lifetime). */
+export function formatDurationUntil(durationDays?: number | null, from?: Date): string {
+  if (!durationDays || durationDays <= 0) return "Lifetime access";
+  const until = formatShortDate(addDays(durationDays, from).toISOString());
+  return `${durationDays} day${durationDays === 1 ? "" : "s"} · until ${until}`;
+}
+
 /** Human-readable course access remaining from enrollment.expiresAt (null = lifetime). */
 export function formatAccessRemaining(expiresAt?: string | null): {
   label: string;

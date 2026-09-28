@@ -96,7 +96,10 @@ export const queryKeys = {
     ungraded: ["submissions", "ungraded"] as const,
   },
   payments: {
+    all: ["payments"] as const,
     products: ["payments", "products"] as const,
+    myAccess: ["payments", "access", "mine"] as const,
+    programAccess: (programSlug: string) => ["payments", "access", "program", programSlug] as const,
   },
   mcq: {
     all: ["mcq"] as const,

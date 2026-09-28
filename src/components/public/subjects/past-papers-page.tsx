@@ -57,6 +57,7 @@ export function PastPapersPage({ programSlug }: Props) {
   return (
     <div className="bg-background pb-16">
       <ResourceHero
+        programSlug={programSlug}
         title={`${programName} Past Papers`}
         description="Browse past exam papers by year. Open a paper to view its fixed question set — no timer, no attempt."
         icon={<FileText className="h-7 w-7 text-primary" aria-hidden />}

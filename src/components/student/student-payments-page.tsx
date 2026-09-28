@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { CalendarDays, Loader2, ShoppingBag } from "lucide-react";
+import { CalendarDays, KeyRound, Loader2, ShoppingBag } from "lucide-react";
 import { ListPagination, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
@@ -10,7 +10,9 @@ import {
   useAccessProducts,
   useCheckout,
   useClientPagination,
+  useMyAccess,
   useStudentPayments,
+  useSubjectsMenu,
 } from "@/hooks";
 import {
   accessTierRank,
@@ -18,11 +20,23 @@ import {
   tierBadgeClass,
   tierLabel,
 } from "@/lib/access-tier";
-import { formatMoney, formatShortDate } from "@/lib/format";
+import {
+  addDays,
+  formatAccessRemaining,
+  formatDurationUntil,
+  formatMoney,
+  formatShortDate,
+} from "@/lib/format";
 import { richTextToPlain } from "@/lib/rich-text";
 import type { ApiError } from "@/types";
-import type { AccessProduct } from "@/types/student-dashboard.types";
+import type {
+  AccessProduct,
+  StudentAccessGrant,
+  StudentPayment,
+} from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
+
+type ProgramOption = { id: string; name: string; subjectName: string };
 
 function statusClass(status: string) {
   const s = status.toUpperCase();
@@ -53,13 +67,37 @@ function unlockedTiers(tier?: string | null): string[] {
   return ["Free"];
 }
 
+function programLabel(program?: { name: string; subject?: { name: string } | null } | null) {
+  if (!program) return null;
+  const subject = program.subject?.name;
+  return subject && subject !== program.name ? `${subject} · ${program.name}` : program.name;
+}
+
+/** Purchase date and expiry for one payment row. */
+function paymentDates(payment: StudentPayment) {
+  const success = String(payment.status).toUpperCase() === "SUCCESS";
+  const purchasedAt = payment.paidAt ?? payment.fulfilledAt ?? payment.createdAt;
+  if (!success) return { purchasedAt, expires: null as string | null };
+  if (payment.accessExpiresAt) return { purchasedAt, expires: formatShortDate(payment.accessExpiresAt) };
+  const days = payment.accessProduct?.durationDays;
+  if (days) {
+    return {
+      purchasedAt,
+      expires: formatShortDate(addDays(days, new Date(purchasedAt)).toISOString()),
+    };
+  }
+  return { purchasedAt, expires: "Lifetime" };
+}
+
 function PassCard({
   product,
+  programName,
   busy,
   disabled,
   onBuy,
 }: {
   product: AccessProduct;
+  programName: string | null;
   busy: boolean;
   disabled: boolean;
   onBuy: () => void;
@@ -69,13 +107,10 @@ function PassCard({
   const price = Number(product.price);
   const regular = product.regularPrice != null ? Number(product.regularPrice) : null;
   const hasDiscount = regular != null && Number.isFinite(regular) && regular > price;
-  const scope = product.program?.name || "All programs";
+  const scope = product.program?.name || programName;
   const blurb =
     richTextToPlain(product.description) ||
-    `Unlocks ${unlockedTiers(tier).join(" + ")} sets for ${scope}.`;
-  const durationLabel = product.durationDays
-    ? `${product.durationDays} days`
-    : "Until cancelled";
+    `Unlocks ${unlockedTiers(tier).join(" + ")} sets for one subject.`;
 
   return (
     <article
@@ -98,7 +133,7 @@ function PassCard({
             {tierLabel(tier)}
           </span>
           <span className="truncate rounded-md bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-            {scope}
+            Per subject
           </span>
         </div>
 
@@ -110,35 +145,37 @@ function PassCard({
         </p>
 
         <div className={cn("mt-3 rounded-xl px-3 py-2.5", accent.soft)}>
-          <div className="flex items-end justify-between gap-2">
-            <div>
-              <div className="flex items-baseline gap-1.5">
-                <p className="text-xl font-extrabold tracking-tight text-foreground">
-                  {formatMoney(price)}
-                </p>
-                {hasDiscount ? (
-                  <p className="text-xs text-muted-foreground line-through">
-                    {formatMoney(regular!)}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            <div className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-              <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden />
-              {durationLabel}
-            </div>
+          <div className="flex items-baseline gap-1.5">
+            <p className="text-xl font-extrabold tracking-tight text-foreground">
+              {formatMoney(price)}
+            </p>
+            {hasDiscount ? (
+              <p className="text-xs text-muted-foreground line-through">
+                {formatMoney(regular!)}
+              </p>
+            ) : null}
           </div>
+          <p className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+            <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden />
+            {formatDurationUntil(product.durationDays)}
+          </p>
         </div>
 
         <p className="mt-2.5 text-[11px] font-medium text-muted-foreground">
-          Unlocks: {unlockedTiers(tier).join(" · ")}
+          {scope ? (
+            <>
+              Unlocks <span className="font-semibold text-foreground">{scope}</span> only
+            </>
+          ) : (
+            "Choose a subject above to buy"
+          )}
         </p>
 
         <Button
           type="button"
           size="sm"
           className="mt-3 w-full"
-          disabled={disabled}
+          disabled={disabled || !scope}
           onClick={onBuy}
         >
           {busy ? (
@@ -158,12 +195,61 @@ function PassCard({
   );
 }
 
+function AccessRow({ grant }: { grant: StudentAccessGrant }) {
+  const remaining = formatAccessRemaining(grant.expiresAt);
+  const active = grant.isActive && !remaining.expired;
+  const subject =
+    programLabel(grant.program) ??
+    (grant.source === "ADMIN_GRANT" ? "All subjects" : "Subject removed");
+
+  return (
+    <li className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate font-semibold text-foreground">{subject}</p>
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
+              active ? "bg-[#ecfdf3] text-accent-green" : "bg-muted text-muted-foreground"
+            )}
+          >
+            {active ? "Active" : "Expired"}
+          </span>
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {grant.source === "ADMIN_GRANT"
+            ? "Granted by admin"
+            : grant.source === "COURSE"
+              ? `Included with course: ${grant.course?.title ?? "linked course"}`
+              : grant.product?.title ?? "Gold Pass"}
+        </p>
+      </div>
+      <dl className="grid shrink-0 grid-cols-2 gap-x-6 gap-y-0.5 text-xs sm:text-right">
+        <dt className="text-muted-foreground">Purchased</dt>
+        <dt className="text-muted-foreground">Expires</dt>
+        <dd className="font-semibold text-foreground">{formatShortDate(grant.purchasedAt)}</dd>
+        <dd className={cn("font-semibold", active ? "text-foreground" : "text-accent")}>
+          {grant.expiresAt ? formatShortDate(grant.expiresAt) : "Lifetime"}
+        </dd>
+        {active && remaining.daysLeft != null ? (
+          <dd className="col-span-2 text-[11px] text-muted-foreground">
+            {remaining.daysLeft} day{remaining.daysLeft === 1 ? "" : "s"} left
+          </dd>
+        ) : null}
+      </dl>
+    </li>
+  );
+}
+
 export function StudentPaymentsPage() {
   const { data = [], isLoading, error, refetch } = useStudentPayments();
   const { data: products = [], isLoading: productsLoading } = useAccessProducts();
+  const { data: grants = [], isLoading: grantsLoading, refetch: refetchGrants } = useMyAccess();
+  const { data: menu = [] } = useSubjectsMenu();
   const checkout = useCheckout();
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [busyProductId, setBusyProductId] = useState<string | null>(null);
+  const [programId, setProgramId] = useState("");
   const { page, setPage, pageItems, total, totalPages, from, to } =
     useClientPagination(data);
 
@@ -175,17 +261,39 @@ export function StudentPaymentsPage() {
     });
   }, [products]);
 
-  const buyPass = async (accessProductId: string) => {
+  const programOptions = useMemo<ProgramOption[]>(
+    () =>
+      menu.flatMap((category) =>
+        category.subjects.flatMap((subject) =>
+          subject.programs
+            .filter((program) => program.isActive !== false)
+            .map((program) => ({ id: program.id, name: program.name, subjectName: subject.name }))
+        )
+      ),
+    [menu]
+  );
+  const selectedProgram = programOptions.find((p) => p.id === programId) ?? null;
+
+  const buyPass = async (product: AccessProduct) => {
+    const targetProgramId = product.programId ?? programId;
+    if (!targetProgramId) {
+      setCheckoutError("Choose the subject you want to unlock first.");
+      return;
+    }
     setCheckoutError(null);
-    setBusyProductId(accessProductId);
+    setBusyProductId(product.id);
     try {
-      const result = await checkout.mutateAsync({ accessProductId });
+      const result = await checkout.mutateAsync({
+        accessProductId: product.id,
+        programId: targetProgramId,
+      });
       if (result.checkoutUrl) {
         window.location.href = result.checkoutUrl;
         return;
       }
       if (result.granted) {
         void refetch();
+        void refetchGrants();
       }
     } catch (err) {
       setCheckoutError((err as ApiError)?.message || "Checkout failed");
@@ -213,6 +321,32 @@ export function StudentPaymentsPage() {
         </p>
       ) : null}
 
+      <section className="space-y-3">
+        <div className="px-1">
+          <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
+            <KeyRound className="h-4 w-4 text-[#b45309]" aria-hidden />
+            My subject access
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Subjects you can study at Gold level — each unlock runs from its purchase date until it
+            expires.
+          </p>
+        </div>
+        {grantsLoading ? (
+          <PageLoader label="Loading access..." />
+        ) : grants.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-8 text-center text-sm text-muted-foreground">
+            You don’t have Gold access to any subject yet.
+          </div>
+        ) : (
+          <ul className="space-y-2">
+            {grants.map((grant) => (
+              <AccessRow key={grant.id} grant={grant} />
+            ))}
+          </ul>
+        )}
+      </section>
+
       <section
         id="practice-pass"
         className="scroll-mt-24 overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]"
@@ -225,12 +359,30 @@ export function StudentPaymentsPage() {
               </p>
               <h2 className="mt-1 text-xl font-bold text-foreground">Gold Pass</h2>
               <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-                Unlock Gold questionbank study sets and practice tools — one pass for all subjects.
+                Gold is bought separately for each subject — a pass only unlocks the subject you
+                choose.
               </p>
             </div>
-            <p className="text-xs font-semibold text-muted-foreground">
-              {sortedProducts.length} pass{sortedProducts.length === 1 ? "" : "es"} available
-            </p>
+            <label className="flex w-full flex-col gap-1 text-xs font-semibold text-muted-foreground sm:w-72">
+              Subject to unlock
+              <select
+                value={programId}
+                onChange={(event) => {
+                  setProgramId(event.target.value);
+                  setCheckoutError(null);
+                }}
+                className="h-10 rounded-lg border border-border bg-card px-3 text-sm font-medium text-foreground focus:border-primary focus:outline-none"
+              >
+                <option value="">Choose a subject…</option>
+                {programOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.subjectName === option.name
+                      ? option.name
+                      : `${option.subjectName} · ${option.name}`}
+                  </option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
 
@@ -253,9 +405,10 @@ export function StudentPaymentsPage() {
                 <PassCard
                   key={product.id}
                   product={product}
+                  programName={selectedProgram?.name ?? null}
                   busy={busyProductId === product.id}
                   disabled={Boolean(busyProductId)}
-                  onBuy={() => void buyPass(product.id)}
+                  onBuy={() => void buyPass(product)}
                 />
               ))}
             </div>
@@ -281,40 +434,53 @@ export function StudentPaymentsPage() {
         ) : (
           <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[640px] text-left text-sm">
+              <table className="w-full min-w-[760px] text-left text-sm">
                 <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-muted-foreground">
                   <tr>
                     <th className="px-5 py-3 font-semibold">Item</th>
                     <th className="px-5 py-3 font-semibold">Amount</th>
                     <th className="px-5 py-3 font-semibold">Status</th>
-                    <th className="px-5 py-3 font-semibold">Date</th>
+                    <th className="px-5 py-3 font-semibold">Purchased</th>
+                    <th className="px-5 py-3 font-semibold">Expires</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {pageItems.map((payment) => (
-                    <tr
-                      key={payment.id}
-                      className="border-b border-border/70 last:border-0 hover:bg-muted/30"
-                    >
-                      <td className="px-5 py-4 font-semibold text-foreground">
-                        {payment.accessProduct?.title ?? payment.course?.title ?? "Purchase"}
-                      </td>
-                      <td className="px-5 py-4 font-medium">{formatMoney(payment.amount)}</td>
-                      <td className="px-5 py-4">
-                        <span
-                          className={cn(
-                            "rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase",
-                            statusClass(String(payment.status))
-                          )}
-                        >
-                          {String(payment.status).toLowerCase()}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 text-muted-foreground">
-                        {formatShortDate(payment.createdAt)}
-                      </td>
-                    </tr>
-                  ))}
+                  {pageItems.map((payment) => {
+                    const { purchasedAt, expires } = paymentDates(payment);
+                    const subject = programLabel(payment.program);
+                    return (
+                      <tr
+                        key={payment.id}
+                        className="border-b border-border/70 last:border-0 hover:bg-muted/30"
+                      >
+                        <td className="px-5 py-4">
+                          <p className="font-semibold text-foreground">
+                            {payment.accessProduct?.title ?? payment.course?.title ?? "Purchase"}
+                          </p>
+                          {payment.accessProduct ? (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              {subject ? `Subject: ${subject}` : "Subject not recorded"}
+                            </p>
+                          ) : null}
+                        </td>
+                        <td className="px-5 py-4 font-medium">{formatMoney(payment.amount)}</td>
+                        <td className="px-5 py-4">
+                          <span
+                            className={cn(
+                              "rounded-full px-2.5 py-0.5 text-[11px] font-semibold uppercase",
+                              statusClass(String(payment.status))
+                            )}
+                          >
+                            {String(payment.status).toLowerCase()}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-muted-foreground">
+                          {formatShortDate(purchasedAt)}
+                        </td>
+                        <td className="px-5 py-4 text-muted-foreground">{expires ?? "—"}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

@@ -197,6 +197,7 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
   return (
     <div className="bg-background">
       <ResourceHero
+        programSlug={programSlug}
         title={`${data.name} Questionbank`}
         description="Practice by topic. Free study sets are open to everyone. Gold sets unlock with a Gold Pass or linked course."
         icon={<Database className="h-7 w-7 text-primary" aria-hidden />}

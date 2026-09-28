@@ -63,6 +63,7 @@ export function MockExamsPage({ programSlug }: Props) {
   return (
     <div className="bg-background pb-16">
       <ResourceHero
+        programSlug={programSlug}
         title={`${programName} - Mock Exams`}
         subtitle={
           summary.count > 0

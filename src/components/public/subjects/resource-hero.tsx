@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { richTextToPlain } from "@/lib/rich-text";
 import { cn } from "@/utils";
+import { ProgramAccessBadge } from "./program-access-badge";
 
 type Props = {
   title: string;
@@ -11,6 +12,8 @@ type Props = {
   footer?: ReactNode;
   children?: ReactNode;
   className?: string;
+  /** Shows the student's Gold purchase / expiry dates for this subject. */
+  programSlug?: string;
 };
 
 /** PDF-style light blue hero block — uses Alt Tutor brand tokens */
@@ -23,6 +26,7 @@ export function ResourceHero({
   footer,
   children,
   className,
+  programSlug,
 }: Props) {
   const plainTitle = richTextToPlain(title) || title;
   const plainSubtitle = subtitle ? richTextToPlain(subtitle) || subtitle : undefined;
@@ -55,6 +59,7 @@ export function ResourceHero({
                 {plainDescription}
               </p>
             ) : null}
+            {programSlug ? <ProgramAccessBadge programSlug={programSlug} className="mt-4" /> : null}
             {children ? <div className="mt-5 flex flex-wrap gap-3">{children}</div> : null}
           </div>
           {icon ? (

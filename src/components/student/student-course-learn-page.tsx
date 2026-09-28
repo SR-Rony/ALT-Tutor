@@ -10,6 +10,7 @@ import {
   ArrowRight,
   Award,
   BookOpen,
+  CalendarDays,
   ClipboardList,
   Clock,
   Download,
@@ -36,7 +37,7 @@ import {
   useStudentCourses,
 } from "@/hooks";
 import { formatLessonDuration } from "@/lib/course-format";
-import { formatAccessRemaining } from "@/lib/format";
+import { formatAccessRemaining, formatShortDate } from "@/lib/format";
 import { apiClient } from "@/services/api-client";
 import { keyConceptsService } from "@/services/key-concepts.service";
 import { pastPapersService } from "@/services/past-papers.service";
@@ -168,6 +169,7 @@ function CourseHero({
   programCount,
   accessLabel,
   accessUrgent,
+  enrolledAt,
 }: {
   course: CourseDetail;
   progress: number;
@@ -177,6 +179,7 @@ function CourseHero({
   programCount: number;
   accessLabel: string;
   accessUrgent?: boolean;
+  enrolledAt?: string | null;
 }) {
   return (
     <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_12px_40px_-20px_rgba(24,119,242,0.25)]">
@@ -232,6 +235,12 @@ function CourseHero({
                 <Clock className="h-3.5 w-3.5" aria-hidden />
                 {accessLabel}
               </span>
+              {enrolledAt ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-background/80 px-2.5 py-1">
+                  <CalendarDays className="h-3.5 w-3.5 text-primary" aria-hidden />
+                  Enrolled {formatShortDate(enrolledAt)}
+                </span>
+              ) : null}
             </div>
           </div>
           <div className="w-full shrink-0 rounded-xl border border-border/80 bg-background/90 p-4 sm:w-56">
@@ -1031,6 +1040,7 @@ export function StudentCourseLearnPage({ slug }: Props) {
         programCount={programLinks.length}
         accessLabel={accessInfo.label}
         accessUrgent={Boolean(accessInfo.expired || (accessInfo.daysLeft != null && accessInfo.daysLeft <= 7))}
+        enrolledAt={enrollment?.enrolledAt}
       />
 
       <nav

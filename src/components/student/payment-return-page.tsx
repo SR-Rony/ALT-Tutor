@@ -7,7 +7,7 @@ import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { useConfirmStubPayment, usePaymentByTransaction } from "@/hooks";
-import { formatMoney } from "@/lib/format";
+import { formatMoney, formatShortDate } from "@/lib/format";
 import { consumePaymentReturnTo, peekPaymentReturnTo } from "@/lib/payment-return";
 import type { ApiError } from "@/types";
 
@@ -100,10 +100,24 @@ export function PaymentReturnPage() {
               <span className="font-semibold">Item:</span>{" "}
               {payment.course?.title ?? payment.accessProduct?.title ?? "—"}
             </p>
+            {payment.program ? (
+              <p>
+                <span className="font-semibold">Subject:</span> {payment.program.name}
+              </p>
+            ) : null}
             <p>
               <span className="font-semibold">Status:</span> {resolvedStatus}
               {fulfilled ? " · fulfilled" : ""}
             </p>
+            {fulfilled ? (
+              <p>
+                <span className="font-semibold">Purchased:</span>{" "}
+                {formatShortDate(payment.paidAt ?? payment.fulfilledAt ?? payment.createdAt)}
+                {" · "}
+                <span className="font-semibold">Expires:</span>{" "}
+                {payment.accessExpiresAt ? formatShortDate(payment.accessExpiresAt) : "Lifetime"}
+              </p>
+            ) : null}
           </div>
         ) : null}
 

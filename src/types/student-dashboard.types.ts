@@ -102,10 +102,45 @@ export interface StudentPayment {
   paidAt?: string | null;
   courseId?: string | null;
   accessProductId?: string | null;
+  programId?: string | null;
+  /** When the access bought by this payment ends (null = lifetime or not fulfilled yet). */
+  accessExpiresAt?: string | null;
   checkoutUrl?: string | null;
   createdAt: string;
   course?: { id: string; title: string; thumbnail?: string | null; slug?: string };
-  accessProduct?: { id: string; title: string; slug: string };
+  accessProduct?: { id: string; title: string; slug: string; durationDays?: number | null };
+  program?: PaymentProgram | null;
+}
+
+export interface PaymentProgram {
+  id: string;
+  name: string;
+  slug: string;
+  subject?: { id: string; name: string } | null;
+}
+
+export type ProgramAccessSource = "GOLD_PASS" | "ADMIN_GRANT" | "COURSE";
+
+/** One subject unlock the student holds (Gold Pass, admin grant, or linked course). */
+export interface StudentAccessGrant {
+  id: string;
+  source: "PRACTICE_PASS" | "ADMIN_GRANT" | "COURSE" | string;
+  accessTier?: string | null;
+  program: PaymentProgram | null;
+  product: { id: string; title: string; durationDays?: number | null } | null;
+  course?: { id: string; title: string; slug: string } | null;
+  purchasedAt: string;
+  expiresAt: string | null;
+  isActive: boolean;
+}
+
+/** The student's current access to one subject. */
+export interface ProgramAccessInfo {
+  program?: { id: string; name: string; slug: string };
+  tier: string;
+  source: ProgramAccessSource | null;
+  purchasedAt: string | null;
+  expiresAt: string | null;
 }
 
 export interface AccessProduct {

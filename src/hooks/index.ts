@@ -198,6 +198,8 @@ export {
   useUpdateAccessProduct,
   useDeactivateAccessProduct,
   useAdminGrantPracticeAccess,
+  useMyAccess,
+  useMyProgramAccess,
 } from "./use-payments";
 export { useCourseProgramLinks, useCourseUsedQuestions, useCourseLearnQuestionbank, useSetCourseProgramLinks } from "./use-course-programs";
 export { useGradebook, useGradeOverride } from "./use-gradebook";

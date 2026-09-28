@@ -13,7 +13,7 @@ import {
   useDeactivateAccessProduct,
   useUpdateAccessProduct,
 } from "@/hooks/use-payments";
-import { formatMoney } from "@/lib/format";
+import { formatDurationUntil, formatMoney } from "@/lib/format";
 import { tierBadgeClass, tierLabel } from "@/lib/access-tier";
 import type { ApiError } from "@/types";
 import type { AccessProduct } from "@/types/student-dashboard.types";
@@ -46,8 +46,8 @@ const GLOBAL_TIERS: Array<{
     defaultPrice: "399",
     defaultDays: "30",
     blurb:
-      "Unlocks all Gold questionbank study sets, Key Concepts, Practice Exams, Past Papers, and Flashcards across every subject.",
-    includes: ["Free content", "Gold content", "All subjects"],
+      "Unlocks Gold questionbank study sets, Key Concepts, Practice Exams, Past Papers, and Flashcards for the one subject the student chooses.",
+    includes: ["Free content", "Gold content", "One subject per purchase"],
   },
 ];
 
@@ -279,7 +279,7 @@ export function AdminAccessProductsPage() {
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-6">
           <PageHeader
             title="Pass pricing"
-            description="One paid plan: Gold Pass. Unlocks Questionbank, Key Concepts, Practice Exams, Past Papers, and Flashcards."
+            description="One paid plan: Gold Pass, bought per subject. Unlocks Questionbank, Key Concepts, Practice Exams, Past Papers, and Flashcards for that subject."
             className="mb-0"
           />
           <div className="flex flex-wrap items-center gap-2">
@@ -316,8 +316,9 @@ export function AdminAccessProductsPage() {
 
         <div className="space-y-3 px-5 py-4 text-sm text-muted-foreground">
           <p>
-            Content is tagged Free or Gold (like Revision Village). Students buy Gold Pass for all
-            subjects; Free study sets stay open.
+            Content is tagged Free or Gold (like Revision Village). Students buy a Gold Pass
+            separately for each subject — one purchase unlocks only the subject they pick. Free
+            study sets stay open.
           </p>
 
           {needsSetup ? (
@@ -378,9 +379,7 @@ export function AdminAccessProductsPage() {
           const existing = globalBySlug.get(meta.slug);
           const busy = savingTier === meta.tier || setupBusy;
           const pricePreview = Number(draft.price) || 0;
-          const daysLabel = draft.durationDays.trim()
-            ? `${draft.durationDays.trim()} days`
-            : "Lifetime";
+          const daysLabel = formatDurationUntil(Number.parseInt(draft.durationDays, 10) || null);
 
           return (
             <article

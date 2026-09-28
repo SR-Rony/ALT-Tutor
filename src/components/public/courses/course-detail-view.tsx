@@ -31,6 +31,7 @@ import {
   formatCoursePrice,
   formatLessonDuration,
 } from "@/lib/course-format";
+import { formatDurationUntil, formatShortDate } from "@/lib/format";
 import { richTextExcerpt, richTextToPlain } from "@/lib/rich-text";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { SecureVideoPlayer } from "@/components/shared/secure-video-player";
@@ -260,7 +261,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
         course?.hasCertificate === false ? null : "Certificate on completion",
         course?.lifetimeAccess === false
           ? course?.accessDurationDays
-            ? `${course.accessDurationDays}-day access after enroll`
+            ? `${formatDurationUntil(course.accessDurationDays)} if you enroll today`
             : "Limited-time access after enroll"
           : "Lifetime access after enroll",
         `Instructor: ${course?.teacher.name ?? "ALT Tutor"}`,
@@ -715,6 +716,8 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
               showVideoPreview={showSidebarVideoPreview}
               hasPromoVideo={Boolean(course.promoVideoUrl)}
               isEnrolled={isEnrolled}
+              enrolledAt={enrollment?.enrolledAt}
+              accessExpiresAt={enrollment?.expiresAt}
               isFree={isFree}
               isStudent={isStudent}
               isAuthenticated={isAuthenticated}
@@ -1085,6 +1088,8 @@ function CourseSidebarCard({
   showVideoPreview,
   hasPromoVideo,
   isEnrolled,
+  enrolledAt,
+  accessExpiresAt,
   isFree,
   isStudent,
   isAuthenticated,
@@ -1104,6 +1109,8 @@ function CourseSidebarCard({
   showVideoPreview: boolean;
   hasPromoVideo: boolean;
   isEnrolled: boolean;
+  enrolledAt?: string | null;
+  accessExpiresAt?: string | null;
   isFree: boolean;
   isStudent: boolean;
   isAuthenticated: boolean;
@@ -1170,6 +1177,12 @@ function CourseSidebarCard({
           <>
             <div className="rounded-lg bg-primary-muted px-3 py-2 text-center text-sm font-semibold text-primary">
               Already enrolled
+              {enrolledAt ? (
+                <p className="mt-1 text-xs font-medium text-primary/80">
+                  Enrolled {formatShortDate(enrolledAt)} · Expires{" "}
+                  {accessExpiresAt ? formatShortDate(accessExpiresAt) : "never (lifetime)"}
+                </p>
+              ) : null}
             </div>
             <Button asChild variant="default" size="lg" className="h-12 w-full">
               <Link href={learnHref}>Continue learning</Link>

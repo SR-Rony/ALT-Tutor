@@ -8,6 +8,7 @@ import { useAdminGrantPracticeAccess } from "@/hooks/use-payments";
 import { useAdminUsers } from "@/hooks/use-admin-dashboard";
 import { useAdminSubjectsTree } from "@/hooks/use-subjects";
 import { tierLabel } from "@/lib/access-tier";
+import { formatDurationUntil } from "@/lib/format";
 import type { ApiError } from "@/types";
 
 type ProductTier = "GOLD";
@@ -181,6 +182,9 @@ export function AdminGrantPracticeAccessModal({ open, onClose }: Props) {
             placeholder="Leave blank for lifetime"
             inputMode="numeric"
           />
+          <p className="text-xs font-medium text-foreground">
+            {formatDurationUntil(Number.parseInt(durationDays.trim(), 10) || null)}
+          </p>
           <p className="text-xs text-muted-foreground">
             Blank = lifetime. If the student already has an admin grant, days extend from the current expiry.
           </p>

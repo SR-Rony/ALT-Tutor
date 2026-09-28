@@ -170,6 +170,22 @@ export function StudentDashboardPage() {
                     <ProgressBar value={item.progress} />
                     <span className="shrink-0 text-sm font-semibold text-primary">{item.progress}%</span>
                   </div>
+                  <p className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted-foreground">
+                    {item.enrolledAt ? (
+                      <span>
+                        Enrolled{" "}
+                        <span className="font-medium text-foreground">
+                          {formatShortDate(item.enrolledAt)}
+                        </span>
+                      </span>
+                    ) : null}
+                    <span>
+                      Expires{" "}
+                      <span className="font-medium text-foreground">
+                        {item.expiresAt ? formatShortDate(item.expiresAt) : "Lifetime"}
+                      </span>
+                    </span>
+                  </p>
                   {item.course.slug ? (
                     <Link
                       href={ROUTES.courseDetail(item.course.slug)}

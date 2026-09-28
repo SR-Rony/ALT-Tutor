@@ -58,6 +58,9 @@ export interface QbSubtopic {
 
 export interface QbProgramAccess {
   userTier?: QbAccessBadge | string;
+  source?: "GOLD_PASS" | "ADMIN_GRANT" | "COURSE" | null;
+  purchasedAt?: string | null;
+  expiresAt?: string | null;
   hasProgramAccess: boolean;
   canStudyFree: boolean;
   canStudySilver?: boolean;

@@ -751,6 +751,7 @@ export function QuestionbankStudyPage({
   return (
     <div className="bg-background pb-16">
       <ResourceHero
+        programSlug={programSlug}
         title={`${program?.name ?? ""} - Questionbank`}
         subtitle={
           topicPlainTitle

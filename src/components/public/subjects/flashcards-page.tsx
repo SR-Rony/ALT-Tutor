@@ -74,6 +74,7 @@ export function FlashcardsPage({ programSlug }: Props) {
   return (
     <div className="bg-background pb-16">
       <ResourceHero
+        programSlug={programSlug}
         title={`${programName} Flashcards`}
         description="Flip cards to recall formulas and facts — know / don’t know, no exam timer."
         icon={<Layers className="h-7 w-7 text-primary" aria-hidden />}

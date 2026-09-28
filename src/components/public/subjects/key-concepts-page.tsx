@@ -266,6 +266,7 @@ export function KeyConceptsPage({ programSlug }: Props) {
   return (
     <div className="bg-background pb-16">
       <ResourceHero
+        programSlug={programSlug}
         title={`${programName} Key Concepts`}
         description="Short lessons for each chapter — read or watch, then practice in the Questionbank."
         icon={<PlayCircle className="h-7 w-7 text-primary" aria-hidden />}

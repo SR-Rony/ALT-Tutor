@@ -23,7 +23,7 @@ import {
   tierLabel,
   type QbAccessBadge,
 } from "@/lib/access-tier";
-import { formatMoney } from "@/lib/format";
+import { formatDurationUntil, formatMoney } from "@/lib/format";
 import { setPaymentReturnTo } from "@/lib/payment-return";
 import { richTextToPlain } from "@/lib/rich-text";
 import { useAppSelector } from "@/store";
@@ -55,12 +55,12 @@ function sortProductsForProgram(
 ) {
   const eligible = products.filter((p) => canAccessWithTier(p.tier, requiredTier));
   const matching = eligible.filter((p) => p.programId === programId);
-  const global = eligible.filter((p) => !p.programId);
-  const other = eligible.filter((p) => p.programId && p.programId !== programId);
+  // Program-less passes are price templates: bought for the subject chosen at checkout.
+  const generic = eligible.filter((p) => !p.programId);
   const byTier = (a: AccessProduct, b: AccessProduct) =>
     accessTierRank(a.tier) - accessTierRank(b.tier);
 
-  return [...matching.sort(byTier), ...global.sort(byTier), ...other.sort(byTier)];
+  return [...matching.sort(byTier), ...generic.sort(byTier)];
 }
 
 function unlockedTier(tier: QbAccessBadge): string[] {
@@ -160,7 +160,10 @@ export function GoldUnlockModal({
     setPaymentReturnTo(returnPath);
 
     try {
-      const result = await checkout.mutateAsync({ accessProductId: product.id });
+      const result = await checkout.mutateAsync({
+        accessProductId: product.id,
+        programId: product.programId ?? programId,
+      });
       if (result.checkoutUrl) {
         window.location.href = result.checkoutUrl;
         return;
@@ -170,6 +173,7 @@ export function GoldUnlockModal({
         await queryClient.invalidateQueries({ queryKey: queryKeys.practiceExams.all });
         await queryClient.invalidateQueries({ queryKey: queryKeys.keyConcepts.all });
         await queryClient.invalidateQueries({ queryKey: queryKeys.pastPapers.all });
+        await queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
         onUnlocked?.();
         onClose();
         return;
@@ -276,6 +280,8 @@ export function GoldUnlockModal({
                   ))}
                 </ul>
                 <p className="mt-3 text-xs text-muted-foreground">
+                  Gold is bought per subject — this pass unlocks{" "}
+                  <span className="font-semibold text-foreground">{programName}</span> only.
                   After payment you return here automatically.
                 </p>
               </div>
@@ -330,12 +336,9 @@ export function GoldUnlockModal({
                 <ul className="space-y-2">
                   {ranked.map((product) => {
                     const isProgramMatch = product.programId === programId;
-                    const isGlobal = !product.programId;
                     const productTier = normalizeAccessBadge(product.tier);
                     const active = selected?.id === product.id;
-                    const scope = isGlobal
-                      ? "All programs"
-                      : product.program?.name || programName;
+                    const scope = product.program?.name || programName;
 
                     return (
                       <li key={product.id}>
@@ -374,12 +377,17 @@ export function GoldUnlockModal({
                                   {tierLabel(productTier).replace(/^ALT\s+/, "")}
                                 </span>
                               </div>
-                              <p className="mt-1 line-clamp-1 pl-6 text-xs text-muted-foreground">
-                                {richTextToPlain(product.description) || scope}
-                                {product.durationDays
-                                  ? ` · ${product.durationDays} days`
-                                  : ""}
+                              <p className="mt-1 pl-6 text-xs font-medium text-foreground/80">
+                                Unlocks {scope} only
                               </p>
+                              <p className="mt-0.5 pl-6 text-xs text-muted-foreground">
+                                {formatDurationUntil(product.durationDays)}
+                              </p>
+                              {richTextToPlain(product.description) ? (
+                                <p className="mt-0.5 line-clamp-1 pl-6 text-xs text-muted-foreground">
+                                  {richTextToPlain(product.description)}
+                                </p>
+                              ) : null}
                               {isProgramMatch ? (
                                 <p className={cn("mt-1 pl-6 text-[11px] font-semibold", theme.accent)}>
                                   Best match for this subject

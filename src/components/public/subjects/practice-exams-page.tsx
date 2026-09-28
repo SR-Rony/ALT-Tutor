@@ -88,6 +88,7 @@ export function PracticeExamsPage({ programSlug }: Props) {
   return (
     <div className="bg-background pb-16">
       <ResourceHero
+        programSlug={programSlug}
         title={`${programName} Practice Exams`}
         description="Choose MCQ (auto-marked) or Written (download paper, upload answers)."
         icon={<Timer className="h-7 w-7 text-primary" aria-hidden />}

@@ -1,7 +1,13 @@
-import type { AccessProduct, CheckoutResult, StudentPayment } from "@/types/student-dashboard.types";
+import type {
+  AccessProduct,
+  CheckoutResult,
+  ProgramAccessInfo,
+  StudentAccessGrant,
+  StudentPayment,
+} from "@/types/student-dashboard.types";
 import { apiClient } from "./api-client";
 
-export type CheckoutInput = { courseId?: string; accessProductId?: string };
+export type CheckoutInput = { courseId?: string; accessProductId?: string; programId?: string };
 
 export type AccessProductInput = {
   title: string;
@@ -59,6 +65,18 @@ export const paymentsService = {
   ): Promise<StudentPayment> {
     return apiClient
       .post<StudentPayment>("/payments/checkout/confirm-stub", { transactionId, status })
+      .then((r) => r.data);
+  },
+
+  myAccess(): Promise<StudentAccessGrant[]> {
+    return apiClient
+      .get<StudentAccessGrant[]>("/payments/access/mine")
+      .then((r) => r.data ?? []);
+  },
+
+  myProgramAccess(programSlug: string): Promise<ProgramAccessInfo> {
+    return apiClient
+      .get<ProgramAccessInfo>(`/payments/access/program/${encodeURIComponent(programSlug)}`)
       .then((r) => r.data);
   },
 
