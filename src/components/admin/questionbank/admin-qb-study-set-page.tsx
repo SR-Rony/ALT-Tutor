@@ -683,7 +683,9 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
         }
         onClose={() => !busy && setModal(null)}
         className={
-          modal?.kind === "question" ? "sm:max-w-5xl" : "sm:max-w-3xl"
+          modal?.kind === "question"
+            ? "h-dvh max-h-dvh rounded-none sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,70rem)] sm:rounded-2xl"
+            : "sm:max-w-3xl"
         }
         footer={
           modal?.kind === "import" ? (
@@ -820,14 +822,16 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
         ) : null}
 
         {modal?.kind === "question" ? (
-          <div className="space-y-4 [--rte-sticky-top:-1rem]">
+          // 65.5rem = the public study card's text column (1014px) + editor padding/border,
+          // so line breaks and aligned blocks land exactly where students see them.
+          <div className="mx-auto w-full max-w-[65.5rem] space-y-4 [--qb-prompt-h:calc(100dvh-24rem)] [--rte-sticky-top:-1rem] sm:[--qb-prompt-h:calc(100dvh-20rem)]">
             <div className="block space-y-1.5">
               <span className="text-sm font-semibold">Prompt</span>
               <RichTextEditor
                 value={prompt}
                 onChange={setPrompt}
                 placeholder="Question stem — text, math, and diagrams…"
-                minHeight={questionKind === "WRITTEN" ? "280px" : "180px"}
+                minHeight="max(240px, var(--qb-prompt-h))"
                 fullHeight
                 disabled={busy}
               />
