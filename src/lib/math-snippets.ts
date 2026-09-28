@@ -157,6 +157,25 @@ export const MATH_SYMBOL_GROUPS: MathSnippetGroup[] = [
     ],
   },
   {
+    name: "Science",
+    items: [
+      { label: "²³⁵₉₂U", snippet: "{}^{$1}_{$1}\\mathrm{$0}", title: "Nuclide / isotope (mass, atomic number, symbol)" },
+      { label: "×10ⁿ", snippet: "\\times 10^{$0}", title: "Standard form" },
+      { label: "unit", snippet: "\\,\\mathrm{$0}", title: "Upright unit, e.g. m s^{-1}" },
+      { label: "text", snippet: "\\text{$0}", title: "Plain words inside an equation" },
+      { label: "°", snippet: "^{\\circ}", title: "Degree" },
+      { label: "°C", snippet: "^{\\circ}\\mathrm{C}", title: "Degree Celsius" },
+      { label: "Ω", snippet: "\\Omega", title: "Ohm" },
+      { label: "ρ", snippet: "\\rho", title: "Rho (density)" },
+      { label: "η", snippet: "\\eta", title: "Eta (efficiency)" },
+      { label: "ε", snippet: "\\varepsilon", title: "Epsilon" },
+      { label: "ν", snippet: "\\nu", title: "Nu (frequency)" },
+      { label: "⇌", snippet: "\\rightleftharpoons", title: "Reversible reaction" },
+      { label: "⟶", snippet: "\\longrightarrow", title: "Reaction arrow" },
+      { label: "∝", snippet: "\\propto", title: "Proportional to" },
+    ],
+  },
+  {
     name: "Matrices",
     items: [
       {

@@ -490,19 +490,49 @@
   @apply ml-auto mr-0 block;
 }
 
+/* Inline equations sit on the text baseline like normal words */
 .rich-text-editor__content .qb-math:not(.qb-math-display),
 .rich-text-content .qb-math:not(.qb-math-display) {
-  @apply mx-0.5 inline-block align-middle;
+  @apply mx-0.5 inline-block;
+  vertical-align: baseline;
   font-size: 1em;
+  line-height: normal;
 }
 
+.rich-text-editor__content .qb-math:not(.qb-math-display) {
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.rich-text-editor__content .qb-math:not(.qb-math-display):hover {
+  background: color-mix(in oklab, var(--primary) 8%, transparent);
+}
+
+.rich-text-editor__content .qb-math.ProseMirror-selectednode:not(.qb-math-display) {
+  background: color-mix(in oklab, var(--primary) 12%, transparent);
+  outline: 2px solid color-mix(in oklab, var(--primary) 50%, transparent);
+  outline-offset: 1px;
+}
+
+/* Default stays centered; saved data-align / inline style overrides it */
 .rich-text-editor__content .qb-math-display,
 .rich-text-content .qb-math-display {
   display: block;
   width: 100%;
   margin: 1rem 0;
+  padding: 0.2em 0;
   overflow-x: auto;
+  overflow-y: hidden;
   text-align: center;
+}
+
+.rich-text-content .qb-math-display[data-align="left"],
+.rich-text-content .qb-math-display[data-align="custom"] {
+  text-align: left;
+}
+
+.rich-text-content .qb-math-display[data-align="right"] {
+  text-align: right;
 }
 
 .rich-text-editor__content .qb-math-display .katex,
@@ -511,7 +541,71 @@
 .rich-text-content .qb-math-display .katex-display {
   margin: 0;
   font-size: 1.18em;
-  text-align: center;
+  text-align: inherit;
+}
+
+/* Editor: display equation inside a movable frame */
+.rich-text-editor__content .qb-math-block-view {
+  position: relative;
+  display: block;
+  width: 100%;
+  margin: 1rem 0;
+  outline: none !important;
+}
+
+.rich-text-editor__content .qb-math-frame {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 2px 6px;
+  border-radius: 6px;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transition: outline-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rich-text-editor__content .qb-math-block-view .qb-math-display {
+  width: auto;
+  margin: 0;
+  text-align: left;
+}
+
+.rich-text-editor__content .qb-math-block-view:hover .qb-math-frame {
+  outline-color: color-mix(in oklab, var(--primary) 30%, transparent);
+}
+
+.rich-text-editor__content .qb-math-block-view.ProseMirror-selectednode .qb-math-frame {
+  outline-color: color-mix(in oklab, var(--primary) 70%, transparent);
+}
+
+.rich-text-editor__content .qb-math-block-hint {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 50%;
+  z-index: 52;
+  display: none;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.85);
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.rich-text-editor__content .qb-math-block-view.ProseMirror-selectednode .qb-math-block-hint {
+  display: block;
+}
+
+.rich-text-editor__content .qb-block-dragging .qb-math-block-hint {
+  display: none;
 }
 
 .rich-text-editor__content .katex,
@@ -669,23 +763,26 @@
   outline-color: color-mix(in oklab, var(--primary) 70%, transparent);
 }
 
-/* Dragging */
-.rich-text-editor__content .qb-image-node-view.qb-image-dragging {
+/* Dragging (images + display equations) */
+.rich-text-editor__content .qb-block-dragging {
+  position: relative;
   z-index: 40;
+  user-select: none;
 }
 
-.rich-text-editor__content .qb-image-node-view.qb-image-dragging .qb-image-frame {
+.rich-text-editor__content .qb-block-dragging [data-block-frame] {
   outline-color: var(--primary);
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.22);
   opacity: 0.9;
   transition: none;
 }
 
-.rich-text-editor__content .qb-image-node-view.qb-image-dragging img.qb-inline-image {
+.rich-text-editor__content .qb-block-dragging img.qb-inline-image,
+.rich-text-editor__content .qb-block-dragging .qb-math-frame {
   cursor: grabbing;
 }
 
-.rich-text-editor__content .qb-image-node-view.qb-image-snap-center::after {
+.rich-text-editor__content .qb-block-snap-center::after {
   content: "";
   position: absolute;
   top: -0.5rem;
@@ -697,7 +794,7 @@
   z-index: 41;
 }
 
-.qb-image-drop-indicator {
+.qb-block-drop-indicator {
   position: fixed;
   height: 4px;
   border-radius: 999px;
@@ -764,7 +861,7 @@
   pointer-events: auto;
 }
 
-.rich-text-editor__content .qb-image-node-view.qb-image-dragging .qb-image-resize-handle {
+.rich-text-editor__content .qb-image-node-view.qb-block-dragging .qb-image-resize-handle {
   opacity: 0;
   pointer-events: none;
 }
@@ -773,8 +870,7 @@
   background: var(--primary);
 }
 
-.rich-text-editor__content .qb-image-node-view.qb-image-resizing,
-.rich-text-editor__content .qb-image-node-view.qb-image-dragging {
+.rich-text-editor__content .qb-image-node-view.qb-image-resizing {
   user-select: none;
 }
 
@@ -842,7 +938,7 @@
   display: flex;
 }
 
-.rich-text-editor__content .qb-image-node-view.qb-image-dragging .qb-image-toolbar,
+.rich-text-editor__content .qb-image-node-view.qb-block-dragging .qb-image-toolbar,
 .rich-text-editor__content .qb-image-node-view.qb-image-resizing .qb-image-toolbar {
   display: none;
 }

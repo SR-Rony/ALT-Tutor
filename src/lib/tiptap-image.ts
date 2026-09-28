@@ -1,23 +1,29 @@
 import Image from "@tiptap/extension-image";
 import { mergeAttributes, type Editor } from "@tiptap/core";
+import {
+  applyBlockFrameLayout,
+  BLOCK_INDENT_STEP,
+  BLOCK_NUDGE_STEP,
+  createBlockMover,
+  getSelectedBlockOffset,
+  leftWithin,
+  MAX_BLOCK_OFFSET,
+  nudgeSelectedBlock,
+  type BlockAlign,
+  type BlockSnapAlign,
+} from "@/lib/tiptap-block-move";
 
-export type QbImageSnapAlign = "left" | "center" | "right";
-export type QbImageAlign = QbImageSnapAlign | "custom";
+export type QbImageSnapAlign = BlockSnapAlign;
+export type QbImageAlign = BlockAlign;
 
-export const IMAGE_NUDGE_STEP = 8;
-export const IMAGE_INDENT_STEP = 24;
-export const MAX_IMAGE_OFFSET = 720;
+export const IMAGE_NUDGE_STEP = BLOCK_NUDGE_STEP;
+export const IMAGE_INDENT_STEP = BLOCK_INDENT_STEP;
+export const MAX_IMAGE_OFFSET = MAX_BLOCK_OFFSET;
 
 export const MIN_IMAGE_WIDTH = 80;
 export const MAX_IMAGE_WIDTH = 1200;
 export const IMAGE_RESIZE_STEP = 20;
 
-const DRAG_THRESHOLD = 4;
-const HORIZONTAL_INTENT_THRESHOLD = 6;
-const VERTICAL_MOVE_THRESHOLD = 16;
-const SNAP_THRESHOLD = 10;
-const AUTOSCROLL_EDGE = 48;
-const AUTOSCROLL_MAX_SPEED = 18;
 const SIZE_PRESETS = [25, 50, 75, 100] as const;
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "w" | "e";
@@ -231,25 +237,7 @@ function applyLayoutToFrame(
 ) {
   const { align, offset, width } = readLayout(attrs);
 
-  frame.dataset.align = align;
-  frame.style.transform = "";
-
-  if (align === "center") {
-    frame.style.marginLeft = "auto";
-    frame.style.marginRight = "auto";
-  } else if (align === "right") {
-    frame.style.marginLeft = "auto";
-    frame.style.marginRight = "0px";
-  } else if (align === "custom") {
-    // Keep the image inside the editor when it is narrower than when saved.
-    frame.style.marginLeft = width
-      ? `max(0px, min(${offset}px, calc(100% - ${width}px)))`
-      : `${offset}px`;
-    frame.style.marginRight = "auto";
-  } else {
-    frame.style.marginLeft = "0px";
-    frame.style.marginRight = "auto";
-  }
+  applyBlockFrameLayout(frame, align, offset, width);
 
   img.className = "qb-inline-image";
 
@@ -274,69 +262,17 @@ function applyLayoutToFrame(
   }
 }
 
-function leftWithin(container: HTMLElement, el: HTMLElement): number {
-  return Math.max(
-    0,
-    Math.round(
-      el.getBoundingClientRect().left -
-        container.getBoundingClientRect().left,
-    ),
-  );
-}
-
 export function getImageHorizontalOffset(
   editor: Editor,
 ): number {
-  const attrs =
-    editor.getAttributes("image");
-
-  const align =
-    (attrs.align as QbImageAlign) || "left";
-
-  const stored = clampImageOffset(
-    Number(attrs.offset) || 0,
-  );
-
-  if (align === "custom" || align === "left") return stored;
-
-  const dom = editor.view.nodeDOM(
-    editor.state.selection.from,
-  );
-
-  if (!(dom instanceof HTMLElement)) return stored;
-
-  const frame = dom.querySelector<HTMLElement>(".qb-image-frame");
-
-  if (frame) return leftWithin(dom, frame);
-
-  const img = dom instanceof HTMLImageElement ? dom : dom.querySelector("img");
-
-  if (img?.parentElement) return leftWithin(img.parentElement, img);
-
-  return stored;
+  return getSelectedBlockOffset(editor, "image");
 }
 
 export function nudgeSelectedImage(
   editor: Editor,
   delta: number,
 ): boolean {
-  if (!editor.isActive("image")) {
-    return false;
-  }
-
-  const next = nextImageOffset(
-    getImageHorizontalOffset(editor),
-    delta,
-  );
-
-  return editor
-    .chain()
-    .focus()
-    .updateAttributes("image", {
-      align: "custom",
-      offset: next,
-    })
-    .run();
+  return nudgeSelectedBlock(editor, "image", delta);
 }
 
 export function resizeSelectedImage(
@@ -366,25 +302,6 @@ export function resizeSelectedImage(
       width: clampImageWidth(current + delta),
     })
     .run();
-}
-
-function findScrollParent(el: HTMLElement | null): HTMLElement | null {
-  let node = el?.parentElement ?? null;
-
-  while (node && node !== document.body) {
-    const { overflowY } = getComputedStyle(node);
-
-    if (
-      (overflowY === "auto" || overflowY === "scroll") &&
-      node.scrollHeight > node.clientHeight
-    ) {
-      return node;
-    }
-
-    node = node.parentElement;
-  }
-
-  return null;
 }
 
 function createDiv(className: string): HTMLDivElement {
@@ -456,28 +373,18 @@ function createDraggableImageView({
   frame.appendChild(toolbar);
   wrapper.appendChild(frame);
 
+  frame.setAttribute("data-block-frame", "true");
   applyLayoutToFrame(frame, img, currentAttrs);
 
-  let mode: "idle" | "drag" | "resize" = "idle";
+  const mover = createBlockMover({ editor, getPos, wrapper, frame, nodeName: "image" });
+
+  let mode: "idle" | "resize" = "idle";
   let activePointerId: number | null = null;
 
   let startX = 0;
   let startY = 0;
-  let lastX = 0;
-  let lastY = 0;
   let startLeft = 0;
   let containerWidth = 0;
-
-  // Drag state
-  let moved = false;
-  let maxLeft = 0;
-  let nextLeft = 0;
-  let snapped: QbImageSnapAlign | null = null;
-  let dropPos: number | null = null;
-  let scrollParent: HTMLElement | null = null;
-  let startScrollTop = 0;
-  let rafId = 0;
-  let indicator: HTMLDivElement | null = null;
 
   // Resize state
   let resizeHandle: ResizeHandle | null = null;
@@ -505,271 +412,9 @@ function createDraggableImageView({
       .run();
   };
 
-  /* ---------------- Move ---------------- */
-
-  const removeIndicator = () => {
-    indicator?.remove();
-    indicator = null;
-  };
-
-  const showIndicator = (lineY: number) => {
-    const editorRect = editor.view.dom.getBoundingClientRect();
-    const clip = scrollParent?.getBoundingClientRect();
-
-    if (clip && (lineY < clip.top || lineY > clip.bottom)) {
-      removeIndicator();
-      return;
-    }
-
-    if (!indicator) {
-      indicator = createDiv("qb-image-drop-indicator");
-      document.body.appendChild(indicator);
-    }
-
-    indicator.style.left = `${editorRect.left}px`;
-    indicator.style.width = `${editorRect.width}px`;
-    indicator.style.top = `${Math.round(lineY) - 2}px`;
-  };
-
-  /** Top-level insertion point closest to clientY, or null when it would be a no-op. */
-  const findDropTarget = (
-    clientY: number,
-  ): { pos: number; lineY: number } | null => {
-    const pos = getPos();
-    if (pos === undefined) return null;
-
-    const { state, view } = editor;
-    const self = state.doc.nodeAt(pos);
-    if (!self) return null;
-
-    let target: number | null = null;
-    let lineY = 0;
-    let prevBottom: number | null = null;
-    let lastBottom = 0;
-
-    state.doc.forEach((child, offset) => {
-      if (target !== null) return;
-
-      const dom = view.nodeDOM(offset);
-      if (!(dom instanceof HTMLElement)) return;
-
-      const rect = dom.getBoundingClientRect();
-
-      if (clientY < rect.top + rect.height / 2) {
-        target = offset;
-        lineY = prevBottom == null ? rect.top : (prevBottom + rect.top) / 2;
-        return;
-      }
-
-      prevBottom = rect.bottom;
-      lastBottom = rect.bottom;
-    });
-
-    if (target === null) {
-      target = state.doc.content.size;
-      lineY = lastBottom;
-    }
-
-    if (target === pos || target === pos + self.nodeSize) return null;
-
-    return { pos: target, lineY };
-  };
-
-  const updateDragPreview = () => {
-    const dx = lastX - startX;
-    const scrollDelta = scrollParent
-      ? scrollParent.scrollTop - startScrollTop
-      : 0;
-    const dy = lastY - startY + scrollDelta;
-
-    let left = Math.max(0, Math.min(maxLeft, startLeft + dx));
-    snapped = null;
-
-    if (Math.abs(dx) >= HORIZONTAL_INTENT_THRESHOLD) {
-      const centerLeft = maxLeft / 2;
-
-      if (Math.abs(left - centerLeft) <= SNAP_THRESHOLD) {
-        left = centerLeft;
-        snapped = "center";
-      } else if (left <= SNAP_THRESHOLD) {
-        left = 0;
-        snapped = "left";
-      } else if (maxLeft - left <= SNAP_THRESHOLD) {
-        left = maxLeft;
-        snapped = "right";
-      }
-    } else {
-      left = startLeft;
-    }
-
-    nextLeft = Math.round(left);
-
-    frame.style.transform = `translate(${nextLeft - startLeft}px, ${dy}px)`;
-    wrapper.classList.toggle("qb-image-snap-center", snapped === "center");
-
-    const target =
-      Math.abs(dy) >= VERTICAL_MOVE_THRESHOLD ? findDropTarget(lastY) : null;
-
-    dropPos = target?.pos ?? null;
-
-    if (target) {
-      showIndicator(target.lineY);
-    } else {
-      removeIndicator();
-    }
-  };
-
-  const autoScrollTick = () => {
-    if (mode !== "drag") return;
-
-    if (moved && scrollParent) {
-      const rect = scrollParent.getBoundingClientRect();
-      let delta = 0;
-
-      if (lastY < rect.top + AUTOSCROLL_EDGE) {
-        delta = -((rect.top + AUTOSCROLL_EDGE - lastY) / AUTOSCROLL_EDGE) * AUTOSCROLL_MAX_SPEED;
-      } else if (lastY > rect.bottom - AUTOSCROLL_EDGE) {
-        delta = ((lastY - (rect.bottom - AUTOSCROLL_EDGE)) / AUTOSCROLL_EDGE) * AUTOSCROLL_MAX_SPEED;
-      }
-
-      if (delta !== 0) {
-        delta = Math.max(-AUTOSCROLL_MAX_SPEED, Math.min(AUTOSCROLL_MAX_SPEED, delta));
-        const before = scrollParent.scrollTop;
-        scrollParent.scrollTop += Math.round(delta);
-        if (scrollParent.scrollTop !== before) updateDragPreview();
-      }
-    }
-
-    rafId = requestAnimationFrame(autoScrollTick);
-  };
-
-  const commitMove = () => {
-    const pos = getPos();
-    if (pos === undefined) return;
-
-    const horizontalChanged =
-      Math.abs(lastX - startX) >= HORIZONTAL_INTENT_THRESHOLD;
-
-    let layout: { align: QbImageAlign; offset: number } | null = null;
-
-    if (horizontalChanged) {
-      layout = snapped
-        ? { align: snapped, offset: 0 }
-        : { align: "custom", offset: clampImageOffset(nextLeft) };
-    }
-
-    const target = dropPos;
-
-    if (!layout && target === null) return;
-
-    let finalPos = pos;
-
-    const ok = editor
-      .chain()
-      .focus()
-      .command(({ tr }) => {
-        const current = tr.doc.nodeAt(pos);
-        if (!current || current.type.name !== "image") return false;
-
-        const attrs = layout ? { ...current.attrs, ...layout } : current.attrs;
-
-        if (target === null) {
-          tr.setNodeMarkup(pos, undefined, attrs);
-          return true;
-        }
-
-        tr.delete(pos, pos + current.nodeSize);
-        finalPos = tr.mapping.map(target);
-        tr.insert(finalPos, current.type.create(attrs));
-        return true;
-      })
-      .run();
-
-    if (ok) {
-      editor.commands.setNodeSelection(finalPos);
-    }
-  };
-
-  const onDragMove = (event: PointerEvent) => {
-    if (mode !== "drag" || event.pointerId !== activePointerId) return;
-
-    lastX = event.clientX;
-    lastY = event.clientY;
-
-    if (!moved) {
-      if (Math.hypot(lastX - startX, lastY - startY) < DRAG_THRESHOLD) return;
-      moved = true;
-      wrapper.classList.add("qb-image-dragging");
-    }
-
-    updateDragPreview();
-  };
-
-  const endDrag = (event: PointerEvent, commit: boolean) => {
-    if (mode !== "drag" || event.pointerId !== activePointerId) return;
-
-    mode = "idle";
-    activePointerId = null;
-    cancelAnimationFrame(rafId);
-    removeIndicator();
-
-    try {
-      img.releasePointerCapture(event.pointerId);
-    } catch {
-      // Pointer capture may already be released.
-    }
-
-    window.removeEventListener("pointermove", onDragMove);
-    window.removeEventListener("pointerup", onDragUp);
-    window.removeEventListener("pointercancel", onDragCancel);
-
-    wrapper.classList.remove("qb-image-dragging", "qb-image-snap-center");
-    frame.style.transform = "";
-
-    if (commit && moved) {
-      commitMove();
-    }
-  };
-
-  const onDragUp = (event: PointerEvent) => endDrag(event, true);
-  const onDragCancel = (event: PointerEvent) => endDrag(event, false);
-
   img.addEventListener("pointerdown", (event) => {
-    if (!editor.isEditable || event.button !== 0 || mode !== "idle") return;
-
-    event.preventDefault();
-    event.stopPropagation();
-
-    selectImage();
-
-    mode = "drag";
-    activePointerId = event.pointerId;
-    moved = false;
-    snapped = null;
-    dropPos = null;
-
-    startX = lastX = event.clientX;
-    startY = lastY = event.clientY;
-
-    containerWidth = wrapper.clientWidth;
-    startLeft = leftWithin(wrapper, frame);
-    maxLeft = Math.max(0, containerWidth - frame.offsetWidth);
-    nextLeft = startLeft;
-
-    scrollParent = findScrollParent(wrapper);
-    startScrollTop = scrollParent?.scrollTop ?? 0;
-
-    try {
-      img.setPointerCapture(event.pointerId);
-    } catch {
-      // Ignore: window listeners below still track the pointer.
-    }
-
-    window.addEventListener("pointermove", onDragMove);
-    window.addEventListener("pointerup", onDragUp);
-    window.addEventListener("pointercancel", onDragCancel);
-
-    rafId = requestAnimationFrame(autoScrollTick);
+    if (mode !== "idle") return;
+    mover.start(event, img);
   });
 
   img.addEventListener("dragstart", (event) => event.preventDefault());
@@ -872,7 +517,7 @@ function createDraggableImageView({
   const onResizeCancel = (event: PointerEvent) => endResize(event, false);
 
   const startResize = (event: PointerEvent, position: ResizeHandle) => {
-    if (!editor.isEditable || event.button !== 0 || mode !== "idle") return;
+    if (!editor.isEditable || event.button !== 0 || mode !== "idle" || mover.isActive()) return;
 
     event.preventDefault();
     event.stopPropagation();
@@ -959,11 +604,7 @@ function createDraggableImageView({
   }
 
   const cleanupListeners = () => {
-    cancelAnimationFrame(rafId);
-    removeIndicator();
-    window.removeEventListener("pointermove", onDragMove);
-    window.removeEventListener("pointerup", onDragUp);
-    window.removeEventListener("pointercancel", onDragCancel);
+    mover.destroy();
     window.removeEventListener("pointermove", onResizeMove);
     window.removeEventListener("pointerup", onResizeUp);
     window.removeEventListener("pointercancel", onResizeCancel);
@@ -982,7 +623,7 @@ function createDraggableImageView({
 
       currentAttrs = updatedNode.attrs;
 
-      if (mode === "idle") {
+      if (mode === "idle" && !mover.isActive()) {
         applyLayoutToFrame(frame, img, currentAttrs);
       }
 

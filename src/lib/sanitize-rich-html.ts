@@ -213,7 +213,13 @@ function applyParagraphIndent(el: Element) {
  */
 export function normalizeRichHtmlLayout(html: string): string {
   if (typeof window === "undefined") return html;
-  if (!html.includes("<img") && !html.includes("data-indent") && !html.includes("qb-indent-") && !html.includes("padding-left")) {
+  if (
+    !html.includes("<img") &&
+    !html.includes("data-indent") &&
+    !html.includes("qb-indent-") &&
+    !html.includes("padding-left") &&
+    !html.includes("data-align")
+  ) {
     return html;
   }
   try {
@@ -227,10 +233,36 @@ export function normalizeRichHtmlLayout(html: string): string {
       applyImageLayout(img);
       applyImageWidth(img, parseImageWidth(img));
     });
+
+    doc.querySelectorAll('.qb-math-display, [data-display="true"]').forEach((el) => {
+      applyMathDisplayLayout(el);
+    });
     return doc.body.innerHTML;
   } catch {
     return html;
   }
+}
+
+/** Display equations: centered unless the editor saved another position. */
+function applyMathDisplayLayout(el: Element) {
+  const align = el.getAttribute("data-align");
+  if (align !== "left" && align !== "right" && align !== "center" && align !== "custom") return;
+
+  // The generic style hook may have turned padding into indent levels; the equation owns its offset.
+  el.removeAttribute("data-indent");
+  for (let i = 1; i <= MAX_INDENT; i += 1) {
+    el.classList.remove(`qb-indent-${i}`);
+  }
+
+  if (align === "custom") {
+    const px = clampImageOffset(Number.parseFloat(el.getAttribute("data-offset") ?? ""));
+    el.setAttribute("data-offset", String(px));
+    el.setAttribute("style", `text-align: left; padding-left: ${px}px`);
+    return;
+  }
+
+  el.removeAttribute("data-offset");
+  el.setAttribute("style", `text-align: ${align}`);
 }
 
 function applyImageLayout(img: Element) {

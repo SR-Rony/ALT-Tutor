@@ -1,6 +1,15 @@
 import { Node, mergeAttributes, type Editor } from "@tiptap/core";
 import type { Node as ProseMirrorNode } from "@tiptap/pm/model";
 import katex from "katex";
+import {
+  applyBlockFrameLayout,
+  BLOCK_NUDGE_STEP,
+  clampBlockOffset,
+  createBlockMover,
+  nudgeSelectedBlock,
+  parseBlockAlign,
+  type BlockAlign,
+} from "@/lib/tiptap-block-move";
 
 /** Shared KaTeX options — exam / Revision Village style math. */
 export const KATEX_OPTIONS = {
@@ -82,45 +91,119 @@ export type MathInlineOptions = {
   HTMLAttributes: Record<string, unknown>;
 };
 
-function createMathNodeView(display: boolean) {
-  return ({
-    node,
-    editor,
-    getPos,
-  }: {
-    node: ProseMirrorNode;
-    editor: Editor;
-    getPos: () => number | undefined;
-  }) => {
-    const dom = document.createElement(display ? "div" : "span");
-    dom.className = display ? "qb-math qb-math-display" : "qb-math";
-    if (display) dom.setAttribute("data-display", "true");
-    dom.contentEditable = "false";
-    paintKatex(dom, String(node.attrs.latex ?? ""), display);
+type MathNodeViewProps = {
+  node: ProseMirrorNode;
+  editor: Editor;
+  getPos: () => number | undefined;
+};
 
-    const openEditor = () => {
-      const pos = getPos();
-      if (pos !== undefined) {
-        editor.chain().setNodeSelection(pos).run();
+function openMathEditor(editor: Editor, getPos: () => number | undefined) {
+  const pos = getPos();
+  if (pos !== undefined) {
+    editor.chain().setNodeSelection(pos).run();
+  }
+  editor.view.dom.dispatchEvent(new CustomEvent(MATH_OPEN_EVENT, { bubbles: true }));
+}
+
+/** Inline equation: flows inside the text line; drag it (native) to another spot in the text. */
+function createInlineMathView({ node, editor, getPos }: MathNodeViewProps) {
+  const dom = document.createElement("span");
+  dom.className = "qb-math";
+  dom.contentEditable = "false";
+  dom.title = "Double-click to edit · drag to move";
+  let latex = String(node.attrs.latex ?? "");
+  paintKatex(dom, latex, false);
+
+  dom.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openMathEditor(editor, getPos);
+  });
+
+  return {
+    dom,
+    ignoreMutation: () => true,
+    update: (updated: ProseMirrorNode) => {
+      if (updated.type !== node.type) return false;
+      const next = String(updated.attrs.latex ?? "");
+      if (next !== latex) {
+        latex = next;
+        paintKatex(dom, latex, false);
       }
-      editor.view.dom.dispatchEvent(new CustomEvent(MATH_OPEN_EVENT, { bubbles: true }));
-    };
+      return true;
+    },
+  };
+}
 
-    dom.addEventListener("dblclick", (event) => {
-      event.preventDefault();
-      event.stopPropagation();
-      openEditor();
-    });
+function readMathLayout(attrs: Record<string, unknown>) {
+  return {
+    align: parseBlockAlign(attrs.align, "center"),
+    offset: clampBlockOffset(Number(attrs.offset) || 0),
+  };
+}
 
-    return {
-      dom,
-      ignoreMutation: () => true,
-      update: (updated: ProseMirrorNode) => {
-        if (updated.type !== node.type) return false;
-        paintKatex(dom, String(updated.attrs.latex ?? ""), display);
-        return true;
-      },
-    };
+/** Display equation: own line, drag left/right to position it, up/down to move it between lines. */
+function createDisplayMathView({ node, editor, getPos }: MathNodeViewProps) {
+  const wrapper = document.createElement("div");
+  wrapper.className = "qb-math-block-view";
+  wrapper.contentEditable = "false";
+
+  const frame = document.createElement("div");
+  frame.className = "qb-math-frame";
+  frame.setAttribute("data-block-frame", "true");
+  frame.title = "Drag to move · double-click to edit";
+
+  const math = document.createElement("div");
+  math.className = "qb-math qb-math-display";
+  math.setAttribute("data-display", "true");
+
+  const hint = document.createElement("div");
+  hint.className = "qb-math-block-hint";
+  hint.textContent = "Drag to move · Double-click to edit";
+
+  frame.append(math, hint);
+  wrapper.appendChild(frame);
+
+  let latex = String(node.attrs.latex ?? "");
+  paintKatex(math, latex, true);
+
+  const applyLayout = (attrs: Record<string, unknown>) => {
+    const { align, offset } = readMathLayout(attrs);
+    applyBlockFrameLayout(frame, align, offset);
+  };
+  applyLayout(node.attrs);
+
+  const mover = createBlockMover({ editor, getPos, wrapper, frame, nodeName: "mathDisplay" });
+
+  frame.addEventListener("pointerdown", (event) => mover.start(event, frame));
+  frame.addEventListener("dragstart", (event) => event.preventDefault());
+  frame.addEventListener("dblclick", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openMathEditor(editor, getPos);
+  });
+
+  return {
+    dom: wrapper,
+    stopEvent: (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      return Boolean(
+        target?.closest(".qb-math-frame") &&
+          /^(pointer|mouse|drag|click|dblclick)/.test(event.type),
+      );
+    },
+    ignoreMutation: (mutation: { type: string }) => mutation.type !== "selection",
+    update: (updated: ProseMirrorNode) => {
+      if (updated.type !== node.type) return false;
+      const next = String(updated.attrs.latex ?? "");
+      if (next !== latex) {
+        latex = next;
+        paintKatex(math, latex, true);
+      }
+      if (!mover.isActive()) applyLayout(updated.attrs);
+      return true;
+    },
+    destroy: () => mover.destroy(),
   };
 }
 
@@ -131,6 +214,7 @@ export const MathInline = Node.create<MathInlineOptions>({
   inline: true,
   atom: true,
   selectable: true,
+  draggable: true,
 
   addOptions() {
     return { HTMLAttributes: {} };
@@ -184,11 +268,11 @@ export const MathInline = Node.create<MathInlineOptions>({
 
   addNodeView() {
     if (typeof document === "undefined") return null;
-    return createMathNodeView(false);
+    return createInlineMathView;
   },
 });
 
-/** Centered display equation — Revision Village / exam-paper style. */
+/** Display equation on its own line — centered by default, movable to any position. */
 export const MathDisplay = Node.create({
   name: "mathDisplay",
   group: "block",
@@ -206,6 +290,41 @@ export const MathDisplay = Node.create({
           "data-display": "true",
         }),
       },
+      align: {
+        default: "center" as BlockAlign,
+        parseHTML: (element) => {
+          const el = element as HTMLElement;
+          const data = el.getAttribute("data-align");
+          if (data) return parseBlockAlign(data, "center");
+          const textAlign = el.style.textAlign;
+          return textAlign === "left" || textAlign === "right" ? textAlign : "center";
+        },
+        renderHTML: (attributes) => {
+          const { align, offset } = readMathLayout(attributes);
+          if (align === "center") return {};
+          if (align === "custom") {
+            return {
+              "data-align": "custom",
+              "data-offset": String(offset),
+              style: "text-align: left",
+            };
+          }
+          return { "data-align": align, style: `text-align: ${align}` };
+        },
+      },
+      offset: {
+        default: 0,
+        parseHTML: (element) =>
+          clampBlockOffset(Number.parseFloat((element as HTMLElement).getAttribute("data-offset") ?? "")),
+        renderHTML: () => ({}),
+      },
+    };
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      ArrowLeft: () => nudgeSelectedBlock(this.editor, this.name, -BLOCK_NUDGE_STEP),
+      ArrowRight: () => nudgeSelectedBlock(this.editor, this.name, BLOCK_NUDGE_STEP),
     };
   },
 
@@ -231,7 +350,7 @@ export const MathDisplay = Node.create({
 
   addNodeView() {
     if (typeof document === "undefined") return null;
-    return createMathNodeView(true);
+    return createDisplayMathView;
   },
 });
 
@@ -277,9 +396,25 @@ export function applyEditorMath(editor: Editor, latex: string, display: boolean)
   const trimmed = latex.trim();
   if (!trimmed) return false;
   const type = display ? "mathDisplay" : "mathInline";
+
+  // Editing a display equation in place keeps its position.
+  if (display && editor.isActive("mathDisplay")) {
+    return editor.chain().focus().updateAttributes("mathDisplay", { latex: trimmed }).run();
+  }
+  if (!display && editor.isActive("mathInline")) {
+    return editor.chain().focus().updateAttributes("mathInline", { latex: trimmed }).run();
+  }
+
   const chain = editor.chain().focus();
   if (editor.isActive("mathInline") || editor.isActive("mathDisplay")) {
     chain.deleteSelection();
   }
   return chain.insertContent({ type, attrs: { latex: trimmed } }).run();
+}
+
+/** Inline when the cursor is inside a line that already has text; own line otherwise. */
+export function suggestMathDisplayMode(editor: Editor): boolean {
+  const { $from } = editor.state.selection;
+  const parent = $from.parent;
+  return !(parent.isTextblock && parent.textContent.trim().length > 0);
 }

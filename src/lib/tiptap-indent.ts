@@ -1,5 +1,7 @@
 import { Extension } from "@tiptap/core";
-import { IMAGE_INDENT_STEP, nudgeSelectedImage } from "@/lib/tiptap-image";
+import { BLOCK_INDENT_STEP, nudgeSelectedBlock } from "@/lib/tiptap-block-move";
+
+const MOVABLE_BLOCKS = ["image", "mathDisplay"] as const;
 
 declare module "@tiptap/core" {
   interface Commands<ReturnType> {
@@ -71,8 +73,8 @@ export const Indent = Extension.create({
       indent:
         () =>
         ({ editor, commands }) => {
-          if (editor.isActive("image")) {
-            return nudgeSelectedImage(editor, IMAGE_INDENT_STEP);
+          for (const block of MOVABLE_BLOCKS) {
+            if (editor.isActive(block)) return nudgeSelectedBlock(editor, block, BLOCK_INDENT_STEP);
           }
           if (editor.can().sinkListItem("listItem")) {
             return commands.sinkListItem("listItem");
@@ -89,8 +91,8 @@ export const Indent = Extension.create({
       outdent:
         () =>
         ({ editor, commands }) => {
-          if (editor.isActive("image")) {
-            return nudgeSelectedImage(editor, -IMAGE_INDENT_STEP);
+          for (const block of MOVABLE_BLOCKS) {
+            if (editor.isActive(block)) return nudgeSelectedBlock(editor, block, -BLOCK_INDENT_STEP);
           }
           if (editor.can().liftListItem("listItem")) {
             return commands.liftListItem("listItem");

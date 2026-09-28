@@ -12,6 +12,19 @@ import {
 import { getKatexParseError, renderKatex } from "@/lib/tiptap-math";
 import { cn } from "@/utils";
 
+const PLACEMENT_OPTIONS = [
+  {
+    display: false,
+    label: "In the text line",
+    hint: "Sits inside the sentence, e.g. uranium-235 (²³⁵₉₂U).",
+  },
+  {
+    display: true,
+    label: "On its own line",
+    hint: "Separate line. Drag it left / right / up / down to place it anywhere.",
+  },
+] as const;
+
 type MathEquationDialogProps = {
   open: boolean;
   initialLatex?: string;
@@ -87,29 +100,7 @@ export function MathEquationDialog({
       onClose={onClose}
       className="sm:max-w-3xl"
       footer={
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex rounded-lg border border-border p-0.5 text-xs font-semibold">
-            <button
-              type="button"
-              className={cn(
-                "rounded-md px-2.5 py-1.5 transition",
-                display ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => setDisplay(true)}
-            >
-              Display (centered)
-            </button>
-            <button
-              type="button"
-              className={cn(
-                "rounded-md px-2.5 py-1.5 transition",
-                !display ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-              onClick={() => setDisplay(false)}
-            >
-              Inline
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center justify-end gap-3">
           <div className="flex gap-2">
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel
@@ -126,6 +117,30 @@ export function MathEquationDialog({
       }
     >
       <div className="space-y-4">
+        <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Where to place the equation">
+          {PLACEMENT_OPTIONS.map((option) => {
+            const selected = display === option.display;
+            return (
+              <button
+                key={option.label}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                onClick={() => setDisplay(option.display)}
+                className={cn(
+                  "rounded-xl border px-3 py-2.5 text-left transition",
+                  selected
+                    ? "border-primary bg-primary-muted ring-2 ring-primary/20"
+                    : "border-border hover:border-primary/40"
+                )}
+              >
+                <span className="block text-sm font-semibold text-foreground">{option.label}</span>
+                <span className="mt-0.5 block text-xs text-muted-foreground">{option.hint}</span>
+              </button>
+            );
+          })}
+        </div>
+
         <div className="flex flex-wrap gap-1.5">
           {MATH_SYMBOL_GROUPS.map((group) => (
             <button
@@ -167,10 +182,7 @@ export function MathEquationDialog({
               <button
                 key={example.name}
                 type="button"
-                onClick={() => {
-                  setLatex(example.latex);
-                  setDisplay(true);
-                }}
+                onClick={() => setLatex(example.latex)}
                 className="rounded-full border border-border px-3 py-1 text-xs font-semibold text-muted-foreground transition hover:border-primary/40 hover:text-foreground"
               >
                 {example.name}

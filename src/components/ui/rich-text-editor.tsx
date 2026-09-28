@@ -42,6 +42,7 @@ import {
   MathDisplay,
   MathInline,
   readSelectedMath,
+  suggestMathDisplayMode,
 } from "@/lib/tiptap-math";
 import { MathEquationDialog } from "@/components/ui/math-equation-dialog";
 import { uploadService } from "@/services/upload.service";
@@ -98,9 +99,11 @@ function ToolbarButton({
 
 function setEditorAlignment(editor: Editor, align: TextAlignValue) {
   if (align !== "justify") {
-    if (editor.isActive("image")) {
-      editor.chain().focus().updateAttributes("image", { align, offset: 0 }).run();
-      return;
+    for (const block of ["image", "mathDisplay"] as const) {
+      if (editor.isActive(block)) {
+        editor.chain().focus().updateAttributes(block, { align, offset: 0 }).run();
+        return;
+      }
     }
     const { state } = editor;
     const { selection } = state;
@@ -114,7 +117,10 @@ function setEditorAlignment(editor: Editor, align: TextAlignValue) {
 }
 
 function isEditorAlignmentActive(editor: Editor, align: TextAlignValue) {
-  if (align !== "justify" && editor.isActive("image", { align })) return true;
+  if (align !== "justify") {
+    if (editor.isActive("image")) return editor.isActive("image", { align });
+    if (editor.isActive("mathDisplay")) return editor.isActive("mathDisplay", { align });
+  }
   return editor.isActive({ textAlign: align });
 }
 
@@ -212,7 +218,7 @@ export function RichTextEditor({
   const openMathDialog = () => {
     if (!editor) return;
     const selected = readSelectedMath(editor);
-    setMathDraft(selected ?? { latex: "", display: true });
+    setMathDraft(selected ?? { latex: "", display: suggestMathDisplayMode(editor) });
     setMathOpen(true);
   };
   mathOpenerRef.current = openMathDialog;
