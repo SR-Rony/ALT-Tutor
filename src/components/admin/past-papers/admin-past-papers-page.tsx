@@ -72,6 +72,15 @@ type QbPaperOption = {
   kind: "MCQ" | "WRITTEN";
 };
 
+/** Full question text for the picker, without the indentation spaces used in the editor. */
+function pickerQuestionTitle(prompt: string) {
+  return richTextToPlain(prompt)
+    .replace(/[ \t\u00A0]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{2,}/g, "\n")
+    .trim();
+}
+
 function paperCodeFromNumber(n: number) {
   return `P${Math.max(1, Math.floor(n))}`;
 }
@@ -1080,7 +1089,7 @@ export function AdminPastPapersPage({
             : "Pick MCQ questions from Questionbank. Students will view them in Past Papers."
         }
         onClose={() => !busy && setModalOpen(false)}
-        className="sm:max-w-2xl"
+        className="sm:max-w-4xl"
         footer={
           <div className="flex flex-wrap items-center justify-between gap-2">
             <label className="inline-flex items-center gap-2 text-sm font-semibold">
@@ -1464,18 +1473,18 @@ export function AdminPastPapersPage({
                     Available and add some.
                   </p>
                 ) : (
-                  <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                  <div className="max-h-[min(60vh,36rem)] min-h-48 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
                     {selectedQuestions.map((q, index) => (
                       <div
                         key={q.id}
-                        className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
+                        className="flex items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-muted/60"
                       >
                         <span className="mt-0.5 w-5 shrink-0 text-xs font-semibold text-muted-foreground">
                           {index + 1}.
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="font-medium text-foreground line-clamp-2">
-                            #{q.number} {richTextToPlain(q.prompt)}
+                          <span className="block whitespace-pre-line break-words font-medium text-foreground">
+                            #{q.number} {pickerQuestionTitle(q.prompt)}
                           </span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
                             {questionTypeLabel(q.questionType)} · {q.topicTitle} · {q.subtopicTitle}{" "}
@@ -1524,15 +1533,15 @@ export function AdminPastPapersPage({
                         : "No questions match this topic/subtopic filter."}
                   </p>
                 ) : (
-                  <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                  <div className="max-h-[min(60vh,36rem)] min-h-48 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
                     {filteredAvailableQuestions.map((q) => (
                       <div
                         key={q.id}
-                        className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
+                        className="flex items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-muted/60"
                       >
                         <span className="min-w-0 flex-1">
-                          <span className="font-medium text-foreground line-clamp-2">
-                            #{q.number} {richTextToPlain(q.prompt)}
+                          <span className="block whitespace-pre-line break-words font-medium text-foreground">
+                            #{q.number} {pickerQuestionTitle(q.prompt)}
                           </span>
                           <span className="mt-0.5 block text-xs text-muted-foreground">
                             {questionTypeLabel(q.questionType)} · {q.topicTitle} · {q.subtopicTitle}{" "}

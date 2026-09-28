@@ -9,8 +9,10 @@ export function richTextToPlain(value: string | null | undefined): string {
   if (!value?.trim()) return "";
   return value
     .replace(/<br\s*\/?>/gi, "\n")
-    .replace(/<\/p>\s*<p>/gi, "\n\n")
+    .replace(/<\/(p|div|h[1-6]|blockquote)>\s*(?=<)/gi, "</$1>\n\n")
+    .replace(/<\/li>\s*(?=<)/gi, "</li>\n")
     .replace(/<[^>]+>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
     .replace(/&lt;/g, "<")
