@@ -27,9 +27,14 @@ export const KATEX_OPTIONS = {
   },
 };
 
+/** A bare `%` starts a LaTeX comment and silently hides the rest of the equation. */
+function escapeBarePercent(latex: string): string {
+  return latex.replace(/(?<!\\)%/g, "\\%");
+}
+
 export function renderKatex(latex: string, displayMode: boolean): string {
   try {
-    return katex.renderToString(latex, {
+    return katex.renderToString(escapeBarePercent(latex), {
       ...KATEX_OPTIONS,
       displayMode,
     });
@@ -43,7 +48,7 @@ export function getKatexParseError(latex: string, displayMode = true): string | 
   const trimmed = latex.trim();
   if (!trimmed) return null;
   try {
-    katex.renderToString(trimmed, {
+    katex.renderToString(escapeBarePercent(trimmed), {
       ...KATEX_OPTIONS,
       throwOnError: true,
       displayMode,
@@ -59,7 +64,7 @@ function paintKatex(dom: HTMLElement, latex: string, display: boolean) {
   const value = String(latex ?? "");
   dom.setAttribute("data-latex", value);
   try {
-    katex.render(value, dom, {
+    katex.render(escapeBarePercent(value), dom, {
       ...KATEX_OPTIONS,
       displayMode: display,
     });

@@ -143,6 +143,7 @@ export const MATH_SYMBOL_GROUPS: MathSnippetGroup[] = [
       { label: "×", snippet: "\\times", title: "Times" },
       { label: "÷", snippet: "\\div", title: "Divide" },
       { label: "·", snippet: "\\cdot", title: "Dot product" },
+      { label: "%", snippet: "\\%", title: "Percent" },
       { label: "≠", snippet: "\\neq", title: "Not equal" },
       { label: "≈", snippet: "\\approx", title: "Approximately" },
       { label: "≤", snippet: "\\leq", title: "Less or equal" },
