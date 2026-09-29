@@ -27,14 +27,111 @@ export const KATEX_OPTIONS = {
   },
 };
 
-/** A bare `%` starts a LaTeX comment and silently hides the rest of the equation. */
-function escapeBarePercent(latex: string): string {
-  return latex.replace(/(?<!\\)%/g, "\\%");
+/** Commands whose `{…}` argument is already text or a name — never rewrite inside. */
+const VERBATIM_ARG_COMMANDS = new Set([
+  "text",
+  "textrm",
+  "textbf",
+  "textit",
+  "textsf",
+  "texttt",
+  "mathrm",
+  "mathbf",
+  "mathit",
+  "mathsf",
+  "mathtt",
+  "mathbb",
+  "mathcal",
+  "mathfrak",
+  "operatorname",
+  "mbox",
+  "hbox",
+  "begin",
+  "end",
+  "color",
+  "textcolor",
+]);
+
+const PLAIN_WORDS_RE =
+  /["“”]([^"“”]*)["“”]|(?<![A-Za-z])([A-Za-z]+(?:[ \t]+[A-Za-z]+)+|[A-Za-z]{4,})(?![A-Za-z])/g;
+
+/**
+ * Math mode drops spaces and italicises every letter, so "total energy output" would
+ * render as one squashed variable. Quoted text, multi-word runs and long single words
+ * become upright `\text{…}`; short symbols like `m`, `ac`, `mgh` stay as variables.
+ */
+function textifyPlainWords(segment: string): string {
+  return segment.replace(PLAIN_WORDS_RE, (match, quoted: string | undefined, words: string | undefined) => {
+    if (quoted !== undefined) {
+      const inner = quoted.trim();
+      return inner ? `\\text{${inner}}` : "";
+    }
+    if (words && /\s/.test(words) && !words.split(/\s+/).some((w) => w.length >= 3)) {
+      return match;
+    }
+    return `\\text{${words}}`;
+  });
+}
+
+function readBalancedGroup(latex: string, start: number): number {
+  let depth = 0;
+  for (let i = start; i < latex.length; i += 1) {
+    const ch = latex[i];
+    if (ch === "\\") {
+      i += 1;
+      continue;
+    }
+    if (ch === "{") depth += 1;
+    else if (ch === "}") {
+      depth -= 1;
+      if (depth === 0) return i + 1;
+    }
+  }
+  return latex.length;
+}
+
+/** Make hand-typed exam equations render like the printed paper. */
+export function normalizeEquationLatex(latex: string): string {
+  let out = "";
+  let plain = "";
+  let i = 0;
+  const flushPlain = () => {
+    out += textifyPlainWords(plain);
+    plain = "";
+  };
+
+  while (i < latex.length) {
+    const ch = latex[i];
+    if (ch !== "\\") {
+      plain += ch;
+      i += 1;
+      continue;
+    }
+    flushPlain();
+    const name = /^[A-Za-z]+\*?/.exec(latex.slice(i + 1))?.[0];
+    if (!name) {
+      out += latex.slice(i, i + 2);
+      i += 2;
+      continue;
+    }
+    out += `\\${name}`;
+    i += 1 + name.length;
+    if (!VERBATIM_ARG_COMMANDS.has(name.replace(/\*$/, ""))) continue;
+    const ws = /^\s*/.exec(latex.slice(i))?.[0] ?? "";
+    if (latex[i + ws.length] !== "{") continue;
+    const end = readBalancedGroup(latex, i + ws.length);
+    out += latex.slice(i, end);
+    i = end;
+  }
+  flushPlain();
+
+  // A bare `%` starts a LaTeX comment and silently hides the rest of the equation.
+  return out.replace(/(?<!\\)%/g, "\\%");
 }
 
 export function renderKatex(latex: string, displayMode: boolean): string {
   try {
-    return katex.renderToString(escapeBarePercent(latex), {
+    return katex.renderToString(normalizeEquationLatex(latex), {
       ...KATEX_OPTIONS,
       displayMode,
     });
@@ -48,7 +145,7 @@ export function getKatexParseError(latex: string, displayMode = true): string | 
   const trimmed = latex.trim();
   if (!trimmed) return null;
   try {
-    katex.renderToString(escapeBarePercent(trimmed), {
+    katex.renderToString(normalizeEquationLatex(trimmed), {
       ...KATEX_OPTIONS,
       throwOnError: true,
       displayMode,
@@ -64,7 +161,7 @@ function paintKatex(dom: HTMLElement, latex: string, display: boolean) {
   const value = String(latex ?? "");
   dom.setAttribute("data-latex", value);
   try {
-    katex.render(escapeBarePercent(value), dom, {
+    katex.render(normalizeEquationLatex(value), dom, {
       ...KATEX_OPTIONS,
       displayMode: display,
     });

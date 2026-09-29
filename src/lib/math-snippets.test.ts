@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { applyLatexSnippet, stripWrappedLatex } from "@/lib/math-snippets";
-import { getKatexParseError, renderKatex } from "@/lib/tiptap-math";
+import { applyLatexSnippet, MATH_EXAMPLES, stripWrappedLatex } from "@/lib/math-snippets";
+import { getKatexParseError, normalizeEquationLatex, renderKatex } from "@/lib/tiptap-math";
 
 describe("math snippets", () => {
   it("inserts a fraction around the cursor", () => {
@@ -52,5 +52,34 @@ describe("katex complex equations", () => {
 
   it("reports parse errors", () => {
     expect(getKatexParseError("\\sum_{")).toMatch(/Expected|EOF|}/i);
+  });
+});
+
+describe("normalizeEquationLatex", () => {
+  it("turns quoted words into upright text with spaces", () => {
+    expect(
+      normalizeEquationLatex('\\dfrac{"total energy output" }{"total energy input" }\\times100')
+    ).toBe("\\dfrac{\\text{total energy output} }{\\text{total energy input} }\\times100");
+  });
+
+  it("turns unquoted multi-word runs and long words into text", () => {
+    expect(normalizeEquationLatex("\\dfrac{useful energy output}{time} \\times 100%")).toBe(
+      "\\dfrac{\\text{useful energy output}}{\\text{time}} \\times 100\\%"
+    );
+    expect(normalizeEquationLatex("work = force \\times distance")).toBe(
+      "\\text{work} = \\text{force} \\times \\text{distance}"
+    );
+  });
+
+  it("keeps variables, commands and existing text groups untouched", () => {
+    expect(normalizeEquationLatex("F = ma")).toBe("F = ma");
+    expect(normalizeEquationLatex("E_{k} = \\frac{1}{2} m v^{2}")).toBe("E_{k} = \\frac{1}{2} m v^{2}");
+    expect(normalizeEquationLatex("v = \\text{total distance} \\, \\mathrm{m s^{-1}}")).toBe(
+      "v = \\text{total distance} \\, \\mathrm{m s^{-1}}"
+    );
+    expect(normalizeEquationLatex("50\\% \\;")).toBe("50\\% \\;");
+    for (const example of MATH_EXAMPLES) {
+      expect(normalizeEquationLatex(example.latex)).toBe(example.latex);
+    }
   });
 });
