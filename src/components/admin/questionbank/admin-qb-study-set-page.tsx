@@ -822,9 +822,9 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
         ) : null}
 
         {modal?.kind === "question" ? (
-          // 65.5rem = the public study card's text column (1014px) + editor padding/border,
-          // so line breaks and aligned blocks land exactly where students see them.
-          <div className="mx-auto w-full max-w-[65.5rem] space-y-4 [--qb-prompt-h:calc(100dvh-24rem)] [--rte-sticky-top:-1rem] sm:[--qb-prompt-h:calc(100dvh-20rem)]">
+          // 63rem = the public study card's text column (974px) + editor padding/border, and
+          // qb-question-editors = the card's font, so line breaks land exactly where students see them.
+          <div className="qb-question-editors mx-auto w-full max-w-[63rem] space-y-4 [--qb-prompt-h:calc(100dvh-24rem)] [--rte-sticky-top:-1rem] sm:[--qb-prompt-h:calc(100dvh-20rem)]">
             <div className="block space-y-1.5">
               <span className="text-sm font-semibold">Prompt</span>
               <RichTextEditor

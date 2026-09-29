@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
@@ -27,6 +27,7 @@ import { type CourseLinkedProgram } from "@/components/admin/key-concepts/admin-
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { ROUTES } from "@/constants";
 import {
   useAdminPastPapers,
@@ -38,7 +39,7 @@ import {
   useUpdatePastPaper,
 } from "@/hooks";
 import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
-import { richTextToPlain } from "@/lib/rich-text";
+import { questionTitle } from "@/lib/question-title";
 import { slugify } from "@/lib/slugify";
 import type { ApiError } from "@/types";
 import type { PastPaper, PastPaperSourceType } from "@/types/past-paper.types";
@@ -72,13 +73,63 @@ type QbPaperOption = {
   kind: "MCQ" | "WRITTEN";
 };
 
-/** Full question text for the picker, without the indentation spaces used in the editor. */
-function pickerQuestionTitle(prompt: string) {
-  return richTextToPlain(prompt)
-    .replace(/[ \t\u00A0]+/g, " ")
-    .replace(/ *\n */g, "\n")
-    .replace(/\n{2,}/g, "\n")
-    .trim();
+/** Rows are h-20; the list shows 5 of them (plus space-y-1 gaps, p-2, border) then scrolls. */
+const PICKER_LIST_CLASS =
+  "max-h-[calc(5*5rem+4*0.25rem+1rem+2px)] space-y-1 overflow-y-auto overscroll-contain rounded-xl border border-border p-2";
+
+function PickerQuestionItem({
+  question,
+  position,
+  details,
+  action,
+}: {
+  question: PickerQuestionRow;
+  position?: number;
+  details: string[];
+  action: ReactNode;
+}) {
+  const title = useMemo(() => questionTitle(question.prompt), [question.prompt]);
+  return (
+    <div
+      className="flex h-20 items-start gap-2.5 rounded-lg px-2 py-2 text-sm hover:bg-muted/60"
+      title={title.plain || undefined}
+    >
+      {position != null ? (
+        <span className="mt-px flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-muted px-1 text-[11px] font-semibold text-muted-foreground">
+          {position}
+        </span>
+      ) : null}
+      <div className="min-w-0 flex-1">
+        <div className="line-clamp-2 h-10 overflow-hidden leading-5 text-foreground">
+          <span className="mr-1.5 font-bold text-primary">#{question.number}</span>
+          {title.html ? (
+            <RichTextContent
+              html={title.html}
+              inline
+              className="text-sm! leading-5! font-medium text-foreground"
+            />
+          ) : (
+            <span className="italic text-muted-foreground">Image-only question</span>
+          )}
+        </div>
+        <div className="mt-1 flex h-5 min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+          {title.sourceTag ? (
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] font-semibold leading-4 text-foreground">
+              {title.sourceTag}
+            </span>
+          ) : null}
+          <span className="shrink-0 font-medium">{details.join(" · ")}</span>
+          <span className="shrink-0" aria-hidden>
+            ·
+          </span>
+          <span className="truncate">
+            {question.topicTitle} › {question.subtopicTitle}
+          </span>
+        </div>
+      </div>
+      {action}
+    </div>
+  );
 }
 
 function paperCodeFromNumber(n: number) {
@@ -1473,35 +1524,29 @@ export function AdminPastPapersPage({
                     Available and add some.
                   </p>
                 ) : (
-                  <div className="max-h-[min(60vh,36rem)] min-h-48 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                  <div className={PICKER_LIST_CLASS}>
                     {selectedQuestions.map((q, index) => (
-                      <div
+                      <PickerQuestionItem
                         key={q.id}
-                        className="flex items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-muted/60"
-                      >
-                        <span className="mt-0.5 w-5 shrink-0 text-xs font-semibold text-muted-foreground">
-                          {index + 1}.
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block whitespace-pre-line break-words font-medium text-foreground">
-                            #{q.number} {pickerQuestionTitle(q.prompt)}
-                          </span>
-                          <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {questionTypeLabel(q.questionType)} · {q.topicTitle} · {q.subtopicTitle}{" "}
-                            · {q.marks} mark{q.marks === 1 ? "" : "s"}
-                          </span>
-                        </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="shrink-0 text-accent hover:bg-[#fff1ee] hover:text-accent"
-                          disabled={busy}
-                          onClick={() => removeQuestion(q.id)}
-                        >
-                          Remove
-                        </Button>
-                      </div>
+                        question={q}
+                        position={index + 1}
+                        details={[
+                          questionTypeLabel(q.questionType),
+                          `${q.marks} mark${q.marks === 1 ? "" : "s"}`,
+                        ]}
+                        action={
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="shrink-0 text-accent hover:bg-[#fff1ee] hover:text-accent"
+                            disabled={busy}
+                            onClick={() => removeQuestion(q.id)}
+                          >
+                            Remove
+                          </Button>
+                        }
+                      />
                     ))}
                   </div>
                 )}
@@ -1533,32 +1578,25 @@ export function AdminPastPapersPage({
                         : "No questions match this topic/subtopic filter."}
                   </p>
                 ) : (
-                  <div className="max-h-[min(60vh,36rem)] min-h-48 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
+                  <div className={PICKER_LIST_CLASS}>
                     {filteredAvailableQuestions.map((q) => (
-                      <div
+                      <PickerQuestionItem
                         key={q.id}
-                        className="flex items-start gap-2 rounded-lg px-2 py-2 text-sm hover:bg-muted/60"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="block whitespace-pre-line break-words font-medium text-foreground">
-                            #{q.number} {pickerQuestionTitle(q.prompt)}
-                          </span>
-                          <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {questionTypeLabel(q.questionType)} · {q.topicTitle} · {q.subtopicTitle}{" "}
-                            · {q.difficulty}
-                          </span>
-                        </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0"
-                          disabled={busy}
-                          onClick={() => addQuestion(q.id)}
-                        >
-                          Add
-                        </Button>
-                      </div>
+                        question={q}
+                        details={[questionTypeLabel(q.questionType), q.difficulty]}
+                        action={
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            className="shrink-0"
+                            disabled={busy}
+                            onClick={() => addQuestion(q.id)}
+                          >
+                            Add
+                          </Button>
+                        }
+                      />
                     ))}
                   </div>
                 )}

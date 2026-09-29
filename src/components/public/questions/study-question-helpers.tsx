@@ -52,16 +52,33 @@ function keyDot(label: string) {
   return "bg-accent-green";
 }
 
-export function DifficultyDots({ difficulty }: { difficulty: string }) {
+export function DifficultyDots({
+  difficulty,
+  size = "md",
+}: {
+  difficulty: string;
+  size?: "sm" | "md";
+}) {
   const meta = difficultyMeta(difficulty);
+  const small = size === "sm";
   return (
-    <span className={cn("inline-flex items-center gap-2 text-sm font-semibold", meta.color)}>
+    <span
+      className={cn(
+        "inline-flex items-center font-semibold",
+        small ? "gap-1.5 text-xs" : "gap-2 text-sm",
+        meta.color
+      )}
+    >
       {meta.label}
       <span className="inline-flex gap-1">
         {Array.from({ length: meta.total }).map((_, i) => (
           <span
             key={i}
-            className={cn("h-2 w-2 rounded-full", i < meta.filled ? keyDot(meta.label) : "bg-border")}
+            className={cn(
+              "rounded-full",
+              small ? "h-1.5 w-1.5" : "h-2 w-2",
+              i < meta.filled ? keyDot(meta.label) : "bg-border"
+            )}
           />
         ))}
       </span>

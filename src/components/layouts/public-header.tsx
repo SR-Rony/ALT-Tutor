@@ -102,28 +102,35 @@ function DesktopNavItem({
   const hasChildren = Boolean(item.children?.length);
 
   useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
     if (!open) return;
     const onPointerDown = (event: MouseEvent) => {
       if (ref.current && !ref.current.contains(event.target as Node)) {
         setOpen(false);
       }
     };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
     document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [open]);
 
   if (hasChildren) {
     return (
-      <div
-        ref={ref}
-        className="group relative"
-        onMouseEnter={() => setOpen(true)}
-        onMouseLeave={() => setOpen(false)}
-      >
+      <div ref={ref} className="group relative">
         <button
           type="button"
           className="inline-flex cursor-pointer items-center gap-1 px-3 py-2"
           aria-expanded={open}
+          aria-haspopup="true"
           onClick={() => setOpen((value) => !value)}
         >
           <NavLabel active={active} open={open}>

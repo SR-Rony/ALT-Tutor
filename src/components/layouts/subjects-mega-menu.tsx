@@ -192,8 +192,7 @@ function MegaRow({
   return (
     <button
       type="button"
-      onMouseEnter={onSelect}
-      onFocus={onSelect}
+      aria-pressed={active}
       onClick={onSelect}
       className={cn(
         "flex w-full cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition-colors",
@@ -437,34 +436,12 @@ function MegaPanel({
 export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
-  const closeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { data: menu = [], isLoading } = useSubjectsMenu();
   const active = isSubjectsPathActive(pathname);
-
-  const clearCloseTimer = () => {
-    if (closeTimer.current) {
-      clearTimeout(closeTimer.current);
-      closeTimer.current = null;
-    }
-  };
-
-  const openMenu = () => {
-    clearCloseTimer();
-    setOpen(true);
-  };
-
-  const scheduleClose = () => {
-    clearCloseTimer();
-    closeTimer.current = setTimeout(() => setOpen(false), 140);
-  };
 
   useEffect(() => {
     setOpen(false);
   }, [pathname]);
-
-  useEffect(() => {
-    return () => clearCloseTimer();
-  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -491,8 +468,6 @@ export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: stri
         className="group inline-flex cursor-pointer items-center gap-1 px-3 py-2"
         aria-expanded={open}
         aria-haspopup="true"
-        onMouseEnter={openMenu}
-        onMouseLeave={scheduleClose}
         onClick={() => setOpen((value) => !value)}
       >
         <span
@@ -524,8 +499,6 @@ export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: stri
             exit={{ opacity: 0, y: 8 }}
             transition={{ duration: 0.16 }}
             className="fixed left-1/2 top-16 z-50 w-[min(64rem,calc(100vw-2rem))] -translate-x-1/2 pt-2 lg:top-[4.5rem] xl:w-[68rem]"
-            onMouseEnter={openMenu}
-            onMouseLeave={scheduleClose}
           >
             <MegaPanel menu={menu} isLoading={isLoading} onNavigate={() => setOpen(false)} />
           </motion.div>

@@ -346,6 +346,14 @@
   }
 }
 
+/* Exam-paper serif (KaTeX's Computer Modern) for question text. Used by the student
+   question card and the admin question editor so line breaks match between them. */
+.qb-question-font,
+.qb-question-font .rich-text-content,
+.qb-question-editors .rich-text-editor__content {
+  font-family: KaTeX_Main, "Latin Modern Roman", "CMU Serif", "Times New Roman", serif;
+}
+
 .rich-text-editor__content p.is-editor-empty:first-child::before {
   color: var(--muted-foreground);
   content: attr(data-placeholder);
