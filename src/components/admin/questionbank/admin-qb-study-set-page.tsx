@@ -374,9 +374,11 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
       const parsedMarks = Number.parseInt(marks, 10);
       const parsedYear = yearHint.trim() ? Number.parseInt(yearHint.trim(), 10) : undefined;
       const questionType: QbQuestionType = isMcq ? "MULTIPLE_CHOICE" : "SHORT_ANSWER";
+      // Cleared fields must be sent as null: undefined is dropped from the JSON body,
+      // so the backend would keep the previously saved value.
       const questionPayload = {
         prompt: serializeRichText(prompt),
-        body: serializeRichText(bodyText) || undefined,
+        body: serializeRichText(bodyText) || null,
         options,
         correctAnswer: isMcq
           ? correctAnswer.trim().toUpperCase() || "A"
@@ -388,11 +390,11 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
         yearHint:
           parsedYear != null && Number.isFinite(parsedYear) && parsedYear >= 1900
             ? parsedYear
-            : undefined,
-        sourceLabel: sourceLabel.trim() || undefined,
-        markScheme: serializeRichText(markScheme) || undefined,
-        diagramUrl: diagramUrl.trim() || undefined,
-        videoUrl: videoUrl.trim() || undefined,
+            : null,
+        sourceLabel: sourceLabel.trim() || null,
+        markScheme: serializeRichText(markScheme) || null,
+        diagramUrl: diagramUrl.trim() || null,
+        videoUrl: videoUrl.trim() || null,
       };
       if (modal.editId) {
         await updateQuestion.mutateAsync({ id: modal.editId, payload: questionPayload });
@@ -837,19 +839,23 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
               />
             </div>
 
-            {questionKind === "WRITTEN" ? (
-              <div className="block space-y-1.5">
-                <span className="text-sm font-semibold">Body / parts (optional)</span>
-                <RichTextEditor
-                  value={bodyText}
-                  onChange={setBodyText}
-                  placeholder="(a) … [2]  (b) … [3]"
-                  minHeight="300px"
-                  fullHeight
-                  disabled={busy}
-                />
-              </div>
-            ) : null}
+            <div className="block space-y-1.5">
+              <span className="text-sm font-semibold">
+                {questionKind === "WRITTEN" ? "Body / parts (optional)" : "Body (optional)"}
+              </span>
+              <RichTextEditor
+                value={bodyText}
+                onChange={setBodyText}
+                placeholder={
+                  questionKind === "WRITTEN"
+                    ? "(a) … [2]  (b) … [3]"
+                    : "Extra text or images shown below the prompt…"
+                }
+                minHeight={questionKind === "WRITTEN" ? "300px" : "120px"}
+                fullHeight={questionKind === "WRITTEN"}
+                disabled={busy}
+              />
+            </div>
 
             <div className="space-y-2">
               <span className="text-sm font-semibold">Cover diagram URL (optional)</span>
