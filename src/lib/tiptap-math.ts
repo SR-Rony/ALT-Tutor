@@ -180,6 +180,55 @@ declare module "@tiptap/core" {
 
 export const MATH_OPEN_EVENT = "qb-open-math-editor";
 
+/** Equation scale relative to the surrounding text (1 = same size). */
+export const MATH_SIZE_OPTIONS = [
+  { label: "Small", value: "0.85" },
+  { label: "Normal", value: "1" },
+  { label: "Large", value: "1.25" },
+  { label: "XL", value: "1.5" },
+  { label: "2XL", value: "2" },
+  { label: "3XL", value: "2.5" },
+] as const;
+
+export const DEFAULT_MATH_SIZE = "1";
+
+export type MathStyle = { size: string; bold: boolean };
+
+export function parseMathSize(raw: unknown): string {
+  const value = String(raw ?? "").trim();
+  return MATH_SIZE_OPTIONS.some((o) => o.value === value) ? value : DEFAULT_MATH_SIZE;
+}
+
+function readMathStyle(attrs: Record<string, unknown>): MathStyle {
+  return { size: parseMathSize(attrs.size), bold: attrs.bold === true };
+}
+
+/** Size / bold live on data attributes so the sanitizer keeps them and CSS styles them. */
+function paintMathStyle(dom: HTMLElement, attrs: Record<string, unknown>) {
+  const { size, bold } = readMathStyle(attrs);
+  if (size === DEFAULT_MATH_SIZE) dom.removeAttribute("data-math-size");
+  else dom.setAttribute("data-math-size", size);
+  if (bold) dom.setAttribute("data-math-bold", "true");
+  else dom.removeAttribute("data-math-bold");
+}
+
+const mathStyleAttributes = {
+  size: {
+    default: DEFAULT_MATH_SIZE,
+    parseHTML: (element: HTMLElement) => parseMathSize(element.getAttribute("data-math-size")),
+    renderHTML: (attributes: Record<string, unknown>) => {
+      const size = parseMathSize(attributes.size);
+      return size === DEFAULT_MATH_SIZE ? {} : { "data-math-size": size };
+    },
+  },
+  bold: {
+    default: false,
+    parseHTML: (element: HTMLElement) => element.getAttribute("data-math-bold") === "true",
+    renderHTML: (attributes: Record<string, unknown>) =>
+      attributes.bold === true ? { "data-math-bold": "true" } : {},
+  },
+};
+
 function latexFromElement(element: HTMLElement): string {
   return element.getAttribute("data-latex") ?? element.textContent ?? "";
 }
@@ -217,6 +266,7 @@ function createInlineMathView({ node, editor, getPos }: MathNodeViewProps) {
   dom.title = "Double-click to edit · drag to move";
   let latex = String(node.attrs.latex ?? "");
   paintKatex(dom, latex, false);
+  paintMathStyle(dom, node.attrs);
 
   dom.addEventListener("dblclick", (event) => {
     event.preventDefault();
@@ -234,6 +284,7 @@ function createInlineMathView({ node, editor, getPos }: MathNodeViewProps) {
         latex = next;
         paintKatex(dom, latex, false);
       }
+      paintMathStyle(dom, updated.attrs);
       return true;
     },
   };
@@ -271,6 +322,7 @@ function createDisplayMathView({ node, editor, getPos }: MathNodeViewProps) {
 
   let latex = String(node.attrs.latex ?? "");
   paintKatex(math, latex, true);
+  paintMathStyle(math, node.attrs);
 
   const applyLayout = (attrs: Record<string, unknown>) => {
     const { align, offset, ratio } = readMathLayout(attrs);
@@ -305,6 +357,7 @@ function createDisplayMathView({ node, editor, getPos }: MathNodeViewProps) {
         latex = next;
         paintKatex(math, latex, true);
       }
+      paintMathStyle(math, updated.attrs);
       if (!mover.isActive()) applyLayout(updated.attrs);
       return true;
     },
@@ -334,6 +387,7 @@ export const MathInline = Node.create<MathInlineOptions>({
           "data-latex": attributes.latex,
         }),
       },
+      ...mathStyleAttributes,
     };
   },
 
@@ -429,6 +483,7 @@ export const MathDisplay = Node.create({
         parseHTML: (element) => parseOffsetRatioFromElement(element as HTMLElement),
         renderHTML: () => ({}),
       },
+      ...mathStyleAttributes,
     };
   },
 
@@ -487,40 +542,58 @@ export function hydrateKatexHtml(html: string): string {
   }
 }
 
-export function readSelectedMath(editor: Editor): { latex: string; display: boolean } | null {
-  if (editor.isActive("mathDisplay")) {
-    return {
-      latex: String(editor.getAttributes("mathDisplay").latex ?? ""),
-      display: true,
-    };
-  }
-  if (editor.isActive("mathInline")) {
-    return {
-      latex: String(editor.getAttributes("mathInline").latex ?? ""),
-      display: false,
-    };
-  }
+function selectedMathType(editor: Editor): "mathDisplay" | "mathInline" | null {
+  if (editor.isActive("mathDisplay")) return "mathDisplay";
+  if (editor.isActive("mathInline")) return "mathInline";
   return null;
 }
 
-export function applyEditorMath(editor: Editor, latex: string, display: boolean): boolean {
+export function readSelectedMath(
+  editor: Editor
+): ({ latex: string; display: boolean } & MathStyle) | null {
+  const type = selectedMathType(editor);
+  if (!type) return null;
+  const attrs = editor.getAttributes(type);
+  return {
+    latex: String(attrs.latex ?? ""),
+    display: type === "mathDisplay",
+    ...readMathStyle(attrs),
+  };
+}
+
+/** Change size / bold of the selected equation. Returns false when no equation is selected. */
+export function setSelectedMathStyle(editor: Editor, patch: Partial<MathStyle>): boolean {
+  const type = selectedMathType(editor);
+  if (!type) return false;
+  const attrs: Record<string, unknown> = {};
+  if (patch.size !== undefined) attrs.size = parseMathSize(patch.size);
+  if (patch.bold !== undefined) attrs.bold = patch.bold;
+  return editor.chain().focus().updateAttributes(type, attrs).run();
+}
+
+export function applyEditorMath(
+  editor: Editor,
+  latex: string,
+  display: boolean,
+  style?: Partial<MathStyle>
+): boolean {
   const trimmed = latex.trim();
   if (!trimmed) return false;
   const type = display ? "mathDisplay" : "mathInline";
+  const attrs: Record<string, unknown> = { latex: trimmed };
+  if (style?.size !== undefined) attrs.size = parseMathSize(style.size);
+  if (style?.bold !== undefined) attrs.bold = style.bold;
 
-  // Editing a display equation in place keeps its position.
-  if (display && editor.isActive("mathDisplay")) {
-    return editor.chain().focus().updateAttributes("mathDisplay", { latex: trimmed }).run();
-  }
-  if (!display && editor.isActive("mathInline")) {
-    return editor.chain().focus().updateAttributes("mathInline", { latex: trimmed }).run();
+  // Editing an equation of the same kind in place keeps its position.
+  if (selectedMathType(editor) === type) {
+    return editor.chain().focus().updateAttributes(type, attrs).run();
   }
 
   const chain = editor.chain().focus();
-  if (editor.isActive("mathInline") || editor.isActive("mathDisplay")) {
+  if (selectedMathType(editor)) {
     chain.deleteSelection();
   }
-  return chain.insertContent({ type, attrs: { latex: trimmed } }).run();
+  return chain.insertContent({ type, attrs }).run();
 }
 
 /** Inline when the cursor is inside a line that already has text; own line otherwise. */

@@ -404,6 +404,13 @@ export function downloadQuestionPaperPdf({
       margin: 0 0.1rem;
     }
 
+    .qb-math[data-math-size="0.85"] { font-size: 0.85em; }
+    .qb-math[data-math-size="1.25"] { font-size: 1.25em; }
+    .qb-math[data-math-size="1.5"] { font-size: 1.5em; }
+    .qb-math[data-math-size="2"] { font-size: 2em; }
+    .qb-math[data-math-size="2.5"] { font-size: 2.5em; }
+    .qb-math[data-math-bold="true"] .katex { font-weight: 700; }
+
     .rich-text-content .qb-math-display {
       display: block;
       width: 100%;

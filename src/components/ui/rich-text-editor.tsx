@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EditorContent, useEditor } from "@tiptap/react";
+import { EditorContent, useEditor, useEditorState } from "@tiptap/react";
 import Placeholder from "@tiptap/extension-placeholder";
 import StarterKit from "@tiptap/starter-kit";
 import Subscript from "@tiptap/extension-subscript";
@@ -40,10 +40,13 @@ import {
 import { QbImage, type QbImageSnapAlign } from "@/lib/tiptap-image";
 import {
   applyEditorMath,
+  DEFAULT_MATH_SIZE,
   MATH_OPEN_EVENT,
+  MATH_SIZE_OPTIONS,
   MathDisplay,
   MathInline,
   readSelectedMath,
+  setSelectedMathStyle,
   suggestMathDisplayMode,
 } from "@/lib/tiptap-math";
 import { MathEquationDialog } from "@/components/ui/math-equation-dialog";
@@ -164,7 +167,12 @@ export function RichTextEditor({
   const imageInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [mathOpen, setMathOpen] = useState(false);
-  const [mathDraft, setMathDraft] = useState({ latex: "", display: true });
+  const [mathDraft, setMathDraft] = useState({
+    latex: "",
+    display: true,
+    size: DEFAULT_MATH_SIZE as string,
+    bold: false,
+  });
   const mathOpenerRef = useRef<() => void>(() => {});
 
   const editor = useEditor({
@@ -231,7 +239,14 @@ export function RichTextEditor({
   const openMathDialog = () => {
     if (!editor) return;
     const selected = readSelectedMath(editor);
-    setMathDraft(selected ?? { latex: "", display: suggestMathDisplayMode(editor) });
+    setMathDraft(
+      selected ?? {
+        latex: "",
+        display: suggestMathDisplayMode(editor),
+        size: DEFAULT_MATH_SIZE,
+        bold: false,
+      }
+    );
     setMathOpen(true);
   };
   mathOpenerRef.current = openMathDialog;
@@ -262,6 +277,15 @@ export function RichTextEditor({
       if (imageInputRef.current) imageInputRef.current.value = "";
     }
   };
+
+  const selectedMathKey = useEditorState({
+    editor,
+    selector: ({ editor: ed }) => {
+      const math = ed ? readSelectedMath(ed) : null;
+      return math ? `${math.size}|${math.bold}` : "";
+    },
+  });
+  const selectedMath = editor && selectedMathKey ? readSelectedMath(editor) : null;
 
   if (!editor) {
     return (
@@ -297,10 +321,16 @@ export function RichTextEditor({
         )}
       >
         <ToolbarButton
-          label="Bold"
+          label={selectedMath ? "Bold equation" : "Bold"}
           disabled={disabled}
-          active={editor.isActive("bold")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
+          active={selectedMath ? selectedMath.bold : editor.isActive("bold")}
+          onClick={() => {
+            if (selectedMath) {
+              setSelectedMathStyle(editor, { bold: !selectedMath.bold });
+              return;
+            }
+            editor.chain().focus().toggleBold().run();
+          }}
         >
           <Bold className="h-4 w-4" />
         </ToolbarButton>
@@ -336,6 +366,25 @@ export function RichTextEditor({
         >
           <SubscriptIcon className="h-4 w-4" />
         </ToolbarButton>
+        {selectedMath ? (
+          <label className="ml-1 inline-flex items-center">
+            <span className="sr-only">Equation size</span>
+            <select
+              aria-label="Equation size"
+              title="Equation size"
+              disabled={disabled}
+              className="h-8 max-w-[6.5rem] rounded-lg border border-primary/40 bg-primary-muted px-1.5 text-xs font-semibold text-primary outline-none focus:ring-2 focus:ring-primary/15 disabled:cursor-not-allowed disabled:opacity-40"
+              value={selectedMath.size}
+              onChange={(e) => setSelectedMathStyle(editor, { size: e.target.value })}
+            >
+              {MATH_SIZE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  Σ {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : (
         <label className="ml-1 inline-flex items-center">
           <span className="sr-only">Font size</span>
           <select
@@ -363,6 +412,7 @@ export function RichTextEditor({
             ))}
           </select>
         </label>
+        )}
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
         <ToolbarButton
           label="Bullet list"
@@ -484,8 +534,10 @@ export function RichTextEditor({
       open={mathOpen}
       initialLatex={mathDraft.latex}
       initialDisplay={mathDraft.display}
+      initialSize={mathDraft.size}
+      initialBold={mathDraft.bold}
       onClose={() => setMathOpen(false)}
-      onInsert={(latex, display) => applyEditorMath(editor, latex, display)}
+      onInsert={(latex, display, style) => applyEditorMath(editor, latex, display, style)}
     />
     </>
   );

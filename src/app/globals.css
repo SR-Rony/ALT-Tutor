@@ -630,12 +630,30 @@
   @apply ml-auto mr-0 block;
 }
 
+/* Per-equation size / bold chosen in the editor (data-math-size / data-math-bold) */
+.qb-math {
+  --qb-math-scale: 1;
+}
+.qb-math[data-math-size="0.85"] { --qb-math-scale: 0.85; }
+.qb-math[data-math-size="1.25"] { --qb-math-scale: 1.25; }
+.qb-math[data-math-size="1.5"] { --qb-math-scale: 1.5; }
+.qb-math[data-math-size="2"] { --qb-math-scale: 2; }
+.qb-math[data-math-size="2.5"] { --qb-math-scale: 2.5; }
+
+.qb-math[data-math-size] {
+  font-size: calc(1em * var(--qb-math-scale));
+}
+
+.qb-math[data-math-bold="true"] .katex {
+  font-weight: 700;
+}
+
 /* Inline equations sit on the text baseline like normal words */
 .rich-text-editor__content .qb-math:not(.qb-math-display),
 .rich-text-content .qb-math:not(.qb-math-display) {
   @apply mx-0.5 inline-block;
   vertical-align: baseline;
-  font-size: 1em;
+  font-size: calc(1em * var(--qb-math-scale));
   line-height: normal;
 }
 

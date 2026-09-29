@@ -9,7 +9,14 @@ import {
   MATH_SYMBOL_GROUPS,
   stripWrappedLatex,
 } from "@/lib/math-snippets";
-import { getKatexParseError, renderKatex } from "@/lib/tiptap-math";
+import {
+  DEFAULT_MATH_SIZE,
+  getKatexParseError,
+  MATH_SIZE_OPTIONS,
+  parseMathSize,
+  renderKatex,
+  type MathStyle,
+} from "@/lib/tiptap-math";
 import { cn } from "@/utils";
 
 const PLACEMENT_OPTIONS = [
@@ -29,26 +36,34 @@ type MathEquationDialogProps = {
   open: boolean;
   initialLatex?: string;
   initialDisplay?: boolean;
+  initialSize?: string;
+  initialBold?: boolean;
   onClose: () => void;
-  onInsert: (latex: string, display: boolean) => void;
+  onInsert: (latex: string, display: boolean, style: MathStyle) => void;
 };
 
 export function MathEquationDialog({
   open,
   initialLatex = "",
   initialDisplay = true,
+  initialSize = DEFAULT_MATH_SIZE,
+  initialBold = false,
   onClose,
   onInsert,
 }: MathEquationDialogProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [latex, setLatex] = useState(initialLatex);
   const [display, setDisplay] = useState(initialDisplay);
+  const [size, setSize] = useState(parseMathSize(initialSize));
+  const [bold, setBold] = useState(initialBold);
   const [activeGroup, setActiveGroup] = useState(MATH_SYMBOL_GROUPS[0]?.name ?? "Structure");
 
   useEffect(() => {
     if (!open) return;
     setLatex(initialLatex);
     setDisplay(initialDisplay);
+    setSize(parseMathSize(initialSize));
+    setBold(initialBold);
     setActiveGroup(MATH_SYMBOL_GROUPS[0]?.name ?? "Structure");
     const id = window.setTimeout(() => {
       textareaRef.current?.focus();
@@ -58,7 +73,7 @@ export function MathEquationDialog({
       );
     }, 40);
     return () => window.clearTimeout(id);
-  }, [open, initialLatex, initialDisplay]);
+  }, [open, initialLatex, initialDisplay, initialSize, initialBold]);
 
   const parsed = useMemo(() => stripWrappedLatex(latex), [latex]);
   const parseError = useMemo(
@@ -85,7 +100,7 @@ export function MathEquationDialog({
   const submit = () => {
     const next = stripWrappedLatex(latex);
     if (!next.latex || getKatexParseError(next.latex, next.display ?? display)) return;
-    onInsert(next.latex, next.display ?? display);
+    onInsert(next.latex, next.display ?? display, { size, bold });
     onClose();
   };
 
@@ -139,6 +154,38 @@ export function MathEquationDialog({
               </button>
             );
           })}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3">
+          <label className="inline-flex items-center gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Size
+            </span>
+            <select
+              value={size}
+              onChange={(e) => setSize(parseMathSize(e.target.value))}
+              className="h-9 rounded-lg border border-border bg-card px-2 text-sm font-semibold text-foreground outline-none focus:border-primary/40 focus:ring-2 focus:ring-primary/15"
+            >
+              {MATH_SIZE_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            aria-pressed={bold}
+            onClick={() => setBold((b) => !b)}
+            className={cn(
+              "h-9 rounded-lg border px-3 text-sm font-bold transition",
+              bold
+                ? "border-primary bg-primary text-primary-foreground"
+                : "border-border bg-card text-foreground hover:border-primary/40"
+            )}
+          >
+            B Bold
+          </button>
         </div>
 
         <div className="flex flex-wrap gap-1.5">
@@ -240,9 +287,11 @@ export function MathEquationDialog({
           ) : previewHtml ? (
             <div
               className={cn(
-                "overflow-x-auto text-foreground [&_.katex]:text-[1.15em]",
+                "qb-math overflow-x-auto text-foreground [&_.katex]:text-[1.15em]",
                 display && "text-center [&_.katex-display]:my-0"
               )}
+              data-math-size={size === DEFAULT_MATH_SIZE ? undefined : size}
+              data-math-bold={bold ? "true" : undefined}
               dangerouslySetInnerHTML={{ __html: previewHtml }}
             />
           ) : (

@@ -474,6 +474,8 @@ export function sanitizeRichHtml(html: string): string {
       "class",
       "data-latex",
       "data-display",
+      "data-math-size",
+      "data-math-bold",
       "data-align",
       "data-offset",
       "data-offset-ratio",
