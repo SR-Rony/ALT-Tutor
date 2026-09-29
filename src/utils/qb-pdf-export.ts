@@ -444,6 +444,63 @@ export function downloadQuestionPaperPdf({
       white-space: nowrap;
     }
 
+    .rich-text-content .qb-table-scroll {
+      margin: 0.6rem 0;
+    }
+
+    .rich-text-content table {
+      width: auto !important;
+      min-width: 0 !important;
+      border-collapse: collapse;
+      page-break-inside: avoid;
+    }
+
+    .rich-text-content th,
+    .rich-text-content td {
+      border: 1px solid var(--ink);
+      padding: 0.2rem 0.65rem;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .rich-text-content th {
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .rich-text-content td > p,
+    .rich-text-content th > p {
+      margin: 0 !important;
+    }
+
+    .rich-text-content .qb-table-scroll {
+      margin: 0.6rem 0;
+    }
+
+    .rich-text-content table {
+      border-collapse: collapse;
+      width: auto;
+      page-break-inside: avoid;
+    }
+
+    .rich-text-content th,
+    .rich-text-content td {
+      border: 1px solid var(--ink);
+      padding: 0.2rem 0.65rem;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .rich-text-content th {
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .rich-text-content td > p,
+    .rich-text-content th > p {
+      margin: 0;
+    }
+
     .mcq-options {
       margin: 0.75rem 0 0;
       padding: 0;

@@ -346,6 +346,57 @@
   }
 }
 
+/* Tables — exam-paper style, identical in the editor and the student view */
+.rich-text-content .qb-table-scroll,
+.rich-text-editor__content .tableWrapper {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 0.75rem 0;
+}
+
+.rich-text-content table,
+.rich-text-editor__content table {
+  width: auto !important;
+  min-width: 0 !important;
+  border-collapse: collapse;
+  table-layout: auto;
+  margin: 0;
+}
+
+.rich-text-content th,
+.rich-text-content td,
+.rich-text-editor__content th,
+.rich-text-editor__content td {
+  position: relative;
+  min-width: 2.5rem;
+  border: 1px solid var(--foreground);
+  padding: 0.25rem 0.75rem;
+  vertical-align: top;
+  text-align: left;
+}
+
+.rich-text-content th,
+.rich-text-editor__content th {
+  font-weight: 700;
+  text-align: center;
+  background: transparent;
+}
+
+.rich-text-content td > p,
+.rich-text-content th > p,
+.rich-text-editor__content td > p,
+.rich-text-editor__content th > p {
+  margin: 0 !important;
+}
+
+.rich-text-editor__content .selectedCell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+  pointer-events: none;
+}
+
 /* Exam-paper serif (KaTeX's Computer Modern) for question text. Used by the student
    question card and the admin question editor so line breaks match between them. */
 .qb-question-font,

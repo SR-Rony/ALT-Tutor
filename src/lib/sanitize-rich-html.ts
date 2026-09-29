@@ -316,7 +316,8 @@ export function normalizeRichHtmlLayout(html: string): string {
     !html.includes("qb-indent-") &&
     !html.includes("padding-left") &&
     !html.includes("data-align") &&
-    !html.includes("&nbsp;")
+    !html.includes("&nbsp;") &&
+    !html.includes("<table")
   ) {
     return html;
   }
@@ -325,7 +326,16 @@ export function normalizeRichHtmlLayout(html: string): string {
 
     doc.querySelectorAll("p, h2, h3, h1, h4, li").forEach((el) => {
       applyParagraphIndent(el);
-      if (el.tagName !== "LI") pushTrailingTagRight(el);
+      if (el.tagName !== "LI" && !el.closest("td, th")) pushTrailingTagRight(el);
+    });
+
+    // Wide tables scroll sideways on small screens instead of overflowing the card.
+    doc.querySelectorAll("table").forEach((table) => {
+      if (table.parentElement?.classList.contains("qb-table-scroll")) return;
+      const wrapper = doc.createElement("div");
+      wrapper.className = "qb-table-scroll";
+      table.replaceWith(wrapper);
+      wrapper.appendChild(table);
     });
 
     doc.querySelectorAll("img").forEach((img) => {

@@ -7,6 +7,7 @@ import StarterKit from "@tiptap/starter-kit";
 import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
 import TextAlign from "@tiptap/extension-text-align";
+import { TableKit } from "@tiptap/extension-table";
 import type { Editor } from "@tiptap/core";
 import {
   AlignCenter,
@@ -45,6 +46,7 @@ import {
   suggestMathDisplayMode,
 } from "@/lib/tiptap-math";
 import { MathEquationDialog } from "@/components/ui/math-equation-dialog";
+import { TableContextBar, TableInsertButton } from "@/components/ui/rich-text-table-controls";
 import { uploadService } from "@/services/upload.service";
 import { cn } from "@/utils";
 
@@ -182,6 +184,8 @@ export function RichTextEditor({
       FontSize,
       MathInline,
       MathDisplay,
+      // Column widths aren't kept by the sanitizer, so tables size to content everywhere.
+      TableKit.configure({ table: { resizable: false } }),
     ],
     content: normalizeRichTextContent(value),
     editable: !disabled,
@@ -437,6 +441,7 @@ export function RichTextEditor({
         >
           <Sigma className="h-4 w-4" />
         </ToolbarButton>
+        <TableInsertButton editor={editor} disabled={disabled} />
         <span className="mx-1 h-5 w-px bg-border" aria-hidden />
         <ToolbarButton
           label="Undo"
@@ -455,6 +460,7 @@ export function RichTextEditor({
         {uploading ? (
           <span className="ml-2 text-xs text-muted-foreground">Uploading…</span>
         ) : null}
+        <TableContextBar editor={editor} disabled={disabled} />
       </div>
       <div
         className={cn(

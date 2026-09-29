@@ -113,8 +113,9 @@ export const Indent = Extension.create({
 
   addKeyboardShortcuts() {
     return {
-      Tab: () => this.editor.commands.indent(),
-      "Shift-Tab": () => this.editor.commands.outdent(),
+      // Inside a table Tab / Shift+Tab move between cells (handled by the table extension).
+      Tab: () => !this.editor.isActive("table") && this.editor.commands.indent(),
+      "Shift-Tab": () => !this.editor.isActive("table") && this.editor.commands.outdent(),
     };
   },
 });
