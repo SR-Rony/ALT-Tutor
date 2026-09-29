@@ -3,8 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { Editor } from "@tiptap/core";
 import { useEditorState } from "@tiptap/react";
-import { Table as TableIcon, Trash2 } from "lucide-react";
+import { AlignCenter, AlignLeft, AlignRight, Table as TableIcon, Trash2 } from "lucide-react";
+import { setTableAlign, type TableAlign } from "@/lib/tiptap-movable-table";
 import { cn } from "@/utils";
+
+const TABLE_ALIGN_OPTIONS: { align: TableAlign; label: string; Icon: typeof AlignLeft }[] = [
+  { align: "left", label: "Table left", Icon: AlignLeft },
+  { align: "center", label: "Table center", Icon: AlignCenter },
+  { align: "right", label: "Table right", Icon: AlignRight },
+];
 
 const GRID_ROWS = 8;
 const GRID_COLS = 8;
@@ -174,6 +181,7 @@ export function TableContextBar({
     selector: ({ editor: ed }) => ({
       inTable: ed.isActive("table"),
       headerRow: ed.isActive("tableHeader"),
+      align: String(ed.getAttributes("table").align ?? "left"),
       canMerge: ed.can().mergeCells(),
       canSplit: ed.can().splitCell(),
     }),
@@ -230,6 +238,19 @@ export function TableContextBar({
       >
         Split
       </TableAction>
+      <span className="mx-1 h-4 w-px bg-border" aria-hidden />
+      {TABLE_ALIGN_OPTIONS.map(({ align, label, Icon }) => (
+        <TableAction
+          key={align}
+          label={label}
+          disabled={disabled}
+          active={state.align === align}
+          onClick={() => setTableAlign(editor, align)}
+        >
+          <Icon className="h-3.5 w-3.5" />
+        </TableAction>
+      ))}
+      <span className="mx-1 h-4 w-px bg-border" aria-hidden />
       <TableAction label="Delete table" danger disabled={disabled} onClick={() => run((c) => c.deleteTable())}>
         <Trash2 className="h-3.5 w-3.5" />
         Delete table

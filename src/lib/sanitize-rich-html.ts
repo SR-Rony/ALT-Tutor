@@ -331,11 +331,14 @@ export function normalizeRichHtmlLayout(html: string): string {
 
     // Wide tables scroll sideways on small screens instead of overflowing the card.
     doc.querySelectorAll("table").forEach((table) => {
-      if (table.parentElement?.classList.contains("qb-table-scroll")) return;
-      const wrapper = doc.createElement("div");
-      wrapper.className = "qb-table-scroll";
-      table.replaceWith(wrapper);
-      wrapper.appendChild(table);
+      let wrapper = table.parentElement;
+      if (!wrapper?.classList.contains("qb-table-scroll")) {
+        wrapper = doc.createElement("div");
+        wrapper.className = "qb-table-scroll";
+        table.replaceWith(wrapper);
+        wrapper.appendChild(table);
+      }
+      applyTableLayout(wrapper, table);
     });
 
     doc.querySelectorAll("img").forEach((img) => {
@@ -351,6 +354,38 @@ export function normalizeRichHtmlLayout(html: string): string {
   } catch {
     return html;
   }
+}
+
+/**
+ * Tables sit left unless the editor saved another position. The free space beside the
+ * table is split ratio : (1 - ratio), so placement matches at every width, and a table
+ * wider than the screen still starts at the left edge and scrolls.
+ */
+function applyTableLayout(wrapper: Element, table: Element) {
+  const align = table.getAttribute("data-align");
+  let ratio: number | null = null;
+  if (align === "center") ratio = 0.5;
+  else if (align === "right") ratio = 1;
+  else if (align === "custom") ratio = parseOffsetRatio(table);
+
+  if (align === "custom" && ratio === null) {
+    const px = clampImageOffset(Number.parseFloat(table.getAttribute("data-offset") ?? ""));
+    wrapper.setAttribute("style", `padding-left: min(${px}px, 40%)`);
+    table.removeAttribute("style");
+    return;
+  }
+  if (!ratio) {
+    wrapper.removeAttribute("style");
+    table.removeAttribute("style");
+    return;
+  }
+  const left = Math.round(ratio * 10000) / 10000;
+  const right = Math.round((1 - ratio) * 10000) / 10000;
+  wrapper.setAttribute(
+    "style",
+    `display: grid; grid-template-columns: minmax(0, ${left}fr) auto minmax(0, ${right}fr)`
+  );
+  table.setAttribute("style", "grid-column: 2");
 }
 
 /** Display equations: centered unless the editor saved another position. */

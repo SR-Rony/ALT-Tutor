@@ -1,4 +1,5 @@
 import type { Editor } from "@tiptap/core";
+import { TextSelection } from "@tiptap/pm/state";
 
 export type BlockSnapAlign = "left" | "center" | "right";
 export type BlockAlign = BlockSnapAlign | "custom";
@@ -345,13 +346,23 @@ export function createBlockMover({ editor, getPos, wrapper, frame, nodeName }: B
 
         tr.delete(pos, pos + current.nodeSize);
         finalPos = tr.mapping.map(target);
-        tr.insert(finalPos, current.type.create(attrs));
+        tr.insert(finalPos, current.type.create(attrs, current.content, current.marks));
         return true;
       })
       .run();
 
-    if (ok) {
+    if (!ok) return;
+    if (editor.state.doc.nodeAt(finalPos)?.isAtom) {
       editor.commands.setNodeSelection(finalPos);
+    } else {
+      // Blocks with editable content (tables) keep a text cursor inside instead.
+      editor
+        .chain()
+        .command(({ tr }) => {
+          tr.setSelection(TextSelection.near(tr.doc.resolve(finalPos + 1)));
+          return true;
+        })
+        .run();
     }
   };
 
@@ -408,7 +419,7 @@ export function createBlockMover({ editor, getPos, wrapper, frame, nodeName }: B
     event.stopPropagation();
 
     const pos = getPos();
-    if (pos !== undefined) {
+    if (pos !== undefined && editor.state.doc.nodeAt(pos)?.isAtom) {
       editor.chain().focus().setNodeSelection(pos).run();
     }
 

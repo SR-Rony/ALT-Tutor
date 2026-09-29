@@ -348,10 +348,72 @@
 
 /* Tables — exam-paper style, identical in the editor and the student view */
 .rich-text-content .qb-table-scroll,
-.rich-text-editor__content .tableWrapper {
+.rich-text-editor__content .qb-table-scroller {
   max-width: 100%;
   overflow-x: auto;
+}
+
+.rich-text-content .qb-table-scroll,
+.rich-text-editor__content .qb-table-view {
   margin: 0.75rem 0;
+}
+
+/* Editor: table inside a movable frame, dragged by the grip on its left */
+.rich-text-editor__content .qb-table-view {
+  position: relative;
+  width: 100%;
+}
+
+.rich-text-editor__content .qb-table-frame {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+  border-radius: 2px;
+  outline: 2px solid transparent;
+  outline-offset: 3px;
+  transition: outline-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.rich-text-editor__content .qb-table-frame:has(.qb-table-handle:hover) {
+  outline-color: color-mix(in oklab, var(--primary) 45%, transparent);
+}
+
+.rich-text-editor__content .qb-table-handle {
+  position: absolute;
+  top: 0;
+  right: 100%;
+  z-index: 5;
+  display: flex;
+  width: 12px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted-foreground);
+  opacity: 0.55;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+  transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
+}
+
+.rich-text-editor__content .qb-table-view:hover .qb-table-handle,
+.rich-text-editor__content .qb-table-handle:focus-visible {
+  opacity: 1;
+}
+
+.rich-text-editor__content .qb-table-handle:hover,
+.rich-text-editor__content .qb-block-dragging .qb-table-handle {
+  background: color-mix(in oklab, var(--primary) 14%, transparent);
+  color: var(--primary);
+  cursor: grabbing;
+}
+
+.rich-text-editor__content[contenteditable="false"] .qb-table-handle {
+  display: none;
 }
 
 .rich-text-content table,

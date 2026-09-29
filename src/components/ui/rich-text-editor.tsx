@@ -8,6 +8,7 @@ import Subscript from "@tiptap/extension-subscript";
 import Superscript from "@tiptap/extension-superscript";
 import TextAlign from "@tiptap/extension-text-align";
 import { TableKit } from "@tiptap/extension-table";
+import { MovableTable } from "@/lib/tiptap-movable-table";
 import type { Editor } from "@tiptap/core";
 import {
   AlignCenter,
@@ -184,8 +185,9 @@ export function RichTextEditor({
       FontSize,
       MathInline,
       MathDisplay,
+      TableKit.configure({ table: false }),
       // Column widths aren't kept by the sanitizer, so tables size to content everywhere.
-      TableKit.configure({ table: { resizable: false } }),
+      MovableTable.configure({ resizable: false }),
     ],
     content: normalizeRichTextContent(value),
     editable: !disabled,
