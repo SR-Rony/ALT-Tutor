@@ -452,6 +452,11 @@ export function downloadQuestionPaperPdf({
       white-space: nowrap;
     }
 
+    .rich-text-content .qb-push-right[data-push-right] {
+      max-width: 100%;
+      white-space: normal;
+    }
+
     .rich-text-content .qb-table-scroll {
       margin: 0.6rem 0;
     }

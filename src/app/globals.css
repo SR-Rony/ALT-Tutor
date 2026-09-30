@@ -547,15 +547,23 @@
   @apply font-semibold;
 }
 
-/* Reference / mark tags the author pushed to the right edge with spaces */
-.rich-text-content:not(.rich-text-content--inline) .qb-has-push-right {
+/* Text pushed to the right edge of its line (Align right on part of a line, or trailing tags) */
+.rich-text-content:not(.rich-text-content--inline) .qb-has-push-right,
+.rich-text-editor__content :is(p, h2, h3, li, td, th):has(.qb-push-right) {
   display: flow-root;
 }
 
-.rich-text-content:not(.rich-text-content--inline) .qb-push-right {
+.rich-text-content:not(.rich-text-content--inline) .qb-push-right,
+.rich-text-editor__content .qb-push-right {
   float: right;
   margin-left: 1rem;
   white-space: nowrap;
+}
+
+.rich-text-content:not(.rich-text-content--inline) .qb-push-right[data-push-right],
+.rich-text-editor__content .qb-push-right {
+  max-width: 100%;
+  white-space: normal;
 }
 
 /* Same image look in admin editor and student view — no frame around diagrams */

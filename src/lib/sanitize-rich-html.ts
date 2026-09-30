@@ -268,7 +268,9 @@ function pushTrailingTagRight(block: Element) {
   if (lastIndex < 0) return;
 
   const last = texts[lastIndex]!;
-  if (last.parentElement?.closest("[data-latex], .qb-math, .katex, a, sup, sub")) return;
+  if (last.parentElement?.closest("[data-latex], .qb-math, .katex, a, sup, sub, .qb-push-right")) {
+    return;
+  }
 
   const match = last.data.match(TRAILING_TOKEN_RE);
   if (!match || match.index === undefined) return;
@@ -317,7 +319,8 @@ export function normalizeRichHtmlLayout(html: string): string {
     !html.includes("padding-left") &&
     !html.includes("data-align") &&
     !html.includes("&nbsp;") &&
-    !html.includes("<table")
+    !html.includes("<table") &&
+    !html.includes("qb-push-right")
   ) {
     return html;
   }
@@ -327,6 +330,10 @@ export function normalizeRichHtmlLayout(html: string): string {
     doc.querySelectorAll("p, h2, h3, h1, h4, li").forEach((el) => {
       applyParagraphIndent(el);
       if (el.tagName !== "LI" && !el.closest("td, th")) pushTrailingTagRight(el);
+    });
+
+    doc.querySelectorAll(".qb-push-right").forEach((span) => {
+      span.closest("p, h1, h2, h3, h4, li, td, th")?.classList.add("qb-has-push-right");
     });
 
     // Wide tables scroll sideways on small screens instead of overflowing the card.
@@ -477,6 +484,7 @@ export function sanitizeRichHtml(html: string): string {
       "data-math-size",
       "data-math-bold",
       "data-tab",
+      "data-push-right",
       "data-align",
       "data-offset",
       "data-offset-ratio",

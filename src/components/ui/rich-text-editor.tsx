@@ -31,6 +31,7 @@ import {
 } from "lucide-react";
 import { normalizeRichTextContent } from "@/lib/rich-text";
 import { Indent, TabChar } from "@/lib/tiptap-indent";
+import { isPartialLineSelection, PushRight } from "@/lib/tiptap-push-right";
 import {
   FontSize,
   FONT_SIZE_OPTIONS,
@@ -110,6 +111,15 @@ function ToolbarButton({
 }
 
 function setEditorAlignment(editor: Editor, align: TextAlignValue) {
+  // Selecting part of a line moves only that text; the rest of the line stays put.
+  if (align === "right" && isPartialLineSelection(editor)) {
+    editor.chain().focus().setPushRight().run();
+    return;
+  }
+  if (editor.isActive("pushRight")) {
+    editor.chain().focus().unsetPushRight().run();
+    if (align === "left") return;
+  }
   if (align !== "justify") {
     for (const block of ["image", "mathDisplay"] as const) {
       if (editor.isActive(block)) {
@@ -129,6 +139,7 @@ function setEditorAlignment(editor: Editor, align: TextAlignValue) {
 }
 
 function isEditorAlignmentActive(editor: Editor, align: TextAlignValue) {
+  if (editor.isActive("pushRight")) return align === "right";
   if (align !== "justify") {
     if (editor.isActive("image")) return editor.isActive("image", { align });
     if (editor.isActive("mathDisplay")) return editor.isActive("mathDisplay", { align });
@@ -190,6 +201,7 @@ export function RichTextEditor({
       }),
       Indent,
       TabChar,
+      PushRight,
       TextStyle,
       FontSize,
       MathInline,
@@ -449,7 +461,7 @@ export function RichTextEditor({
           <AlignCenter className="h-4 w-4" />
         </ToolbarButton>
         <ToolbarButton
-          label="Align right"
+          label="Align right (select part of a line to move only that text)"
           disabled={disabled}
           active={isEditorAlignmentActive(editor, "right")}
           onClick={() => setEditorAlignment(editor, "right")}
