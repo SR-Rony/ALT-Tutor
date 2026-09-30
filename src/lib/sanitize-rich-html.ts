@@ -22,18 +22,19 @@ function clampImageOffset(value: number): number {
 const INDENT_STEP_PX = 24;
 const MAX_INDENT = 8;
 
+const FONT_UNIT_TO_PX: Record<string, number> = { px: 1, pt: 4 / 3, rem: 16, em: 16 };
+
+/** Keeps the exact size the editor rendered (no rounding) so lines wrap at the same words. */
 function normalizeAllowedFontSize(raw: string | null | undefined): string | null {
   if (!raw) return null;
   const cleaned = raw.trim().toLowerCase();
   const match = cleaned.match(/^(\d+(?:\.\d+)?)(px|pt|rem|em)?$/);
   if (!match) return null;
   const n = Number.parseFloat(match[1]!);
-  if (!Number.isFinite(n) || n < 10 || n > 32) return null;
   const unit = match[2] || "px";
-  if (unit === "px") return `${Math.round(n)}px`;
-  if (unit === "pt") return `${Math.round(n * 1.333)}px`;
-  if (unit === "rem" || unit === "em") return `${Math.round(n * 16)}px`;
-  return null;
+  const px = n * FONT_UNIT_TO_PX[unit]!;
+  if (!Number.isFinite(px) || px < 10 || px > 32) return null;
+  return `${n}${unit}`;
 }
 
 let styleHookRegistered = false;

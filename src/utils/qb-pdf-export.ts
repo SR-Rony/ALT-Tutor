@@ -405,6 +405,7 @@ export function downloadQuestionPaperPdf({
     }
 
     .qb-tab { white-space: pre; tab-size: 2em; }
+    .rich-text-content :is(p, h2, h3):empty::before { content: "\\00a0"; }
     .qb-math[data-math-size="0.85"] { font-size: 0.85em; }
     .qb-math[data-math-size="1.25"] { font-size: 1.25em; }
     .qb-math[data-math-size="1.5"] { font-size: 1.5em; }

@@ -506,6 +506,11 @@
   font-size: inherit;
 }
 
+/* Blank lines keep one line of height, like the editor's empty paragraphs */
+.rich-text-content:not(.rich-text-content--inline) :is(p, h2, h3):empty::before {
+  content: "\00a0";
+}
+
 /* MCQ option rows: A. + text/math vertically centered */
 .rich-text-content--inline,
 .rich-text-content--inline p,
@@ -638,8 +643,12 @@
   @apply ml-auto mr-0 block;
 }
 
-/* Tab key: a real tab that jumps to the next 2em tab stop, like a word processor */
-.qb-tab {
+/* Tab key: a real tab that jumps to the next 2em tab stop, like a word processor.
+   The editor's tab is contenteditable=false, and TipTap's own
+   `.ProseMirror [contenteditable="false"] { white-space: normal }` would collapse it to a
+   space there — the editor must show the same width students see. */
+.qb-tab,
+.rich-text-editor__content .qb-tab[contenteditable="false"] {
   white-space: pre;
   tab-size: 2em;
 }
