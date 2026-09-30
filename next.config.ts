@@ -48,20 +48,25 @@ const nextConfig: NextConfig = {
           },
         ],
       },
-      {
-        // Hashed build assets are immutable — safe to cache long-term.
-        source: "/_next/static/:path*",
-        headers: [
-          {
-            key: "Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-          {
-            key: "CDN-Cache-Control",
-            value: "public, max-age=31536000, immutable",
-          },
-        ],
-      },
+      // Hashed build assets are immutable — safe to cache long-term. `next dev` chunk URLs
+      // are not content-hashed, so caching them would keep serving stale code after edits.
+      ...(process.env.NODE_ENV === "production"
+        ? [
+            {
+              source: "/_next/static/:path*",
+              headers: [
+                {
+                  key: "Cache-Control",
+                  value: "public, max-age=31536000, immutable",
+                },
+                {
+                  key: "CDN-Cache-Control",
+                  value: "public, max-age=31536000, immutable",
+                },
+              ],
+            },
+          ]
+        : []),
     ];
   },
 };

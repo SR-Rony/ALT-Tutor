@@ -30,7 +30,7 @@ import {
   Undo2,
 } from "lucide-react";
 import { normalizeRichTextContent } from "@/lib/rich-text";
-import { Indent } from "@/lib/tiptap-indent";
+import { Indent, TabChar } from "@/lib/tiptap-indent";
 import {
   FontSize,
   FONT_SIZE_OPTIONS,
@@ -189,6 +189,7 @@ export function RichTextEditor({
         alignments: ["left", "center", "right", "justify"],
       }),
       Indent,
+      TabChar,
       TextStyle,
       FontSize,
       MathInline,

@@ -630,6 +630,12 @@
   @apply ml-auto mr-0 block;
 }
 
+/* Tab key: a real tab that jumps to the next 2em tab stop, like a word processor */
+.qb-tab {
+  white-space: pre;
+  tab-size: 2em;
+}
+
 /* Per-equation size / bold chosen in the editor (data-math-size / data-math-bold) */
 .qb-math {
   --qb-math-scale: 1;

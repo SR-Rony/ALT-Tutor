@@ -404,6 +404,7 @@ export function downloadQuestionPaperPdf({
       margin: 0 0.1rem;
     }
 
+    .qb-tab { white-space: pre; tab-size: 2em; }
     .qb-math[data-math-size="0.85"] { font-size: 0.85em; }
     .qb-math[data-math-size="1.25"] { font-size: 1.25em; }
     .qb-math[data-math-size="1.5"] { font-size: 1.5em; }

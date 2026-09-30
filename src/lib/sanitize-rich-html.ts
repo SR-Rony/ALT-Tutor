@@ -476,6 +476,7 @@ export function sanitizeRichHtml(html: string): string {
       "data-display",
       "data-math-size",
       "data-math-bold",
+      "data-tab",
       "data-align",
       "data-offset",
       "data-offset-ratio",

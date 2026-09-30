@@ -1,5 +1,49 @@
-import { Extension } from "@tiptap/core";
+import { Extension, Node, type Editor } from "@tiptap/core";
 import { BLOCK_INDENT_STEP, nudgeSelectedBlock } from "@/lib/tiptap-block-move";
+
+/**
+ * A real tab character inside the text. Stored as `<span class="qb-tab">\t</span>` because
+ * HTML (and TipTap's parser) collapse a bare `\t` into a single space.
+ */
+export const TabChar = Node.create({
+  name: "tabChar",
+  group: "inline",
+  inline: true,
+  atom: true,
+  selectable: false,
+
+  parseHTML() {
+    return [{ tag: "span.qb-tab" }, { tag: "span[data-tab]" }];
+  },
+
+  renderHTML() {
+    return ["span", { class: "qb-tab", "data-tab": "true" }, "\t"];
+  },
+
+  renderText() {
+    return "\t";
+  },
+
+  addNodeView() {
+    return () => {
+      const dom = document.createElement("span");
+      dom.className = "qb-tab";
+      dom.contentEditable = "false";
+      dom.textContent = "\t";
+      return { dom };
+    };
+  },
+});
+
+function selectionSpansBlocks(editor: Editor): boolean {
+  const { $from, $to } = editor.state.selection;
+  return !$from.sameParent($to);
+}
+
+function cursorAtBlockStart(editor: Editor): boolean {
+  const { selection } = editor.state;
+  return selection.empty && selection.$from.parentOffset === 0;
+}
 
 const MOVABLE_BLOCKS = ["image", "mathDisplay"] as const;
 
@@ -39,9 +83,10 @@ function readIndent(element: HTMLElement): number {
 }
 
 /**
- * Paragraph / heading indent.
+ * Paragraph / heading indent (toolbar buttons).
  * Uses data-indent + CSS class so it does not clash with text-align inline styles.
- * Tab indents (or sinks list items); Shift+Tab outdents.
+ * Tab types a tab character at the cursor like a word processor; it only indents whole
+ * paragraphs when several lines are selected, and sinks list items at the item start.
  */
 export const Indent = Extension.create({
   name: "indent",
@@ -114,8 +159,47 @@ export const Indent = Extension.create({
   addKeyboardShortcuts() {
     return {
       // Inside a table Tab / Shift+Tab move between cells (handled by the table extension).
-      Tab: () => !this.editor.isActive("table") && this.editor.commands.indent(),
-      "Shift-Tab": () => !this.editor.isActive("table") && this.editor.commands.outdent(),
+      Tab: () => {
+        const editor = this.editor;
+        if (editor.isActive("table")) return false;
+        if (MOVABLE_BLOCKS.some((block) => editor.isActive(block))) return editor.commands.indent();
+        if (editor.isActive("listItem") && cursorAtBlockStart(editor)) {
+          if (editor.commands.sinkListItem("listItem")) return true;
+        }
+        if (selectionSpansBlocks(editor)) return editor.commands.indent();
+        editor.commands.insertContent({ type: "tabChar" });
+        // Always swallow Tab so focus never jumps out of the editor.
+        return true;
+      },
+      "Shift-Tab": () => {
+        const editor = this.editor;
+        if (editor.isActive("table")) return false;
+        const { selection } = editor.state;
+        if (selection.empty && selection.$from.nodeBefore?.type.name === "tabChar") {
+          return editor.commands.deleteRange({ from: selection.from - 1, to: selection.from });
+        }
+        editor.commands.outdent();
+        return true;
+      },
+      // Backspace at the start of an indented paragraph removes one indent level first.
+      Backspace: () => {
+        const editor = this.editor;
+        const { selection } = editor.state;
+        if (selection.empty && selection.$from.nodeBefore?.type.name === "tabChar") {
+          return editor.commands.deleteRange({ from: selection.from - 1, to: selection.from });
+        }
+        if (!cursorAtBlockStart(editor)) return false;
+        const parent = editor.state.selection.$from.parent;
+        if (parent.type.name !== "paragraph" && parent.type.name !== "heading") return false;
+        const level = Number(parent.attrs.indent) || 0;
+        if (level <= 0) return false;
+        return editor.commands.updateAttributes(parent.type.name, { indent: level - 1 });
+      },
+      Delete: () => {
+        const { selection } = this.editor.state;
+        if (!selection.empty || selection.$from.nodeAfter?.type.name !== "tabChar") return false;
+        return this.editor.commands.deleteRange({ from: selection.from, to: selection.from + 1 });
+      },
     };
   },
 });
