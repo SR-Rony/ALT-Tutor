@@ -2,22 +2,28 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { ArrowUp, Database, Lock, Sparkles } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { ArrowUp, CheckCircle2, Database, Lock, Sparkles, Unlock } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { Button } from "@/components/ui/button";
 import { PageLoader } from "@/components/shared";
-import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
+import {
+  GoldUnlockModal,
+  type UnlockStudySet,
+} from "@/components/public/questionbank/gold-unlock-modal";
 import { ROUTES, queryKeys } from "@/constants";
 import {
   ResourceHero,
   SubjectBreadcrumbNav,
   useSubjectBreadcrumbs,
 } from "@/components/public/subjects";
+import { useAccessProducts } from "@/hooks";
 import { useQbProgram } from "@/hooks/use-questionbank";
 import { normalizeAccessBadge, tierBadgeClass, tierLabel, canAccessWithTier } from "@/lib/access-tier";
+import { formatMoney, formatShortDate } from "@/lib/format";
 import { richTextToPlain } from "@/lib/rich-text";
+import { studySetPrice, studySetRegularPrice } from "@/lib/study-set-pricing";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
 import type { QbSubtopic } from "@/types/qb.types";
@@ -28,7 +34,13 @@ type Props = { programSlug: string };
 type UnlockTarget = {
   subtopicTitle?: string | null;
   requiredTier?: string;
+  studySet?: UnlockStudySet | null;
 };
+
+function isSubLocked(sub: QbSubtopic, userTier: string): boolean {
+  if (typeof sub.locked === "boolean") return sub.locked;
+  return !canAccessWithTier(userTier, sub.badge);
+}
 
 /** "1. Algebra" / "Topic 1: Algebra" → "Algebra" for display. */
 function topicDisplayTitle(title: string): string {
@@ -67,6 +79,8 @@ function StudySetCard({
 }) {
   const badge = normalizeAccessBadge(sub.badge);
   const isPaid = badge !== "FREE";
+  const price = isPaid ? studySetPrice(sub) : null;
+  const regularPrice = isPaid ? studySetRegularPrice(sub) : null;
   const preview =
     richTextToPlain(sub.description ?? "") ||
     `${sub._count?.questions ?? 0} practice questions in this study set.`;
@@ -81,7 +95,7 @@ function StudySetCard({
             tierBadgeClass(badge)
           )}
         >
-          <Lock className="h-3 w-3" aria-hidden />
+          {locked ? <Lock className="h-3 w-3" aria-hidden /> : <Unlock className="h-3 w-3" aria-hidden />}
           {tierLabel(badge)}
         </span>
       ) : null}
@@ -89,12 +103,36 @@ function StudySetCard({
       <h3 className="text-base font-bold leading-snug text-foreground">{displayTitle}</h3>
       <p className="mt-2 flex-1 text-sm leading-relaxed text-muted-foreground">{preview}</p>
 
-      <div className="mt-5 flex justify-center">
+      {isPaid && sub.purchased && !locked ? (
+        <p className="mt-4 inline-flex items-center justify-center gap-1.5 self-center rounded-full bg-[#ecfdf3] px-2.5 py-1 text-xs font-semibold text-[#067647]">
+          <CheckCircle2 className="h-3.5 w-3.5" aria-hidden />
+          Unlocked
+          {sub.accessExpiresAt ? ` · until ${formatShortDate(sub.accessExpiresAt)}` : ""}
+        </p>
+      ) : null}
+
+      {isPaid && locked && price != null ? (
+        <p className="mt-4 flex items-baseline justify-center gap-2">
+          <span className="text-lg font-extrabold text-foreground">{formatMoney(price)}</span>
+          {regularPrice != null ? (
+            <span className="text-xs text-muted-foreground line-through">
+              {formatMoney(regularPrice)}
+            </span>
+          ) : null}
+        </p>
+      ) : null}
+
+      <div className={cn("flex justify-center", isPaid && (sub.purchased || (locked && price != null)) ? "mt-3" : "mt-5")}>
         <Button
           type="button"
           variant="outline"
           size="pill"
-          className="min-w-[8.5rem] border-foreground/25 font-semibold text-foreground hover:border-primary/40 hover:bg-primary-muted"
+          className={cn(
+            "min-w-[8.5rem] font-semibold",
+            locked && price != null
+              ? "border-[#d4a017]/60 text-[#92400e] hover:border-[#d4a017] hover:bg-[#fffbeb]"
+              : "border-foreground/25 text-foreground hover:border-primary/40 hover:bg-primary-muted"
+          )}
           onClick={() => {
             if (locked) {
               onUnlock();
@@ -103,7 +141,14 @@ function StudySetCard({
             onOpenStudy();
           }}
         >
-          Open Study
+          {locked ? (
+            <>
+              <Lock className="h-3.5 w-3.5" aria-hidden />
+              {price != null ? "Unlock this set" : "Unlock"}
+            </>
+          ) : (
+            "Open Study"
+          )}
         </Button>
       </div>
     </article>
@@ -126,15 +171,30 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
     resourceHref: ROUTES.subjectQuestionbank(programSlug),
   });
 
-  const openUnlock = useCallback((subtopicTitle?: string | null, requiredTier?: string) => {
-    setUnlockTarget({
-      subtopicTitle: subtopicTitle
-        ? richTextToPlain(subtopicTitle) || subtopicTitle
-        : subtopicTitle,
-      requiredTier,
-    });
+  const { data: accessProducts = [] } = useAccessProducts();
+
+  const openUnlock = useCallback((sub?: QbSubtopic | null) => {
+    setUnlockTarget(
+      sub
+        ? {
+            subtopicTitle: richTextToPlain(sub.title) || sub.title,
+            requiredTier: sub.badge,
+            studySet: sub,
+          }
+        : {}
+    );
     setUnlockOpen(true);
   }, []);
+
+  const hasGoldPass = useMemo(
+    () =>
+      Boolean(data) &&
+      accessProducts.some(
+        (p) =>
+          (!p.programId || p.programId === data?.id) && canAccessWithTier(p.tier, "GOLD")
+      ),
+    [accessProducts, data]
+  );
 
   useEffect(() => {
     const onScroll = () => setShowTop(window.scrollY > 480);
@@ -143,12 +203,20 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
   }, []);
 
   useEffect(() => {
-    const wantsUnlock = searchParams.get("unlock") === "1";
+    const unlockParam = searchParams.get("unlock");
     const justUnlocked = searchParams.get("unlocked") === "1";
-    if (!wantsUnlock && !justUnlocked) return;
+    if (!unlockParam && !justUnlocked) return;
+    // `?unlock=<study-set-slug>` needs the program loaded to find the set.
+    if (unlockParam && unlockParam !== "1" && !data) return;
 
-    if (wantsUnlock && isAuthenticated) {
-      setUnlockOpen(true);
+    if (unlockParam && isAuthenticated) {
+      const target =
+        unlockParam === "1"
+          ? null
+          : data?.qbTopics.flatMap((t) => t.subtopics).find((s) => s.slug === unlockParam);
+      if (!target || isSubLocked(target, data?.access?.userTier ?? "FREE")) {
+        openUnlock(target ?? null);
+      }
     }
 
     if (justUnlocked) {
@@ -157,7 +225,7 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
     }
 
     router.replace(ROUTES.subjectQuestionbank(programSlug), { scroll: false });
-  }, [searchParams, isAuthenticated, programSlug, queryClient, refetch, router]);
+  }, [searchParams, isAuthenticated, programSlug, queryClient, refetch, router, data, openUnlock]);
 
   if (isLoading) return <PageLoader label="Loading questionbank..." />;
 
@@ -173,6 +241,12 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
       </div>
     );
   }
+
+  const userTier = data.access?.userTier ?? "FREE";
+  const lockedGoldCount = data.qbTopics.reduce(
+    (count, topic) => count + topic.subtopics.filter((s) => isSubLocked(s, userTier)).length,
+    0
+  );
 
   const themeTabs = (
     <div className="mx-auto flex max-w-7xl gap-0 overflow-x-auto px-4 md:px-6">
@@ -199,12 +273,12 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
       <ResourceHero
         programSlug={programSlug}
         title={`${data.name} Questionbank`}
-        description="Practice by topic. Free study sets are open to everyone. Gold sets unlock with a Gold Pass or linked course."
+        description="Practice by topic. Free study sets are open to everyone. Each Gold study set is unlocked separately."
         icon={<Database className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
         footer={themeTabs}
       >
-        {data.access?.canStudyGold ? null : (
+        {data.access?.canStudyGold || !hasGoldPass ? null : (
           <Button type="button" size="pill" onClick={() => openUnlock()}>
             <Sparkles className="h-4 w-4" />
             Get Gold Pass
@@ -218,17 +292,25 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
             Refreshing topics…
           </p>
         ) : null}
-        {data.access && !data.access.canStudyGold ? (
+        {data.access && !data.access.canStudyGold && lockedGoldCount > 0 ? (
           <div className="rounded-xl border border-[#f5d0a8] bg-[#fff8ef] px-4 py-3 text-sm text-[#9a3412]">
-            <span className="font-semibold">Gold sets locked.</span> Unlock Gold study sets with a{" "}
-            <button
-              type="button"
-              className="font-semibold underline underline-offset-2"
-              onClick={() => openUnlock()}
-            >
-              Gold Pass
-            </button>{" "}
-            or by enrolling in a linked course.
+            <span className="font-semibold">
+              {lockedGoldCount} Gold {lockedGoldCount === 1 ? "set is" : "sets are"} locked.
+            </span>{" "}
+            Each Gold study set is a separate purchase — buying one unlocks only that set.
+            {hasGoldPass ? (
+              <>
+                {" "}Or unlock every Gold set in this subject with a{" "}
+                <button
+                  type="button"
+                  className="font-semibold underline underline-offset-2"
+                  onClick={() => openUnlock()}
+                >
+                  Gold Pass
+                </button>
+                .
+              </>
+            ) : null}
           </div>
         ) : data.access?.canStudyGold ? (
           <div className="rounded-xl border border-[#abeec5] bg-[#ecfdf3] px-4 py-3 text-sm text-[#067647]">
@@ -257,9 +339,7 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
               <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {topic.subtopics.map((sub, subIndex) => {
                   const serial = `${topic.number}.${subIndex + 1}`;
-                  const userTier = data.access?.userTier ?? "FREE";
-                  const locked =
-                    Boolean(sub.locked) || !canAccessWithTier(userTier, sub.badge);
+                  const locked = isSubLocked(sub, userTier);
                   const studyHref = ROUTES.subjectQuestionbankStudy(programSlug, sub.slug);
                   const loginThenStudy = `${ROUTES.auth.login}?next=${encodeURIComponent(studyHref)}`;
 
@@ -273,12 +353,12 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
                         if (!isAuthenticated) {
                           router.push(
                             `${ROUTES.auth.login}?next=${encodeURIComponent(
-                              `${ROUTES.subjectQuestionbank(programSlug)}?unlock=1`
+                              `${ROUTES.subjectQuestionbank(programSlug)}?unlock=${encodeURIComponent(sub.slug)}`
                             )}`
                           );
                           return;
                         }
-                        openUnlock(sub.title, sub.badge);
+                        openUnlock(sub);
                       }}
                       onOpenStudy={() => {
                         if (!isAuthenticated) {
@@ -316,6 +396,7 @@ export function QuestionbankOverviewPage({ programSlug }: Props) {
         programSlug={programSlug}
         subtopicTitle={unlockTarget.subtopicTitle}
         requiredTier={unlockTarget.requiredTier}
+        studySet={unlockTarget.studySet}
         onUnlocked={() => {
           void refetch();
         }}

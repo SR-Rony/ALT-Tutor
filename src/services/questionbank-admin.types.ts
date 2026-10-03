@@ -18,6 +18,11 @@ export type CreateQbSubtopicInput = {
   badge?: QbAccessBadge;
   order?: number;
   paperCount?: number;
+  /** BDT price to unlock only this study set; null clears it. */
+  price?: number | null;
+  regularPrice?: number | null;
+  /** Days of access per purchase; null = lifetime. */
+  accessDurationDays?: number | null;
   isActive?: boolean;
 };
 

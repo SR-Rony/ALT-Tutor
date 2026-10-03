@@ -148,6 +148,8 @@ export interface AdminPayment {
   student: { id: string; name: string };
   course?: { id: string; title: string } | null;
   accessProduct?: { id: string; title: string } | null;
+  subtopic?: { id: string; title: string } | null;
+  provider?: string | null;
 }
 
 export type ReviewStatus = "PENDING" | "APPROVED" | "HIDDEN";

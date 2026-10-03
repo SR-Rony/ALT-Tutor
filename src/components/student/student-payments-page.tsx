@@ -198,15 +198,26 @@ function PassCard({
 function AccessRow({ grant }: { grant: StudentAccessGrant }) {
   const remaining = formatAccessRemaining(grant.expiresAt);
   const active = grant.isActive && !remaining.expired;
+  const studySet = grant.source === "STUDY_SET" ? grant.subtopic : null;
   const subject =
     programLabel(grant.program) ??
     (grant.source === "ADMIN_GRANT" ? "All subjects" : "Subject removed");
+  const heading = studySet ? richTextToPlain(studySet.title) || studySet.title : subject;
 
   return (
     <li className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate font-semibold text-foreground">{subject}</p>
+          {studySet && active ? (
+            <Link
+              href={ROUTES.subjectQuestionbankStudy(studySet.programSlug, studySet.slug)}
+              className="truncate font-semibold text-foreground hover:text-primary hover:underline"
+            >
+              {heading}
+            </Link>
+          ) : (
+            <p className="truncate font-semibold text-foreground">{heading}</p>
+          )}
           <span
             className={cn(
               "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide",
@@ -217,7 +228,9 @@ function AccessRow({ grant }: { grant: StudentAccessGrant }) {
           </span>
         </div>
         <p className="mt-0.5 text-xs text-muted-foreground">
-          {grant.source === "ADMIN_GRANT"
+          {studySet
+            ? `Single Gold study set · ${subject}`
+            : grant.source === "ADMIN_GRANT"
             ? "Granted by admin"
             : grant.source === "COURSE"
               ? `Included with course: ${grant.course?.title ?? "linked course"}`
@@ -325,18 +338,18 @@ export function StudentPaymentsPage() {
         <div className="px-1">
           <h2 className="flex items-center gap-2 text-lg font-bold text-foreground">
             <KeyRound className="h-4 w-4 text-[#b45309]" aria-hidden />
-            My subject access
+            My Gold access
           </h2>
           <p className="text-sm text-muted-foreground">
-            Subjects you can study at Gold level — each unlock runs from its purchase date until it
-            expires.
+            Subjects and study sets you’ve unlocked — each unlock runs from its purchase date until
+            it expires.
           </p>
         </div>
         {grantsLoading ? (
           <PageLoader label="Loading access..." />
         ) : grants.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-8 text-center text-sm text-muted-foreground">
-            You don’t have Gold access to any subject yet.
+            You haven’t unlocked any Gold content yet.
           </div>
         ) : (
           <ul className="space-y-2">
@@ -420,7 +433,9 @@ export function StudentPaymentsPage() {
         <div className="flex items-end justify-between gap-3 px-1">
           <div>
             <h2 className="text-lg font-bold text-foreground">Payment history</h2>
-            <p className="text-sm text-muted-foreground">Course and Gold Pass purchases</p>
+            <p className="text-sm text-muted-foreground">
+              Course, Gold Pass and study set purchases
+            </p>
           </div>
         </div>
 
@@ -455,8 +470,17 @@ export function StudentPaymentsPage() {
                       >
                         <td className="px-5 py-4">
                           <p className="font-semibold text-foreground">
-                            {payment.accessProduct?.title ?? payment.course?.title ?? "Purchase"}
+                            {payment.accessProduct?.title ??
+                              payment.course?.title ??
+                              (payment.subtopic
+                                ? richTextToPlain(payment.subtopic.title) || payment.subtopic.title
+                                : "Purchase")}
                           </p>
+                          {payment.subtopic && !payment.accessProduct && !payment.course ? (
+                            <p className="mt-0.5 text-xs text-muted-foreground">
+                              Gold study set{subject ? ` · ${subject}` : ""}
+                            </p>
+                          ) : null}
                           {payment.accessProduct ? (
                             <p className="mt-0.5 text-xs text-muted-foreground">
                               {subject ? `Subject: ${subject}` : "Subject not recorded"}

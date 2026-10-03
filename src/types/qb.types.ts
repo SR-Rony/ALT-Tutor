@@ -48,12 +48,71 @@ export interface QbSubtopic {
   paperCount?: number;
   /** Per-paper label and MCQ/Written kind. */
   paperConfig?: QbPaperConfig | null;
+  /** BDT price to unlock only this study set (Decimal → string from the API). */
+  price?: number | string | null;
+  regularPrice?: number | string | null;
+  /** Days of access per purchase; null = lifetime. */
+  accessDurationDays?: number | null;
   isActive: boolean;
   topicId: string;
-  /** True when the current user lacks the required Free/Gold tier. */
+  /** True when the current user can't open this set (no tier access and not bought). */
   locked?: boolean;
+  /** True when the current user bought / was granted this set individually. */
+  purchased?: boolean;
+  accessExpiresAt?: string | null;
+  /** Admin list only: students who can open this set via an individual purchase/grant. */
+  activeAccessCount?: number;
   _count?: { questions: number };
   questions?: QbQuestion[];
+}
+
+export type StudySetAccessSource = "PURCHASE" | "MANUAL_PAYMENT" | "ADMIN_GRANT";
+
+export interface StudySetAccessRow {
+  id: string;
+  studentId: string;
+  subtopicId: string;
+  source: StudySetAccessSource | string;
+  status: "ACTIVE" | "EXPIRED" | "CANCELLED" | string;
+  note?: string | null;
+  startsAt: string;
+  expiresAt: string | null;
+  createdAt: string;
+  isCurrent: boolean;
+  isQueued: boolean;
+  student: { id: string; name: string; phone: string; email?: string | null };
+  grantedBy?: { id: string; name: string } | null;
+  payment?: {
+    id: string;
+    amount: number | string;
+    currency: string;
+    provider: string;
+    status: string;
+    transactionId?: string | null;
+    gatewayTxnId?: string | null;
+    paidAt?: string | null;
+    method?: string | null;
+    reference?: string | null;
+  } | null;
+}
+
+export type ManualPaymentMethod =
+  | "CASH"
+  | "BKASH"
+  | "NAGAD"
+  | "ROCKET"
+  | "BANK"
+  | "CARD"
+  | "OTHER";
+
+export interface GrantStudySetAccessInput {
+  studentId: string;
+  amount?: number;
+  method?: ManualPaymentMethod;
+  reference?: string;
+  note?: string;
+  /** Omit for the study set default; null = lifetime. */
+  durationDays?: number | null;
 }
 
 export interface QbProgramAccess {
@@ -72,6 +131,8 @@ export interface QbStudyAccess {
   canAccess: boolean;
   canViewSolutions: boolean;
   reason?: string | null;
+  /** Set when access comes from an individual study set purchase (null = lifetime). */
+  accessExpiresAt?: string | null;
 }
 
 export interface QbTopic {

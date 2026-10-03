@@ -5,9 +5,16 @@ import type {
   StudentAccessGrant,
   StudentPayment,
 } from "@/types/student-dashboard.types";
+import type { GrantStudySetAccessInput, StudySetAccessRow } from "@/types/qb.types";
 import { apiClient } from "./api-client";
 
-export type CheckoutInput = { courseId?: string; accessProductId?: string; programId?: string };
+export type CheckoutInput = {
+  courseId?: string;
+  accessProductId?: string;
+  programId?: string;
+  /** Buy one questionbank study set (unlocks only that set). */
+  subtopicId?: string;
+};
 
 export type AccessProductInput = {
   title: string;
@@ -53,6 +60,22 @@ export const paymentsService = {
     durationDays?: number | null;
   }) {
     return apiClient.post("/payments/admin/grant-access", payload).then((r) => r.data);
+  },
+
+  adminListStudySetAccess(subtopicId: string): Promise<StudySetAccessRow[]> {
+    return apiClient
+      .get<StudySetAccessRow[]>(`/payments/admin/study-sets/${subtopicId}/access`)
+      .then((r) => r.data ?? []);
+  },
+
+  adminGrantStudySetAccess(subtopicId: string, payload: GrantStudySetAccessInput) {
+    return apiClient
+      .post(`/payments/admin/study-sets/${subtopicId}/access`, payload)
+      .then((r) => r.data);
+  },
+
+  adminRevokeStudySetAccess(accessId: string) {
+    return apiClient.delete(`/payments/admin/study-set-access/${accessId}`).then((r) => r.data);
   },
 
   checkout(payload: CheckoutInput): Promise<CheckoutResult> {

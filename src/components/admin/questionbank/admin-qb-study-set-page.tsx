@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  BadgeDollarSign,
   Download,
   ExternalLink,
   FileSpreadsheet,
@@ -31,12 +32,15 @@ import {
   useUpdateQbQuestion,
 } from "@/hooks";
 import { normalizeAccessBadge } from "@/lib/access-tier";
+import { formatMoney } from "@/lib/format";
 import { isRichTextEmpty, serializeRichText, richTextToPlain } from "@/lib/rich-text";
+import { studySetPrice } from "@/lib/study-set-pricing";
 import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type { QbImportResult } from "@/services/questionbank-admin.types";
 import type { QbDifficulty, QbPaper, QbPaperKind, QbQuestion, QbQuestionType } from "@/types/qb.types";
 import { cn } from "@/utils";
+import { AdminQbStudySetPricingModal } from "./admin-qb-study-set-pricing-modal";
 import {
   AccessBadgePill,
   AdminQuestionDropdown,
@@ -77,6 +81,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
   const addPaperMutation = useAddQbPaper();
   const updatePaperConfigMutation = useUpdateQbPaperConfig();
   const removePaperMutation = useRemoveQbPaper();
+  const [pricingOpen, setPricingOpen] = useState(false);
 
   const [activePaper, setActivePaper] = useState<QbPaper>("PAPER_1");
   const [modal, setModal] = useState<
@@ -468,6 +473,23 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
               />
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <AccessBadgePill badge={badge} />
+                {badge !== "FREE" ? (
+                  <button
+                    type="button"
+                    onClick={() => setPricingOpen(true)}
+                    className={cn(
+                      "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-semibold transition",
+                      studySetPrice(sub) != null
+                        ? "border-[#d4a017]/50 bg-[#fffbeb] text-[#92400e] hover:bg-[#fef3c7]"
+                        : "border-accent/40 text-accent hover:bg-accent/5"
+                    )}
+                  >
+                    <BadgeDollarSign className="h-3.5 w-3.5" />
+                    {studySetPrice(sub) != null
+                      ? `${formatMoney(studySetPrice(sub)!)} · Pricing & access`
+                      : "Set price"}
+                  </button>
+                ) : null}
                 <span className="text-xs text-muted-foreground">
                   {questions.length} questions ·{" "}
                   {paperTabs.map((p, i) => (
@@ -1033,6 +1055,13 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
           </div>
         ) : null}
       </AdminModal>
+
+      <AdminQbStudySetPricingModal
+        open={pricingOpen}
+        onClose={() => setPricingOpen(false)}
+        subtopic={sub}
+        displayTitle={richTextToPlain(sub.title) || sub.title}
+      />
     </>
   );
 }

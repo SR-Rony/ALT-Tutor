@@ -10,6 +10,7 @@ import {
   FileText,
   Loader2,
   Lock,
+  PlayCircle,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,10 +27,17 @@ import {
 import { formatDurationUntil, formatMoney } from "@/lib/format";
 import { setPaymentReturnTo } from "@/lib/payment-return";
 import { richTextToPlain } from "@/lib/rich-text";
+import { studySetPrice, studySetRegularPrice } from "@/lib/study-set-pricing";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
+import type { QbSubtopic } from "@/types/qb.types";
 import type { AccessProduct } from "@/types/student-dashboard.types";
 import { cn } from "@/utils";
+
+export type UnlockStudySet = Pick<
+  QbSubtopic,
+  "id" | "slug" | "title" | "price" | "regularPrice" | "accessDurationDays"
+>;
 
 type Props = {
   open: boolean;
@@ -40,6 +48,8 @@ type Props = {
   subtopicTitle?: string | null;
   /** Minimum product tier that unlocks this study set. */
   requiredTier?: string;
+  /** When set (and priced), the student can buy just this study set. */
+  studySet?: UnlockStudySet | null;
   /** Called after access is granted immediately (free / already entitled). */
   onUnlocked?: () => void;
   /** Where to return after checkout (defaults to questionbank). */
@@ -47,6 +57,10 @@ type Props = {
 };
 
 type Step = "pitch" | "plans";
+
+type UnlockOption =
+  | { id: "study-set"; kind: "studySet"; price: number; studySet: UnlockStudySet }
+  | { id: string; kind: "product"; price: number; product: AccessProduct };
 
 function sortProductsForProgram(
   products: AccessProduct[],
@@ -68,17 +82,14 @@ function unlockedTier(tier: QbAccessBadge): string[] {
   return ["Free"];
 }
 
-function tierTheme(_tier: QbAccessBadge) {
-  return {
-    hero: "from-[#fff7ed] via-[#fffbeb] to-white",
-    accent: "text-[#b45309]",
-    accentSoft: "bg-[#fde68a]/50 text-[#92400e]",
-    iconWrap: "bg-[#fef3c7] text-[#b45309]",
-    cta: "!bg-none bg-[#d4a017] text-white shadow-none hover:!bg-[#b45309] hover:translate-y-0 hover:shadow-none",
-    ring: "ring-[#d4a017]/40",
-    selected: "border-[#d4a017] bg-[#fffbeb]",
-  };
-}
+const theme = {
+  hero: "from-[#fff7ed] via-[#fffbeb] to-white",
+  accent: "text-[#b45309]",
+  iconWrap: "bg-[#fef3c7] text-[#b45309]",
+  cta: "!bg-none bg-[#d4a017] text-white shadow-none hover:!bg-[#b45309] hover:translate-y-0 hover:shadow-none",
+  ring: "ring-[#d4a017]/40",
+  selected: "border-[#d4a017] bg-[#fffbeb]",
+};
 
 export function GoldUnlockModal({
   open,
@@ -88,6 +99,7 @@ export function GoldUnlockModal({
   programSlug,
   subtopicTitle,
   requiredTier = "GOLD",
+  studySet,
   onUnlocked,
   returnPath: returnPathProp,
 }: Props) {
@@ -102,8 +114,13 @@ export function GoldUnlockModal({
 
   const required = normalizeAccessBadge(requiredTier);
   const requiredName = tierLabel(required);
-  const theme = tierTheme(required);
+  const requiredShort = requiredName.replace(/^ALT\s+/, "");
   const unlockLabels = unlockedTier(required);
+  const setPrice = studySet ? studySetPrice(studySet) : null;
+  const setRegular = studySet ? studySetRegularPrice(studySet) : null;
+  const setTitle = studySet
+    ? richTextToPlain(studySet.title) || studySet.title
+    : subtopicTitle ?? null;
 
   const returnPath = useMemo(() => {
     if (returnPathProp) return returnPathProp;
@@ -112,29 +129,33 @@ export function GoldUnlockModal({
 
   const loginHref = `${ROUTES.auth.login}?next=${encodeURIComponent(returnPath)}`;
 
-  const ranked = useMemo(
-    () => sortProductsForProgram(products, programId, required).slice(0, 1),
-    [products, programId, required]
-  );
+  const options = useMemo<UnlockOption[]>(() => {
+    const list: UnlockOption[] = [];
+    if (studySet && setPrice != null) {
+      list.push({ id: "study-set", kind: "studySet", price: setPrice, studySet });
+    }
+    for (const product of sortProductsForProgram(products, programId, required).slice(0, 1)) {
+      list.push({ id: product.id, kind: "product", price: Number(product.price) || 0, product });
+    }
+    return list;
+  }, [products, programId, required, studySet, setPrice]);
 
-  const selected = ranked.find((p) => p.id === selectedId) ?? ranked[0] ?? null;
-  const fromPrice = ranked.length
-    ? Math.min(...ranked.map((p) => Number(p.price) || 0))
-    : null;
+  const selected = options.find((o) => o.id === selectedId) ?? options[0] ?? null;
+  const fromPrice = options.length ? Math.min(...options.map((o) => o.price)) : null;
 
   useEffect(() => {
     if (!open) return;
     setStep("pitch");
     setError(null);
     setBusyId(null);
-  }, [open, required, programId]);
+  }, [open, required, programId, studySet?.id]);
 
   useEffect(() => {
-    if (!open || ranked.length === 0) return;
+    if (!open || options.length === 0) return;
     setSelectedId((prev) =>
-      prev && ranked.some((p) => p.id === prev) ? prev : ranked[0]!.id
+      prev && options.some((o) => o.id === prev) ? prev : options[0]!.id
     );
-  }, [open, ranked]);
+  }, [open, options]);
 
   useEffect(() => {
     if (!open) return;
@@ -149,21 +170,30 @@ export function GoldUnlockModal({
     };
   }, [open, onClose]);
 
-  const buy = async (product: AccessProduct) => {
+  const buy = async (option: UnlockOption) => {
+    const afterPayment =
+      option.kind === "studySet"
+        ? ROUTES.subjectQuestionbankStudy(programSlug, option.studySet.slug)
+        : returnPath;
+
     if (!isAuthenticated) {
-      window.location.href = loginHref;
+      window.location.href = `${ROUTES.auth.login}?next=${encodeURIComponent(afterPayment)}`;
       return;
     }
 
     setError(null);
-    setBusyId(product.id);
-    setPaymentReturnTo(returnPath);
+    setBusyId(option.id);
+    setPaymentReturnTo(afterPayment);
 
     try {
-      const result = await checkout.mutateAsync({
-        accessProductId: product.id,
-        programId: product.programId ?? programId,
-      });
+      const result = await checkout.mutateAsync(
+        option.kind === "studySet"
+          ? { subtopicId: option.studySet.id }
+          : {
+              accessProductId: option.product.id,
+              programId: option.product.programId ?? programId,
+            }
+      );
       if (result.checkoutUrl) {
         window.location.href = result.checkoutUrl;
         return;
@@ -180,7 +210,12 @@ export function GoldUnlockModal({
       }
       setError("Checkout started, but no payment URL was returned. Please try again.");
     } catch (err) {
-      setError((err as ApiError)?.message || "Checkout failed. Please try again.");
+      const apiError = err as ApiError;
+      if (apiError?.status === 409) {
+        await queryClient.invalidateQueries({ queryKey: queryKeys.questionbank.all });
+        onUnlocked?.();
+      }
+      setError(apiError?.message || "Checkout failed. Please try again.");
     } finally {
       setBusyId(null);
     }
@@ -188,20 +223,46 @@ export function GoldUnlockModal({
 
   if (!open) return null;
 
-  const benefits = [
-    {
-      icon: BookOpen,
-      text: `Questionbank study sets up to ${requiredName.replace(/^ALT\s+/, "")} (${unlockLabels.join(" + ")})`,
-    },
-    {
-      icon: ClipboardList,
-      text: "Practice exams for this subject at the same access level",
-    },
-    {
-      icon: FileText,
-      text: "Past papers and review tools after you submit",
-    },
-  ];
+  const benefits =
+    setPrice != null
+      ? [
+          { icon: BookOpen, text: "Every question in this study set, across all papers" },
+          { icon: FileText, text: "Mark schemes and worked solutions after each answer" },
+          { icon: PlayCircle, text: "Video solutions and timed exam mode with scoring" },
+        ]
+      : [
+          {
+            icon: BookOpen,
+            text: `Questionbank study sets up to ${requiredShort} (${unlockLabels.join(" + ")})`,
+          },
+          { icon: ClipboardList, text: "Practice exams for this subject at the same access level" },
+          { icon: FileText, text: "Past papers and review tools after you submit" },
+        ];
+
+  const pitchCta = () => {
+    if (!isAuthenticated) {
+      window.location.href = loginHref;
+      return;
+    }
+    if (options.length === 1) {
+      void buy(options[0]!);
+      return;
+    }
+    setStep("plans");
+  };
+
+  const pitchLabel = (() => {
+    if (!isAuthenticated) return "Sign in to unlock";
+    if (busyId) return null;
+    if (options.length === 1) {
+      return options[0]!.kind === "studySet"
+        ? `Unlock this set · ${formatMoney(options[0]!.price)}`
+        : `Unlock with ${formatMoney(options[0]!.price)}`;
+    }
+    return fromPrice != null
+      ? `View ${requiredShort} options · from ${formatMoney(fromPrice)}`
+      : `View ${requiredShort} options`;
+  })();
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end justify-center sm:items-center">
@@ -246,14 +307,37 @@ export function GoldUnlockModal({
               id="unlock-modal-title"
               className="mt-3 text-xl font-bold leading-snug text-foreground sm:text-[1.35rem]"
             >
-              Take your practice to the{" "}
-              <span className={theme.accent}>next level</span>
+              {setPrice != null && setTitle ? (
+                <>
+                  Unlock <span className={theme.accent}>“{setTitle}”</span>
+                </>
+              ) : (
+                <>
+                  Take your practice to the <span className={theme.accent}>next level</span>
+                </>
+              )}
             </h2>
-            <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
-              {subtopicTitle
-                ? `“${subtopicTitle}” is ${requiredName}. Upgrade to unlock it in ${programName}.`
-                : `This content needs ${requiredName}. Upgrade to unlock it in ${programName}.`}
-            </p>
+            {setPrice != null ? (
+              <div className="mt-2 flex items-baseline gap-2">
+                <p className="text-2xl font-extrabold tracking-tight text-foreground">
+                  {formatMoney(setPrice)}
+                </p>
+                {setRegular != null ? (
+                  <p className="text-sm text-muted-foreground line-through">
+                    {formatMoney(setRegular)}
+                  </p>
+                ) : null}
+                <p className="text-xs font-medium text-muted-foreground">
+                  · {formatDurationUntil(studySet?.accessDurationDays)}
+                </p>
+              </div>
+            ) : (
+              <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">
+                {setTitle
+                  ? `“${setTitle}” is ${requiredName}. Upgrade to unlock it in ${programName}.`
+                  : `This content needs ${requiredName}. Upgrade to unlock it in ${programName}.`}
+              </p>
+            )}
           </div>
         </div>
 
@@ -262,7 +346,7 @@ export function GoldUnlockModal({
             <div className="space-y-4">
               <div>
                 <p className="text-sm font-semibold text-foreground">
-                  Upgrade to {requiredName} and unlock:
+                  {setPrice != null ? "What you get:" : `Upgrade to ${requiredName} and unlock:`}
                 </p>
                 <ul className="mt-3 space-y-3">
                   {benefits.map(({ icon: Icon, text }) => (
@@ -280,11 +364,27 @@ export function GoldUnlockModal({
                   ))}
                 </ul>
                 <p className="mt-3 text-xs text-muted-foreground">
-                  Gold is bought per subject — this pass unlocks{" "}
-                  <span className="font-semibold text-foreground">{programName}</span> only.
-                  After payment you return here automatically.
+                  {setPrice != null ? (
+                    <>
+                      This payment unlocks <span className="font-semibold text-foreground">this study set only</span>.
+                      Other Gold study sets are bought separately. After payment you return here
+                      automatically.
+                    </>
+                  ) : (
+                    <>
+                      Gold is bought per subject — this pass unlocks{" "}
+                      <span className="font-semibold text-foreground">{programName}</span> only.
+                      After payment you return here automatically.
+                    </>
+                  )}
                 </p>
               </div>
+
+              {error ? (
+                <p role="alert" className="rounded-lg bg-accent/10 px-3 py-2 text-sm text-accent">
+                  {error}
+                </p>
+              ) : null}
 
               {!isAuthenticated ? (
                 <div className="rounded-xl border border-border bg-muted/40 px-3 py-3">
@@ -301,7 +401,7 @@ export function GoldUnlockModal({
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between gap-2">
-                <p className="text-sm font-semibold text-foreground">Choose Gold Pass</p>
+                <p className="text-sm font-semibold text-foreground">Choose how to unlock</p>
                 <button
                   type="button"
                   className="text-xs font-semibold text-primary hover:underline"
@@ -317,15 +417,15 @@ export function GoldUnlockModal({
                 </p>
               ) : null}
 
-              {isLoading ? (
+              {isLoading && options.length === 0 ? (
                 <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Loading options…
                 </div>
-              ) : ranked.length === 0 ? (
+              ) : options.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-                  No Gold Pass product is available yet. You can still unlock{" "}
-                  {requiredName} by enrolling in a linked course.
+                  This study set isn’t on sale yet. You can still unlock {requiredName} by
+                  enrolling in a linked course.
                   <div className="mt-3">
                     <Button asChild variant="outline" size="sm">
                       <Link href={ROUTES.courses}>Browse courses</Link>
@@ -334,22 +434,26 @@ export function GoldUnlockModal({
                 </div>
               ) : (
                 <ul className="space-y-2">
-                  {ranked.map((product) => {
-                    const isProgramMatch = product.programId === programId;
-                    const productTier = normalizeAccessBadge(product.tier);
-                    const active = selected?.id === product.id;
-                    const scope = product.program?.name || programName;
+                  {options.map((option) => {
+                    const active = selected?.id === option.id;
+                    const isSet = option.kind === "studySet";
+                    const titleText = isSet ? "This study set only" : option.product.title;
+                    const scope = isSet
+                      ? `Unlocks “${setTitle}” only`
+                      : `Unlocks all ${requiredShort} sets in ${option.product.program?.name || programName}`;
+                    const duration = isSet
+                      ? formatDurationUntil(option.studySet.accessDurationDays)
+                      : formatDurationUntil(option.product.durationDays);
+                    const description = isSet ? null : richTextToPlain(option.product.description);
 
                     return (
-                      <li key={product.id}>
+                      <li key={option.id}>
                         <button
                           type="button"
-                          onClick={() => setSelectedId(product.id)}
+                          onClick={() => setSelectedId(option.id)}
                           className={cn(
                             "w-full rounded-xl border px-3.5 py-3 text-left transition",
-                            active
-                              ? theme.selected
-                              : "border-border bg-card hover:border-foreground/15"
+                            active ? theme.selected : "border-border bg-card hover:border-foreground/15"
                           )}
                         >
                           <div className="flex items-start justify-between gap-3">
@@ -358,45 +462,31 @@ export function GoldUnlockModal({
                                 <span
                                   className={cn(
                                     "flex h-4 w-4 items-center justify-center rounded-full border",
-                                    active
-                                      ? "border-transparent bg-foreground text-white"
-                                      : "border-border"
+                                    active ? "border-transparent bg-foreground text-white" : "border-border"
                                   )}
                                 >
                                   {active ? <Check className="h-2.5 w-2.5" aria-hidden /> : null}
                                 </span>
-                                <p className="truncate font-semibold text-foreground">
-                                  {product.title}
-                                </p>
-                                <span
-                                  className={cn(
-                                    "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white",
-                                    tierBadgeClass(productTier)
-                                  )}
-                                >
-                                  {tierLabel(productTier).replace(/^ALT\s+/, "")}
-                                </span>
+                                <p className="truncate font-semibold text-foreground">{titleText}</p>
                               </div>
-                              <p className="mt-1 pl-6 text-xs font-medium text-foreground/80">
-                                Unlocks {scope} only
-                              </p>
-                              <p className="mt-0.5 pl-6 text-xs text-muted-foreground">
-                                {formatDurationUntil(product.durationDays)}
-                              </p>
-                              {richTextToPlain(product.description) ? (
+                              <p className="mt-1 pl-6 text-xs font-medium text-foreground/80">{scope}</p>
+                              <p className="mt-0.5 pl-6 text-xs text-muted-foreground">{duration}</p>
+                              {description ? (
                                 <p className="mt-0.5 line-clamp-1 pl-6 text-xs text-muted-foreground">
-                                  {richTextToPlain(product.description)}
-                                </p>
-                              ) : null}
-                              {isProgramMatch ? (
-                                <p className={cn("mt-1 pl-6 text-[11px] font-semibold", theme.accent)}>
-                                  Best match for this subject
+                                  {description}
                                 </p>
                               ) : null}
                             </div>
-                            <p className="shrink-0 text-base font-extrabold text-foreground">
-                              {formatMoney(Number(product.price))}
-                            </p>
+                            <div className="shrink-0 text-right">
+                              <p className="text-base font-extrabold text-foreground">
+                                {formatMoney(option.price)}
+                              </p>
+                              {isSet && setRegular != null ? (
+                                <p className="text-xs text-muted-foreground line-through">
+                                  {formatMoney(setRegular)}
+                                </p>
+                              ) : null}
+                            </div>
                           </div>
                         </button>
                       </li>
@@ -415,20 +505,17 @@ export function GoldUnlockModal({
                 type="button"
                 className={cn("w-full", theme.cta)}
                 size="lg"
-                disabled={!isAuthenticated && ranked.length === 0}
-                onClick={() => {
-                  if (!isAuthenticated) {
-                    window.location.href = loginHref;
-                    return;
-                  }
-                  setStep("plans");
-                }}
+                disabled={Boolean(busyId)}
+                onClick={pitchCta}
               >
-                {isAuthenticated
-                  ? fromPrice != null
-                    ? `View ${requiredName.replace(/^ALT\s+/, "")} options · from ${formatMoney(fromPrice)}`
-                    : `View ${requiredName.replace(/^ALT\s+/, "")} options`
-                  : "Sign in to view options"}
+                {busyId ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                    Starting checkout…
+                  </>
+                ) : (
+                  pitchLabel
+                )}
               </Button>
               <div className="flex items-center justify-between gap-2">
                 <Button asChild variant="ghost" size="sm">
@@ -454,9 +541,9 @@ export function GoldUnlockModal({
                     Starting checkout…
                   </>
                 ) : selected ? (
-                  `Unlock with ${formatMoney(Number(selected.price))}`
+                  `Pay ${formatMoney(selected.price)}`
                 ) : (
-                  "Select a pass"
+                  "Select an option"
                 )}
               </Button>
               <Button type="button" variant="ghost" size="sm" className="w-full" onClick={onClose}>

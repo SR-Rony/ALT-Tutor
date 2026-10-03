@@ -7,6 +7,7 @@ import {
   type AccessProductInput,
   type CheckoutInput,
 } from "@/services/payments.service";
+import type { GrantStudySetAccessInput } from "@/types/qb.types";
 
 export function useAccessProducts() {
   return useQuery({
@@ -103,6 +104,40 @@ export function useDeactivateAccessProduct() {
   return useMutation({
     mutationFn: (id: string) => paymentsService.deactivateProduct(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.payments.products }),
+  });
+}
+
+export function useAdminStudySetAccess(subtopicId?: string | null) {
+  return useQuery({
+    queryKey: [...queryKeys.payments.all, "study-set-access", subtopicId ?? ""] as const,
+    queryFn: () => paymentsService.adminListStudySetAccess(subtopicId!),
+    enabled: Boolean(subtopicId),
+  });
+}
+
+function useInvalidateStudySetAccess() {
+  const qc = useQueryClient();
+  return () => {
+    void qc.invalidateQueries({ queryKey: [...queryKeys.payments.all, "study-set-access"] });
+    void qc.invalidateQueries({ queryKey: queryKeys.questionbank.all });
+    void qc.invalidateQueries({ queryKey: queryKeys.admin.payments });
+  };
+}
+
+export function useAdminGrantStudySetAccess() {
+  const invalidate = useInvalidateStudySetAccess();
+  return useMutation({
+    mutationFn: ({ subtopicId, payload }: { subtopicId: string; payload: GrantStudySetAccessInput }) =>
+      paymentsService.adminGrantStudySetAccess(subtopicId, payload),
+    onSuccess: invalidate,
+  });
+}
+
+export function useAdminRevokeStudySetAccess() {
+  const invalidate = useInvalidateStudySetAccess();
+  return useMutation({
+    mutationFn: (accessId: string) => paymentsService.adminRevokeStudySetAccess(accessId),
+    onSuccess: invalidate,
   });
 }
 

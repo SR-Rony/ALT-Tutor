@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatMoney, formatRoleLabel, formatShortDate } from "@/lib/format";
+import { richTextToPlain } from "@/lib/rich-text";
 import type { AdminCourse, AdminPayment, AdminUser } from "@/types/admin-dashboard.types";
 import { cn } from "@/utils";
 
@@ -142,10 +143,13 @@ export function AdminRecentPayments({
                 <p className="truncate text-sm font-semibold text-foreground">
                   {payment.course?.title ??
                     payment.accessProduct?.title ??
-                    "Payment"}
+                    (payment.subtopic
+                      ? richTextToPlain(payment.subtopic.title) || payment.subtopic.title
+                      : "Payment")}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
                   {payment.student.name} · {formatShortDate(payment.createdAt)}
+                  {payment.provider === "manual" ? " · Manual" : ""}
                 </p>
               </div>
               <div className="shrink-0 text-right">

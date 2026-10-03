@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
+  AlertTriangle,
+  BadgeDollarSign,
   ChevronDown,
   ChevronRight,
   Download,
@@ -43,8 +45,11 @@ import {
   normalizeAccessBadge,
   tierLabel,
 } from "@/lib/access-tier";
+import { formatMoney } from "@/lib/format";
+import { studySetPrice, studySetRegularPrice } from "@/lib/study-set-pricing";
 import type { QbAccessBadge, QbTopic } from "@/types/qb.types";
 import { cn } from "@/utils";
+import { AdminQbStudySetPricingModal } from "./admin-qb-study-set-pricing-modal";
 import {
   AccessBadgePill,
   countByPaper,
@@ -124,12 +129,16 @@ export function AdminQuestionbankPage() {
     let hiddenQuestions = 0;
     let freeSets = 0;
     let paidSets = 0;
+    let unpricedPaidSets = 0;
     for (const topic of topics) {
       for (const sub of topic.subtopics) {
         subtopics += 1;
         const badge = normalizeAccessBadge(sub.badge);
         if (badge === "FREE") freeSets += 1;
-        else paidSets += 1;
+        else {
+          paidSets += 1;
+          if (studySetPrice(sub) == null) unpricedPaidSets += 1;
+        }
         for (const q of sub.questions ?? []) {
           questions += 1;
           if (!q.isActive) hiddenQuestions += 1;
@@ -143,6 +152,7 @@ export function AdminQuestionbankPage() {
       hiddenQuestions,
       freeSets,
       paidSets,
+      unpricedPaidSets,
       hiddenTopics: topics.filter((t) => !t.isActive).length,
     };
   }, [topics]);
@@ -169,7 +179,21 @@ export function AdminQuestionbankPage() {
   const [slug, setSlug] = useState("");
   const [description, setDescription] = useState("");
   const [accessBadge, setAccessBadge] = useState<QbAccessBadge>("FREE");
+  const [priceInput, setPriceInput] = useState("");
+  const [regularPriceInput, setRegularPriceInput] = useState("");
+  const [durationInput, setDurationInput] = useState("");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [pricingFor, setPricingFor] = useState<{ subtopicId: string; displayTitle: string } | null>(
+    null
+  );
+  const pricingSubtopic = useMemo(() => {
+    if (!pricingFor) return null;
+    for (const topic of topics) {
+      const match = topic.subtopics.find((sub) => sub.id === pricingFor.subtopicId);
+      if (match) return match;
+    }
+    return null;
+  }, [pricingFor, topics]);
 
   const busy =
     createTopic.isPending ||
@@ -194,6 +218,38 @@ export function AdminQuestionbankPage() {
     setSlug(subtopic.slug);
     setDescription(subtopic.description ?? "");
     setAccessBadge(normalizeAccessBadge(subtopic.badge));
+    const price = studySetPrice(subtopic);
+    const regular = studySetRegularPrice(subtopic);
+    setPriceInput(price != null ? String(price) : "");
+    setRegularPriceInput(regular != null ? String(regular) : "");
+    setDurationInput(subtopic.accessDurationDays ? String(subtopic.accessDurationDays) : "");
+  };
+
+  const resetPricingInputs = () => {
+    setPriceInput("");
+    setRegularPriceInput("");
+    setDurationInput("");
+  };
+
+  /** Validated price fields for the add/edit modal (only sent for paid sets). */
+  const readPricingInputs = () => {
+    const money = /^\d+(\.\d{1,2})?$/;
+    const price = priceInput.trim();
+    const regular = regularPriceInput.trim();
+    const days = durationInput.trim();
+    if (price && !money.test(price)) throw new Error("Enter a valid price, e.g. 199 or 199.50.");
+    if (regular && !money.test(regular)) throw new Error("Enter a valid regular price.");
+    if (days && (!/^\d+$/.test(days) || Number(days) < 1 || Number(days) > 3650)) {
+      throw new Error("Access days must be 1–3650, or blank for lifetime.");
+    }
+    if (price && regular && Number(regular) <= Number(price)) {
+      throw new Error("Regular price should be higher than the price (or leave it blank).");
+    }
+    return {
+      price: price ? Number(price) : null,
+      regularPrice: regular ? Number(regular) : null,
+      accessDurationDays: days ? Number(days) : null,
+    };
   };
 
   const toggleTopicVisibility = (topic: QbTopic) => {
@@ -228,12 +284,23 @@ export function AdminQuestionbankPage() {
     });
   };
 
-  const toggleSubtopicAccessBadge = (subtopic: QbTopic["subtopics"][number]) => {
+  const toggleSubtopicAccessBadge = async (
+    subtopic: QbTopic["subtopics"][number],
+    displayTitle: string
+  ) => {
     const next = nextAccessBadge(subtopic.badge);
-    void updateSubtopic.mutateAsync({
-      id: subtopic.id,
-      payload: { badge: next },
-    });
+    try {
+      await updateSubtopic.mutateAsync({
+        id: subtopic.id,
+        payload: { badge: next },
+      });
+      // Going Gold without a price would leave the set unbuyable — ask for one right away.
+      if (next !== "FREE" && studySetPrice(subtopic) == null) {
+        setPricingFor({ subtopicId: subtopic.id, displayTitle });
+      }
+    } catch (err) {
+      window.alert((err as ApiError)?.message || "Failed to change access");
+    }
   };
 
   const onSave = async () => {
@@ -267,6 +334,7 @@ export function AdminQuestionbankPage() {
           slug: slug.trim() || slugify(cleanTitle),
           description: serializeRichText(description) || undefined,
           badge: accessBadge,
+          ...(accessBadge !== "FREE" ? readPricingInputs() : {}),
         };
         if (modal.editId) {
           await updateSubtopic.mutateAsync({ id: modal.editId, payload });
@@ -441,6 +509,13 @@ export function AdminQuestionbankPage() {
                   Access: <strong className="text-foreground">{programStats.freeSets}</strong> free ·{" "}
                   <strong className="text-foreground">{programStats.paidSets}</strong> paid
                 </span>
+                {programStats.unpricedPaidSets > 0 ? (
+                  <span className="inline-flex items-center gap-1 font-semibold text-accent">
+                    <AlertTriangle className="h-3.5 w-3.5" aria-hidden />
+                    {programStats.unpricedPaidSets} Gold set
+                    {programStats.unpricedPaidSets === 1 ? "" : "s"} without a price
+                  </span>
+                ) : null}
               </div>
               <Button asChild size="sm" variant="outline" className="border-primary/30">
                 <Link
@@ -509,6 +584,7 @@ export function AdminQuestionbankPage() {
                         setSlug("");
                         setDescription("");
                         setAccessBadge("FREE");
+                        resetPricingInputs();
                       }}
                     >
                       <Plus className="h-4 w-4" />
@@ -569,6 +645,9 @@ export function AdminQuestionbankPage() {
                       const topicNumber = topic.number ?? topicIndex + 1;
                       const serial = studySetSerialLabel(topicNumber, subIndex);
                       const displayTitle = `${serial} ${studySetBaseTitle(sub.title)}`;
+                      const isPaidSet = normalizeAccessBadge(sub.badge) !== "FREE";
+                      const price = studySetPrice(sub);
+                      const holders = sub.activeAccessCount ?? 0;
 
                       return (
                         <div
@@ -610,13 +689,41 @@ export function AdminQuestionbankPage() {
                               className="border-primary/30 text-primary"
                               disabled={updateSubtopic.isPending}
                               title={`Cycle access → ${tierLabel(nextAccessBadge(sub.badge))}`}
-                              onClick={() => toggleSubtopicAccessBadge(sub)}
+                              onClick={() => void toggleSubtopicAccessBadge(sub, displayTitle)}
                             >
                               <AccessBadgePill badge={sub.badge} />
                               <span className="ml-1">
                                 Set {tierLabel(nextAccessBadge(sub.badge)).replace(/^ALT\s+/, "")}
                               </span>
                             </Button>
+                            {isPaidSet ? (
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                className={cn(
+                                  price != null
+                                    ? "border-[#d4a017]/50 bg-[#fffbeb] text-[#92400e] hover:bg-[#fef3c7]"
+                                    : "border-accent/40 text-accent hover:bg-accent/5"
+                                )}
+                                title="Set price, add a manual payment, or manage who has access"
+                                onClick={() =>
+                                  setPricingFor({ subtopicId: sub.id, displayTitle })
+                                }
+                              >
+                                {price != null ? (
+                                  <BadgeDollarSign className="h-4 w-4" />
+                                ) : (
+                                  <AlertTriangle className="h-4 w-4" />
+                                )}
+                                {price != null ? formatMoney(price) : "Set price"}
+                                {holders > 0 ? (
+                                  <span className="rounded-full bg-white/80 px-1.5 text-[10px] font-bold text-foreground">
+                                    {holders} {holders === 1 ? "buyer" : "buyers"}
+                                  </span>
+                                ) : null}
+                              </Button>
+                            ) : null}
                             <Button asChild size="sm">
                               <Link href={manageHref}>Manage questions</Link>
                             </Button>
@@ -694,7 +801,7 @@ export function AdminQuestionbankPage() {
         description={
           modal?.kind === "subtopic"
             ? modal.editId
-              ? "ALT Free is open practice. ALT Gold needs a Gold Pass."
+              ? "ALT Free is open practice. ALT Gold sets are sold one by one at the price you set."
               : "Serial number is assigned automatically (e.g. 1.1, 1.2 under topic 1) and the new study set is added last."
             : "Visible on the public Questionbank."
         }
@@ -762,12 +869,60 @@ export function AdminQuestionbankPage() {
               </select>
             </label>
           ) : null}
+          {modal?.kind === "subtopic" && accessBadge !== "FREE" ? (
+            <div className="space-y-3 rounded-xl border border-[#f5d48a] bg-[#fffbeb]/60 p-3">
+              <p className="text-xs font-semibold text-[#92400e]">
+                Price for this study set — students who pay unlock only this set.
+              </p>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold">Price (৳)</span>
+                  <Input
+                    value={priceInput}
+                    onChange={(e) => setPriceInput(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="e.g. 199"
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold">Regular price (৳)</span>
+                  <Input
+                    value={regularPriceInput}
+                    onChange={(e) => setRegularPriceInput(e.target.value)}
+                    inputMode="decimal"
+                    placeholder="Optional"
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-semibold">Access days</span>
+                  <Input
+                    value={durationInput}
+                    onChange={(e) => setDurationInput(e.target.value)}
+                    inputMode="numeric"
+                    placeholder="Blank = lifetime"
+                  />
+                </label>
+              </div>
+              {!priceInput.trim() ? (
+                <p className="text-[11px] font-semibold text-accent">
+                  Without a price students can’t buy this set (only a subject Gold Pass or course unlocks it).
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold">Description</span>
             <RichTextEditor value={description} onChange={setDescription} />
           </label>
         </div>
       </AdminModal>
+
+      <AdminQbStudySetPricingModal
+        open={Boolean(pricingFor)}
+        onClose={() => setPricingFor(null)}
+        subtopic={pricingSubtopic}
+        displayTitle={pricingFor?.displayTitle ?? ""}
+      />
     </>
   );
 }

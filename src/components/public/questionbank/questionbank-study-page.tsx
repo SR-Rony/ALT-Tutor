@@ -29,6 +29,8 @@ import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-mo
 import { useAppSelector } from "@/store";
 import { questionbankService } from "@/services/questionbank.service";
 import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
+import { formatDurationUntil, formatMoney } from "@/lib/format";
+import { studySetPrice, studySetRegularPrice } from "@/lib/study-set-pricing";
 import type { ApiError } from "@/types";
 import type {
   PracticeAnswerFeedback,
@@ -671,13 +673,18 @@ export function QuestionbankStudyPage({
     const apiError = error as unknown as ApiError | undefined;
     const isLocked = apiError?.status === 403;
     const studyNext = ROUTES.subjectQuestionbankStudy(programSlug, subtopicSlug);
-    const unlockHref = `${ROUTES.subjectQuestionbank(programSlug)}?unlock=1`;
+    const unlockHref = `${ROUTES.subjectQuestionbank(programSlug)}?unlock=${encodeURIComponent(subtopicSlug)}`;
     const lockedSub = programOverview?.qbTopics
       .flatMap((topic) => topic.subtopics)
       .find((sub) => sub.slug === subtopicSlug);
     const requiredTier = normalizeAccessBadge(lockedSub?.badge ?? "GOLD");
-    const lockedTitle =
-      requiredTier === "FREE" ? "Paid study set" : `${tierLabel(requiredTier)} study set`;
+    const lockedPrice = lockedSub ? studySetPrice(lockedSub) : null;
+    const lockedRegularPrice = lockedSub ? studySetRegularPrice(lockedSub) : null;
+    const lockedTitle = lockedSub
+      ? richTextToPlain(lockedSub.title) || lockedSub.title
+      : requiredTier === "FREE"
+        ? "Paid study set"
+        : `${tierLabel(requiredTier)} study set`;
 
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
@@ -688,17 +695,36 @@ export function QuestionbankStudyPage({
             </span>
             <h1 className="mt-4 text-xl font-extrabold text-foreground">{lockedTitle}</h1>
             <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-              {apiError?.message ||
-                "This study set requires a Gold Pass or enrollment in a linked course."}
+              {lockedPrice != null
+                ? "This Gold study set is sold on its own. Buying it unlocks only this set — its questions, mark schemes and video solutions."
+                : apiError?.message ||
+                  "This study set requires a Gold Pass or enrollment in a linked course."}
             </p>
+            {lockedPrice != null ? (
+              <p className="mt-4 flex items-baseline justify-center gap-2">
+                <span className="text-2xl font-extrabold text-foreground">
+                  {formatMoney(lockedPrice)}
+                </span>
+                {lockedRegularPrice != null ? (
+                  <span className="text-sm text-muted-foreground line-through">
+                    {formatMoney(lockedRegularPrice)}
+                  </span>
+                ) : null}
+                <span className="text-xs text-muted-foreground">
+                  · {formatDurationUntil(lockedSub?.accessDurationDays)}
+                </span>
+              </p>
+            ) : null}
             <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
               {programOverview ? (
                 <Button type="button" size="pill" onClick={() => setUnlockOpen(true)}>
-                  Unlock {tierLabel(requiredTier)}
+                  {lockedPrice != null
+                    ? `Unlock this set · ${formatMoney(lockedPrice)}`
+                    : `Unlock ${tierLabel(requiredTier)}`}
                 </Button>
               ) : (
                 <Button asChild size="pill">
-                  <Link href={unlockHref}>Unlock with Gold Pass</Link>
+                  <Link href={unlockHref}>Unlock this set</Link>
                 </Button>
               )}
               {!isAuthenticated ? (
@@ -725,6 +751,8 @@ export function QuestionbankStudyPage({
                 programSlug={programSlug}
                 subtopicTitle={lockedSub?.title ?? subtopicSlug}
                 requiredTier={requiredTier}
+                studySet={lockedSub ?? null}
+                returnPath={studyNext}
               />
             ) : null}
           </>
@@ -954,15 +982,15 @@ export function QuestionbankStudyPage({
           </div>
         ) : !canViewSolutions ? (
           <div className="rounded-xl border border-[#f5d0a8] bg-[#fff8ef] px-4 py-3 text-sm text-[#9a3412]">
-            Mark schemes and video solutions stay locked until you unlock this set with a{" "}
+            Mark schemes and video solutions stay locked until you{" "}
             <button
               type="button"
               className="font-semibold underline underline-offset-2"
               onClick={() => setUnlockOpen(true)}
             >
-              Gold Pass
-            </button>{" "}
-            or linked course enrollment.
+              unlock this set
+            </button>
+            .
           </div>
         ) : null}
         {sessionError ? (
@@ -1250,6 +1278,12 @@ export function QuestionbankStudyPage({
           programSlug={programSlug}
           subtopicTitle={subtopicPlainTitle ?? data.subtopic.title}
           requiredTier={data.subtopic.badge}
+          studySet={
+            programOverview.qbTopics
+              .flatMap((topic) => topic.subtopics)
+              .find((sub) => sub.slug === subtopicSlug) ?? null
+          }
+          returnPath={ROUTES.subjectQuestionbankStudy(programSlug, subtopicSlug)}
         />
       ) : null}
     </div>

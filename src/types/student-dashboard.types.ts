@@ -110,6 +110,16 @@ export interface StudentPayment {
   course?: { id: string; title: string; thumbnail?: string | null; slug?: string };
   accessProduct?: { id: string; title: string; slug: string; durationDays?: number | null };
   program?: PaymentProgram | null;
+  subtopicId?: string | null;
+  subtopic?: PaymentStudySet | null;
+}
+
+/** Questionbank study set bought on its own. */
+export interface PaymentStudySet {
+  id: string;
+  title: string;
+  slug: string;
+  topic?: { id: string; title: string; program?: { id: string; slug: string } | null } | null;
 }
 
 export interface PaymentProgram {
@@ -124,11 +134,13 @@ export type ProgramAccessSource = "GOLD_PASS" | "ADMIN_GRANT" | "COURSE";
 /** One subject unlock the student holds (Gold Pass, admin grant, or linked course). */
 export interface StudentAccessGrant {
   id: string;
-  source: "PRACTICE_PASS" | "ADMIN_GRANT" | "COURSE" | string;
+  source: "PRACTICE_PASS" | "ADMIN_GRANT" | "COURSE" | "STUDY_SET" | string;
   accessTier?: string | null;
   program: PaymentProgram | null;
   product: { id: string; title: string; durationDays?: number | null } | null;
   course?: { id: string; title: string; slug: string } | null;
+  /** Set for single study set unlocks (source STUDY_SET). */
+  subtopic?: { id: string; title: string; slug: string; programSlug: string } | null;
   purchasedAt: string;
   expiresAt: string | null;
   isActive: boolean;

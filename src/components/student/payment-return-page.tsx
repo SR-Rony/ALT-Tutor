@@ -9,6 +9,7 @@ import { ROUTES } from "@/constants";
 import { useConfirmStubPayment, usePaymentByTransaction } from "@/hooks";
 import { formatMoney, formatShortDate } from "@/lib/format";
 import { consumePaymentReturnTo, peekPaymentReturnTo } from "@/lib/payment-return";
+import { richTextToPlain } from "@/lib/rich-text";
 import type { ApiError } from "@/types";
 
 export function PaymentReturnPage() {
@@ -53,18 +54,31 @@ export function PaymentReturnPage() {
     resolvedStatus === "CANCELLED" ||
     resolvedStatus === "REFUNDED";
 
+  const studySetProgramSlug = payment?.subtopic?.topic?.program?.slug;
+  const studySetHref =
+    payment?.subtopic && studySetProgramSlug
+      ? ROUTES.subjectQuestionbankStudy(studySetProgramSlug, payment.subtopic.slug)
+      : null;
+  const itemTitle =
+    payment?.course?.title ??
+    payment?.accessProduct?.title ??
+    (payment?.subtopic ? richTextToPlain(payment.subtopic.title) || payment.subtopic.title : null);
+
   const continueHref = useMemo(() => {
     if (!isSuccess) return null;
     if (returnTo) return returnTo;
     if (payment?.course?.slug) return ROUTES.student.courseLearn(payment.course.slug);
+    if (studySetHref) return studySetHref;
     return ROUTES.student.practicePass;
-  }, [isSuccess, returnTo, payment?.course?.slug]);
+  }, [isSuccess, returnTo, payment?.course?.slug, studySetHref]);
 
-  const continueLabel = returnTo
-    ? "Back to questionbank"
-    : payment?.course?.slug
-      ? "Go to course"
-      : "Gold Pass";
+  const continueLabel = payment?.subtopic
+    ? "Open study set"
+    : returnTo
+      ? "Back to questionbank"
+      : payment?.course?.slug
+        ? "Go to course"
+        : "Gold Pass";
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-4 py-12">
@@ -98,7 +112,10 @@ export function PaymentReturnPage() {
             </p>
             <p>
               <span className="font-semibold">Item:</span>{" "}
-              {payment.course?.title ?? payment.accessProduct?.title ?? "—"}
+              {itemTitle ?? "—"}
+              {payment.subtopic && !payment.course && !payment.accessProduct
+                ? " (Gold study set)"
+                : ""}
             </p>
             {payment.program ? (
               <p>
@@ -127,7 +144,12 @@ export function PaymentReturnPage() {
               <CheckCircle2 className="h-4 w-4" />
               Payment confirmed. Access granted.
             </div>
-            {returnTo ? (
+            {payment?.subtopic ? (
+              <p className="text-sm text-muted-foreground">
+                This study set is unlocked — its questions, mark schemes and video solutions are
+                ready.
+              </p>
+            ) : returnTo ? (
               <p className="text-sm text-muted-foreground">
                 Your Gold topics are ready — continue where you left off.
               </p>

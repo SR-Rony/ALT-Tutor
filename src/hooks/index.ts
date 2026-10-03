@@ -198,6 +198,9 @@ export {
   useUpdateAccessProduct,
   useDeactivateAccessProduct,
   useAdminGrantPracticeAccess,
+  useAdminStudySetAccess,
+  useAdminGrantStudySetAccess,
+  useAdminRevokeStudySetAccess,
   useMyAccess,
   useMyProgramAccess,
 } from "./use-payments";
