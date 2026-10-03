@@ -3,8 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Timer, XCircle } from "lucide-react";
-import { PageLoader } from "@/components/shared";
+import { CheckCircle2, FileCheck2, Timer, XCircle } from "lucide-react";
+import { PageLoader, ScriptFilePreview } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { usePracticeExamAttempt } from "@/hooks";
@@ -79,6 +79,7 @@ export function PracticeExamResultPage({
   const awaitingMarking = Boolean(attempt.awaitingMarking) || attempt.gradingStatus === "AWAITING";
   const gradePublished = !isWritten || attempt.status === "GRADED" || attempt.gradingStatus === "GRADED";
   const passed = attempt.passed;
+  const markedFiles = isWritten && gradePublished ? attempt.markedFileUrls ?? [] : [];
   const scoreLabel = isWritten
     ? `${attempt.totalQuestions} question${attempt.totalQuestions === 1 ? "" : "s"}`
     : attempt.correctCount != null
@@ -94,7 +95,9 @@ export function PracticeExamResultPage({
           isWritten
             ? awaitingMarking
               ? "Your script is submitted. Marks will appear here after admin review."
-              : "Your marked result and mark schemes are below."
+              : markedFiles.length
+                ? "Your marks, your checked script and the mark schemes are below."
+                : "Your marked result and mark schemes are below."
             : "Review your answers below. Retry starts a fresh timed attempt."
         }
         icon={<Timer className="h-7 w-7 text-primary" aria-hidden />}
@@ -164,7 +167,15 @@ export function PracticeExamResultPage({
             </>
           )}
           <div className="mt-5 flex flex-wrap justify-center gap-2">
-            <Button asChild size="pill">
+            {markedFiles.length ? (
+              <Button asChild size="pill">
+                <a href="#checked-script">
+                  <FileCheck2 className="h-4 w-4" aria-hidden />
+                  See where you lost marks
+                </a>
+              </Button>
+            ) : null}
+            <Button asChild size="pill" variant={markedFiles.length ? "outline" : "default"}>
               <Link href={ROUTES.subjectPracticeExamTake(programSlug, templateSlug, { new: true })}>
                 Retry exam
               </Link>
@@ -176,6 +187,35 @@ export function PracticeExamResultPage({
             </Button>
           </div>
         </section>
+
+        {markedFiles.length ? (
+          <section
+            id="checked-script"
+            className="scroll-mt-24 space-y-3 rounded-2xl border border-[#c7d7fe] bg-[#f5f8ff] p-4 sm:p-5"
+          >
+            <div>
+              <h2 className="inline-flex items-center gap-2 text-base font-bold text-foreground">
+                <FileCheck2 className="h-5 w-5 text-primary" aria-hidden />
+                Your checked script
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                Your teacher marked your answers on this script. Look for the crosses, circles and
+                written corrections to see exactly where you lost marks, then compare with the mark
+                schemes below.
+              </p>
+            </div>
+            {markedFiles.map((url, index) => (
+              <ScriptFilePreview
+                key={url}
+                url={url}
+                label={
+                  markedFiles.length > 1 ? `Checked script · file ${index + 1}` : "Checked script"
+                }
+                headerClassName="bg-white"
+              />
+            ))}
+          </section>
+        ) : null}
 
         {isWritten && attempt.answerFileUrls && attempt.answerFileUrls.length > 0 ? (
           <section className="rounded-2xl border border-border bg-card p-4 sm:p-5">

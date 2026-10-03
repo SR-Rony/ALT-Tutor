@@ -68,6 +68,7 @@ export type PracticeExamHistoryItem = {
   answeredCount: number;
   answerFileUrls?: string[];
   feedback?: string | null;
+  markedFileUrls?: string[];
   awaitingMarking?: boolean;
   template: {
     id: string;
@@ -117,6 +118,8 @@ export type PracticeExamAttemptPayload = {
     answerFileUrls?: string[];
     passed: boolean | null;
     feedback?: string | null;
+    /** Checked script(s) from the marker — only sent once marks are published. */
+    markedFileUrls?: string[];
     gradedAt?: string | null;
     awaitingMarking?: boolean;
     gradingStatus?: "NONE" | "AWAITING" | "GRADED" | "AUTO" | string;
@@ -137,6 +140,7 @@ export type PracticeExamAttemptPayload = {
   program?: { id: string; name: string; slug: string };
   draftGrade?: number;
   draftFeedback?: string | null;
+  draftMarkedFileUrls?: string[];
   isPublished?: boolean;
 };
 
@@ -151,6 +155,7 @@ export type WrittenPracticeSubmission = {
   questionAnswerFiles?: Array<{ questionId: string; fileUrl: string }>;
   writtenStyle?: PracticeExamWrittenStyle | null;
   feedback?: string | null;
+  markedFileUrls?: string[];
   gradedAt?: string | null;
   submittedAt: string | null;
   startedAt: string;
@@ -173,6 +178,8 @@ export type GradeWrittenPracticeInput = {
   grade: number;
   feedback?: string;
   publish?: boolean;
+  /** Checked/annotated script(s). Omit to keep current files; [] clears them. */
+  markedFileUrls?: string[];
 };
 
 export type StartPracticeExamInput = {

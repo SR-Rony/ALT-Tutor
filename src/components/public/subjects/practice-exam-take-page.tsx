@@ -7,6 +7,7 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  FileCheck2,
   FileText,
   HelpCircle,
   Lock,
@@ -867,6 +868,16 @@ export function PracticeExamTakePage({ programSlug, templateSlug }: Props) {
                     <span className="font-semibold">Teacher feedback: </span>
                     {attempt.feedback}
                   </p>
+                ) : null}
+                {attempt.markedFileUrls?.length ? (
+                  <Button asChild size="sm" className="mt-3">
+                    <Link
+                      href={`${ROUTES.subjectPracticeExamResult(programSlug, templateSlug, attempt.id)}#checked-script`}
+                    >
+                      <FileCheck2 className="h-4 w-4" aria-hidden />
+                      View checked script
+                    </Link>
+                  </Button>
                 ) : null}
                 {template.passMarkPercent != null && passed != null ? (
                   <p

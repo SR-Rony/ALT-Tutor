@@ -6,3 +6,4 @@ export { PageLoader } from "./page-loader";
 export { ListPagination } from "./list-pagination";
 export { SecureVideoPlayer } from "./secure-video-player";
 export { VideoModal } from "./video-modal";
+export { ScriptFilePreview, openScriptFile, scriptFileKind } from "./script-file-preview";

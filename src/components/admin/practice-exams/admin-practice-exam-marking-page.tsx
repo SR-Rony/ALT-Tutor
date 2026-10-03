@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ExternalLink, FileText, Loader2, RefreshCw, Upload } from "lucide-react";
+import {
+  ExternalLink,
+  FileCheck2,
+  Loader2,
+  RefreshCw,
+  Trash2,
+  Upload,
+} from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
-import { PageHeader, PageLoader } from "@/components/shared";
+import { PageHeader, PageLoader, ScriptFilePreview } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { RichTextContent } from "@/components/ui/rich-text-content";
@@ -25,6 +32,11 @@ import { cn } from "@/utils";
 
 type StatusFilter = "PENDING" | "GRADED" | "ALL";
 
+/** Matches the backend cap on checked-script files per attempt. */
+const MAX_MARKED_FILES = 10;
+const MARKED_FILE_ACCEPT = ".pdf,.png,.jpg,.jpeg";
+const MARKED_FILE_TYPES = new Set(["application/pdf", "image/png", "image/jpeg"]);
+
 function uniqueFiles(urls: string[]) {
   return [...new Set(urls.filter((u) => Boolean(u && u.trim())))];
 }
@@ -33,170 +45,8 @@ function isHttpAnswerUrl(value: string | null | undefined) {
   return Boolean(value && /^https?:\/\//i.test(value.trim()));
 }
 
-function answerFileKind(url: string): "pdf" | "image" | "other" {
-  const clean = url.split("?")[0]?.split("#")[0]?.toLowerCase() ?? "";
-  if (clean.endsWith(".pdf")) return "pdf";
-  if (/\.(png|jpe?g|gif|webp|bmp)$/i.test(clean)) return "image";
-  return "other";
-}
-
-/** Prefer Cloudinary image delivery for PDFs (opens inline instead of download). */
-function preferInlineDeliveryUrl(url: string) {
-  if (!url.includes("res.cloudinary.com")) return url;
-  if (url.includes("/raw/upload/") && url.toLowerCase().includes(".pdf")) {
-    return url.replace("/raw/upload/", "/image/upload/");
-  }
-  return url;
-}
-
-async function loadInlineBlobUrl(url: string, kind: "pdf" | "image" | "other"): Promise<string> {
-  // Prefer API proxy — sets Content-Disposition: inline so the tab previews, not downloads.
-  try {
-    const blob = await uploadService.fetchInlineBlob(url);
-    const typed =
-      kind === "pdf"
-        ? new Blob([await blob.arrayBuffer()], { type: "application/pdf" })
-        : blob;
-    return URL.createObjectURL(typed);
-  } catch {
-    // Fallback: direct fetch (may fail on CORS / attachment headers)
-  }
-
-  const candidates = [...new Set([preferInlineDeliveryUrl(url), url])];
-  let lastError: unknown;
-  for (const candidate of candidates) {
-    try {
-      const res = await fetch(candidate, { mode: "cors" });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const buf = await res.arrayBuffer();
-      const type =
-        kind === "pdf"
-          ? "application/pdf"
-          : kind === "image"
-            ? "image/jpeg"
-            : "application/octet-stream";
-      return URL.createObjectURL(new Blob([buf], { type }));
-    } catch (err) {
-      lastError = err;
-    }
-  }
-  throw lastError ?? new Error("Could not load file");
-}
-
-async function openAnswerFile(url: string) {
-  const kind = answerFileKind(url);
-  try {
-    const objectUrl = await loadInlineBlobUrl(url, kind);
-    window.open(objectUrl, "_blank", "noopener,noreferrer");
-    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 120_000);
-  } catch {
-    window.open(preferInlineDeliveryUrl(url), "_blank", "noopener,noreferrer");
-  }
-}
-
-function AnswerScriptPreview({
-  url,
-  label,
-}: {
-  url: string;
-  label: string;
-}) {
-  const kind = answerFileKind(url);
-  const [pdfSrc, setPdfSrc] = useState<string | null>(null);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-  const [pdfLoading, setPdfLoading] = useState(kind === "pdf");
-
-  useEffect(() => {
-    if (kind !== "pdf") return;
-    let active = true;
-    let objectUrl: string | null = null;
-    setPdfLoading(true);
-    setPdfError(null);
-    setPdfSrc(null);
-    void loadInlineBlobUrl(url, "pdf")
-      .then((src) => {
-        if (!active) {
-          URL.revokeObjectURL(src);
-          return;
-        }
-        objectUrl = src;
-        setPdfSrc(src);
-      })
-      .catch(() => {
-        if (active) {
-          setPdfError("Could not preview this PDF here. Use Open full size.");
-        }
-      })
-      .finally(() => {
-        if (active) setPdfLoading(false);
-      });
-    return () => {
-      active = false;
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
-    };
-  }, [url, kind]);
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
-        <p className="inline-flex items-center gap-1.5 text-sm font-semibold text-foreground">
-          <FileText className="h-3.5 w-3.5 text-primary" aria-hidden />
-          {label}
-        </p>
-        <button
-          type="button"
-          onClick={() => void openAnswerFile(url)}
-          className="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:underline"
-        >
-          Open full size
-          <ExternalLink className="h-3 w-3" aria-hidden />
-        </button>
-      </div>
-      {kind === "pdf" ? (
-        pdfLoading ? (
-          <div className="flex h-48 items-center justify-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading preview…
-          </div>
-        ) : pdfSrc ? (
-          <iframe
-            title={label}
-            src={`${pdfSrc}#view=FitH`}
-            className="h-[min(70vh,40rem)] w-full bg-muted/30"
-          />
-        ) : (
-          <div className="space-y-2 px-4 py-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              {pdfError || "Preview unavailable."}
-            </p>
-            <Button type="button" size="sm" variant="outline" onClick={() => void openAnswerFile(url)}>
-              Open file
-              <ExternalLink className="h-3.5 w-3.5" />
-            </Button>
-          </div>
-        )
-      ) : kind === "image" ? (
-        <div className="max-h-[min(70vh,40rem)] overflow-y-auto bg-muted/20 p-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={preferInlineDeliveryUrl(url)}
-            alt={label}
-            className="mx-auto max-w-full rounded-lg border border-border"
-          />
-        </div>
-      ) : (
-        <div className="space-y-2 px-4 py-6 text-center">
-          <p className="text-sm text-muted-foreground">
-            Preview not available for this file type. Open it in a new tab.
-          </p>
-          <Button type="button" size="sm" variant="outline" onClick={() => void openAnswerFile(url)}>
-            Open file
-            <ExternalLink className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
-    </div>
-  );
+function sameFiles(a: string[], b: string[]) {
+  return a.length === b.length && a.every((url, index) => url === b[index]);
 }
 
 function GradePanel({
@@ -210,18 +60,39 @@ function GradePanel({
   const gradeMutation = useGradeWrittenPracticeAttempt();
   const attachFiles = useAttachWrittenPracticeAnswerFiles();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const markedInputRef = useRef<HTMLInputElement>(null);
   const [fileUrls, setFileUrls] = useState(() => uniqueFiles(item.answerFileUrls ?? []));
   const [uploading, setUploading] = useState(false);
+  const savedMarkedFiles = useMemo(
+    () => uniqueFiles(item.markedFileUrls ?? []),
+    [item.markedFileUrls]
+  );
+  const [markedFiles, setMarkedFiles] = useState(savedMarkedFiles);
+  const [markedUpload, setMarkedUpload] = useState<{ done: number; total: number } | null>(null);
+  const [markedError, setMarkedError] = useState<string | null>(null);
   const [grade, setGrade] = useState(
     item.score > 0 || item.status === "GRADED" ? String(item.score) : ""
   );
   const [feedback, setFeedback] = useState(item.feedback ?? "");
   const [actionError, setActionError] = useState<string | null>(null);
 
+  const isPublished = item.status === "GRADED";
+  const markedDirty = !sameFiles(markedFiles, savedMarkedFiles);
+  const busy = gradeMutation.isPending || Boolean(markedUpload);
+
   const save = async (publish: boolean) => {
-    const value = Number.parseInt(grade, 10);
-    if (Number.isNaN(value) || value < 0 || value > 100) {
-      setActionError("Enter a grade between 0 and 100");
+    const value = Number(grade.trim());
+    if (!grade.trim() || !Number.isInteger(value) || value < 0 || value > 100) {
+      setActionError("Enter whole-number marks between 0 and 100");
+      return;
+    }
+    if (
+      publish &&
+      markedFiles.length === 0 &&
+      !window.confirm(
+        "Publish without a checked script? The student will only see the score and feedback, not where they lost marks."
+      )
+    ) {
       return;
     }
     setActionError(null);
@@ -232,6 +103,7 @@ function GradePanel({
           grade: value,
           feedback: feedback.trim() || undefined,
           publish,
+          markedFileUrls: markedFiles,
         },
       });
       onDone(true);
@@ -241,7 +113,7 @@ function GradePanel({
   };
 
   const handleAttachFile = async (file: File | null) => {
-    if (!file || item.status === "GRADED") return;
+    if (!file || isPublished) return;
     setActionError(null);
     setUploading(true);
     try {
@@ -260,6 +132,45 @@ function GradePanel({
     }
   };
 
+  const handleMarkedFiles = async (list: FileList | null) => {
+    const picked = Array.from(list ?? []);
+    if (markedInputRef.current) markedInputRef.current.value = "";
+    if (!picked.length) return;
+
+    setMarkedError(null);
+    const rejected = picked.filter((file) => !MARKED_FILE_TYPES.has(file.type));
+    const valid = picked.filter((file) => MARKED_FILE_TYPES.has(file.type));
+    const room = MAX_MARKED_FILES - markedFiles.length;
+    if (room <= 0) {
+      setMarkedError(`You can attach up to ${MAX_MARKED_FILES} checked files.`);
+      return;
+    }
+    const toUpload = valid.slice(0, room);
+    const notes: string[] = [];
+    if (rejected.length) notes.push(`${rejected.length} file(s) skipped — use PDF, JPG or PNG.`);
+    if (valid.length > room) notes.push(`Only ${room} more file(s) fit (max ${MAX_MARKED_FILES}).`);
+    if (!toUpload.length) {
+      setMarkedError(notes.join(" ") || "No file selected.");
+      return;
+    }
+
+    setMarkedUpload({ done: 0, total: toUpload.length });
+    const uploaded: string[] = [];
+    try {
+      for (const file of toUpload) {
+        const result = await uploadService.upload(file, "assignments");
+        uploaded.push(result.url);
+        setMarkedUpload({ done: uploaded.length, total: toUpload.length });
+      }
+    } catch (err) {
+      notes.push((err as ApiError)?.message || "Upload failed for one of the files.");
+    } finally {
+      if (uploaded.length) setMarkedFiles((prev) => uniqueFiles([...prev, ...uploaded]));
+      setMarkedUpload(null);
+      if (notes.length) setMarkedError(notes.join(" "));
+    }
+  };
+
   const files = uniqueFiles([
     ...fileUrls,
     ...((data?.attempt.answerFileUrls as string[] | undefined) ?? []),
@@ -272,7 +183,7 @@ function GradePanel({
           .filter((q) => isHttpAnswerUrl(q.studentAnswer))
           .map((q) => ({ questionId: q.id, fileUrl: q.studentAnswer!.trim() }))
       : [];
-  const canAttach = item.status !== "GRADED" && item.writtenStyle !== "PER_QUESTION";
+  const canAttach = !isPublished && item.writtenStyle !== "PER_QUESTION";
 
   return (
     <div className="mt-4 space-y-4 rounded-xl border border-border bg-muted/20 p-4">
@@ -312,7 +223,7 @@ function GradePanel({
                       {richTextToPlain(q.prompt)}
                     </p>
                   ) : null}
-                  <AnswerScriptPreview url={file.fileUrl} label={label} />
+                  <ScriptFilePreview url={file.fileUrl} label={label} />
                 </div>
               );
             })}
@@ -324,11 +235,7 @@ function GradePanel({
         ) : (
           <div className="space-y-3">
             {files.map((url, index) => (
-              <AnswerScriptPreview
-                key={url}
-                url={url}
-                label={`Answer file ${index + 1}`}
-              />
+              <ScriptFilePreview key={url} url={url} label={`Answer file ${index + 1}`} />
             ))}
           </div>
         )}
@@ -392,6 +299,99 @@ function GradePanel({
         )}
       </div>
 
+      <section className="space-y-3 rounded-xl border border-[#c7d7fe] bg-[#f5f8ff] p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="inline-flex items-center gap-1.5 text-sm font-bold text-foreground">
+              <FileCheck2 className="h-4 w-4 text-primary" aria-hidden />
+              Checked script for the student
+            </p>
+            <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
+              Mark the student&apos;s script — tick/cross each answer, circle mistakes and write
+              corrections — then upload it as PDF or photos. The student sees it next to their
+              marks so they know exactly where they lost marks.
+            </p>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            disabled={busy || markedFiles.length >= MAX_MARKED_FILES}
+            onClick={() => markedInputRef.current?.click()}
+          >
+            {markedUpload ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Upload className="h-4 w-4" />
+            )}
+            {markedUpload
+              ? `Uploading ${markedUpload.done + 1}/${markedUpload.total}…`
+              : markedFiles.length
+                ? "Add more files"
+                : "Upload checked script"}
+          </Button>
+          <input
+            ref={markedInputRef}
+            type="file"
+            multiple
+            accept={MARKED_FILE_ACCEPT}
+            className="hidden"
+            onChange={(event) => void handleMarkedFiles(event.target.files)}
+          />
+        </div>
+
+        {markedError ? (
+          <p role="alert" className="text-xs font-medium text-accent">
+            {markedError}
+          </p>
+        ) : null}
+
+        {markedFiles.length === 0 ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => markedInputRef.current?.click()}
+            className="flex w-full flex-col items-center gap-1 rounded-xl border border-dashed border-[#a4bcfd] bg-white/70 px-4 py-6 text-center transition hover:border-primary hover:bg-white disabled:opacity-60"
+          >
+            <Upload className="h-5 w-5 text-primary" aria-hidden />
+            <span className="text-sm font-semibold text-foreground">
+              No checked script yet
+            </span>
+            <span className="text-xs text-muted-foreground">
+              PDF, JPG or PNG · up to {MAX_MARKED_FILES} files (e.g. one photo per page)
+            </span>
+          </button>
+        ) : (
+          <div className="space-y-3">
+            {markedFiles.map((url, index) => (
+              <ScriptFilePreview
+                key={url}
+                url={url}
+                label={`Checked script ${markedFiles.length > 1 ? `· page/file ${index + 1}` : ""}`.trim()}
+                headerClassName="bg-white"
+                actions={
+                  <button
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setMarkedFiles((prev) => prev.filter((u) => u !== url))}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-accent hover:underline disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3 w-3" aria-hidden />
+                    Remove
+                  </button>
+                }
+              />
+            ))}
+          </div>
+        )}
+
+        {markedDirty ? (
+          <p className="text-xs font-medium text-[#9a3412]">
+            Checked script changes aren&apos;t saved yet — use Save draft or{" "}
+            {isPublished ? "Update & republish" : "Publish marks"} below.
+          </p>
+        ) : null}
+      </section>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-sm">
           <span className="font-semibold">Marks (0–100%)</span>
@@ -416,24 +416,25 @@ function GradePanel({
 
       {actionError ? <p className="text-sm text-accent">{actionError}</p> : null}
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <Button
           type="button"
           variant="outline"
-          disabled={gradeMutation.isPending}
+          disabled={busy}
           onClick={() => void save(false)}
         >
           {gradeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
           Save draft
         </Button>
-        <Button
-          type="button"
-          disabled={gradeMutation.isPending}
-          onClick={() => void save(true)}
-        >
+        <Button type="button" disabled={busy} onClick={() => void save(true)}>
           {gradeMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Publish marks
+          {isPublished ? "Update & republish" : "Publish marks"}
         </Button>
+        {isPublished ? (
+          <p className="text-xs text-muted-foreground">
+            Save draft hides the result from the student again until you republish.
+          </p>
+        ) : null}
       </div>
     </div>
   );
@@ -467,7 +468,7 @@ export function AdminPracticeExamMarkingPage() {
           <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
             <PageHeader
               title="Written Marking"
-              description="Review uploaded answer scripts, award marks, and publish results to students."
+              description="Review uploaded answer scripts, award marks, upload the checked script, and publish results to students."
               className="mb-0"
             />
             <div className="flex flex-wrap gap-2">
@@ -594,6 +595,7 @@ export function AdminPracticeExamMarkingPage() {
           ) : (
             data.map((item) => {
               const open = openId === item.id;
+              const checkedCount = item.markedFileUrls?.length ?? 0;
               return (
                 <div
                   key={item.id}
@@ -618,6 +620,12 @@ export function AdminPracticeExamMarkingPage() {
                             Graded {item.score}%
                           </span>
                         )}
+                        {checkedCount > 0 ? (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-[#f5f8ff] px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
+                            <FileCheck2 className="h-3 w-3" aria-hidden />
+                            Checked script
+                          </span>
+                        ) : null}
                       </div>
                       <p className="mt-1 text-sm text-foreground">
                         {item.student.name}
