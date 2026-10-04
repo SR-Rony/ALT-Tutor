@@ -30,11 +30,21 @@ export function useQbProgram(programSlug: string) {
   });
 }
 
-export function useQbQuestions(programSlug: string, subtopicSlug: string, filters: QbFilters) {
+export function useQbQuestions(
+  programSlug: string,
+  subtopicSlug: string,
+  filters: QbFilters,
+  options: { includeSolutions?: boolean } = {}
+) {
   const authKey = useQbAuthKey();
+  const includeSolutions = Boolean(options.includeSolutions);
   return useQuery({
-    queryKey: queryKeys.questionbank.questions(programSlug, subtopicSlug, filters, authKey),
-    queryFn: () => questionbankService.getQuestions(programSlug, subtopicSlug, filters),
+    queryKey: [
+      ...queryKeys.questionbank.questions(programSlug, subtopicSlug, filters, authKey),
+      includeSolutions ? "study" : "exam",
+    ],
+    queryFn: () =>
+      questionbankService.getQuestions(programSlug, subtopicSlug, filters, { includeSolutions }),
     enabled: Boolean(programSlug && subtopicSlug),
     placeholderData: keepPreviousData,
     retry: (failureCount, error) => {
@@ -188,9 +198,22 @@ export function useImportQbQuestions() {
   });
 }
 
+function useInvalidateStudySolutions() {
+  const qc = useQueryClient();
+  return () =>
+    void qc.invalidateQueries({
+      queryKey: ["questionbank", "questions"],
+      predicate: (query) => query.queryKey.at(-1) === "study",
+    });
+}
+
 export function useStartPracticeSession() {
+  const invalidateStudySolutions = useInvalidateStudySolutions();
   return useMutation({
     mutationFn: questionbankService.startPracticeSession,
+    onSuccess: (_data, variables) => {
+      if (variables.mode === "EXAM") invalidateStudySolutions();
+    },
   });
 }
 
@@ -212,10 +235,12 @@ export function useSavePracticeAnswer() {
 
 export function useSubmitPracticeSession() {
   const qc = useQueryClient();
+  const invalidateStudySolutions = useInvalidateStudySolutions();
   return useMutation({
     mutationFn: (sessionId: string) => questionbankService.submitPracticeSession(sessionId),
     onSuccess: (data) => {
       void qc.setQueryData(queryKeys.questionbank.practiceSession(data.session.id), data);
+      if (data.session.mode === "EXAM") invalidateStudySolutions();
     },
   });
 }

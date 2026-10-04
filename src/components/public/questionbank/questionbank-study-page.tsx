@@ -112,6 +112,36 @@ function filterSelectionLabel<T extends string>(
   return `${selected.length} selected`;
 }
 
+/** A submitted exam reveals solutions for every question, including written ones that have no right/wrong. */
+function feedbackFromSubmittedResult(
+  questions: Array<{
+    id: string;
+    isCorrect?: boolean | null;
+    correctAnswer?: string | null;
+    markScheme?: string | null;
+    videoUrl?: string | null;
+  }>
+) {
+  const feedback: Record<string, PracticeAnswerFeedback> = {};
+  for (const question of questions) {
+    if (
+      question.isCorrect == null &&
+      !question.correctAnswer &&
+      !question.markScheme &&
+      !question.videoUrl
+    ) {
+      continue;
+    }
+    feedback[question.id] = {
+      isCorrect: question.isCorrect ?? null,
+      correctAnswer: question.correctAnswer ?? "",
+      markScheme: question.markScheme ?? null,
+      videoUrl: question.videoUrl ?? null,
+    };
+  }
+  return feedback;
+}
+
 function QuestionCard({
   question,
   displayNumber,
@@ -205,7 +235,9 @@ export function QuestionbankStudyPage({
   const [sessionBooting, setSessionBooting] = useState(false);
   const sessionStartedRef = useRef(false);
   const typeRef = useRef<HTMLDivElement>(null);
-  const { data, isLoading, error, isFetching } = useQbQuestions(programSlug, subtopicSlug, filters);
+  const { data, isLoading, error, isFetching } = useQbQuestions(programSlug, subtopicSlug, filters, {
+    includeSolutions: !examMode,
+  });
   const { data: programOverview } = useQbProgram(programSlug);
   const [unlockOpen, setUnlockOpen] = useState(false);
   const startSession = useStartPracticeSession();
@@ -297,18 +329,7 @@ export function QuestionbankStudyPage({
       if (result.session.status === "SUBMITTED") {
         setExamSubmitted(true);
         setSessionScore(result.session.score ?? null);
-        const restoredFeedback: Record<string, PracticeAnswerFeedback> = {};
-        for (const question of result.questions) {
-          if (question.isCorrect != null && question.correctAnswer) {
-            restoredFeedback[question.id] = {
-              isCorrect: question.isCorrect,
-              correctAnswer: question.correctAnswer,
-              markScheme: question.markScheme,
-              videoUrl: question.videoUrl,
-            };
-          }
-        }
-        setAnswerFeedback(restoredFeedback);
+        setAnswerFeedback(feedbackFromSubmittedResult(result.questions));
       } else {
         setExamSubmitted(false);
         setSessionScore(null);
@@ -457,21 +478,12 @@ export function QuestionbankStudyPage({
         setSessionCorrectCount(result.result.session.correctCount ?? null);
         setSessionTotalQuestions(result.result.session.totalQuestions ?? null);
         setRemainingSeconds(0);
-        const expiredFeedback: Record<string, PracticeAnswerFeedback> = {};
         const expiredAnswers: Record<string, string> = {};
         for (const question of result.result.questions) {
           if (question.studentAnswer) expiredAnswers[question.id] = question.studentAnswer;
-          if (question.isCorrect != null && question.correctAnswer) {
-            expiredFeedback[question.id] = {
-              isCorrect: question.isCorrect,
-              correctAnswer: question.correctAnswer,
-              markScheme: question.markScheme,
-              videoUrl: question.videoUrl,
-            };
-          }
         }
         setSelectedAnswers(expiredAnswers);
-        setAnswerFeedback(expiredFeedback);
+        setAnswerFeedback(feedbackFromSubmittedResult(result.result.questions));
         void loadHistory();
         return;
       }
@@ -504,17 +516,7 @@ export function QuestionbankStudyPage({
       setSessionScore(result.session.score ?? null);
       setSessionCorrectCount(result.session.correctCount ?? null);
       setSessionTotalQuestions(result.session.totalQuestions ?? null);
-      const nextFeedback: Record<string, PracticeAnswerFeedback> = {};
-      for (const q of result.questions) {
-        if (q.isCorrect != null && q.correctAnswer) {
-          nextFeedback[q.id] = {
-            isCorrect: Boolean(q.isCorrect),
-            correctAnswer: q.correctAnswer,
-            markScheme: q.markScheme,
-            videoUrl: q.videoUrl,
-          };
-        }
-      }
+      const nextFeedback = feedbackFromSubmittedResult(result.questions);
       setAnswerFeedback((prev) => ({ ...prev, ...nextFeedback }));
       setRemainingSeconds(0);
       void loadHistory();
@@ -991,6 +993,11 @@ export function QuestionbankStudyPage({
               unlock this set
             </button>
             .
+          </div>
+        ) : !examMode && data.access?.examInProgress ? (
+          <div className="rounded-xl border border-[#f5d0a8] bg-[#fff8ef] px-4 py-3 text-sm text-[#9a3412]">
+            You have an exam running on this study set. Mark schemes and video solutions come back
+            here once you submit it or its time runs out.
           </div>
         ) : null}
         {sessionError ? (

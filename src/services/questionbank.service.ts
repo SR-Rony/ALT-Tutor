@@ -45,14 +45,19 @@ export const questionbankService = {
   async getQuestions(
     programSlug: string,
     subtopicSlug: string,
-    filters: QbFilters = {}
+    filters: QbFilters = {},
+    options: { includeSolutions?: boolean } = {}
   ): Promise<QbStudyPayload> {
     if (env.useMockApi) {
       await sleep(200);
       throw { message: "Mock study set unavailable", status: 404 };
     }
+    const query = buildQuery(filters);
+    const solutionsParam = options.includeSolutions
+      ? `${query ? "&" : "?"}solutions=study`
+      : "";
     const response = await apiClient.get<QbStudyPayload>(
-      `/questionbank/programs/${programSlug}/subtopics/${subtopicSlug}/questions${buildQuery(filters)}`
+      `/questionbank/programs/${programSlug}/subtopics/${subtopicSlug}/questions${query}${solutionsParam}`
     );
     return response.data;
   },

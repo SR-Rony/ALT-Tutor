@@ -130,6 +130,10 @@ export interface QbProgramAccess {
 export interface QbStudyAccess {
   canAccess: boolean;
   canViewSolutions: boolean;
+  /** True when mark schemes and videos were sent with the questions (study mode only). */
+  solutionsIncluded?: boolean;
+  /** Study-mode solutions are withheld while an exam on this set is still running. */
+  examInProgress?: boolean;
   reason?: string | null;
   /** Set when access comes from an individual study set purchase (null = lifetime). */
   accessExpiresAt?: string | null;
@@ -182,7 +186,8 @@ export type PracticeMode = "STUDY" | "EXAM";
 export type PracticeSessionStatus = "IN_PROGRESS" | "SUBMITTED";
 
 export interface PracticeAnswerFeedback {
-  isCorrect: boolean;
+  /** Null for written questions and unanswered MCQs — only the solutions are revealed. */
+  isCorrect: boolean | null;
   correctAnswer: string;
   markScheme?: string | null;
   videoUrl?: string | null;
