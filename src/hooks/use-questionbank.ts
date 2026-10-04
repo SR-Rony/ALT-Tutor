@@ -3,6 +3,7 @@
 import {
   keepPreviousData,
   useMutation,
+  useQueries,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -27,6 +28,17 @@ export function useQbProgram(programSlug: string) {
     queryKey: queryKeys.questionbank.program(programSlug, authKey),
     queryFn: () => questionbankService.getProgram(programSlug),
     enabled: Boolean(programSlug),
+  });
+}
+
+/** Several questionbank programs at once (shares the cache with `useQbProgram`). */
+export function useQbPrograms(programSlugs: string[]) {
+  const authKey = useQbAuthKey();
+  return useQueries({
+    queries: programSlugs.map((slug) => ({
+      queryKey: queryKeys.questionbank.program(slug, authKey),
+      queryFn: () => questionbankService.getProgram(slug),
+    })),
   });
 }
 

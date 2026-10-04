@@ -90,6 +90,7 @@ export {
 } from "./use-subjects";
 export {
   useQbProgram,
+  useQbPrograms,
   useQbQuestions,
   useAdminQuestionbank,
   useCreateQbTopic,
