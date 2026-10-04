@@ -31,6 +31,7 @@ export const publicFooterCompanyLinks = [
 export const studentNav: NavItem[] = [
   { title: "Overview", href: ROUTES.student.root, iconName: "dashboard" },
   { title: "My Courses", href: ROUTES.student.courses, iconName: "book" },
+  { title: "My Study Sets", href: ROUTES.student.studySets, iconName: "clipboardCheck" },
   { title: "Live Classes", href: ROUTES.student.liveClasses, iconName: "video" },
   { title: "Notifications", href: ROUTES.student.notifications, iconName: "bell" },
   { title: "Payments", href: ROUTES.student.payments, iconName: "wallet" },

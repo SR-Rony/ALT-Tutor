@@ -3,9 +3,10 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ROUTES } from "@/constants";
+import { queryKeys, ROUTES } from "@/constants";
 import { useConfirmStubPayment, usePaymentByTransaction } from "@/hooks";
 import { formatMoney, formatShortDate } from "@/lib/format";
 import { consumePaymentReturnTo, peekPaymentReturnTo } from "@/lib/payment-return";
@@ -21,6 +22,7 @@ export function PaymentReturnPage() {
     transactionId || undefined
   );
   const confirmStub = useConfirmStubPayment();
+  const queryClient = useQueryClient();
   const [actionError, setActionError] = useState<string | null>(null);
   const [returnTo, setReturnTo] = useState<string | null>(null);
 
@@ -53,6 +55,12 @@ export function PaymentReturnPage() {
     resolvedStatus === "FAILED" ||
     resolvedStatus === "CANCELLED" ||
     resolvedStatus === "REFUNDED";
+
+  useEffect(() => {
+    if (!isSuccess) return;
+    void queryClient.invalidateQueries({ queryKey: queryKeys.payments.all });
+    void queryClient.invalidateQueries({ queryKey: queryKeys.questionbank.all });
+  }, [isSuccess, queryClient]);
 
   const studySetProgramSlug = payment?.subtopic?.topic?.program?.slug;
   const studySetHref =
@@ -165,6 +173,11 @@ export function PaymentReturnPage() {
                   >
                     {continueLabel}
                   </Link>
+                </Button>
+              ) : null}
+              {payment?.subtopic ? (
+                <Button asChild variant="outline">
+                  <Link href={ROUTES.student.studySets}>My study sets</Link>
                 </Button>
               ) : null}
               <Button asChild variant="outline">

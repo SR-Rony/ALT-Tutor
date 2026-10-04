@@ -1,4 +1,8 @@
 export {
+  ResultReviewQuestion,
+  type ResultReviewQuestionData,
+} from "./result-review-question";
+export {
   StudyQuestionCard,
   type StudyQuestionCardProps,
   type StudyQuestionView,

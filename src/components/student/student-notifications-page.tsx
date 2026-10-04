@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 import { ListPagination, PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import {
@@ -9,6 +11,7 @@ import {
   useStudentNotifications,
 } from "@/hooks";
 import { formatShortDate } from "@/lib/format";
+import { notificationActionLabel, notificationHref } from "@/lib/notifications";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
 
@@ -65,45 +68,68 @@ export function StudentNotificationsPage() {
       ) : (
         <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-[0_8px_30px_rgba(15,23,42,0.04)]">
           <ul className="divide-y divide-border/80">
-            {pageItems.map((note) => (
-              <li
-                key={note.id}
-                className={cn(
-                  "flex items-start justify-between gap-4 px-4 py-4 sm:px-5",
-                  note.isRead ? "bg-card" : "bg-primary/[0.04]"
-                )}
-              >
-                <div className="min-w-0">
-                  {!note.isRead ? (
-                    <span className="mb-1.5 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
-                      Unread
-                    </span>
-                  ) : null}
-                  <p className="text-sm font-medium leading-relaxed text-foreground">
-                    {note.message}
-                  </p>
-                  <p className="mt-1.5 text-xs text-muted-foreground">
-                    {formatShortDate(note.createdAt)}
-                  </p>
-                </div>
-                {!note.isRead ? (
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    className="shrink-0"
-                    disabled={markRead.isPending}
-                    onClick={() => void markRead.mutateAsync(note.id)}
-                  >
-                    Mark read
-                  </Button>
-                ) : (
-                  <span className="shrink-0 pt-1 text-xs font-medium text-muted-foreground">
-                    Read
-                  </span>
-                )}
-              </li>
-            ))}
+            {pageItems.map((note) => {
+              const href = notificationHref(note);
+              const open = () => {
+                if (!note.isRead) markRead.mutate(note.id);
+              };
+              return (
+                <li
+                  key={note.id}
+                  className={cn(
+                    "flex flex-col gap-3 px-4 py-4 sm:flex-row sm:items-start sm:justify-between sm:gap-4 sm:px-5",
+                    note.isRead ? "bg-card" : "bg-primary/[0.04]"
+                  )}
+                >
+                  <div className="min-w-0">
+                    {!note.isRead ? (
+                      <span className="mb-1.5 inline-flex rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-primary">
+                        Unread
+                      </span>
+                    ) : null}
+                    {href ? (
+                      <Link
+                        href={href}
+                        onClick={open}
+                        className="block text-sm font-medium leading-relaxed text-foreground hover:text-primary"
+                      >
+                        {note.message}
+                      </Link>
+                    ) : (
+                      <p className="text-sm font-medium leading-relaxed text-foreground">
+                        {note.message}
+                      </p>
+                    )}
+                    <p className="mt-1.5 text-xs text-muted-foreground">
+                      {formatShortDate(note.createdAt)}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-2">
+                    {href ? (
+                      <Button asChild size="sm">
+                        <Link href={href} onClick={open}>
+                          {notificationActionLabel(note)}
+                          <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                        </Link>
+                      </Button>
+                    ) : null}
+                    {!note.isRead ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={markRead.isPending}
+                        onClick={() => void markRead.mutateAsync(note.id)}
+                      >
+                        Mark read
+                      </Button>
+                    ) : !href ? (
+                      <span className="pt-1 text-xs font-medium text-muted-foreground">Read</span>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
           </ul>
           <ListPagination
             page={page}

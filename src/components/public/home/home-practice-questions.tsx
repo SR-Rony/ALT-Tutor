@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import Link from "next/link";
+import { RichTextContent } from "@/components/ui/rich-text-content";
 import { ROUTES } from "@/constants";
 import { useHomeData } from "@/hooks";
 import type { HomePracticeQuestion, HomePracticeTab } from "@/types";
@@ -145,7 +146,10 @@ function PracticeQuestionCard({
 
       <div className="grid lg:grid-cols-[minmax(0,1fr)_minmax(12rem,15rem)]">
         <div className="border-b border-[#eef2f8] p-4 sm:p-6 lg:border-b-0 lg:border-r lg:p-8">
-          <p className="text-sm leading-relaxed text-[#1a1a2e] sm:text-base">{question.prompt}</p>
+          <RichTextContent
+            html={question.prompt}
+            className="w-full max-w-none text-sm leading-relaxed text-[#1a1a2e] sm:text-base"
+          />
 
           {question.figureLabel ? (
             <p className="mt-3 text-xs font-semibold text-[#64748b]">{question.figureLabel}</p>
@@ -161,13 +165,12 @@ function PracticeQuestionCard({
           ) : null}
 
           {question.body ? (
-            <p className="mt-4 text-sm font-medium leading-relaxed text-[#1a1a2e] sm:text-base">
-              {question.body}{" "}
-              <span className="font-bold text-[#1877f2]">[{question.marks}]</span>
-            </p>
-          ) : (
-            <p className="mt-3 text-sm font-bold text-[#1877f2]">[{question.marks}]</p>
-          )}
+            <RichTextContent
+              html={question.body}
+              className="mt-4 w-full max-w-none text-sm font-medium leading-relaxed text-[#1a1a2e] sm:text-base"
+            />
+          ) : null}
+          <p className="mt-3 text-right text-sm font-bold text-[#1877f2]">[{question.marks}]</p>
 
           {question.options.length > 0 ? (
             <ul className="mt-5 space-y-2.5">
@@ -211,7 +214,11 @@ function PracticeQuestionCard({
                           option.key
                         )}
                       </span>
-                      <span className="pt-0.5 font-medium">{option.text}</span>
+                      <RichTextContent
+                        html={option.text}
+                        inline
+                        className="min-w-0 flex-1 pt-0.5 font-medium"
+                      />
                     </button>
                   </li>
                 );
@@ -275,7 +282,10 @@ function PracticeQuestionCard({
             >
               {sideAction === "mark" ? (
                 question.markScheme ? (
-                  <p className="whitespace-pre-wrap text-[#1a2b5e]">{question.markScheme}</p>
+                  <RichTextContent
+                    html={question.markScheme}
+                    className="w-full max-w-none text-[#1a2b5e]"
+                  />
                 ) : (
                   <p>
                     Open this study set for the full examiner mark scheme and common mistakes.

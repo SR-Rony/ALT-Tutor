@@ -14,10 +14,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminStatCard } from "@/components/admin/dashboard/admin-stat-card";
 import { ROUTES } from "@/constants";
-import { useStudentDashboard } from "@/hooks";
+import { useMarkNotificationRead, useStudentDashboard } from "@/hooks";
 import { formatMoney, formatShortDate } from "@/lib/format";
+import { notificationActionLabel, notificationHref } from "@/lib/notifications";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
+import { MyStudySetsSection } from "./my-study-sets";
 
 function ProgressBar({ value }: { value: number }) {
   return (
@@ -39,6 +41,7 @@ function statusClass(status: string) {
 
 export function StudentDashboardPage() {
   const { data, isLoading, isFetching, error, refetch } = useStudentDashboard();
+  const markRead = useMarkNotificationRead();
 
   if (isLoading && !data) {
     return (
@@ -107,9 +110,12 @@ export function StudentDashboardPage() {
         />
       </section>
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <MyStudySetsSection />
+
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           { href: ROUTES.student.courses, title: "My Courses", desc: "Continue learning" },
+          { href: ROUTES.student.studySets, title: "My Study Sets", desc: "Questions you’ve unlocked" },
           { href: ROUTES.student.notifications, title: "Notifications", desc: "Latest updates" },
           { href: ROUTES.student.payments, title: "Payments", desc: "Purchase history" },
         ].map((item) => (
@@ -215,20 +221,43 @@ export function StudentDashboardPage() {
               {!data?.recentNotifications?.length ? (
                 <p className="text-sm text-muted-foreground">No notifications yet.</p>
               ) : (
-                data.recentNotifications.slice(0, 4).map((note) => (
-                  <div
-                    key={note.id}
-                    className={cn(
-                      "rounded-xl border px-3 py-2.5",
-                      note.isRead ? "border-border bg-card" : "border-primary/20 bg-primary/5"
-                    )}
-                  >
-                    <p className="text-sm text-foreground">{note.message}</p>
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      {formatShortDate(note.createdAt)}
-                    </p>
-                  </div>
-                ))
+                data.recentNotifications.slice(0, 4).map((note) => {
+                  const href = notificationHref(note);
+                  const className = cn(
+                    "block rounded-xl border px-3 py-2.5",
+                    note.isRead ? "border-border bg-card" : "border-primary/20 bg-primary/5",
+                    href && "transition-colors hover:border-primary/40 hover:bg-primary/[0.07]"
+                  );
+                  const body = (
+                    <>
+                      <p className="text-sm text-foreground">{note.message}</p>
+                      <p className="mt-1 flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+                        {formatShortDate(note.createdAt)}
+                        {href ? (
+                          <span className="font-semibold text-primary">
+                            {notificationActionLabel(note)} →
+                          </span>
+                        ) : null}
+                      </p>
+                    </>
+                  );
+                  return href ? (
+                    <Link
+                      key={note.id}
+                      href={href}
+                      onClick={() => {
+                        if (!note.isRead) markRead.mutate(note.id);
+                      }}
+                      className={className}
+                    >
+                      {body}
+                    </Link>
+                  ) : (
+                    <div key={note.id} className={className}>
+                      {body}
+                    </div>
+                  );
+                })
               )}
             </CardContent>
           </Card>

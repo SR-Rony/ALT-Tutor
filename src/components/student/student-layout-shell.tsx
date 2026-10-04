@@ -12,6 +12,7 @@ import type { NavItem } from "@/types";
 const titles: Record<string, string> = {
   [ROUTES.student.root]: "Overview",
   [ROUTES.student.courses]: "My Courses",
+  [ROUTES.student.studySets]: "My Study Sets",
   [ROUTES.student.notifications]: "Notifications",
   [ROUTES.student.payments]: "Payments",
   [ROUTES.student.settings]: "Settings",

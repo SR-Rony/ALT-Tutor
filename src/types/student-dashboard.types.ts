@@ -29,6 +29,10 @@ export interface StudentNotification {
   id: string;
   message: string;
   isRead: boolean;
+  /** EXAM_OPEN | DUE_SOON | SUBMISSION_RECEIVED | STAFF_SUBMISSION | GRADE_RELEASED | GENERAL */
+  type?: string;
+  /** In-app path the notification points to (e.g. a marked exam result). */
+  href?: string | null;
   userId?: string;
   createdAt: string;
 }
@@ -131,6 +135,17 @@ export interface PaymentProgram {
 
 export type ProgramAccessSource = "GOLD_PASS" | "ADMIN_GRANT" | "COURSE";
 
+export interface StudentStudySetRef {
+  id: string;
+  title: string;
+  slug: string;
+  programSlug: string;
+  topicTitle?: string;
+  questionCount?: number;
+  /** False when an admin has since hidden the study set or its topic. */
+  available?: boolean;
+}
+
 /** One unlock the student holds (study set, admin grant, linked course, or a legacy Gold Pass). */
 export interface StudentAccessGrant {
   id: string;
@@ -140,7 +155,7 @@ export interface StudentAccessGrant {
   product: { id: string; title: string; durationDays?: number | null } | null;
   course?: { id: string; title: string; slug: string } | null;
   /** Set for single study set unlocks (source STUDY_SET). */
-  subtopic?: { id: string; title: string; slug: string; programSlug: string } | null;
+  subtopic?: StudentStudySetRef | null;
   purchasedAt: string;
   expiresAt: string | null;
   isActive: boolean;

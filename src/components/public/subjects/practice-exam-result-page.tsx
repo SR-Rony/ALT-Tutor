@@ -3,7 +3,8 @@
 import { useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, FileCheck2, Timer, XCircle } from "lucide-react";
+import { FileCheck2, Timer } from "lucide-react";
+import { ResultReviewQuestion } from "@/components/public/questions";
 import { PageLoader, ScriptFilePreview } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
@@ -19,8 +20,6 @@ type Props = {
   templateSlug: string;
   attemptId: string;
 };
-
-const LETTERS = ["A", "B", "C", "D", "E", "F"] as const;
 
 export function PracticeExamResultPage({
   programSlug,
@@ -243,70 +242,14 @@ export function PracticeExamResultPage({
           <h2 className="text-lg font-bold text-foreground">
             {isWritten ? "Questions & mark schemes" : "Review"}
           </h2>
-          {questions.map((question, index) => {
-            const selected = question.studentAnswer;
-            const correct = question.correctAnswer;
-            const isCorrect = question.isCorrect;
-            return (
-              <article
-                key={question.id}
-                className="rounded-2xl border border-border bg-card p-4 sm:p-5"
-              >
-                <div className="mb-2 flex flex-wrap items-center gap-2">
-                  <span className="rounded-md bg-primary-muted px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
-                    Q{question.number || index + 1}
-                  </span>
-                  {!isWritten ? (
-                    isCorrect === true ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-[var(--accent-green)]">
-                        <CheckCircle2 className="h-3.5 w-3.5" /> Correct
-                      </span>
-                    ) : isCorrect === false ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-accent">
-                        <XCircle className="h-3.5 w-3.5" /> Incorrect
-                      </span>
-                    ) : (
-                      <span className="text-xs font-semibold text-muted-foreground">Unanswered</span>
-                    )
-                  ) : (
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      {question.marks ?? 1} mark{(question.marks ?? 1) === 1 ? "" : "s"}
-                    </span>
-                  )}
-                </div>
-                <p className="text-sm text-foreground">{question.prompt}</p>
-                {!isWritten && question.options.length > 0 ? (
-                  <ul className="mt-3 space-y-1 text-sm">
-                    {question.options.map((opt, i) => {
-                      const letter = LETTERS[i] ?? String(i + 1);
-                      const isSel = selected === letter;
-                      const isAns = correct === letter;
-                      return (
-                        <li
-                          key={`${question.id}-${letter}`}
-                          className={cn(
-                            "rounded-lg px-2 py-1",
-                            isAns && "bg-[#ecfdf3] text-[var(--accent-green)]",
-                            isSel && !isAns && "bg-accent/10 text-accent"
-                          )}
-                        >
-                          <span className="font-semibold">{letter}.</span> {opt}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : null}
-                {question.markScheme ? (
-                  <div className="mt-3 rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
-                    <p className="text-xs font-bold uppercase tracking-wide text-foreground">
-                      Mark scheme
-                    </p>
-                    <p className="mt-1 whitespace-pre-wrap">{question.markScheme}</p>
-                  </div>
-                ) : null}
-              </article>
-            );
-          })}
+          {questions.map((question, index) => (
+            <ResultReviewQuestion
+              key={question.id}
+              question={question}
+              index={index}
+              written={isWritten}
+            />
+          ))}
         </section>
       </div>
     </div>

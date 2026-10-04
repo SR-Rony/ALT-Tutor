@@ -66,6 +66,7 @@ export const ROUTES = {
     assessments: "/student/assessments",
     mcqExam: (assignmentId: string) => `/student/mcq/${assignmentId}`,
     notifications: "/student/notifications",
+    studySets: "/student/study-sets",
     payments: "/student/payments",
     settings: "/student/settings",
   },
