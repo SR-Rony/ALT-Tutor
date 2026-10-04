@@ -700,7 +700,7 @@ export function QuestionbankStudyPage({
               {lockedPrice != null
                 ? "This Gold study set is sold on its own. Buying it unlocks only this set — its questions, mark schemes and video solutions."
                 : apiError?.message ||
-                  "This study set requires a Gold Pass or enrollment in a linked course."}
+                  "This Gold study set is not on sale yet. Enroll in a linked course to unlock it."}
             </p>
             {lockedPrice != null ? (
               <p className="mt-4 flex items-baseline justify-center gap-2">

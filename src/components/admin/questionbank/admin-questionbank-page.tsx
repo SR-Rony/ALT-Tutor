@@ -905,7 +905,7 @@ export function AdminQuestionbankPage() {
               </div>
               {!priceInput.trim() ? (
                 <p className="text-[11px] font-semibold text-accent">
-                  Without a price students can’t buy this set (only a subject Gold Pass or course unlocks it).
+                  Without a price students can’t buy this set — only a linked course or a manual grant unlocks it.
                 </p>
               ) : null}
             </div>

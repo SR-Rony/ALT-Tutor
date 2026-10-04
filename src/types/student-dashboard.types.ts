@@ -131,7 +131,7 @@ export interface PaymentProgram {
 
 export type ProgramAccessSource = "GOLD_PASS" | "ADMIN_GRANT" | "COURSE";
 
-/** One subject unlock the student holds (Gold Pass, admin grant, or linked course). */
+/** One unlock the student holds (study set, admin grant, linked course, or a legacy Gold Pass). */
 export interface StudentAccessGrant {
   id: string;
   source: "PRACTICE_PASS" | "ADMIN_GRANT" | "COURSE" | "STUDY_SET" | string;

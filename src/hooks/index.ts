@@ -189,14 +189,9 @@ export {
 } from "./use-assignments";
 export { useSubmitAssignment, useUngradedSubmissions, useGradeSubmission } from "./use-submissions";
 export {
-  useAccessProducts,
-  useAdminAccessProducts,
   useCheckout,
   useConfirmStubPayment,
   usePaymentByTransaction,
-  useCreateAccessProduct,
-  useUpdateAccessProduct,
-  useDeactivateAccessProduct,
   useAdminGrantPracticeAccess,
   useAdminStudySetAccess,
   useAdminGrantStudySetAccess,

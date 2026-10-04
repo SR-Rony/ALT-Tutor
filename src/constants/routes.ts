@@ -67,7 +67,6 @@ export const ROUTES = {
     mcqExam: (assignmentId: string) => `/student/mcq/${assignmentId}`,
     notifications: "/student/notifications",
     payments: "/student/payments",
-    practicePass: "/student/payments#practice-pass",
     settings: "/student/settings",
   },
   teacher: {
@@ -111,7 +110,6 @@ export const ROUTES = {
     pastPapers: "/admin/past-papers",
     flashcards: "/admin/flashcards",
     liveClasses: "/admin/live-classes",
-    accessProducts: "/admin/access-products",
     mcqExams: "/admin/mcq-exams",
     examsMcq: "/admin/exams/mcq",
     examsWritten: "/admin/exams/written",

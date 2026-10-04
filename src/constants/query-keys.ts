@@ -97,7 +97,6 @@ export const queryKeys = {
   },
   payments: {
     all: ["payments"] as const,
-    products: ["payments", "products"] as const,
     myAccess: ["payments", "access", "mine"] as const,
     programAccess: (programSlug: string) => ["payments", "access", "program", programSlug] as const,
   },

@@ -1,5 +1,4 @@
 import type {
-  AccessProduct,
   CheckoutResult,
   ProgramAccessInfo,
   StudentAccessGrant,
@@ -8,51 +7,12 @@ import type {
 import type { GrantStudySetAccessInput, StudySetAccessRow } from "@/types/qb.types";
 import { apiClient } from "./api-client";
 
-export type CheckoutInput = {
-  courseId?: string;
-  accessProductId?: string;
-  programId?: string;
+export type CheckoutInput =
+  | { courseId: string; subtopicId?: never }
   /** Buy one questionbank study set (unlocks only that set). */
-  subtopicId?: string;
-};
-
-export type AccessProductInput = {
-  title: string;
-  slug: string;
-  description?: string;
-  price?: number;
-  regularPrice?: number;
-  programId?: string | null;
-  durationDays?: number | null;
-  tier?: "GOLD";
-  isActive?: boolean;
-};
+  | { subtopicId: string; courseId?: never };
 
 export const paymentsService = {
-  listProducts(): Promise<AccessProduct[]> {
-    return apiClient
-      .get<AccessProduct[]>("/payments/products", { skipAuth: true })
-      .then((r) => r.data ?? []);
-  },
-
-  adminListProducts(): Promise<AccessProduct[]> {
-    return apiClient.get<AccessProduct[]>("/payments/products/admin").then((r) => r.data ?? []);
-  },
-
-  createProduct(payload: AccessProductInput): Promise<AccessProduct> {
-    return apiClient.post<AccessProduct>("/payments/products", payload).then((r) => r.data);
-  },
-
-  updateProduct(id: string, payload: Partial<AccessProductInput>): Promise<AccessProduct> {
-    return apiClient
-      .patch<AccessProduct>(`/payments/products/${id}`, payload)
-      .then((r) => r.data);
-  },
-
-  deactivateProduct(id: string): Promise<AccessProduct> {
-    return apiClient.delete<AccessProduct>(`/payments/products/${id}`).then((r) => r.data);
-  },
-
   adminGrantPracticeAccess(payload: {
     studentId: string;
     programId?: string | null;

@@ -69,7 +69,7 @@ export function PaymentReturnPage() {
     if (returnTo) return returnTo;
     if (payment?.course?.slug) return ROUTES.student.courseLearn(payment.course.slug);
     if (studySetHref) return studySetHref;
-    return ROUTES.student.practicePass;
+    return ROUTES.student.payments;
   }, [isSuccess, returnTo, payment?.course?.slug, studySetHref]);
 
   const continueLabel = payment?.subtopic
@@ -78,7 +78,7 @@ export function PaymentReturnPage() {
       ? "Back to questionbank"
       : payment?.course?.slug
         ? "Go to course"
-        : "Gold Pass";
+        : "My payments";
 
   return (
     <div className="mx-auto flex min-h-[70vh] max-w-lg flex-col justify-center px-4 py-12">

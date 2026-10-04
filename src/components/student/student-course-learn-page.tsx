@@ -282,7 +282,7 @@ function LinkedProgramsEmpty({
       <h2 className="mt-4 text-lg font-bold text-foreground">{title}</h2>
       <p className="mx-auto mt-2 max-w-md text-sm text-muted-foreground">{description}</p>
       <Button asChild size="sm" variant="outline" className="mt-5">
-        <Link href={ROUTES.student.payments}>Get Gold Pass for subjects</Link>
+        <Link href={ROUTES.student.payments}>My Gold access</Link>
       </Button>
     </div>
   );

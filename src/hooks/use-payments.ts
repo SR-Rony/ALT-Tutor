@@ -2,26 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryKeys } from "@/constants";
-import {
-  paymentsService,
-  type AccessProductInput,
-  type CheckoutInput,
-} from "@/services/payments.service";
+import { paymentsService, type CheckoutInput } from "@/services/payments.service";
 import type { GrantStudySetAccessInput } from "@/types/qb.types";
-
-export function useAccessProducts() {
-  return useQuery({
-    queryKey: queryKeys.payments.products,
-    queryFn: () => paymentsService.listProducts(),
-  });
-}
-
-export function useAdminAccessProducts() {
-  return useQuery({
-    queryKey: [...queryKeys.payments.products, "admin"] as const,
-    queryFn: () => paymentsService.adminListProducts(),
-  });
-}
 
 export function useMyAccess(enabled = true) {
   return useQuery({
@@ -82,31 +64,6 @@ export function usePaymentByTransaction(transactionId?: string) {
   });
 }
 
-export function useCreateAccessProduct() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (payload: AccessProductInput) => paymentsService.createProduct(payload),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.payments.products }),
-  });
-}
-
-export function useUpdateAccessProduct() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: Partial<AccessProductInput> }) =>
-      paymentsService.updateProduct(id, payload),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.payments.products }),
-  });
-}
-
-export function useDeactivateAccessProduct() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => paymentsService.deactivateProduct(id),
-    onSuccess: () => void qc.invalidateQueries({ queryKey: queryKeys.payments.products }),
-  });
-}
-
 export function useAdminStudySetAccess(subtopicId?: string | null) {
   return useQuery({
     queryKey: [...queryKeys.payments.all, "study-set-access", subtopicId ?? ""] as const,
@@ -151,7 +108,7 @@ export function useAdminGrantPracticeAccess() {
       durationDays?: number | null;
     }) => paymentsService.adminGrantPracticeAccess(payload),
     onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: queryKeys.payments.products });
+      void qc.invalidateQueries({ queryKey: queryKeys.payments.all });
       void qc.invalidateQueries({ queryKey: queryKeys.admin.dashboard });
       void qc.invalidateQueries({ queryKey: queryKeys.admin.users });
     },
