@@ -112,10 +112,11 @@ export function StudentDashboardPage() {
 
       <MyStudySetsSection />
 
-      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {[
           { href: ROUTES.student.courses, title: "My Courses", desc: "Continue learning" },
           { href: ROUTES.student.studySets, title: "My Study Sets", desc: "Questions you’ve unlocked" },
+          { href: ROUTES.student.results, title: "Exam Results", desc: "Scores & marked scripts" },
           { href: ROUTES.student.notifications, title: "Notifications", desc: "Latest updates" },
           { href: ROUTES.student.payments, title: "Payments", desc: "Purchase history" },
         ].map((item) => (

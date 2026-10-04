@@ -43,6 +43,18 @@ export function usePastPaperHistory(programSlug: string) {
   });
 }
 
+/** The signed-in student's past paper attempts across every subject. */
+export function useMyPastPaperResults() {
+  const authKey = usePastPaperAuthKey();
+  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
+  return useQuery({
+    queryKey: queryKeys.pastPapers.history("*", authKey),
+    queryFn: () => pastPapersService.listHistory(undefined, 100),
+    enabled: isAuthenticated && authKey !== "anon",
+    refetchOnMount: "always",
+  });
+}
+
 export function usePastPaperAttempt(attemptId?: string) {
   return useQuery({
     queryKey: queryKeys.pastPapers.attempt(attemptId ?? ""),

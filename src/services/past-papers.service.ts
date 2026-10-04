@@ -5,6 +5,7 @@ import type {
   PastPaper,
   PastPaperAttemptPayload,
   PastPaperDetail,
+  PastPaperHistoryItem,
   PastPaperProgramArchive,
   StartPastPaperInput,
   UpdatePastPaperInput,
@@ -63,17 +64,14 @@ export const pastPapersService = {
     return response.data;
   },
 
-  async listHistory(programSlug?: string) {
+  /** Omit `programSlug` to list attempts across every subject. */
+  async listHistory(programSlug?: string, limit?: number): Promise<PastPaperHistoryItem[]> {
     const params = new URLSearchParams();
     if (programSlug) params.set("programSlug", programSlug);
-    const response = await apiClient.get<
-      Array<{
-        id: string;
-        status: string;
-        score: number;
-        paper: PastPaper;
-      }>
-    >(`/past-papers/history?${params.toString()}`);
+    if (limit) params.set("limit", String(limit));
+    const response = await apiClient.get<PastPaperHistoryItem[]>(
+      `/past-papers/history?${params.toString()}`
+    );
     return response.data ?? [];
   },
 

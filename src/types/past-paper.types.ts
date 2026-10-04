@@ -180,6 +180,25 @@ export type PastPaperAttemptQuestion = {
   videoUrl?: string | null;
 };
 
+export type PastPaperHistoryItem = {
+  id: string;
+  status: "IN_PROGRESS" | "SUBMITTED" | "ABANDONED" | string;
+  score: number;
+  correctCount: number;
+  totalQuestions: number;
+  earnedMarks: number;
+  totalMarks: number;
+  startedAt: string;
+  submittedAt: string | null;
+  expiresAt: string | null;
+  answeredCount: number;
+  paper: Pick<
+    PastPaper,
+    "id" | "title" | "slug" | "year" | "session" | "paperCode" | "durationMin" | "accessTier"
+  >;
+  program: { id: string; name: string; slug: string };
+};
+
 export type PastPaperAttemptPayload = {
   restored?: boolean;
   attempt: {

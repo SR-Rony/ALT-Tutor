@@ -37,11 +37,10 @@ export const practiceExamsService = {
     return response.data;
   },
 
-  async listHistory(programSlug: string, limit = 20): Promise<PracticeExamHistoryItem[]> {
-    const params = new URLSearchParams({
-      programSlug,
-      limit: String(limit),
-    });
+  /** Omit `programSlug` to list attempts across every subject. */
+  async listHistory(programSlug?: string, limit = 20): Promise<PracticeExamHistoryItem[]> {
+    const params = new URLSearchParams({ limit: String(limit) });
+    if (programSlug) params.set("programSlug", programSlug);
     const response = await apiClient.get<PracticeExamHistoryItem[]>(
       `/practice-exams/history?${params.toString()}`
     );

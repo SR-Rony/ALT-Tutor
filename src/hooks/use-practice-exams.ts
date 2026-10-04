@@ -44,6 +44,18 @@ export function usePracticeExamHistory(programSlug: string) {
   });
 }
 
+/** The signed-in student's practice exam attempts across every subject. */
+export function useMyPracticeExamResults() {
+  const authKey = usePracticeExamAuthKey();
+  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
+  return useQuery({
+    queryKey: queryKeys.practiceExams.history("*", authKey),
+    queryFn: () => practiceExamsService.listHistory(undefined, 100),
+    enabled: isAuthenticated && authKey !== "anon",
+    refetchOnMount: "always",
+  });
+}
+
 export function useTeacherPracticeExams(programId?: string) {
   return useQuery({
     queryKey: queryKeys.practiceExams.teacher(programId),

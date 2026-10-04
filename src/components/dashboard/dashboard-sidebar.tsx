@@ -19,6 +19,7 @@ import {
   MessageSquare,
   Settings,
   Tags,
+  Trophy,
   UserCog,
   Users,
   Video,
@@ -57,6 +58,7 @@ const navIcons: Record<string, LucideIcon> = {
   bell: Bell,
   wallet: Wallet,
   video: Video,
+  trophy: Trophy,
 };
 
 interface DashboardSidebarProps {
