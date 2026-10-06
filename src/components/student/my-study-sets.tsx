@@ -79,11 +79,7 @@ function isGrantUsable(grant: StudentAccessGrant) {
 
 function wholeAccessNote(grant: StudentAccessGrant) {
   const until = grant.expiresAt ? ` · until ${formatShortDate(grant.expiresAt)}` : " · lifetime";
-  if (grant.source === "COURSE") {
-    return `Full access with course “${grant.course?.title ?? "linked course"}”${until}`;
-  }
-  if (grant.source === "ADMIN_GRANT") return `Full access granted by admin${until}`;
-  return `Full subject access${until}`;
+  return `Full access granted by admin${until}`;
 }
 
 function buildChapters(
@@ -111,7 +107,8 @@ function useStudyLibrary() {
     const whole = new Map<string, StudentAccessGrant>();
     let allSubjects = false;
     for (const grant of grants) {
-      if (grant.source === "STUDY_SET" || !isGrantUsable(grant)) continue;
+      // Gold study sets are bought one by one; only an admin grant opens a whole subject.
+      if (grant.source !== "ADMIN_GRANT" || !isGrantUsable(grant)) continue;
       if (!grant.program) {
         allSubjects = true;
         continue;
@@ -330,8 +327,8 @@ function EmptyLibrary() {
       <BookOpenCheck className="mx-auto h-9 w-9 text-muted-foreground" aria-hidden />
       <p className="mt-3 font-semibold text-foreground">No study sets yet</p>
       <p className="mx-auto mt-1 max-w-md text-sm text-muted-foreground">
-        Buy a Gold study set from a subject’s questionbank, or enroll in a course that includes
-        one. Everything you unlock appears here, chapter by chapter.
+        Buy a Gold study set from a subject’s questionbank. Each set you unlock appears here,
+        chapter by chapter.
       </p>
       <Button asChild size="sm" className="mt-4">
         <Link href={ROUTES.courses}>Browse courses</Link>
