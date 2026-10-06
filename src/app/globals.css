@@ -467,6 +467,27 @@
   font-family: KaTeX_Main, "Latin Modern Roman", "CMU Serif", "Times New Roman", serif;
 }
 
+/* Fixed-width question text test — uncomment both blocks together.
+   Block 1: admin question editor + student question card text. */
+
+.qb-question-editors .rich-text-editor__content,
+.qb-question-font .rich-text-content {
+  width: 1000px !important;
+  margin: 0px !important;
+  padding: 0px !important;
+  box-sizing: border-box;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Block 2: paragraphs set their own `white-space: pre-wrap`, so `pre` must be applied here too. */
+
+.qb-question-editors .rich-text-editor__content :is(p, h2, h3),
+.qb-question-font .rich-text-content :is(p, h2, h3) {
+  white-space: pre !important;
+}
+
+
 .rich-text-editor__content p.is-editor-empty:first-child::before {
   color: var(--muted-foreground);
   content: attr(data-placeholder);
