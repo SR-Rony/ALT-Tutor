@@ -18,13 +18,11 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { ROUTES } from "@/constants";
 import {
   useAdminQuestionbank,
   useAdminSubjectsTree,
   useAddQbPaper,
-  useCreateQbQuestion,
   useDeleteQbQuestion,
   useImportQbQuestions,
   useRemoveQbPaper,
@@ -33,18 +31,17 @@ import {
 } from "@/hooks";
 import { normalizeAccessBadge } from "@/lib/access-tier";
 import { formatMoney } from "@/lib/format";
-import { isRichTextEmpty, serializeRichText, richTextToPlain } from "@/lib/rich-text";
+import { richTextToPlain } from "@/lib/rich-text";
 import { studySetPrice } from "@/lib/study-set-pricing";
-import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type { QbImportResult } from "@/services/questionbank-admin.types";
-import type { QbDifficulty, QbPaper, QbPaperKind, QbQuestion, QbQuestionType } from "@/types/qb.types";
+import type { QbPaper, QbPaperKind, QbQuestion } from "@/types/qb.types";
 import { cn } from "@/utils";
 import { AdminQbStudySetPricingModal } from "./admin-qb-study-set-pricing-modal";
+import { QbQuestionFormModal } from "./qb-question-form-modal";
 import {
   AccessBadgePill,
   AdminQuestionDropdown,
-  DIFFICULTIES,
   countByPaper,
   downloadExcelTemplate,
   downloadStudySetQuestions,
@@ -52,17 +49,11 @@ import {
   kindForPaper,
   paperKey,
   paperShortLabel,
-  papersForKind,
   parsePaperNumber,
   questionsForPaper,
   resolvePaperConfig,
   resolvePaperTabs,
 } from "./qb-admin-shared";
-
-type QuestionKind = "MCQ" | "WRITTEN";
-
-const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
-const EMPTY_OPTIONS = ["", "", "", ""] as [string, string, string, string];
 
 type Props = { subtopicId: string };
 
@@ -74,7 +65,6 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
     programId || undefined
   );
 
-  const createQuestion = useCreateQbQuestion();
   const updateQuestion = useUpdateQbQuestion();
   const deleteQuestion = useDeleteQbQuestion();
   const importQuestions = useImportQbQuestions();
@@ -84,9 +74,11 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
   const [pricingOpen, setPricingOpen] = useState(false);
 
   const [activePaper, setActivePaper] = useState<QbPaper>("PAPER_1");
+  const [questionForm, setQuestionForm] = useState<
+    null | { paper: QbPaper; question?: QbQuestion }
+  >(null);
   const [modal, setModal] = useState<
     | null
-    | { kind: "question"; editId?: string }
     | { kind: "import"; paper: QbPaper }
     | { kind: "addPaper" }
     | { kind: "editPaper"; paper: QbPaper }
@@ -96,25 +88,9 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
   const [newPaperKind, setNewPaperKind] = useState<QbPaperKind>("MCQ");
   const [editPaperLabel, setEditPaperLabel] = useState("");
   const [editPaperKind, setEditPaperKind] = useState<QbPaperKind>("MCQ");
-  const [prompt, setPrompt] = useState("");
-  const [questionKind, setQuestionKind] = useState<QuestionKind>("MCQ");
-  const [optionHtmls, setOptionHtmls] = useState<[string, string, string, string]>(EMPTY_OPTIONS);
-  const [correctAnswer, setCorrectAnswer] = useState("A");
-  const [bodyText, setBodyText] = useState("");
-  const [difficulty, setDifficulty] = useState<QbDifficulty>("EASY");
-  const [paper, setPaper] = useState<QbPaper>("PAPER_1");
-  const [markScheme, setMarkScheme] = useState("");
-  const [diagramUrl, setDiagramUrl] = useState("");
-  const [videoUrl, setVideoUrl] = useState("");
-  const [marks, setMarks] = useState("1");
-  const [yearHint, setYearHint] = useState("");
-  const [sourceLabel, setSourceLabel] = useState("");
-  const [uploadingField, setUploadingField] = useState<"diagram" | "video" | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const diagramUploadRef = useRef<HTMLInputElement>(null);
-  const videoUploadRef = useRef<HTMLInputElement>(null);
 
   const located = useMemo(() => {
     for (const topic of topics) {
@@ -151,40 +127,19 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
   }, [located?.sub.paperCount, paperTabs.length, questions]);
 
   const busy =
-    createQuestion.isPending ||
-    updateQuestion.isPending ||
     deleteQuestion.isPending ||
     importQuestions.isPending ||
     addPaperMutation.isPending ||
     updatePaperConfigMutation.isPending ||
-    removePaperMutation.isPending ||
-    uploadingField !== null;
+    removePaperMutation.isPending;
 
   const backHref = programId
     ? `${ROUTES.admin.questionbank}?programId=${encodeURIComponent(programId)}`
     : ROUTES.admin.questionbank;
 
-  const resetQuestionForm = (defaultPaper: QbPaper = activePaper, kind: QuestionKind = "MCQ") => {
-    setPrompt("");
-    setQuestionKind(kind);
-    setOptionHtmls([...EMPTY_OPTIONS] as [string, string, string, string]);
-    setCorrectAnswer(kind === "MCQ" ? "A" : "");
-    setBodyText("");
-    setDifficulty("EASY");
-    setPaper(defaultPaper);
-    setMarkScheme("");
-    setDiagramUrl("");
-    setVideoUrl("");
-    setMarks("1");
-    setYearHint("");
-    setSourceLabel("");
-  };
-
   const openAddQuestion = (forPaper: QbPaper = activePaper) => {
-    const kind = kindForPaper(forPaper, paperConfig);
     setActionError(null);
-    resetQuestionForm(forPaper, kind);
-    setModal({ kind: "question" });
+    setQuestionForm({ paper: forPaper });
   };
 
   const activePaperIsMcq = isMcqPaper(activePaper, paperConfig);
@@ -274,29 +229,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
 
   const openEditQuestion = (question: QbQuestion) => {
     setActionError(null);
-    setModal({ kind: "question", editId: question.id });
-    const questionPaper = (question.paper as QbPaper) || "PAPER_1";
-    // Paper rules win: P1 = MCQ, P2+ = Written (fixes mixed legacy rows in the form).
-    const kind = kindForPaper(questionPaper, paperConfig);
-    setQuestionKind(kind);
-    setPrompt(question.prompt);
-    const opts = [...(question.options ?? [])];
-    while (opts.length < 4) opts.push("");
-    setOptionHtmls([opts[0] ?? "", opts[1] ?? "", opts[2] ?? "", opts[3] ?? ""]);
-    setCorrectAnswer(
-      kind === "MCQ"
-        ? (question.correctAnswer || "A").toUpperCase()
-        : question.correctAnswer ?? ""
-    );
-    setBodyText(question.body ?? "");
-    setDifficulty((question.difficulty as QbDifficulty) || "EASY");
-    setPaper(questionPaper);
-    setMarkScheme(question.markScheme ?? "");
-    setDiagramUrl(question.diagramUrl ?? "");
-    setVideoUrl(question.videoUrl ?? "");
-    setMarks(String(question.marks ?? 1));
-    setYearHint(question.yearHint != null ? String(question.yearHint) : "");
-    setSourceLabel(question.sourceLabel ?? "");
+    setQuestionForm({ paper: (question.paper as QbPaper) || "PAPER_1", question });
   };
 
   const toggleQuestionVisibility = (question: QbQuestion) => {
@@ -312,23 +245,6 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
       id: question.id,
       payload: { isActive: !question.isActive },
     });
-  };
-
-  const onUploadMedia = async (field: "diagram" | "video", file: File | undefined) => {
-    if (!file) return;
-    setActionError(null);
-    setUploadingField(field);
-    try {
-      const result = await uploadService.upload(file, "questionbank");
-      if (field === "diagram") setDiagramUrl(result.url);
-      else setVideoUrl(result.url);
-    } catch (err) {
-      setActionError((err as ApiError)?.message || "Upload failed. You can still paste a URL.");
-    } finally {
-      setUploadingField(null);
-      if (field === "diagram" && diagramUploadRef.current) diagramUploadRef.current.value = "";
-      if (field === "video" && videoUploadRef.current) videoUploadRef.current.value = "";
-    }
   };
 
   const openImportForPaper = (forPaper: QbPaper = activePaper) => {
@@ -354,67 +270,6 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
       setActionError((err as ApiError)?.message || "Failed to import Excel");
     } finally {
       if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
-  const onSaveQuestion = async () => {
-    if (modal?.kind !== "question") return;
-    setActionError(null);
-    try {
-      const isMcq = questionKind === "MCQ";
-      const options = isMcq ? optionHtmls.map((html) => serializeRichText(html)) : [];
-      if (isRichTextEmpty(prompt)) {
-        setActionError("Prompt is required.");
-        return;
-      }
-      const expectedKind = kindForPaper(paper, paperConfig);
-      if (questionKind !== expectedKind) {
-        setActionError(
-          expectedKind === "MCQ"
-            ? `${paperShortLabel(paper, paperConfig)} only accepts MCQ questions.`
-            : `${paperShortLabel(paper, paperConfig)} only accepts written questions.`
-        );
-        return;
-      }
-      const parsedMarks = Number.parseInt(marks, 10);
-      const parsedYear = yearHint.trim() ? Number.parseInt(yearHint.trim(), 10) : undefined;
-      const questionType: QbQuestionType = isMcq ? "MULTIPLE_CHOICE" : "SHORT_ANSWER";
-      // Cleared fields must be sent as null: undefined is dropped from the JSON body,
-      // so the backend would keep the previously saved value.
-      const questionPayload = {
-        prompt: serializeRichText(prompt),
-        body: serializeRichText(bodyText) || null,
-        options,
-        correctAnswer: isMcq
-          ? correctAnswer.trim().toUpperCase() || "A"
-          : correctAnswer.trim() || "SEE_MARK_SCHEME",
-        questionType,
-        difficulty,
-        paper,
-        marks: Number.isFinite(parsedMarks) && parsedMarks >= 1 ? parsedMarks : 1,
-        yearHint:
-          parsedYear != null && Number.isFinite(parsedYear) && parsedYear >= 1900
-            ? parsedYear
-            : null,
-        sourceLabel: sourceLabel.trim() || null,
-        markScheme: serializeRichText(markScheme) || null,
-        diagramUrl: diagramUrl.trim() || null,
-        videoUrl: videoUrl.trim() || null,
-      };
-      if (modal.editId) {
-        await updateQuestion.mutateAsync({ id: modal.editId, payload: questionPayload });
-      } else {
-        await createQuestion.mutateAsync({
-          subtopicId,
-          number: Date.now() % 1000,
-          ...questionPayload,
-          calculatorAllowed: true,
-        });
-      }
-      setModal(null);
-      setActivePaper(paper);
-    } catch (err) {
-      setActionError((err as ApiError)?.message || "Failed to save");
     }
   };
 
@@ -690,27 +545,17 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
             ? `Upload ${paperShortLabel(modal.paper, paperConfig)}`
             : modal?.kind === "addPaper"
               ? "Add paper"
-              : modal?.kind === "editPaper"
-                ? "Edit paper"
-                : modal?.kind === "question" && modal.editId
-                  ? "Edit question"
-                  : "Add question"
+              : "Edit paper"
         }
         description={
           modal?.kind === "import"
             ? `Bulk-add questions to ${paperShortLabel(modal.paper, paperConfig)}. Use the Template button above for the Excel format. All rows import into this paper.`
             : modal?.kind === "addPaper"
               ? "Choose a custom paper name and whether students see MCQ or written questions in this paper."
-              : modal?.kind === "editPaper"
-                ? "Change the paper name or switch between MCQ and written questions."
-                : "Questions appear on the student study page for this paper."
+              : "Change the paper name or switch between MCQ and written questions."
         }
         onClose={() => !busy && setModal(null)}
-        className={
-          modal?.kind === "question"
-            ? "h-dvh max-h-dvh rounded-none sm:h-[calc(100dvh-2rem)] sm:max-h-[calc(100dvh-2rem)] sm:max-w-[min(96vw,70rem)] sm:rounded-2xl"
-            : "sm:max-w-3xl"
-        }
+        className="sm:max-w-3xl"
         footer={
           modal?.kind === "import" ? (
             <div className="flex justify-end gap-2">
@@ -727,22 +572,13 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 {busy ? "Adding…" : "Add paper"}
               </Button>
             </div>
-          ) : modal?.kind === "editPaper" ? (
+          ) : (
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" disabled={busy} onClick={() => setModal(null)}>
                 Cancel
               </Button>
               <Button type="button" disabled={busy} onClick={() => void submitEditPaper()}>
                 {busy ? "Saving…" : "Save changes"}
-              </Button>
-            </div>
-          ) : (
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" disabled={busy} onClick={() => setModal(null)}>
-                Cancel
-              </Button>
-              <Button type="button" disabled={busy} onClick={() => void onSaveQuestion()}>
-                {busy ? "Saving…" : "Save"}
               </Button>
             </div>
           )
@@ -845,216 +681,18 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
           </div>
         ) : null}
 
-        {modal?.kind === "question" ? (
-          // 63rem = the public study card's text column (974px) + editor padding/border, and
-          // qb-question-editors = the card's font, so line breaks land exactly where students see them.
-          <div className="qb-question-editors mx-auto w-full max-w-[63rem] space-y-4 [--qb-prompt-h:calc(100dvh-24rem)] [--rte-sticky-top:-1rem] sm:[--qb-prompt-h:calc(100dvh-20rem)]">
-            <div className="block space-y-1.5">
-              <span className="text-sm font-semibold">Prompt</span>
-              <RichTextEditor
-                value={prompt}
-                onChange={setPrompt}
-                placeholder="Question stem — text, math, and diagrams…"
-                minHeight="max(240px, var(--qb-prompt-h))"
-                fullHeight
-                disabled={busy}
-              />
-            </div>
-
-            <div className="block space-y-1.5">
-              <span className="text-sm font-semibold">
-                {questionKind === "WRITTEN" ? "Body / parts (optional)" : "Body (optional)"}
-              </span>
-              <RichTextEditor
-                value={bodyText}
-                onChange={setBodyText}
-                placeholder={
-                  questionKind === "WRITTEN"
-                    ? "(a) … [2]  (b) … [3]"
-                    : "Extra text or images shown below the prompt…"
-                }
-                minHeight={questionKind === "WRITTEN" ? "300px" : "120px"}
-                fullHeight={questionKind === "WRITTEN"}
-                disabled={busy}
-              />
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-sm font-semibold">Cover diagram URL (optional)</span>
-              <div className="flex flex-wrap gap-2">
-                <Input
-                  value={diagramUrl}
-                  onChange={(e) => setDiagramUrl(e.target.value)}
-                  placeholder="https://… — or insert images in the editor above"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => diagramUploadRef.current?.click()}
-                >
-                  {uploadingField === "diagram" ? "Uploading…" : "Upload"}
-                </Button>
-                <input
-                  ref={diagramUploadRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => void onUploadMedia("diagram", e.target.files?.[0])}
-                />
-              </div>
-            </div>
-
-            {questionKind === "MCQ" ? (
-              <div className="space-y-3">
-                <div className="space-y-1">
-                  <span className="text-sm font-semibold">Options (text and/or images)</span>
-                  <p className="text-xs text-muted-foreground">
-                    Optional when options are already shown in the prompt, body, or a diagram/table
-                    image. Set the correct letter below.
-                  </p>
-                </div>
-                {OPTION_LETTERS.map((letter, index) => (
-                  <div key={letter} className="space-y-1.5">
-                    <span className="text-xs font-semibold text-muted-foreground">Option {letter}</span>
-                    <RichTextEditor
-                      value={optionHtmls[index]}
-                      onChange={(html) =>
-                        setOptionHtmls((prev) => {
-                          const next = [...prev] as [string, string, string, string];
-                          next[index] = html;
-                          return next;
-                        })
-                      }
-                      placeholder={`Option ${letter}`}
-                      minHeight="72px"
-                      disabled={busy}
-                    />
-                  </div>
-                ))}
-                <label className="block space-y-1.5">
-                  <span className="text-sm font-semibold">Correct option</span>
-                  <select
-                    value={correctAnswer}
-                    onChange={(e) => setCorrectAnswer(e.target.value)}
-                    className="flex h-10 w-full max-w-[8rem] rounded-xl border border-border bg-card px-3 text-sm"
-                  >
-                    {OPTION_LETTERS.map((letter) => (
-                      <option key={letter} value={letter}>
-                        {letter}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-            ) : (
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Model answer key (optional)</span>
-                <Input
-                  value={correctAnswer}
-                  onChange={(e) => setCorrectAnswer(e.target.value)}
-                  placeholder="Short key — full answer goes in Mark scheme"
-                />
-              </label>
-            )}
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Difficulty</span>
-                <select
-                  value={difficulty}
-                  onChange={(e) => setDifficulty(e.target.value as QbDifficulty)}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-                >
-                  {DIFFICULTIES.map((d) => (
-                    <option key={d} value={d}>
-                      {d}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Paper</span>
-                <select
-                  value={paper}
-                  onChange={(e) => {
-                    const next = e.target.value as QbPaper;
-                    setPaper(next);
-                    const nextKind = kindForPaper(next, paperConfig);
-                    setQuestionKind(nextKind);
-                    if (nextKind === "MCQ") {
-                      if (!correctAnswer || correctAnswer.length > 1) setCorrectAnswer("A");
-                    } else if (correctAnswer.length <= 1) {
-                      setCorrectAnswer("");
-                    }
-                  }}
-                  className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-                >
-                  {papersForKind(questionKind, [...new Set([...paperTabs, paper])], paperConfig).map((p) => (
-                    <option key={p} value={p}>
-                      {paperShortLabel(p, paperConfig)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-3">
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Marks</span>
-                <Input value={marks} onChange={(e) => setMarks(e.target.value)} />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Year</span>
-                <Input value={yearHint} onChange={(e) => setYearHint(e.target.value)} />
-              </label>
-              <label className="block space-y-1.5">
-                <span className="text-sm font-semibold">Source</span>
-                <Input value={sourceLabel} onChange={(e) => setSourceLabel(e.target.value)} />
-              </label>
-            </div>
-
-            <div className="space-y-2">
-              <span className="text-sm font-semibold">Video URL</span>
-              <div className="flex flex-wrap gap-2">
-                <Input
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  placeholder="https://…"
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={busy}
-                  onClick={() => videoUploadRef.current?.click()}
-                >
-                  {uploadingField === "video" ? "Uploading…" : "Upload"}
-                </Button>
-                <input
-                  ref={videoUploadRef}
-                  type="file"
-                  accept="video/*,.mp4,.webm"
-                  className="hidden"
-                  onChange={(e) => void onUploadMedia("video", e.target.files?.[0])}
-                />
-              </div>
-            </div>
-
-            <div className="block space-y-1.5">
-              <span className="text-sm font-semibold">Mark scheme</span>
-              <RichTextEditor
-                value={markScheme}
-                onChange={setMarkScheme}
-                placeholder="Worked solution / marking notes…"
-                minHeight="120px"
-                disabled={busy}
-              />
-            </div>
-          </div>
-        ) : null}
       </AdminModal>
+
+      <QbQuestionFormModal
+        open={questionForm !== null}
+        onClose={() => setQuestionForm(null)}
+        subtopicId={subtopicId}
+        paperConfig={paperConfig}
+        paperTabs={paperTabs}
+        initialPaper={questionForm?.paper}
+        question={questionForm?.question ?? null}
+        onSaved={(saved) => setActivePaper(saved.paper)}
+      />
 
       <AdminQbStudySetPricingModal
         open={pricingOpen}

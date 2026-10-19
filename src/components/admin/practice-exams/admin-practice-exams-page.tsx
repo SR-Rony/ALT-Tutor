@@ -17,6 +17,11 @@ import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { type CourseLinkedProgram } from "@/components/admin/key-concepts/admin-key-concepts-page";
+import { QbQuestionFormModal } from "@/components/admin/questionbank/qb-question-form-modal";
+import {
+  resolvePaperConfig,
+  resolvePaperTabs,
+} from "@/components/admin/questionbank/qb-admin-shared";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -219,6 +224,8 @@ export function AdminPracticeExamsPage({
   const [subtopicId, setSubtopicId] = useState("");
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [pickerTab, setPickerTab] = useState<QuestionPickerTab>("available");
+  const [newQuestionOpen, setNewQuestionOpen] = useState(false);
+  const [newQuestionSubtopicId, setNewQuestionSubtopicId] = useState("");
   const [accessTier, setAccessTier] = useState<QbAccessBadge>("FREE");
   const [isPublished, setIsPublished] = useState(true);
   const [editSlug, setEditSlug] = useState("");
@@ -310,6 +317,41 @@ export function AdminPracticeExamsPage({
   }, [allModeQuestions, selectedQuestionIds]);
 
   const totalQuestions = selectedQuestionIds.length;
+
+  // Exams skip questions from hidden study sets, so new questions only go into active ones.
+  const newQuestionStudySets = useMemo(
+    () =>
+      qbTopics
+        .filter((t) => t.isActive)
+        .flatMap((t) =>
+          t.subtopics
+            .filter((s) => s.isActive)
+            .map((s) => ({
+              id: s.id,
+              topicId: t.id,
+              label: `${richTextToPlain(t.title) || t.title} · ${richTextToPlain(s.title) || s.title}`,
+              paperConfig: resolvePaperConfig(s.paperCount, s.paperConfig),
+              paperTabs: resolvePaperTabs(s.paperCount, s.questions),
+            }))
+        ),
+    [qbTopics]
+  );
+  const newQuestionStudySet = newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId);
+
+  useEffect(() => {
+    if (!modalOpen) setNewQuestionOpen(false);
+  }, [modalOpen]);
+
+  const openNewQuestion = () => {
+    const preferred =
+      newQuestionStudySets.find((s) => s.id === subtopicId) ??
+      newQuestionStudySets.find((s) => topicId && s.topicId === topicId) ??
+      newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId) ??
+      newQuestionStudySets[0];
+    if (!preferred) return;
+    setNewQuestionSubtopicId(preferred.id);
+    setNewQuestionOpen(true);
+  };
 
   const addQuestion = (id: string) => {
     setSelectedQuestionIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
@@ -1288,6 +1330,22 @@ export function AdminPracticeExamsPage({
                 hidden.
               </p>
             ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-border px-3 py-2.5">
+              <p className="text-xs text-muted-foreground">
+                {newQuestionStudySets.length === 0
+                  ? "Add a Questionbank study set to this program to create new questions here."
+                  : "Need a question that isn’t in the Questionbank? Create it here — it’s saved to a study set and added to this exam."}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy || newQuestionStudySets.length === 0}
+                onClick={openNewQuestion}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                New {mode === "WRITTEN" ? "written" : "MCQ"} question
+              </Button>
+            </div>
             <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
               <button
                 type="button"
@@ -1348,7 +1406,7 @@ export function AdminPracticeExamsPage({
                 </div>
                 {selectedQuestions.length === 0 ? (
                   <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                    No questions selected yet. Switch to Available and add some.
+                    No questions selected yet. Add some from Available, or create a new one above.
                   </p>
                 ) : (
                   <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
@@ -1405,8 +1463,8 @@ export function AdminPracticeExamsPage({
                   <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
                     {allModeQuestions.length === 0
                       ? mode === "WRITTEN"
-                        ? "No written questions in this program. Add them in Questionbank first."
-                        : "No MCQ questions in this program. Add them in Questionbank first."
+                        ? "No written questions in this program yet. Create one with “New written question” above."
+                        : "No MCQ questions in this program yet. Create one with “New MCQ question” above."
                       : totalQuestions > 0
                         ? "All matching questions are already selected. Change topic/subtopic filter or clear some from Selected."
                         : "No questions match this topic/subtopic filter."}
@@ -1457,6 +1515,36 @@ export function AdminPracticeExamsPage({
           </p>
         </div>
       </AdminModal>
+
+      <QbQuestionFormModal
+        open={modalOpen && newQuestionOpen}
+        onClose={() => setNewQuestionOpen(false)}
+        subtopicId={newQuestionStudySet?.id ?? ""}
+        paperConfig={newQuestionStudySet?.paperConfig ?? {}}
+        paperTabs={newQuestionStudySet?.paperTabs ?? []}
+        lockedKind={mode}
+        description="Saved to the chosen Questionbank study set and added to this exam."
+        header={
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold">Save to study set</span>
+            <select
+              value={newQuestionSubtopicId}
+              onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
+              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+            >
+              {newQuestionStudySets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
+        onSaved={(saved) => {
+          addQuestion(saved.id);
+          setPickerTab("selected");
+        }}
+      />
 
       <AdminModal
         open={Boolean(deleteTarget)}

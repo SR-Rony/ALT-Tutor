@@ -22,7 +22,9 @@ import {
   paperKey,
   paperShortLabel,
   resolvePaperConfig,
+  resolvePaperTabs,
 } from "@/components/admin/questionbank/qb-admin-shared";
+import { QbQuestionFormModal } from "@/components/admin/questionbank/qb-question-form-modal";
 import { type CourseLinkedProgram } from "@/components/admin/key-concepts/admin-key-concepts-page";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -40,6 +42,7 @@ import {
 } from "@/hooks";
 import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
 import { questionTitle } from "@/lib/question-title";
+import { richTextToPlain } from "@/lib/rich-text";
 import { slugify } from "@/lib/slugify";
 import type { ApiError } from "@/types";
 import type { PastPaper, PastPaperSourceType } from "@/types/past-paper.types";
@@ -352,6 +355,8 @@ export function AdminPastPapersPage({
   const [subtopicId, setSubtopicId] = useState("");
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [pickerTab, setPickerTab] = useState<QuestionPickerTab>("available");
+  const [newQuestionOpen, setNewQuestionOpen] = useState(false);
+  const [newQuestionSubtopicId, setNewQuestionSubtopicId] = useState("");
   const [isPublished, setIsPublished] = useState(true);
 
   const busy = createPaper.isPending || updatePaper.isPending || deletePaper.isPending;
@@ -532,6 +537,41 @@ export function AdminPastPapersPage({
   const clearAllSelected = () => {
     setSelectedQuestionIds([]);
     setPickerTab("available");
+  };
+
+  // Past papers only accept questions from active study sets, so new questions only go into those.
+  const newQuestionStudySets = useMemo(
+    () =>
+      qbTopics
+        .filter((t) => t.isActive)
+        .flatMap((t) =>
+          t.subtopics
+            .filter((s) => s.isActive)
+            .map((s) => ({
+              id: s.id,
+              topicId: t.id,
+              label: `${richTextToPlain(t.title) || t.title} · ${richTextToPlain(s.title) || s.title}`,
+              paperConfig: resolvePaperConfig(s.paperCount, s.paperConfig),
+              paperTabs: resolvePaperTabs(s.paperCount, s.questions),
+            }))
+        ),
+    [qbTopics]
+  );
+  const newQuestionStudySet = newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId);
+
+  useEffect(() => {
+    if (!modalOpen) setNewQuestionOpen(false);
+  }, [modalOpen]);
+
+  const openNewQuestion = () => {
+    const preferred =
+      newQuestionStudySets.find((s) => s.id === subtopicId) ??
+      newQuestionStudySets.find((s) => topicId && s.topicId === topicId) ??
+      newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId) ??
+      newQuestionStudySets[0];
+    if (!preferred) return;
+    setNewQuestionSubtopicId(preferred.id);
+    setNewQuestionOpen(true);
   };
 
   const resetForm = (preset?: { mode?: PastPaperQuestionMode }) => {
@@ -1475,6 +1515,22 @@ export function AdminPastPapersPage({
                 hidden.
               </p>
             ) : null}
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-border px-3 py-2.5">
+              <p className="text-xs text-muted-foreground">
+                {newQuestionStudySets.length === 0
+                  ? "Add a Questionbank study set to this program to create new questions here."
+                  : "Need a question that isn’t in the Questionbank? Create it here — it’s saved to a study set and added to this paper."}
+              </p>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy || newQuestionStudySets.length === 0}
+                onClick={openNewQuestion}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                New {questionMode === "WRITTEN" ? "written" : "MCQ"} question
+              </Button>
+            </div>
             <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
               <button
                 type="button"
@@ -1520,8 +1576,8 @@ export function AdminPastPapersPage({
                 </div>
                 {selectedQuestions.length === 0 ? (
                   <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
-                    No {modeLabel(questionMode).toLowerCase()} questions selected yet. Switch to
-                    Available and add some.
+                    No {modeLabel(questionMode).toLowerCase()} questions selected yet. Add some
+                    from Available, or create a new one above.
                   </p>
                 ) : (
                   <div className={PICKER_LIST_CLASS}>
@@ -1571,8 +1627,8 @@ export function AdminPastPapersPage({
                   <p className="rounded-xl border border-dashed border-border px-3 py-4 text-sm text-muted-foreground">
                     {allModeQuestions.length === 0
                       ? questionMode === "WRITTEN"
-                        ? "No written (Short answer / Data) questions in this program. Add them in Questionbank first."
-                        : "No MCQ questions in this program. Add them in Questionbank first."
+                        ? "No written (Short answer / Data) questions in this program yet. Create one with “New written question” above."
+                        : "No MCQ questions in this program yet. Create one with “New MCQ question” above."
                       : selectedQuestionIds.length > 0
                         ? "All matching questions are already selected."
                         : "No questions match this topic/subtopic filter."}
@@ -1610,6 +1666,37 @@ export function AdminPastPapersPage({
           </div>
         </div>
       </AdminModal>
+
+      <QbQuestionFormModal
+        open={modalOpen && newQuestionOpen}
+        onClose={() => setNewQuestionOpen(false)}
+        subtopicId={newQuestionStudySet?.id ?? ""}
+        paperConfig={newQuestionStudySet?.paperConfig ?? {}}
+        paperTabs={newQuestionStudySet?.paperTabs ?? []}
+        initialPaper={paperKey(parsePaperNumber(paperCode))}
+        lockedKind={questionMode}
+        description="Saved to the chosen Questionbank study set and added to this past paper."
+        header={
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold">Save to study set</span>
+            <select
+              value={newQuestionSubtopicId}
+              onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
+              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+            >
+              {newQuestionStudySets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
+        onSaved={(saved) => {
+          addQuestion(saved.id);
+          setPickerTab("selected");
+        }}
+      />
 
       <AdminModal
         open={Boolean(deleteTarget)}

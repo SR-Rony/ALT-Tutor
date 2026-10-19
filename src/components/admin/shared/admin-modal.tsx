@@ -1,9 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { X } from "lucide-react";
 import { cn } from "@/utils";
+
+/** Open modals, innermost last — only it reacts to Escape, and the page stays locked until all close. */
+const openModals: symbol[] = [];
 
 type AdminModalProps = {
   open: boolean;
@@ -24,18 +27,28 @@ export function AdminModal({
   footer,
   className,
 }: AdminModalProps) {
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
+    const id = Symbol("admin-modal");
+    openModals.push(id);
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape" && openModals[openModals.length - 1] === id) {
+        onCloseRef.current();
+      }
     };
     document.body.style.overflow = "hidden";
     window.addEventListener("keydown", onKeyDown);
     return () => {
-      document.body.style.overflow = "";
+      openModals.splice(openModals.indexOf(id), 1);
+      if (openModals.length === 0) document.body.style.overflow = "";
       window.removeEventListener("keydown", onKeyDown);
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 

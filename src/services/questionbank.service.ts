@@ -12,6 +12,7 @@ import type {
   PracticeSessionStart,
   QbFilters,
   QbProgramOverview,
+  QbQuestion,
   QbStudyPayload,
   QbTopic,
   StartPracticeSessionInput,
@@ -111,7 +112,7 @@ export const questionbankService = {
     return apiClient.delete(`/questionbank/subtopics/${id}`).then((r) => r.data);
   },
   createQuestion(payload: CreateQbQuestionInput) {
-    return apiClient.post(`/questionbank/questions`, payload).then((r) => r.data);
+    return apiClient.post<QbQuestion>(`/questionbank/questions`, payload).then((r) => r.data);
   },
   updateQuestion(id: string, payload: Partial<CreateQbQuestionInput>) {
     return apiClient.patch(`/questionbank/questions/${id}`, payload).then((r) => r.data);
