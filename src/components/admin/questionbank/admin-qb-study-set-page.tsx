@@ -9,6 +9,7 @@ import {
   Download,
   ExternalLink,
   FileSpreadsheet,
+  FileText,
   Pencil,
   Plus,
   Trash2,
@@ -38,6 +39,7 @@ import type { QbImportResult } from "@/services/questionbank-admin.types";
 import type { QbPaper, QbPaperKind, QbQuestion } from "@/types/qb.types";
 import { cn } from "@/utils";
 import { AdminQbStudySetPricingModal } from "./admin-qb-study-set-pricing-modal";
+import { QbPdfImportModal } from "./qb-pdf-import-modal";
 import { QbQuestionFormModal } from "./qb-question-form-modal";
 import {
   AccessBadgePill,
@@ -74,6 +76,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
   const [pricingOpen, setPricingOpen] = useState(false);
 
   const [activePaper, setActivePaper] = useState<QbPaper>("PAPER_1");
+  const [pdfImportOpen, setPdfImportOpen] = useState(false);
   const [questionForm, setQuestionForm] = useState<
     null | { paper: QbPaper; question?: QbQuestion }
   >(null);
@@ -471,7 +474,17 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 onClick={() => openImportForPaper(activePaper)}
               >
                 <Upload className="h-4 w-4" />
-                Upload {paperShortLabel(activePaper, paperConfig)}
+                Upload Excel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={busy}
+                onClick={() => setPdfImportOpen(true)}
+              >
+                <FileText className="h-4 w-4" />
+                Upload PDF
               </Button>
               {activePaperIsMcq ? (
                 <Button type="button" size="sm" onClick={() => openAddQuestion(activePaper)}>
@@ -508,6 +521,10 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
                 <Button type="button" size="sm" variant="outline" onClick={() => openImportForPaper(activePaper)}>
                   <Upload className="h-4 w-4" />
                   Upload Excel
+                </Button>
+                <Button type="button" size="sm" variant="outline" onClick={() => setPdfImportOpen(true)}>
+                  <FileText className="h-4 w-4" />
+                  Upload PDF
                 </Button>
                 <Button type="button" size="sm" onClick={() => openAddQuestion(activePaper)}>
                   <Plus className="h-4 w-4" />
@@ -682,6 +699,19 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
         ) : null}
 
       </AdminModal>
+
+      <QbPdfImportModal
+        open={pdfImportOpen}
+        onClose={() => setPdfImportOpen(false)}
+        subtopicId={subtopicId}
+        initialPaper={activePaper}
+        paperTabs={paperTabs}
+        paperConfig={paperConfig}
+        onSuccess={(_count) => {
+          setActivePaper(activePaper);
+          void refetch();
+        }}
+      />
 
       <QbQuestionFormModal
         open={questionForm !== null}

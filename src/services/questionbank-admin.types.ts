@@ -67,3 +67,26 @@ export type UpdateQbPaperConfigInput = {
   label?: string;
   questionKind?: QbPaperKind;
 };
+
+export type ParsedPdfQuestion = {
+  number: number;
+  prompt: string;
+  body?: string | null;
+  diagramUrl?: string | null;
+  difficulty?: QbDifficulty;
+  paper?: QbPaper;
+  questionType?: QbQuestionType;
+  calculatorAllowed?: boolean;
+  marks?: number;
+  options: string[];
+  correctAnswer: string;
+  markScheme?: string | null;
+  order?: number;
+};
+
+export type ParsePdfResult = {
+  totalFound: number;
+  questions: ParsedPdfQuestion[];
+  errors: string[];
+  detectedKind?: "MCQ" | "WRITTEN";
+};

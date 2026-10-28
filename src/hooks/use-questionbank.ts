@@ -210,6 +210,56 @@ export function useImportQbQuestions() {
   });
 }
 
+export function useBulkCreateQbQuestions() {
+  const invalidate = useInvalidateQb();
+  return useMutation({
+    mutationFn: ({
+      subtopicId,
+      questions,
+      paper,
+    }: {
+      subtopicId: string;
+      questions: Partial<CreateQbQuestionInput>[];
+      paper?: string;
+    }) => questionbankService.bulkCreateQuestions(subtopicId, questions, paper),
+    onSuccess: invalidate,
+  });
+}
+
+export function useParseQbPdf() {
+  return useMutation({
+    mutationFn: ({
+      file,
+      paper,
+      answerKey,
+      kind,
+    }: {
+      file: File;
+      paper?: string;
+      answerKey?: string;
+      kind?: "MCQ" | "WRITTEN" | "AUTO";
+    }) => questionbankService.parsePdf(file, paper, answerKey, kind),
+  });
+}
+
+export function useImportQbPdf() {
+  const invalidate = useInvalidateQb();
+  return useMutation({
+    mutationFn: ({
+      subtopicId,
+      file,
+      paper,
+      answerKey,
+    }: {
+      subtopicId: string;
+      file: File;
+      paper?: string;
+      answerKey?: string;
+    }) => questionbankService.importFromPdf(subtopicId, file, paper, answerKey),
+    onSuccess: invalidate,
+  });
+}
+
 function useInvalidateStudySolutions() {
   const qc = useQueryClient();
   return () =>

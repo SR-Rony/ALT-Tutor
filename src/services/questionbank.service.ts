@@ -3,6 +3,8 @@ import type {
   CreateQbQuestionInput,
   CreateQbSubtopicInput,
   CreateQbTopicInput,
+  ParsedPdfQuestion,
+  ParsePdfResult,
   QbImportResult,
 } from "./questionbank-admin.types";
 import type {
@@ -127,6 +129,52 @@ export const questionbankService = {
     const q = paper ? `?paper=${encodeURIComponent(paper)}` : "";
     return apiClient
       .post<QbImportResult>(`/questionbank/subtopics/${subtopicId}/import${q}`, form)
+      .then((r) => r.data);
+  },
+
+  bulkCreateQuestions(
+    subtopicId: string,
+    questions: Partial<CreateQbQuestionInput>[],
+    paper?: string
+  ): Promise<{ imported: number; questions: QbQuestion[] }> {
+    return apiClient
+      .post<{ imported: number; questions: QbQuestion[] }>(
+        `/questionbank/subtopics/${subtopicId}/bulk-questions`,
+        { questions, paper }
+      )
+      .then((r) => r.data);
+  },
+
+  parsePdf(
+    file: File,
+    paper?: string,
+    answerKey?: string,
+    kind?: "MCQ" | "WRITTEN" | "AUTO"
+  ): Promise<ParsePdfResult> {
+    const form = new FormData();
+    form.append("file", file);
+    if (answerKey) form.append("answerKey", answerKey);
+    const params = new URLSearchParams();
+    if (paper) params.append("paper", paper);
+    if (kind) params.append("kind", kind);
+    const q = params.toString() ? `?${params.toString()}` : "";
+    return apiClient
+      .post<ParsePdfResult>(`/questionbank/parse-pdf${q}`, form)
+      .then((r) => r.data);
+  },
+
+  importFromPdf(
+    subtopicId: string,
+    file: File,
+    paper?: string,
+    answerKey?: string
+  ): Promise<QbImportResult> {
+    const form = new FormData();
+    form.append("file", file);
+    if (answerKey) form.append("answerKey", answerKey);
+    const q = paper ? `?paper=${encodeURIComponent(paper)}` : "";
+    return apiClient
+      .post<QbImportResult>(`/questionbank/subtopics/${subtopicId}/import-pdf${q}`, form)
       .then((r) => r.data);
   },
 
