@@ -5,6 +5,7 @@ import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
+  ExternalLink,
   FileText,
   HelpCircle,
   ImageIcon,
@@ -13,6 +14,8 @@ import {
   Sparkles,
   Trash2,
   Upload,
+  Video,
+  X,
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
@@ -21,6 +24,7 @@ import {
   useBulkCreateQbQuestions,
   useParseQbPdf,
 } from "@/hooks";
+import { uploadService } from "@/services/upload.service";
 import type { ApiError } from "@/types";
 import type {
   CreateQbQuestionInput,
@@ -56,28 +60,28 @@ export function QbPdfImportModal({
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [targetPaper, setTargetPaper] = useState<QbPaper>(initialPaper);
-  const [questionKind, setQuestionKind] = useState<QbPaperKind>(() =>
-    kindForPaper(initialPaper, paperConfig)
-  );
+  const [parseMode, setParseMode] = useState<"AUTO" | "MCQ" | "WRITTEN">("AUTO");
   const [answerKeyInput, setAnswerKeyInput] = useState("");
   const [extractedQuestions, setExtractedQuestions] = useState<ParsedPdfQuestion[]>([]);
   const [step, setStep] = useState<"upload" | "review">("upload");
   const [error, setError] = useState<string | null>(null);
   const [batchDifficulty, setBatchDifficulty] = useState<QbDifficulty>("EASY");
+  const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Sync default kind when initialPaper changes
+  // Sync destination paper when modal opens
   useEffect(() => {
     if (open) {
       setTargetPaper(initialPaper);
-      setQuestionKind(kindForPaper(initialPaper, paperConfig));
+      const paperKind = kindForPaper(initialPaper, paperConfig);
+      // Default to AUTO so mixed questions work out of the box
+      setParseMode("AUTO");
     }
   }, [open, initialPaper, paperConfig]);
 
   const onPaperChange = (paper: QbPaper) => {
     setTargetPaper(paper);
-    setQuestionKind(kindForPaper(paper, paperConfig));
   };
 
   const resetForm = () => {
@@ -86,11 +90,12 @@ export function QbPdfImportModal({
     setExtractedQuestions([]);
     setStep("upload");
     setError(null);
+    setUploadingImageIndex(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
   const handleClose = () => {
-    if (bulkCreate.isPending || parsePdf.isPending) return;
+    if (bulkCreate.isPending || parsePdf.isPending || uploadingImageIndex !== null) return;
     resetForm();
     onClose();
   };
@@ -116,17 +121,12 @@ export function QbPdfImportModal({
         file: selectedFile,
         paper: targetPaper,
         answerKey: answerKeyInput.trim() || undefined,
-        kind: questionKind,
+        kind: parseMode,
       });
 
       if (!result.questions?.length) {
         setError("No questions could be extracted. Please check the PDF formatting.");
         return;
-      }
-
-      // If backend detected another kind and user was in AUTO, sync it
-      if (result.detectedKind && result.detectedKind !== questionKind) {
-        setQuestionKind(result.detectedKind);
       }
 
       setExtractedQuestions(result.questions);
@@ -161,14 +161,17 @@ export function QbPdfImportModal({
   const toggleQuestionKind = (index: number) => {
     setExtractedQuestions((prev) => {
       const copy = [...prev];
-      const current = copy[index].questionType === "MULTIPLE_CHOICE" ? "MCQ" : "WRITTEN";
+      const current =
+        copy[index].questionType === "MULTIPLE_CHOICE" ? "MCQ" : "WRITTEN";
       const next = current === "MCQ" ? "WRITTEN" : "MCQ";
       copy[index] = {
         ...copy[index],
         questionType: next === "MCQ" ? "MULTIPLE_CHOICE" : "SHORT_ANSWER",
         options:
           next === "MCQ"
-            ? (copy[index].options?.length ? copy[index].options : ["Option A", "Option B", "Option C", "Option D"])
+            ? copy[index].options?.length
+              ? copy[index].options
+              : ["Option A", "Option B", "Option C", "Option D"]
             : [],
         correctAnswer:
           next === "MCQ"
@@ -177,6 +180,20 @@ export function QbPdfImportModal({
       };
       return copy;
     });
+  };
+
+  const onUploadQuestionImage = async (qIndex: number, file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    setUploadingImageIndex(qIndex);
+    try {
+      const res = await uploadService.upload(file, "questionbank");
+      updateQuestionField(qIndex, "diagramUrl", res.url);
+    } catch (err) {
+      setError((err as ApiError)?.message || "Failed to upload question image");
+    } finally {
+      setUploadingImageIndex(null);
+    }
   };
 
   const deleteExtractedQuestion = (index: number) => {
@@ -190,9 +207,7 @@ export function QbPdfImportModal({
       const dtos: Partial<CreateQbQuestionInput>[] = extractedQuestions.map(
         (q, idx) => {
           const isWritten =
-            q.questionType === "SHORT_ANSWER" ||
-            q.questionType === "DATA_BASED" ||
-            questionKind === "WRITTEN";
+            q.questionType === "SHORT_ANSWER" || q.questionType === "DATA_BASED";
 
           if (isWritten) {
             return {
@@ -201,6 +216,7 @@ export function QbPdfImportModal({
               prompt: q.prompt,
               body: q.body ?? null,
               diagramUrl: q.diagramUrl ?? null,
+              videoUrl: q.videoUrl ?? null,
               difficulty: q.difficulty || batchDifficulty,
               paper: targetPaper,
               questionType: "SHORT_ANSWER",
@@ -220,12 +236,15 @@ export function QbPdfImportModal({
             prompt: q.prompt,
             body: q.body ?? null,
             diagramUrl: q.diagramUrl ?? null,
+            videoUrl: q.videoUrl ?? null,
             difficulty: q.difficulty || batchDifficulty,
             paper: targetPaper,
             questionType: "MULTIPLE_CHOICE",
             calculatorAllowed: q.calculatorAllowed ?? true,
             marks: 1,
-            options: q.options?.length ? q.options : ["Option A", "Option B", "Option C", "Option D"],
+            options: q.options?.length
+              ? q.options
+              : ["Option A", "Option B", "Option C", "Option D"],
             correctAnswer: (q.correctAnswer || "A").toUpperCase(),
             markScheme: q.markScheme ?? null,
             order: idx,
@@ -247,7 +266,20 @@ export function QbPdfImportModal({
     }
   };
 
-  const isBusy = parsePdf.isPending || bulkCreate.isPending;
+  const isBusy = parsePdf.isPending || bulkCreate.isPending || uploadingImageIndex !== null;
+
+  const counts = useMemo(() => {
+    let mcq = 0;
+    let written = 0;
+    for (const q of extractedQuestions) {
+      if (q.questionType === "SHORT_ANSWER" || q.questionType === "DATA_BASED") {
+        written++;
+      } else {
+        mcq++;
+      }
+    }
+    return { mcq, written, total: extractedQuestions.length };
+  }, [extractedQuestions]);
 
   return (
     <AdminModal
@@ -255,17 +287,16 @@ export function QbPdfImportModal({
       onClose={handleClose}
       title={
         step === "upload"
-          ? `Create ${questionKind === "MCQ" ? "MCQ" : "Written"} Questions from PDF`
-          : `Review & Import (${extractedQuestions.length} ${
-              questionKind === "MCQ" ? "MCQ" : "Written"
-            } Questions)`
+          ? "Create Questions from PDF (MCQ & Written)"
+          : `Review & Customize (${counts.total} Questions)`
       }
       description={
         step === "upload"
-          ? `Upload an exam paper PDF to automatically extract ${
-              questionKind === "MCQ" ? "Multiple Choice" : "Written / Structured"
-            } questions into ${paperShortLabel(targetPaper, paperConfig)}.`
-          : "Review the extracted questions, adjust marks, prompts, options or mark schemes, and save to your study set."
+          ? `Upload any examination or practice PDF to extract questions into ${paperShortLabel(
+              targetPaper,
+              paperConfig
+            )}. Supports pure MCQ, pure Written, and mixed papers.`
+          : "Review the extracted questions, upload or adjust diagrams, add video solution links or mark schemes, and click Import to save."
       }
       className={step === "review" ? "sm:max-w-5xl" : "sm:max-w-2xl"}
       footer={
@@ -345,7 +376,7 @@ export function QbPdfImportModal({
 
       {step === "upload" ? (
         <div className="space-y-5">
-          {/* Paper destination selection */}
+          {/* Destination Paper Selection */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Destination Paper
@@ -369,45 +400,64 @@ export function QbPdfImportModal({
             </div>
           </div>
 
-          {/* Question Type Selector: MCQ vs Written */}
+          {/* Mode Selector: AUTO vs MCQ vs WRITTEN */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Question Format
+              Question Extraction Mode
             </label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <button
                 type="button"
-                onClick={() => setQuestionKind("MCQ")}
+                onClick={() => setParseMode("AUTO")}
                 className={cn(
                   "flex flex-col items-start rounded-xl border p-3 text-left transition",
-                  questionKind === "MCQ"
-                    ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                  parseMode === "AUTO"
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/20"
                     : "border-border bg-card hover:border-primary/40"
                 )}
               >
-                <span className="font-semibold text-sm text-foreground">
-                  Multiple Choice (MCQ)
+                <span className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
+                  <Sparkles className="h-3.5 w-3.5 text-primary" />
+                  Smart Auto-Detect
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  Questions with 4 options (A, B, C, D) and answer keys
+                <span className="mt-1 text-xs text-muted-foreground">
+                  Detects MCQ & Written questions individually in the same file
                 </span>
               </button>
 
               <button
                 type="button"
-                onClick={() => setQuestionKind("WRITTEN")}
+                onClick={() => setParseMode("MCQ")}
                 className={cn(
                   "flex flex-col items-start rounded-xl border p-3 text-left transition",
-                  questionKind === "WRITTEN"
-                    ? "border-primary bg-primary/5 ring-2 ring-primary/20"
+                  parseMode === "MCQ"
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/20"
                     : "border-border bg-card hover:border-primary/40"
                 )}
               >
-                <span className="font-semibold text-sm text-foreground">
-                  Written / Structured Question
+                <span className="text-sm font-semibold text-foreground">
+                  MCQ Only
                 </span>
-                <span className="text-xs text-muted-foreground">
-                  Theory questions, sub-parts (a, b, c), marks [m] and mark schemes
+                <span className="mt-1 text-xs text-muted-foreground">
+                  Treats all extracted items as 4-option multiple choice questions
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setParseMode("WRITTEN")}
+                className={cn(
+                  "flex flex-col items-start rounded-xl border p-3 text-left transition",
+                  parseMode === "WRITTEN"
+                    ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                    : "border-border bg-card hover:border-primary/40"
+                )}
+              >
+                <span className="text-sm font-semibold text-foreground">
+                  Written Only
+                </span>
+                <span className="mt-1 text-xs text-muted-foreground">
+                  Treats all extracted items as theory, structured questions & marks
                 </span>
               </button>
             </div>
@@ -443,10 +493,10 @@ export function QbPdfImportModal({
             ) : (
               <div className="space-y-1">
                 <p className="text-sm font-semibold text-foreground">
-                  Click to select or drag & drop your {questionKind === "MCQ" ? "MCQ" : "Written"} PDF paper
+                  Click to select or drag & drop your PDF question paper
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Supports Cambridge, Edexcel, and Board examination papers
+                  Supports Cambridge, Edexcel, NCTB, and standardized test papers
                 </p>
               </div>
             )}
@@ -456,26 +506,20 @@ export function QbPdfImportModal({
           <div className="space-y-2 rounded-xl border border-border/70 bg-muted/20 p-4">
             <div className="flex items-center justify-between">
               <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                {questionKind === "MCQ" ? "Answer Key (Optional)" : "Mark Scheme / Model Answers (Optional)"}
+                Answer Key / Mark Scheme (Optional)
               </label>
               <span className="text-[11px] text-muted-foreground">
-                {questionKind === "MCQ" ? "Auto-assigns correct letters" : "Auto-populates solutions"}
+                Auto-assigns solutions & answers
               </span>
             </div>
             <Input
               value={answerKeyInput}
               onChange={(e) => setAnswerKeyInput(e.target.value)}
-              placeholder={
-                questionKind === "MCQ"
-                  ? "e.g. 1:C 2:A 3:A 4:B ... or CADBCBACDA..."
-                  : "e.g. 1: Newton second law definition... 2: F = ma calculation..."
-              }
+              placeholder="e.g. 1:C 2:A 3:A 4:B ... or CADBCBACDA... or 1: Definition..."
               className="font-mono text-sm"
             />
             <p className="text-[11px] text-muted-foreground">
-              {questionKind === "MCQ"
-                ? "Tip: Paste the Mark Scheme letters or comma-separated pairs. You can also review and change answers individually in the next step."
-                : "Tip: Paste model answers or solutions. You can also review and refine each question's rubric in the review step."}
+              Tip: Paste the Mark Scheme letters (for MCQ) or solutions. You can also edit images, videos, and rubrics individually in the next step.
             </p>
           </div>
         </div>
@@ -483,17 +527,27 @@ export function QbPdfImportModal({
         /* Review Step */
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/20 p-3">
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <span className="text-xs font-semibold uppercase tracking-wide text-primary">
-                Total Extracted:
+                Extracted:
               </span>
-              <span className="rounded-lg bg-primary/10 px-2 py-0.5 text-xs font-bold text-primary">
-                {extractedQuestions.length} {questionKind === "MCQ" ? "MCQ" : "Written"} Questions
+              <span className="rounded-lg bg-primary/10 px-2.5 py-0.5 text-xs font-bold text-primary">
+                {counts.total} Questions
               </span>
+              {counts.mcq > 0 ? (
+                <span className="rounded-md bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-700 dark:bg-blue-950/60 dark:text-blue-300">
+                  {counts.mcq} MCQ
+                </span>
+              ) : null}
+              {counts.written > 0 ? (
+                <span className="rounded-md bg-purple-100 px-2 py-0.5 text-[11px] font-semibold text-purple-700 dark:bg-purple-950/60 dark:text-purple-300">
+                  {counts.written} Written
+                </span>
+              ) : null}
             </div>
 
             <div className="flex items-center gap-3 text-xs">
-              <span className="text-muted-foreground">Default difficulty:</span>
+              <span className="text-muted-foreground">Set difficulty:</span>
               {(["EASY", "MEDIUM", "HARD"] as const).map((diff) => (
                 <button
                   key={diff}
@@ -521,17 +575,15 @@ export function QbPdfImportModal({
           <div className="max-h-[62vh] space-y-4 overflow-y-auto pr-1">
             {extractedQuestions.map((q, qIndex) => {
               const isWritten =
-                q.questionType === "SHORT_ANSWER" ||
-                q.questionType === "DATA_BASED" ||
-                questionKind === "WRITTEN";
+                q.questionType === "SHORT_ANSWER" || q.questionType === "DATA_BASED";
 
               return (
                 <div
                   key={q.number || qIndex}
-                  className="space-y-3 rounded-xl border border-border bg-card p-4 shadow-sm"
+                  className="space-y-3.5 rounded-xl border border-border bg-card p-4 shadow-sm"
                 >
-                  <div className="flex items-center justify-between border-b border-border/60 pb-2">
-                    <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-between border-b border-border/60 pb-2.5">
+                    <div className="flex flex-wrap items-center gap-2">
                       <span className="flex h-6 w-6 items-center justify-center rounded-md bg-primary text-xs font-bold text-primary-foreground">
                         {qIndex + 1}
                       </span>
@@ -539,39 +591,41 @@ export function QbPdfImportModal({
                         Question {q.number || qIndex + 1}
                       </span>
 
-                      {/* Format Pill / Switcher */}
+                      {/* Interactive Format Switcher Badge */}
                       <button
                         type="button"
                         onClick={() => toggleQuestionKind(qIndex)}
                         className={cn(
-                          "rounded-md px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition",
+                          "cursor-pointer rounded-md px-2.5 py-0.5 text-[11px] font-bold uppercase tracking-wider transition",
                           isWritten
                             ? "bg-purple-100 text-purple-700 hover:bg-purple-200 dark:bg-purple-950/60 dark:text-purple-300"
                             : "bg-blue-100 text-blue-700 hover:bg-blue-200 dark:bg-blue-950/60 dark:text-blue-300"
                         )}
-                        title="Click to toggle between MCQ and Written"
+                        title="Click to toggle between MCQ and Written format"
                       >
-                        {isWritten ? "Written" : "MCQ"}
+                        {isWritten ? "Written" : "MCQ"} (Click to flip)
                       </button>
 
-                      {/* Marks field */}
-                      <div className="flex items-center gap-1 text-xs">
-                        <span className="text-muted-foreground">Marks:</span>
-                        <input
-                          type="number"
-                          min={1}
-                          max={100}
-                          value={q.marks ?? 1}
-                          onChange={(e) =>
-                            updateQuestionField(
-                              qIndex,
-                              "marks",
-                              Math.max(1, Number.parseInt(e.target.value, 10) || 1)
-                            )
-                          }
-                          className="h-6 w-12 rounded border border-border bg-background px-1.5 text-center text-xs font-bold text-foreground focus:border-primary focus:outline-none"
-                        />
-                      </div>
+                      {/* Marks field for Written Questions */}
+                      {isWritten ? (
+                        <div className="flex items-center gap-1.5 text-xs">
+                          <span className="font-medium text-muted-foreground">Marks:</span>
+                          <input
+                            type="number"
+                            min={1}
+                            max={100}
+                            value={q.marks ?? 1}
+                            onChange={(e) =>
+                              updateQuestionField(
+                                qIndex,
+                                "marks",
+                                Math.max(1, Number.parseInt(e.target.value, 10) || 1)
+                              )
+                            }
+                            className="h-6 w-12 rounded border border-border bg-background px-1 text-center text-xs font-bold text-foreground focus:border-primary focus:outline-none"
+                          />
+                        </div>
+                      ) : null}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -617,10 +671,12 @@ export function QbPdfImportModal({
                     </div>
                   </div>
 
-                  {/* Prompt */}
+                  {/* Question Stem / Subparts Prompt */}
                   <div>
                     <label className="text-[11px] font-semibold uppercase text-muted-foreground">
-                      {isWritten ? "Question Problem / Stem & Sub-parts (a, b, c)" : "Question Prompt / Stem"}
+                      {isWritten
+                        ? "Question Problem / Stem & Sub-parts (a, b, c)"
+                        : "Question Prompt / Stem"}
                     </label>
                     <textarea
                       rows={Math.max(2, Math.min(8, (q.prompt.match(/\n/g) || []).length + 2))}
@@ -632,29 +688,78 @@ export function QbPdfImportModal({
                     />
                   </div>
 
-                  {/* Written Question: Mark Scheme & Solutions */}
-                  {isWritten ? (
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-[11px] font-semibold uppercase text-muted-foreground">
-                          Mark Scheme / Rubric / Expected Answer
-                        </label>
-                        <span className="text-[10px] text-muted-foreground">
-                          Shown to students after submission
-                        </span>
+                  {/* Interactive Image / Diagram Section */}
+                  <div className="space-y-2 rounded-xl border border-border/70 bg-muted/15 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 text-xs font-semibold text-foreground">
+                        <ImageIcon className="h-4 w-4 text-primary" />
+                        <span>Question Diagram / Graph / Stimulus Image</span>
                       </div>
-                      <textarea
-                        rows={2}
-                        value={q.markScheme ?? ""}
-                        onChange={(e) =>
-                          updateQuestionField(qIndex, "markScheme", e.target.value)
-                        }
-                        placeholder="Expected answer points, formulas, or marking scheme..."
-                        className="mt-1 w-full rounded-xl border border-border bg-background p-2 text-xs leading-relaxed text-foreground focus:border-primary focus:outline-none"
-                      />
+                      <div className="flex items-center gap-2">
+                        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1 text-xs font-medium text-foreground shadow-sm transition hover:border-primary/60 hover:bg-muted">
+                          {uploadingImageIndex === qIndex ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                          ) : (
+                            <Upload className="h-3.5 w-3.5 text-primary" />
+                          )}
+                          <span>{q.diagramUrl ? "Replace image" : "Upload image"}</span>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            disabled={uploadingImageIndex !== null}
+                            onChange={(e) =>
+                              void onUploadQuestionImage(qIndex, e.target.files?.[0])
+                            }
+                          />
+                        </label>
+                        {q.diagramUrl ? (
+                          <button
+                            type="button"
+                            onClick={() => updateQuestionField(qIndex, "diagramUrl", null)}
+                            className="rounded-lg border border-accent/20 bg-accent/5 px-2 py-1 text-xs font-medium text-accent hover:bg-accent/15"
+                          >
+                            Remove
+                          </button>
+                        ) : null}
+                      </div>
                     </div>
-                  ) : (
-                    /* MCQ Options grid */
+
+                    {q.diagramUrl ? (
+                      <div className="space-y-1.5">
+                        <div className="relative overflow-hidden rounded-lg border border-border bg-background/80 p-2 text-center">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={q.diagramUrl}
+                            alt={`Q${qIndex + 1} diagram`}
+                            className="mx-auto max-h-56 rounded object-contain shadow-xs"
+                          />
+                        </div>
+                        <input
+                          type="text"
+                          value={q.diagramUrl}
+                          onChange={(e) =>
+                            updateQuestionField(qIndex, "diagramUrl", e.target.value.trim() || null)
+                          }
+                          className="w-full truncate rounded-md border border-border/80 bg-background px-2 py-1 text-[11px] text-muted-foreground focus:border-primary focus:outline-none"
+                          title="Image URL"
+                        />
+                      </div>
+                    ) : (
+                      <input
+                        type="text"
+                        value={q.diagramUrl ?? ""}
+                        onChange={(e) =>
+                          updateQuestionField(qIndex, "diagramUrl", e.target.value.trim() || null)
+                        }
+                        placeholder="Paste image URL (https://...) or click 'Upload image' above"
+                        className="w-full rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs text-foreground focus:border-primary focus:outline-none"
+                      />
+                    )}
+                  </div>
+
+                  {/* MCQ Options Grid */}
+                  {!isWritten ? (
                     <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
                       {OPTION_LETTERS.map((letter, optIndex) => {
                         const isSelected =
@@ -697,29 +802,59 @@ export function QbPdfImportModal({
                         );
                       })}
                     </div>
-                  )}
+                  ) : null}
 
-                  {/* Diagram URL input */}
-                  <div className="flex items-center gap-2 pt-1 text-xs">
-                    <ImageIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                    <span className="text-muted-foreground">Diagram / Image URL:</span>
+                  {/* Mark Scheme / Expected Answer */}
+                  <div>
+                    <div className="flex items-center justify-between pb-1">
+                      <label className="text-[11px] font-semibold uppercase text-muted-foreground">
+                        {isWritten
+                          ? "Mark Scheme / Model Answer & Rubric"
+                          : "Explanation / Mark Scheme (Optional)"}
+                      </label>
+                      <span className="text-[10px] text-muted-foreground">
+                        Revealed to students in solutions
+                      </span>
+                    </div>
+                    <textarea
+                      rows={isWritten ? 3 : 2}
+                      value={q.markScheme ?? ""}
+                      onChange={(e) =>
+                        updateQuestionField(qIndex, "markScheme", e.target.value)
+                      }
+                      placeholder={
+                        isWritten
+                          ? "Key formulas, calculation steps, acceptable answers and marks distribution..."
+                          : "Explanation for why this answer is correct..."
+                      }
+                      className="w-full rounded-xl border border-border bg-background p-2.5 text-xs leading-relaxed text-foreground focus:border-primary focus:outline-none"
+                    />
+                  </div>
+
+                  {/* Video Solution Link */}
+                  <div className="flex items-center gap-2 rounded-lg border border-border/70 bg-muted/15 px-3 py-2 text-xs">
+                    <Video className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="shrink-0 font-medium text-muted-foreground">
+                      Video Solution URL:
+                    </span>
                     <input
                       type="text"
-                      value={q.diagramUrl ?? ""}
+                      value={q.videoUrl ?? ""}
                       onChange={(e) =>
-                        updateQuestionField(qIndex, "diagramUrl", e.target.value)
+                        updateQuestionField(qIndex, "videoUrl", e.target.value.trim() || null)
                       }
-                      placeholder="https://... (optional image for stimulus or graph)"
-                      className="min-w-0 flex-1 rounded-lg border border-border bg-background px-2 py-1 text-xs text-foreground focus:border-primary focus:outline-none"
+                      placeholder="e.g. https://www.youtube.com/watch?v=... or MP4 URL (optional)"
+                      className="min-w-0 flex-1 bg-transparent text-xs text-foreground placeholder:text-muted-foreground focus:outline-none"
                     />
-                    {q.diagramUrl ? (
+                    {q.videoUrl ? (
                       <a
-                        href={q.diagramUrl}
+                        href={q.videoUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="text-xs text-primary underline"
+                        className="inline-flex shrink-0 items-center gap-1 font-semibold text-primary underline"
                       >
-                        View
+                        <span>Preview</span>
+                        <ExternalLink className="h-3 w-3" />
                       </a>
                     ) : null}
                   </div>

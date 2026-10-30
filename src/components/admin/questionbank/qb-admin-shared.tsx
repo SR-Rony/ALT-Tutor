@@ -517,18 +517,45 @@ export function AdminQuestionDropdown({
                   />
                 </div>
               ) : null}
-              <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-                <span>
-                  Answer:{" "}
-                  <strong className="text-foreground">{question.correctAnswer.toUpperCase()}</strong>
-                </span>
-                {question.markScheme ? <span>Mark scheme available</span> : null}
-                {question.videoUrl ? <span>Video solution available</span> : null}
+              <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                {question.options.length > 0 ? (
+                  <span>
+                    Answer:{" "}
+                    <strong className="text-foreground">{question.correctAnswer.toUpperCase()}</strong>
+                  </span>
+                ) : (
+                  <span>
+                    Type: <strong className="text-foreground">Written Question</strong>
+                    {question.marks != null ? ` · [${question.marks} marks]` : ""}
+                  </span>
+                )}
+                {question.videoUrl ? (
+                  <a
+                    href={question.videoUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 font-semibold text-primary hover:underline"
+                  >
+                    <Video className="h-3.5 w-3.5" /> Watch video solution
+                  </a>
+                ) : null}
               </div>
-              <Button type="button" size="sm" onClick={() => setStep(0)} disabled={maxStep < 0}>
-                Next: A1
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+
+              {question.markScheme ? (
+                <div className="rounded-xl border border-primary/20 bg-primary-muted/25 p-3 text-xs text-foreground">
+                  <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-primary">
+                    Mark scheme / Solution
+                  </p>
+                  <RichTextContent html={question.markScheme} />
+                </div>
+              ) : null}
+
+              {maxStep >= 0 ? (
+                <Button type="button" size="sm" onClick={() => setStep(0)}>
+                  View Options: A1
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              ) : null}
             </div>
           ) : (
             <div className="space-y-3 rounded-xl border border-border bg-card p-4">

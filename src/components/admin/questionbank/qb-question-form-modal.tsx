@@ -337,12 +337,13 @@ export function QbQuestionFormModal({
         </div>
 
         <div className="space-y-2">
-          <span className="text-sm font-semibold">Cover diagram URL (optional)</span>
+          <span className="text-sm font-semibold">Question Diagram / Graph (optional)</span>
           <div className="flex flex-wrap gap-2">
             <Input
               value={diagramUrl}
               onChange={(e) => setDiagramUrl(e.target.value)}
-              placeholder="https://… — or insert images in the editor above"
+              placeholder="https://… — or upload an image file"
+              className="min-w-0 flex-1"
             />
             <Button
               type="button"
@@ -353,6 +354,17 @@ export function QbQuestionFormModal({
             >
               {uploadingField === "diagram" ? "Uploading…" : "Upload"}
             </Button>
+            {diagramUrl ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="text-accent hover:text-accent"
+                onClick={() => setDiagramUrl("")}
+              >
+                Remove
+              </Button>
+            ) : null}
             <input
               ref={diagramUploadRef}
               type="file"
@@ -361,6 +373,16 @@ export function QbQuestionFormModal({
               onChange={(e) => void onUploadMedia("diagram", e.target.files?.[0])}
             />
           </div>
+          {diagramUrl ? (
+            <div className="relative mt-2 overflow-hidden rounded-xl border border-border bg-muted/20 p-2 text-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={diagramUrl}
+                alt="Diagram preview"
+                className="mx-auto max-h-56 rounded object-contain"
+              />
+            </div>
+          ) : null}
         </div>
 
         {questionKind === "MCQ" ? (

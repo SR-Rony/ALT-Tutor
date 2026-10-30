@@ -73,6 +73,7 @@ export type ParsedPdfQuestion = {
   prompt: string;
   body?: string | null;
   diagramUrl?: string | null;
+  videoUrl?: string | null;
   difficulty?: QbDifficulty;
   paper?: QbPaper;
   questionType?: QbQuestionType;
@@ -88,5 +89,5 @@ export type ParsePdfResult = {
   totalFound: number;
   questions: ParsedPdfQuestion[];
   errors: string[];
-  detectedKind?: "MCQ" | "WRITTEN";
+  detectedKind?: "MCQ" | "WRITTEN" | "MIXED";
 };
