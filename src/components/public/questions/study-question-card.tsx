@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import {
   Bookmark,
+  BookOpen,
   Check,
   CheckCircle2,
   Expand,
@@ -11,6 +12,7 @@ import {
   PlayCircle,
   ThumbsDown,
   ThumbsUp,
+  Trash2,
   XCircle,
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
@@ -104,9 +106,34 @@ export function StudyQuestionCard({
   idPrefix = "q",
   dataAttr,
 }: StudyQuestionCardProps) {
-  const [modal, setModal] = useState<"scheme" | "video" | null>(null);
+  const [modal, setModal] = useState<"scheme" | "video" | "notes" | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [localCompleted, setLocalCompleted] = useState(false);
+  const [studentNote, setStudentNote] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      return localStorage.getItem(`alt_qb_note_${question.id}`) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [noteSaved, setNoteSaved] = useState(false);
+
+  const handleSaveNote = (text: string) => {
+    setStudentNote(text);
+    setNoteSaved(true);
+    try {
+      if (text.trim()) {
+        localStorage.setItem(`alt_qb_note_${question.id}`, text);
+      } else {
+        localStorage.removeItem(`alt_qb_note_${question.id}`);
+      }
+    } catch {
+      // ignore
+    }
+    setTimeout(() => setNoteSaved(false), 2000);
+  };
+
   const isCompleted = completed ?? localCompleted;
   const toggleComplete =
     onToggleComplete ?? (() => setLocalCompleted((v) => !v));
@@ -360,6 +387,17 @@ export function StudyQuestionCard({
               </span>
             ) : null}
           </button>
+          <button
+            type="button"
+            className={SIDE_ACTION_CLASS}
+            onClick={() => setModal("notes")}
+          >
+            <BookOpen className="h-4 w-4 shrink-0" />
+            Notes
+            {studentNote.trim() ? (
+              <span className="ml-auto flex h-2 w-2 rounded-full bg-primary" title="Note saved" />
+            ) : null}
+          </button>
 
           {question.paperMarkSchemeUrl ? (
             <div className="order-4 ml-auto flex flex-wrap gap-x-1 lg:order-none lg:ml-0 lg:mt-auto lg:flex-col lg:pt-4">
@@ -475,6 +513,69 @@ export function StudyQuestionCard({
             1 video available
           </div>
           {videoUrl ? <VideoEmbed key={videoUrl} url={videoUrl} /> : null}
+        </div>
+      </AdminModal>
+
+      <AdminModal
+        open={modal === "notes"}
+        title="Question Notes"
+        description={`${qLabel} · Study notes & key reminders`}
+        onClose={() => setModal(null)}
+        className="sm:max-w-2xl"
+        footer={
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+              {noteSaved ? (
+                <span className="flex items-center gap-1 font-semibold text-accent-green">
+                  <Check className="h-3.5 w-3.5" /> Auto-saved
+                </span>
+              ) : studentNote.trim() ? (
+                <span>Auto-saved to your study session</span>
+              ) : (
+                <span>Type your personal reminders or formulas</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              {studentNote.trim() ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-accent"
+                  onClick={() => handleSaveNote("")}
+                >
+                  <Trash2 className="mr-1 h-3.5 w-3.5" />
+                  Clear Note
+                </Button>
+              ) : null}
+              <Button type="button" variant="outline" onClick={() => setModal(null)}>
+                Done
+              </Button>
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="inline-flex items-center gap-2 rounded-lg bg-primary-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
+            <BookOpen className="h-3.5 w-3.5" />
+            Revision & Personal Notes
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Your Personal Notes for this Question
+            </label>
+            <textarea
+              rows={8}
+              value={studentNote}
+              onChange={(e) => handleSaveNote(e.target.value)}
+              placeholder="Write your notes, important points, common mistakes to avoid, or formulas for this question here..."
+              className="w-full rounded-xl border border-border bg-background p-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Notes are automatically saved for your profile on this device.
+            </p>
+          </div>
         </div>
       </AdminModal>
     </section>
