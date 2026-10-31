@@ -63,7 +63,7 @@ export function RichTextContent({
   return (
     <ResolvedTag
       className={cn(
-        "rich-text-content whitespace-pre-wrap",
+        "rich-text-content",
         inline && "rich-text-content--inline",
         className
       )}
