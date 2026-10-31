@@ -15,6 +15,10 @@ type RichTextContentProps = {
   inline?: boolean;
 };
 
+function replaceNuclideSyntax(text: string): string {
+  return text.replace(/\^\{(\d{1,3})\}_\{(\d{1,3})\}([A-Za-z]+)/g, "<sup>$1</sup><sub>$2</sub>$3");
+}
+
 export function RichTextContent({
   html,
   className,
@@ -23,14 +27,15 @@ export function RichTextContent({
 }: RichTextContentProps) {
   const rendered = useMemo(() => {
     if (!html?.trim()) return null;
-    if (!looksLikeHtml(html)) {
-      const enhanced = enhanceSlashEquationsHtml(html);
-      if (enhanced !== html && enhanced.includes("qb-math")) {
+    const normalizedHtml = replaceNuclideSyntax(html);
+    if (!looksLikeHtml(normalizedHtml)) {
+      const enhanced = enhanceSlashEquationsHtml(normalizedHtml);
+      if (enhanced !== normalizedHtml && enhanced.includes("qb-math")) {
         return { kind: "html" as const, html: enhanced };
       }
-      return { kind: "plain" as const, text: html };
+      return { kind: "plain" as const, text: normalizedHtml };
     }
-    const clean = sanitizeRichHtml(html);
+    const clean = sanitizeRichHtml(normalizedHtml);
     const withStoredMath = hydrateKatexHtml(clean);
     const withEquations = enhanceSlashEquationsHtml(withStoredMath);
     return { kind: "html" as const, html: withEquations };
@@ -43,7 +48,12 @@ export function RichTextContent({
   if (rendered.kind === "plain") {
     return (
       <ResolvedTag
-        className={cn(inline && "rich-text-content--inline", "whitespace-pre-line", className)}
+        className={cn(
+          "rich-text-content",
+          inline && "rich-text-content--inline",
+          "whitespace-pre-wrap break-words",
+          className
+        )}
       >
         {rendered.text}
       </ResolvedTag>
@@ -52,7 +62,11 @@ export function RichTextContent({
 
   return (
     <ResolvedTag
-      className={cn("rich-text-content", inline && "rich-text-content--inline", className)}
+      className={cn(
+        "rich-text-content whitespace-pre-wrap",
+        inline && "rich-text-content--inline",
+        className
+      )}
       dangerouslySetInnerHTML={{ __html: rendered.html }}
     />
   );

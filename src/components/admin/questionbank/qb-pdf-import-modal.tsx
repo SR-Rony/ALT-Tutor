@@ -33,6 +33,7 @@ import type {
 import type { QbDifficulty, QbPaper, QbPaperConfig, QbPaperKind } from "@/types/qb.types";
 import { cn } from "@/utils";
 import { kindForPaper, paperShortLabel } from "./qb-admin-shared";
+import { looksLikeHtml, normalizeRichTextContent } from "@/lib/rich-text";
 
 const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
 
@@ -684,7 +685,7 @@ export function QbPdfImportModal({
                       onChange={(e) =>
                         updateQuestionField(qIndex, "prompt", e.target.value)
                       }
-                      className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 text-sm leading-relaxed text-foreground focus:border-primary focus:outline-none"
+                      className="mt-1 w-full rounded-xl border border-border bg-background p-2.5 font-mono text-xs sm:text-sm leading-relaxed text-foreground whitespace-pre focus:border-primary focus:outline-none"
                     />
                   </div>
 
