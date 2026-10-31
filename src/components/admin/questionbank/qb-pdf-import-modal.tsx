@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   AlertCircle,
   ArrowLeft,
+  BookOpen,
   CheckCircle2,
   ExternalLink,
   FileText,
@@ -226,6 +227,7 @@ export function QbPdfImportModal({
               options: [],
               correctAnswer: q.markScheme?.trim() || "SEE_MARK_SCHEME",
               markScheme: q.markScheme ?? null,
+              notes: q.notes ?? null,
               order: idx,
               isActive: true,
             };
@@ -248,6 +250,7 @@ export function QbPdfImportModal({
               : ["Option A", "Option B", "Option C", "Option D"],
             correctAnswer: (q.correctAnswer || "A").toUpperCase(),
             markScheme: q.markScheme ?? null,
+            notes: q.notes ?? null,
             order: idx,
             isActive: true,
           };
@@ -858,6 +861,30 @@ export function QbPdfImportModal({
                         <ExternalLink className="h-3 w-3" />
                       </a>
                     ) : null}
+                  </div>
+
+                  {/* Question Notes / Theory (Optional) */}
+                  <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-muted/15 px-3 py-2 text-xs">
+                    <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-muted-foreground">
+                          Question Notes / Key Concepts (Optional):
+                        </span>
+                        <span className="text-[10px] text-muted-foreground">
+                          Visible via student &quot;Notes&quot; button
+                        </span>
+                      </div>
+                      <textarea
+                        rows={2}
+                        value={q.notes ?? ""}
+                        onChange={(e) =>
+                          updateQuestionField(qIndex, "notes", e.target.value.trim() || null)
+                        }
+                        placeholder="Key formulas, definitions, revision tips, or theory explanation for students..."
+                        className="w-full bg-transparent text-xs leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
               );

@@ -44,6 +44,7 @@ export type StudyQuestionView = {
   options: string[];
   markScheme?: string | null;
   videoUrl?: string | null;
+  notes?: string | null;
   correctAnswer?: string | null;
   isCorrect?: boolean | null;
   paperMarkSchemeUrl?: string | null;
@@ -394,8 +395,8 @@ export function StudyQuestionCard({
           >
             <BookOpen className="h-4 w-4 shrink-0" />
             Notes
-            {studentNote.trim() ? (
-              <span className="ml-auto flex h-2 w-2 rounded-full bg-primary" title="Note saved" />
+            {question.notes || studentNote.trim() ? (
+              <span className="ml-auto flex h-2 w-2 rounded-full bg-primary" title="Notes available" />
             ) : null}
           </button>
 
@@ -556,17 +557,24 @@ export function StudyQuestionCard({
         }
       >
         <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-lg bg-primary-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
-            <BookOpen className="h-3.5 w-3.5" />
-            Revision & Personal Notes
-          </div>
+          {question.notes ? (
+            <div className="space-y-2 rounded-xl border border-primary/20 bg-primary-muted/20 p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                <BookOpen className="h-3.5 w-3.5" />
+                Revision & Solution Notes
+              </div>
+              <div className="text-sm leading-relaxed text-foreground">
+                <RichTextContent html={question.notes} />
+              </div>
+            </div>
+          ) : null}
 
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Your Personal Notes for this Question
+              {question.notes ? "My Personal Notes" : "Personal Study Notes"}
             </label>
             <textarea
-              rows={8}
+              rows={question.notes ? 5 : 8}
               value={studentNote}
               onChange={(e) => handleSaveNote(e.target.value)}
               placeholder="Write your notes, important points, common mistakes to avoid, or formulas for this question here..."

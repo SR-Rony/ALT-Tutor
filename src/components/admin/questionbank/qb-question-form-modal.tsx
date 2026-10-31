@@ -69,6 +69,7 @@ export function QbQuestionFormModal({
   const [difficulty, setDifficulty] = useState<QbDifficulty>("EASY");
   const [paper, setPaper] = useState<QbPaper>("PAPER_1");
   const [markScheme, setMarkScheme] = useState("");
+  const [notes, setNotes] = useState("");
   const [diagramUrl, setDiagramUrl] = useState("");
   const [videoUrl, setVideoUrl] = useState("");
   const [marks, setMarks] = useState("1");
@@ -116,6 +117,7 @@ export function QbQuestionFormModal({
       setDifficulty((question.difficulty as QbDifficulty) || "EASY");
       setPaper(questionPaper);
       setMarkScheme(question.markScheme ?? "");
+      setNotes(question.notes ?? "");
       setDiagramUrl(question.diagramUrl ?? "");
       setVideoUrl(question.videoUrl ?? "");
       setMarks(String(question.marks ?? 1));
@@ -135,6 +137,7 @@ export function QbQuestionFormModal({
     setDifficulty("EASY");
     setPaper(startPaper);
     setMarkScheme("");
+    setNotes("");
     setDiagramUrl("");
     setVideoUrl("");
     setMarks("1");
@@ -230,6 +233,7 @@ export function QbQuestionFormModal({
         parsedYear != null && Number.isFinite(parsedYear) && parsedYear >= 1900 ? parsedYear : null,
       sourceLabel: sourceLabel.trim() || null,
       markScheme: serializeRichText(markScheme) || null,
+      notes: serializeRichText(notes) || null,
       diagramUrl: diagramUrl.trim() || null,
       videoUrl: videoUrl.trim() || null,
     };
@@ -522,6 +526,20 @@ export function QbQuestionFormModal({
             minHeight="120px"
             disabled={busy}
           />
+        </div>
+
+        <div className="block space-y-1.5">
+          <span className="text-sm font-semibold">Question Notes (optional)</span>
+          <RichTextEditor
+            value={notes}
+            onChange={setNotes}
+            placeholder="Revision notes, key formulas, reminders, or theory explanation for students…"
+            minHeight="120px"
+            disabled={busy}
+          />
+          <p className="text-xs text-muted-foreground">
+            Students can view these notes by clicking the &quot;Notes&quot; button on this question card.
+          </p>
         </div>
       </div>
     </AdminModal>

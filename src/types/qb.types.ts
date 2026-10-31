@@ -23,6 +23,7 @@ export interface QbQuestion {
   correctAnswer: string;
   markScheme?: string | null;
   videoUrl?: string | null;
+  notes?: string | null;
   order: number;
   isActive: boolean;
   subtopicId: string;

@@ -43,6 +43,7 @@ export type CreateQbQuestionInput = {
   correctAnswer: string;
   markScheme?: string | null;
   videoUrl?: string | null;
+  notes?: string | null;
   order?: number;
   isActive?: boolean;
 };
@@ -82,6 +83,7 @@ export type ParsedPdfQuestion = {
   options: string[];
   correctAnswer: string;
   markScheme?: string | null;
+  notes?: string | null;
   order?: number;
 };
 
