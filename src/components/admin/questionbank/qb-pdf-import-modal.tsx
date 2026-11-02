@@ -32,7 +32,7 @@ import type {
   ParsedPdfQuestion,
 } from "@/services/questionbank-admin.types";
 import type { QbDifficulty, QbPaper, QbPaperConfig, QbPaperKind } from "@/types/qb.types";
-import { cn } from "@/utils";
+import { cn, combineNotesParts, extractNotesParts } from "@/utils";
 import { kindForPaper, paperShortLabel } from "./qb-admin-shared";
 import { looksLikeHtml, normalizeRichTextContent } from "@/lib/rich-text";
 
@@ -69,6 +69,7 @@ export function QbPdfImportModal({
   const [error, setError] = useState<string | null>(null);
   const [batchDifficulty, setBatchDifficulty] = useState<QbDifficulty>("EASY");
   const [uploadingImageIndex, setUploadingImageIndex] = useState<number | null>(null);
+  const [uploadingNotesPdfIndex, setUploadingNotesPdfIndex] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -198,6 +199,23 @@ export function QbPdfImportModal({
     }
   };
 
+  const onUploadQuestionNotesPdf = async (qIndex: number, file: File | undefined) => {
+    if (!file) return;
+    setError(null);
+    setUploadingNotesPdfIndex(qIndex);
+    try {
+      const res = await uploadService.upload(file, "questionbank");
+      const current = extractedQuestions[qIndex]?.notes || "";
+      const { text } = extractNotesParts(current);
+      const combined = combineNotesParts(text, res.url);
+      updateQuestionField(qIndex, "notes", combined);
+    } catch (err) {
+      setError((err as ApiError)?.message || "Failed to upload notes PDF");
+    } finally {
+      setUploadingNotesPdfIndex(null);
+    }
+  };
+
   const deleteExtractedQuestion = (index: number) => {
     setExtractedQuestions((prev) => prev.filter((_, i) => i !== index));
   };
@@ -270,7 +288,11 @@ export function QbPdfImportModal({
     }
   };
 
-  const isBusy = parsePdf.isPending || bulkCreate.isPending || uploadingImageIndex !== null;
+  const isBusy =
+    parsePdf.isPending ||
+    bulkCreate.isPending ||
+    uploadingImageIndex !== null ||
+    uploadingNotesPdfIndex !== null;
 
   const counts = useMemo(() => {
     let mcq = 0;
@@ -864,28 +886,78 @@ export function QbPdfImportModal({
                   </div>
 
                   {/* Question Notes / Theory (Optional) */}
-                  <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-muted/15 px-3 py-2 text-xs">
-                    <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium text-muted-foreground">
-                          Question Notes / Key Concepts (Optional):
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          Visible via student &quot;Notes&quot; button
-                        </span>
+                  {(() => {
+                    const { text: notesText, pdfUrl: notesPdfUrl } = extractNotesParts(q.notes);
+                    return (
+                      <div className="flex items-start gap-2 rounded-lg border border-border/70 bg-muted/15 px-3 py-2 text-xs">
+                        <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                        <div className="flex-1 space-y-1.5">
+                          <div className="flex flex-wrap items-center justify-between gap-1">
+                            <span className="font-medium text-muted-foreground">
+                              Question Notes / Key Concepts (Optional):
+                            </span>
+                            <div className="flex items-center gap-2">
+                              {notesPdfUrl ? (
+                                <div className="inline-flex items-center gap-1 font-semibold text-primary">
+                                  <FileText className="h-3 w-3" />
+                                  <a
+                                    href={notesPdfUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center gap-0.5 hover:underline"
+                                  >
+                                    <span>PDF attached</span>
+                                    <ExternalLink className="h-2.5 w-2.5" />
+                                  </a>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const combined = combineNotesParts(notesText, null);
+                                      updateQuestionField(qIndex, "notes", combined);
+                                    }}
+                                    className="ml-1 text-destructive hover:underline"
+                                    title="Remove PDF"
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              ) : null}
+                              <label className="inline-flex cursor-pointer items-center gap-1 rounded border border-border bg-card px-2 py-0.5 text-[11px] font-semibold text-primary hover:bg-muted">
+                                {uploadingNotesPdfIndex === qIndex ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    <span>Uploading…</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Upload className="h-3 w-3" />
+                                    <span>{notesPdfUrl ? "Change PDF" : "Upload PDF Note"}</span>
+                                  </>
+                                )}
+                                <input
+                                  type="file"
+                                  accept=".pdf,application/pdf"
+                                  className="hidden"
+                                  disabled={isBusy}
+                                  onChange={(e) => void onUploadQuestionNotesPdf(qIndex, e.target.files?.[0])}
+                                />
+                              </label>
+                            </div>
+                          </div>
+                          <textarea
+                            rows={2}
+                            value={notesText}
+                            onChange={(e) => {
+                              const combined = combineNotesParts(e.target.value.trim() || "", notesPdfUrl);
+                              updateQuestionField(qIndex, "notes", combined);
+                            }}
+                            placeholder="Key formulas, definitions, revision tips, or theory explanation for students..."
+                            className="w-full bg-transparent text-xs leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
+                          />
+                        </div>
                       </div>
-                      <textarea
-                        rows={2}
-                        value={q.notes ?? ""}
-                        onChange={(e) =>
-                          updateQuestionField(qIndex, "notes", e.target.value.trim() || null)
-                        }
-                        placeholder="Key formulas, definitions, revision tips, or theory explanation for students..."
-                        className="w-full bg-transparent text-xs leading-relaxed text-foreground placeholder:text-muted-foreground focus:outline-none"
-                      />
-                    </div>
-                  </div>
+                    );
+                  })()}
                 </div>
               );
             })}

@@ -1,4 +1,5 @@
 export { cn } from "./cn";
+export { extractNotesParts, combineNotesParts, type ParsedNotes } from "./notes-helper";
 export {
   compareByOrderThenNaturalTitle,
   compareNaturalTitle,

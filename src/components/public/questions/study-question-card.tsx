@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   Bookmark,
   BookOpen,
   Check,
   CheckCircle2,
+  Download,
+  Eye,
   Expand,
   ExternalLink,
   FileText,
@@ -19,7 +21,8 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { isRichTextEmpty, richTextToPlain } from "@/lib/rich-text";
-import { cn } from "@/utils";
+import { cn, extractNotesParts } from "@/utils";
+import { getInlinePdfUrl } from "@/utils/pdf-viewer";
 import {
   DifficultyDots,
   STUDY_QUESTION_LETTERS,
@@ -110,6 +113,7 @@ export function StudyQuestionCard({
   const [modal, setModal] = useState<"scheme" | "video" | "notes" | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [localCompleted, setLocalCompleted] = useState(false);
+  const [showNotesPdf, setShowNotesPdf] = useState(false);
   const [studentNote, setStudentNote] = useState(() => {
     if (typeof window === "undefined") return "";
     try {
@@ -119,6 +123,11 @@ export function StudyQuestionCard({
     }
   });
   const [noteSaved, setNoteSaved] = useState(false);
+
+  const { text: notesText, pdfUrl: notesPdfUrl } = useMemo(
+    () => extractNotesParts(question.notes),
+    [question.notes]
+  );
 
   const handleSaveNote = (text: string) => {
     setStudentNote(text);
@@ -520,9 +529,9 @@ export function StudyQuestionCard({
       <AdminModal
         open={modal === "notes"}
         title="Question Notes"
-        description={`${qLabel} · Study notes & key reminders`}
+        description={`${qLabel} · Study notes, attached PDF & key reminders`}
         onClose={() => setModal(null)}
-        className="sm:max-w-2xl"
+        className={notesPdfUrl && showNotesPdf ? "sm:max-w-4xl" : "sm:max-w-2xl"}
         footer={
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -557,24 +566,76 @@ export function StudyQuestionCard({
         }
       >
         <div className="space-y-4">
-          {question.notes ? (
+          {/* Attached PDF Notes Document */}
+          {notesPdfUrl ? (
+            <div className="space-y-3 rounded-2xl border border-primary/25 bg-primary/5 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">
+                      Revision & Solution Notes (PDF)
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Official document attached to this question
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowNotesPdf((prev) => !prev)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted"
+                  >
+                    <Eye className="h-3.5 w-3.5 text-primary" />
+                    <span>{showNotesPdf ? "Hide Preview" : "Preview PDF"}</span>
+                  </button>
+                  <a
+                    href={getInlinePdfUrl(notesPdfUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>Open Fullscreen</span>
+                  </a>
+                </div>
+              </div>
+
+              {showNotesPdf ? (
+                <div className="overflow-hidden rounded-xl border border-border bg-background shadow-inner">
+                  <iframe
+                    src={`${getInlinePdfUrl(notesPdfUrl)}#view=FitH`}
+                    title="Revision Notes PDF"
+                    className="h-[min(65vh,550px)] w-full border-0 bg-white"
+                  />
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Written Theory & Revision Notes */}
+          {notesText ? (
             <div className="space-y-2 rounded-xl border border-primary/20 bg-primary-muted/20 p-4">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
                 <BookOpen className="h-3.5 w-3.5" />
                 Revision & Solution Notes
               </div>
               <div className="text-sm leading-relaxed text-foreground">
-                <RichTextContent html={question.notes} />
+                <RichTextContent html={notesText} />
               </div>
             </div>
           ) : null}
 
           <div className="space-y-2">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {question.notes ? "My Personal Notes" : "Personal Study Notes"}
+              {notesPdfUrl || notesText ? "My Personal Notes" : "Personal Study Notes"}
             </label>
             <textarea
-              rows={question.notes ? 5 : 8}
+              rows={notesPdfUrl || notesText ? 4 : 8}
               value={studentNote}
               onChange={(e) => handleSaveNote(e.target.value)}
               placeholder="Write your notes, important points, common mistakes to avoid, or formulas for this question here..."
