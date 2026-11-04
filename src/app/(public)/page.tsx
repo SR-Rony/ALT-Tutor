@@ -3,10 +3,12 @@ import {
   HomeCoreFeatures,
   HomeCustomExamBuilder,
   HomeExploreSubjects,
+  HomeFinalCta,
   HomeHero,
   HomeHowItWorks,
   HomeMarketplaceSection,
   HomeStatsSection,
+  HomeTestimonials,
 } from "@/components/public/home";
 
 export default function HomePage() {
@@ -20,6 +22,8 @@ export default function HomePage() {
       <HomeExploreSubjects />
       <HomeAnimatedVideoLessons />
       <HomeHowItWorks />
+      <HomeTestimonials />
+      <HomeFinalCta />
     </>
   );
 }

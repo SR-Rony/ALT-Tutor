@@ -6,6 +6,8 @@ export { HomeCustomExamBuilder } from "./home-custom-exam-builder";
 export { HomeExploreSubjects } from "./home-explore-subjects";
 export { HomeAnimatedVideoLessons } from "./home-animated-video-lessons";
 export { HomeHowItWorks } from "./home-how-it-works";
+export { HomeTestimonials } from "./home-testimonials";
+export { HomeFinalCta } from "./home-final-cta";
 export { HomePracticeQuestions } from "./home-practice-questions";
 export { HomeAcademicProgram } from "./home-academic-program";
 export { HomeAnimatedLessons } from "./home-animated-lessons";
