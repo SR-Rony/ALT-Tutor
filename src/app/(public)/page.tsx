@@ -1,4 +1,5 @@
 import {
+  HomeAnimatedVideoLessons,
   HomeCoreFeatures,
   HomeCustomExamBuilder,
   HomeExploreSubjects,
@@ -16,6 +17,7 @@ export default function HomePage() {
       <HomeMarketplaceSection />
       <HomeCustomExamBuilder />
       <HomeExploreSubjects />
+      <HomeAnimatedVideoLessons />
     </>
   );
 }
