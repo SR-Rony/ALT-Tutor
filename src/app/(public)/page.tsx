@@ -1,25 +1,15 @@
 import {
-  HomeAboutSection,
-  HomeAcademicProgram,
-  HomeAnimatedLessons,
-  HomeHelpSection,
+  HomeCoreFeatures,
   HomeHero,
-  HomePhotoGallery,
-  HomePracticeQuestions,
-  HomeStudentReviews,
+  HomeStatsSection,
 } from "@/components/public/home";
 
 export default function HomePage() {
   return (
     <>
       <HomeHero />
-      <HomePracticeQuestions />
-      <HomeAcademicProgram />
-      <HomeAnimatedLessons />
-      <HomeAboutSection />
-      <HomeStudentReviews />
-      <HomePhotoGallery />
-      <HomeHelpSection />
+      <HomeStatsSection />
+      <HomeCoreFeatures />
     </>
   );
 }
