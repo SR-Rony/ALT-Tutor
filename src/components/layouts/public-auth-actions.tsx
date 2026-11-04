@@ -68,34 +68,40 @@ export function PublicAuthActions({ mobile = false, onNavigate }: PublicAuthActi
   if (!isAuthenticated || !user) {
     if (mobile) {
       return (
-        <div className="space-y-2">
-          <Button asChild variant="outline" size="pill" className="w-full">
-            <Link href={ROUTES.auth.login} onClick={onNavigate}>
-              Log In
-            </Link>
-          </Button>
-          <Button asChild variant="default" size="pill" className="w-full">
-            <Link href={ROUTES.auth.register} onClick={onNavigate}>
-              Sign Up
-            </Link>
-          </Button>
+        <div className="flex flex-col gap-2 pt-1">
+          <Link
+            href={ROUTES.auth.login}
+            onClick={onNavigate}
+            className="flex items-center justify-center rounded-xl border border-slate-300 bg-white py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50 hover:text-[#1D4ED8]"
+          >
+            Log in
+          </Link>
+          <Link
+            href={ROUTES.auth.register}
+            onClick={onNavigate}
+            className="flex items-center justify-center rounded-xl bg-[#1D4ED8] py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[#1E40AF]"
+          >
+            Get Started
+          </Link>
         </div>
       );
     }
 
     return (
-      <>
-        <Button asChild variant="secondary" size="pill" className="hidden sm:inline-flex lg:px-5">
-          <Link href={ROUTES.auth.login}>
-            <span>Log In / Sign Up</span>
-          </Link>
-        </Button>
-        <Button asChild variant="secondary" size="sm" className="rounded-full px-3 sm:hidden">
-          <Link href={ROUTES.auth.login}>
-            <span>Log In</span>
-          </Link>
-        </Button>
-      </>
+      <div className="flex items-center gap-4">
+        <Link
+          href={ROUTES.auth.login}
+          className="text-sm font-semibold text-slate-700 transition-colors hover:text-[#1D4ED8]"
+        >
+          Log in
+        </Link>
+        <Link
+          href={ROUTES.auth.register}
+          className="inline-flex items-center justify-center rounded-xl bg-[#1D4ED8] px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#1E40AF]"
+        >
+          Get Started
+        </Link>
+      </div>
     );
   }
 

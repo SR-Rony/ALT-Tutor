@@ -1,24 +1,19 @@
 export const heroHeadline = {
-  lead: "Bangladesh's Trusted",
-  highlight: "Digital School",
+  lead: "Master SSC & HSC.",
+  highlight: "Ace Every Exam.",
 } as const;
 
 export const heroSubheadline =
-  "Academic, Admission — study at the best online school in the country, with expert teachers, in your own way.";
+  "Your all-in-one digital school. Practice from a massive Question Bank, solve Past Papers, take custom Practice Exams, and master Key Concepts.";
 
-export const heroPrimaryCta = "How Alt Tutor Works";
-export const heroSecondaryCta = "Watch Video";
-
-export const heroImage = {
-  src: "/hero-student.png",
-  alt: "Confident learner ready for digital education",
-} as const;
+export const heroPrimaryCta = "Start Free Practice";
+export const heroSecondaryCta = "Explore Features";
 
 export const homeStats = [
-  { label: "Students", value: "50K+", color: "#ef3239" },
-  { label: "Animated Videos", value: "1,200+", color: "#1877f2" },
-  { label: "Quiz Banks", value: "350+", color: "#22c55e" },
-  { label: "Live Courses", value: "30+", color: "#f97316" },
+  { label: "Active Students", value: "50K+", color: "#1D4ED8" },
+  { label: "Question Bank Items", value: "50,000+", color: "#1D4ED8" },
+  { label: "Past Papers & Mocks", value: "1,200+", color: "#1D4ED8" },
+  { label: "Curricula & Courses", value: "30+", color: "#1D4ED8" },
 ] as const;
 
 export const academicProgram = {

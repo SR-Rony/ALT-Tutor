@@ -1,188 +1,425 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useMemo } from "react";
-import { motion, useReducedMotion } from "framer-motion";
-import { Play } from "lucide-react";
-import { ROUTES } from "@/constants";
-import { Button } from "@/components/ui/button";
-import { useHomeData } from "@/hooks";
+import { useCallback, useEffect, useState } from "react";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
-  heroHeadline,
-  heroImage,
-  heroPrimaryCta,
-  heroSecondaryCta,
-  heroSubheadline,
-  homeStats as fallbackStats,
-} from "./data/home.data";
+  ArrowRight,
+  BookOpen,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Lock,
+  Play,
+  Sparkles,
+  Star,
+} from "lucide-react";
+import { ROUTES } from "@/constants";
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 28 },
-  visible: { opacity: 1, y: 0 },
-};
-
-function formatStat(value: number) {
-  if (value >= 1000) return `${Math.round(value / 100) / 10}K+`;
-  return String(value);
+interface MockQuestion {
+  id: string;
+  subjectCode: string;
+  boardTarget: string;
+  chapterTitle: string;
+  difficulty: "Easy" | "Medium" | "Hard";
+  questionNumber: string;
+  prompt: string;
+  tokens: string[];
+  duration: string;
+  solvedCount: string;
+  rating: string;
 }
+
+const MOCK_QUESTIONS: MockQuestion[] = [
+  {
+    id: "math",
+    subjectCode: "SSC Higher Math",
+    boardTarget: "Dhaka Board Target",
+    chapterTitle: "Mathematics — Chapter 1: Sets & Functions",
+    difficulty: "Medium",
+    questionNumber: "Question 04 (Written • 4 Marks)",
+    prompt:
+      "Given function f(x) = (2x + 1)/(x - 3), where x ≠ 3. Find the domain of the function, compute the inverse function f⁻¹(x), and evaluate f⁻¹(5).",
+    tokens: ["Domain: ℝ \\ {3}", "f⁻¹(x) = (3x + 1)/(x - 2)", "Result = 5.33"],
+    duration: "4m 12s",
+    solvedCount: "14.8k solved",
+    rating: "4.9/5",
+  },
+  {
+    id: "physics",
+    subjectCode: "SSC Physics",
+    boardTarget: "Rajshahi Board Target",
+    chapterTitle: "Physics — Chapter 3: Force & Laws of Motion",
+    difficulty: "Easy",
+    questionNumber: "Question 02 (Creative • 4 Marks)",
+    prompt:
+      "A 1200 kg car traveling at 20 m/s is brought to rest over a distance of 40 m by applying uniform braking force. Find the deceleration and braking force.",
+    tokens: ["m = 1200 kg", "a = -5 m/s²", "F = 6000 N"],
+    duration: "3m 48s",
+    solvedCount: "18.2k solved",
+    rating: "4.8/5",
+  },
+  {
+    id: "chem",
+    subjectCode: "HSC Chemistry",
+    boardTarget: "Chittagong Board Target",
+    chapterTitle: "Chemistry — Chapter 4: Chemical Equilibrium & Kc / Kp",
+    difficulty: "Medium",
+    questionNumber: "Question 06 (CQ • 4 Marks)",
+    prompt:
+      "For the reaction N₂(g) + 3H₂(g) ⇌ 2NH₃(g), derive the relation between Kp and Kc at 400 K and explain the effect of increasing overall system pressure.",
+    tokens: ["Δn = -2", "Kp = Kc(RT)⁻²", "Equilibrium Shifts Right"],
+    duration: "5m 05s",
+    solvedCount: "11.5k solved",
+    rating: "4.9/5",
+  },
+  {
+    id: "bio",
+    subjectCode: "SSC Biology",
+    boardTarget: "Comilla Board Target",
+    chapterTitle: "Biology — Chapter 2: Cells & Mitotic Division",
+    difficulty: "Easy",
+    questionNumber: "Question 03 (Creative • 4 Marks)",
+    prompt:
+      "Explain the defining biological events of Anaphase during Mitosis: chromatid separation, spindle fiber contraction, and typical chromosome shapes (V, L, J, I).",
+    tokens: ["Centromere Division", "Spindle Pulling", "Diploid 2n State"],
+    duration: "3m 30s",
+    solvedCount: "16.4k solved",
+    rating: "4.9/5",
+  },
+];
+
+const slideVariants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 28 : -28,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    transition: { duration: 0.28, ease: "easeOut" as const },
+  },
+  exit: (direction: number) => ({
+    x: direction < 0 ? 28 : -28,
+    opacity: 0,
+    transition: { duration: 0.2, ease: "easeIn" as const },
+  }),
+};
 
 export function HomeHero() {
   const prefersReducedMotion = useReducedMotion();
-  const { data } = useHomeData();
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [direction, setDirection] = useState(1);
+  const [isPaused, setIsPaused] = useState(false);
 
-  const stats = useMemo(() => {
-    if (!data) return fallbackStats;
-    return [
-      { label: "Students", value: formatStat(data.stats.totalStudents), color: "#ef3239" },
-      { label: "Live Courses", value: formatStat(data.stats.totalCourses), color: "#1877f2" },
-      { label: "Curricula", value: formatStat(data.categories.length), color: "#22c55e" },
-      {
-        label: "Featured",
-        value: formatStat(data.featuredCourses.length),
-        color: "#f97316",
-      },
-    ];
-  }, [data]);
+  const paginate = useCallback(
+    (newDirection: number) => {
+      setDirection(newDirection);
+      setCurrentIndex((prev) => {
+        const next = prev + newDirection;
+        if (next < 0) return MOCK_QUESTIONS.length - 1;
+        if (next >= MOCK_QUESTIONS.length) return 0;
+        return next;
+      });
+    },
+    []
+  );
+
+  const goToSlide = (index: number) => {
+    setDirection(index > currentIndex ? 1 : -1);
+    setCurrentIndex(index);
+  };
+
+  // Auto-slide questions every 5 seconds (paused when user hovers over card)
+  useEffect(() => {
+    if (isPaused) return;
+    const interval = setInterval(() => {
+      paginate(1);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [isPaused, paginate]);
+
+  const activeQuestion = MOCK_QUESTIONS[currentIndex];
 
   const motionProps = prefersReducedMotion
     ? {}
     : {
-        initial: "hidden",
-        animate: "visible",
-        transition: { staggerChildren: 0.1, delayChildren: 0.06 },
+        initial: { opacity: 0, y: 16 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.45, ease: "easeOut" as const },
       };
 
   return (
-    <section className="relative overflow-x-clip bg-[#f7f9fc]">
-      {/* Soft background — Shikho-style */}
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#eef4fb_0%,#f7f9fc_38%,#ffffff_100%)]" />
-        <div className="absolute -left-24 top-8 h-[28rem] w-[28rem] rounded-full bg-[#fef3c7]/55 blur-3xl sm:h-[32rem] sm:w-[32rem]" />
-        <div className="absolute right-0 top-0 h-full w-[42%] bg-[linear-gradient(135deg,rgba(24,119,242,0.06)_0%,transparent_55%)]" />
-        <div className="absolute bottom-16 left-[38%] h-20 w-20 rotate-12 rounded-2xl bg-[#1877f2]/10" />
-        <div className="absolute right-[12%] top-[22%] h-14 w-14 rounded-full border-2 border-[#1877f2]/15 bg-white/50" />
-        <div className="absolute bottom-[32%] left-[8%] h-10 w-10 rounded-full bg-[#ef3239]/15" />
-      </div>
+    <section className="relative w-full border-b border-slate-200 bg-[#F8FAFC]">
+      <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20 xl:py-24">
+        {/* Two-Column Grid: Left Text, Right Visual Interactive Mockup */}
+        <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12 xl:gap-16">
+          
+          {/* Left Column: Text & CTAs */}
+          <motion.div {...motionProps} className="max-w-2xl text-left">
+            {/* Small Badge on top: Trusted by SSC & HSC Students */}
+            <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1.5 text-xs font-semibold text-[#1D4ED8] sm:text-sm">
+              <span className="h-2 w-2 rounded-full bg-[#1D4ED8]" aria-hidden />
+              <span>Trusted by SSC & HSC Students</span>
+            </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 pt-4 sm:px-6 sm:pt-8 lg:pt-12">
-        <div className="grid items-center gap-6 pb-8 sm:gap-8 sm:pb-12 lg:grid-cols-[1fr_1.05fr] lg:gap-4 lg:pb-14 xl:gap-8">
-          {/* Image — top on mobile, right on desktop */}
+            {/* Main Headline: Clean, bold academic font, slate-900, strictly NO gradients */}
+            <h1 className="mt-5 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-5xl lg:text-[3.25rem] xl:text-[3.65rem] leading-[1.15]">
+              Master SSC & HSC.
+              <br />
+              Ace Every Exam.
+            </h1>
+
+            {/* Sub-headline */}
+            <p className="mt-5 max-w-xl text-base leading-relaxed text-slate-600 sm:text-lg lg:text-xl">
+              Your all-in-one digital school. Practice from a massive Question Bank, solve Past Papers, take custom Practice Exams, and master Key Concepts.
+            </p>
+
+            {/* CTA Buttons */}
+            <div className="mt-8 flex flex-col gap-3.5 sm:flex-row sm:items-center">
+              {/* Primary Button: Solid Blue #1D4ED8 */}
+              <Link
+                href={ROUTES.auth.register}
+                className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-[#1D4ED8] px-6 text-base font-semibold text-white shadow-sm transition-colors hover:bg-[#1E40AF]"
+              >
+                <span>Start Free Practice</span>
+                <ArrowRight className="h-4 w-4" aria-hidden />
+              </Link>
+
+              {/* Secondary Button: Outline/Solid Gray */}
+              <Link
+                href="#question-bank"
+                className="inline-flex h-12 items-center justify-center rounded-xl border border-slate-300 bg-white px-6 text-base font-semibold text-slate-700 shadow-sm transition-colors hover:border-slate-400 hover:bg-slate-50 hover:text-slate-900"
+              >
+                <span>Explore Features</span>
+              </Link>
+            </div>
+
+            {/* Trust highlights */}
+            <div className="mt-8 flex flex-wrap items-center gap-y-2 gap-x-6 text-xs font-medium text-slate-500">
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-[#1D4ED8]" aria-hidden />
+                Chapter-wise topic questions
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-[#1D4ED8]" aria-hidden />
+                Board-aligned video solutions
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <CheckCircle2 className="h-4 w-4 text-[#1D4ED8]" aria-hidden />
+                Instant mark schemes
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Right Column: Premium CSS/HTML Mockup Card with Sliding Questions */}
           <motion.div
             {...(prefersReducedMotion
               ? {}
               : {
-                  initial: { opacity: 0, y: 24 },
-                  animate: { opacity: 1, y: 0 },
-                  transition: { duration: 0.55, delay: 0.08, ease: "easeOut" },
+                  initial: { opacity: 0, scale: 0.98 },
+                  animate: { opacity: 1, scale: 1 },
+                  transition: { duration: 0.5, delay: 0.1, ease: "easeOut" as const },
                 })}
-            className="relative order-1 mx-auto flex w-full max-w-[17rem] items-end justify-center sm:max-w-md lg:order-2 lg:mx-0 lg:max-w-none lg:justify-end"
+            className="relative mx-auto w-full max-w-xl lg:max-w-none"
+            onMouseEnter={() => setIsPaused(true)}
+            onMouseLeave={() => setIsPaused(false)}
           >
-            {/* Yellow circle behind person */}
-            <div
-              aria-hidden
-              className="absolute bottom-[8%] left-1/2 h-[min(72vw,18rem)] w-[min(72vw,18rem)] -translate-x-1/2 rounded-full bg-[#fde68a]/70 blur-[1px] sm:h-[26rem] sm:w-[26rem] lg:left-auto lg:right-[8%] lg:h-[28rem] lg:w-[28rem] lg:translate-x-0 xl:right-[12%]"
-            />
-
-            {/* Blue accent shape */}
-            <div
-              aria-hidden
-              className="absolute bottom-[18%] right-[6%] hidden h-32 w-32 rotate-12 rounded-[2rem] bg-[#1877f2]/12 lg:block"
-            />
-
-            {/* Student PNG — no background box */}
-            <div className="relative z-10 w-full max-w-[17rem] sm:max-w-[26rem] lg:max-w-[30rem] xl:max-w-[32rem]">
-              <Image
-                src={heroImage.src}
-                alt={heroImage.alt}
-                width={729}
-                height={1086}
-                priority
-                sizes="(max-width: 768px) 70vw, 45vw"
-                className="h-auto w-full object-contain object-bottom drop-shadow-[0_24px_48px_rgba(26,43,94,0.12)]"
-              />
+            {/* Floating Flat Badge 1: Top-Right (🎯 Question Bank) */}
+            <div className="absolute -top-4 -right-2 z-20 hidden sm:flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-lg shadow-slate-200/50">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-50 text-base">
+                🎯
+              </span>
+              <div>
+                <p className="text-xs font-bold text-slate-900">Question Bank</p>
+                <p className="text-[11px] text-slate-500">50,000+ Topic Questions</p>
+              </div>
             </div>
-          </motion.div>
 
-          {/* Content — below image on mobile, left on desktop */}
-          <motion.div
-            {...motionProps}
-            className="relative z-10 order-2 max-w-xl text-center lg:order-1 lg:max-w-[34rem] lg:pt-8 lg:text-left xl:pt-12"
-          >
-            <motion.h1
-              variants={fadeUp}
-              transition={{ duration: 0.5 }}
-              className="bg-gradient-to-r from-[#1a2b5e] via-[#ff6b35] to-[#ef3239] bg-clip-text text-[1.85rem] font-extrabold leading-[1.12] tracking-tight text-transparent sm:text-5xl lg:text-[3.15rem] xl:text-[3.45rem]"
-            >
-              {heroHeadline.lead}
-              <br />
-              {heroHeadline.highlight}
-            </motion.h1>
+            {/* Floating Flat Badge 2: Bottom-Left (📝 Practice Exam) */}
+            <div className="absolute -bottom-4 -left-2 z-20 hidden sm:flex items-center gap-2.5 rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 shadow-lg shadow-slate-200/50">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-50 text-base">
+                📝
+              </span>
+              <div>
+                <p className="text-xs font-bold text-slate-900">Practice Exam</p>
+                <p className="text-[11px] text-slate-500">Timed Board Simulations</p>
+              </div>
+            </div>
 
-            <motion.p
-              variants={fadeUp}
-              transition={{ duration: 0.5 }}
-              className="mx-auto mt-4 max-w-lg text-sm font-medium leading-relaxed text-[#ef3239] sm:mt-5 sm:text-lg lg:mx-0 lg:mt-6 lg:text-xl"
-            >
-              {heroSubheadline}
-            </motion.p>
-
-            <motion.div
-              variants={fadeUp}
-              transition={{ duration: 0.5 }}
-              className="mt-6 flex flex-col items-center gap-3 sm:mt-8 sm:flex-row sm:flex-wrap sm:justify-center lg:mt-10 lg:items-start lg:justify-start"
-            >
-              <Button asChild variant="default" size="pillLg" className="w-full sm:w-auto">
-                <Link href={ROUTES.courses}>{heroPrimaryCta}</Link>
-              </Button>
-              <Button asChild variant="secondary" size="pillLg" className="w-full sm:w-auto">
-                <Link href={`${ROUTES.about}#story-video`}>
-                  <span className="inline-flex items-center justify-center gap-2.5">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                      <Play className="h-3.5 w-3.5 shrink-0 fill-current" aria-hidden />
-                    </span>
-                    {heroSecondaryCta}
+            {/* Main Mockup Card Container */}
+            <div className="relative overflow-hidden rounded-2xl border border-slate-200 bg-white p-5 shadow-xl shadow-slate-200/60 sm:p-6">
+              
+              {/* Window Frame Header with Next/Prev Slider Controls */}
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="h-3 w-3 rounded-full bg-slate-200" aria-hidden />
+                  <span className="h-3 w-3 rounded-full bg-slate-200" aria-hidden />
+                  <span className="h-3 w-3 rounded-full bg-slate-200" aria-hidden />
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <BookOpen className="h-3.5 w-3.5 text-slate-400" aria-hidden />
+                  <span className="text-xs font-medium text-slate-500">
+                    Alt Tutor Question Bank • SSC / HSC
                   </span>
-                </Link>
-              </Button>
-            </motion.div>
-          </motion.div>
-        </div>
+                </div>
 
-        {/* Floating stats card — overlaps into next section */}
-        <motion.div
-          {...(prefersReducedMotion
-            ? {}
-            : {
-                initial: { opacity: 0, y: 32 },
-                animate: { opacity: 1, y: 0 },
-                transition: { duration: 0.55, delay: 0.38 },
-              })}
-          className="relative z-20 mx-auto w-full max-w-5xl translate-y-6 sm:translate-y-8 lg:translate-y-10"
-        >
-          <div className="overflow-hidden rounded-2xl border border-[#e8edf5]/80 bg-white shadow-[0_16px_48px_-12px_rgba(26,43,94,0.14)] sm:rounded-[1.75rem]">
-            <div className="grid grid-cols-2 divide-x divide-y divide-[#e8edf5] sm:grid-cols-4 sm:divide-y-0">
-              {stats.map((stat) => (
-                <article
-                  key={stat.label}
-                  className="flex min-h-[5.75rem] flex-col items-center justify-center px-4 py-5 text-center sm:min-h-[6.5rem] sm:px-5 sm:py-6 lg:min-h-[7rem] lg:py-7"
-                >
-                  <p
-                    className="text-[1.65rem] font-extrabold leading-none tracking-tight sm:text-[1.85rem] lg:text-[2rem]"
-                    style={{ color: stat.color }}
+                {/* Question Slide Controls */}
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[11px] font-semibold text-slate-500 mr-1 hidden sm:inline">
+                    {currentIndex + 1} / {MOCK_QUESTIONS.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => paginate(-1)}
+                    className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-[#1D4ED8]"
+                    aria-label="Previous question"
                   >
-                    {stat.value}
-                  </p>
-                  <p className="mt-2.5 text-xs font-semibold text-[#1877f2] sm:mt-3 sm:text-sm">{stat.label}</p>
-                </article>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      </div>
+                    <ChevronLeft className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => paginate(1)}
+                    className="flex h-6 w-6 items-center justify-center rounded-md border border-slate-200 bg-white text-slate-600 transition-colors hover:bg-slate-50 hover:text-[#1D4ED8]"
+                    aria-label="Next question"
+                  >
+                    <ChevronRight className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
 
-      {/* Space for stats card overlap into next section */}
-      <div aria-hidden className="h-10 sm:h-12 lg:h-14" />
+              {/* Mockup Card Sliding Body */}
+              <div className="relative mt-4 min-h-[300px]">
+                <AnimatePresence mode="wait" custom={direction}>
+                  <motion.div
+                    key={activeQuestion.id}
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="space-y-4"
+                  >
+                    {/* Subject & Chapter Title with Difficulty and Action Badges */}
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold uppercase tracking-wider text-[#1D4ED8]">
+                            {activeQuestion.subjectCode}
+                          </span>
+                          <span className="text-xs text-slate-300">•</span>
+                          <span className="text-xs text-slate-500">{activeQuestion.boardTarget}</span>
+                        </div>
+                        <h3 className="mt-1 text-base font-bold text-slate-900 sm:text-lg">
+                          {activeQuestion.chapterTitle}
+                        </h3>
+                      </div>
+
+                      {/* Badges: Difficulty & "Buy Question" */}
+                      <div className="flex items-center gap-2">
+                        {activeQuestion.difficulty === "Easy" ? (
+                          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                            Easy
+                          </span>
+                        ) : (
+                          <span className="rounded-md border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-bold text-[#F59E0B]">
+                            Medium
+                          </span>
+                        )}
+                        {/* Buy Question Badge using Secondary Accent Warm Amber #F59E0B */}
+                        <span className="inline-flex items-center gap-1 rounded-md bg-[#F59E0B] px-2.5 py-0.5 text-xs font-bold text-white shadow-sm">
+                          <Lock className="h-3 w-3" aria-hidden />
+                          Buy Question
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Question Prompt Preview Box */}
+                    <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                      <div className="flex items-center justify-between text-xs font-semibold text-slate-500">
+                        <span>{activeQuestion.questionNumber}</span>
+                        <span className="text-[#1D4ED8]">{activeQuestion.boardTarget}</span>
+                      </div>
+                      <p className="mt-2 text-sm font-medium leading-relaxed text-slate-800">
+                        {activeQuestion.prompt}
+                      </p>
+
+                      {/* Formula / Working pill badges */}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {activeQuestion.tokens.map((token, idx) => (
+                          <span
+                            key={idx}
+                            className={`rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] ${
+                              idx === activeQuestion.tokens.length - 1
+                                ? "font-semibold text-[#1D4ED8]"
+                                : "text-slate-700"
+                            }`}
+                          >
+                            {token}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Video Solution Play Button & Solutions Row */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+                      <div className="flex items-center gap-2">
+                        {/* Play button for video solutions (Solid Blue #1D4ED8) */}
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#1E40AF]"
+                        >
+                          <Play className="h-3.5 w-3.5 fill-current" aria-hidden />
+                          <span>Watch Solution ({activeQuestion.duration})</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                        >
+                          <Sparkles className="h-3.5 w-3.5 text-[#F59E0B]" aria-hidden />
+                          <span>Mark Scheme</span>
+                        </button>
+                      </div>
+
+                      {/* Student stats & Rating */}
+                      <div className="flex items-center gap-1.5 text-xs text-slate-500">
+                        <div className="flex items-center text-[#F59E0B]">
+                          {[...Array(5)].map((_, i) => (
+                            <Star key={i} className="h-3 w-3 fill-current" aria-hidden />
+                          ))}
+                        </div>
+                        <span className="font-semibold text-slate-700">{activeQuestion.rating}</span>
+                        <span>({activeQuestion.solvedCount})</span>
+                      </div>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+              </div>
+
+              {/* Slide Indicator Dots at bottom of card */}
+              <div className="mt-4 flex items-center justify-center gap-1.5 border-t border-slate-100 pt-3">
+                {MOCK_QUESTIONS.map((q, idx) => (
+                  <button
+                    key={q.id}
+                    type="button"
+                    onClick={() => goToSlide(idx)}
+                    className={`h-1.5 rounded-full transition-all duration-200 ${
+                      idx === currentIndex
+                        ? "w-6 bg-[#1D4ED8]"
+                        : "w-2 bg-slate-200 hover:bg-slate-300"
+                    }`}
+                    aria-label={`Go to question ${idx + 1}`}
+                  />
+                ))}
+              </div>
+
+            </div>
+          </motion.div>
+
+        </div>
+      </div>
     </section>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ChevronRight,
@@ -26,6 +26,18 @@ export function HomeAcademicProgram() {
     academicProgram.features[0].id
   );
 
+  useEffect(() => {
+    const handleHash = () => {
+      const hash = window.location.hash.replace("#", "");
+      if (hash === "past-papers" || hash === "practice-exams" || hash === "key-concepts" || hash === "questionbank") {
+        setActiveId(hash as any);
+      }
+    };
+    handleHash();
+    window.addEventListener("hashchange", handleHash);
+    return () => window.removeEventListener("hashchange", handleHash);
+  }, []);
+
   const activeFeature = useMemo(
     () => academicProgram.features.find((f) => f.id === activeId) ?? academicProgram.features[0],
     [activeId]
@@ -34,7 +46,10 @@ export function HomeAcademicProgram() {
   const ActiveIcon = featureIcons[activeFeature.icon];
 
   return (
-    <section className="relative w-full overflow-x-clip bg-[#0b1f4d]">
+    <section id="features" className="relative w-full overflow-x-clip bg-[#0b1f4d] scroll-mt-16">
+      <div id="past-papers" className="absolute -top-20" />
+      <div id="practice-exams" className="absolute -top-20" />
+      <div id="key-concepts" className="absolute -top-20" />
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-[#1877f2]/25 blur-3xl" />
         <div className="absolute -right-20 bottom-10 h-80 w-80 rounded-full bg-[#ef3239]/20 blur-3xl" />

@@ -365,7 +365,7 @@ export function HomePracticeQuestions() {
   }
 
   return (
-    <section className="relative w-full overflow-x-clip bg-[#e8f2fe]">
+    <section id="question-bank" className="relative w-full overflow-x-clip bg-[#e8f2fe] scroll-mt-16">
       <div aria-hidden className="pointer-events-none absolute inset-0">
         <div className="absolute -left-20 top-16 h-56 w-56 rounded-full bg-[#1877f2]/10 blur-3xl" />
         <div className="absolute -right-16 bottom-10 h-64 w-64 rounded-full bg-[#ef3239]/8 blur-3xl" />
