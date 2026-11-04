@@ -1,6 +1,7 @@
 import {
   HomeCoreFeatures,
   HomeCustomExamBuilder,
+  HomeExploreSubjects,
   HomeHero,
   HomeMarketplaceSection,
   HomeStatsSection,
@@ -14,6 +15,7 @@ export default function HomePage() {
       <HomeCoreFeatures />
       <HomeMarketplaceSection />
       <HomeCustomExamBuilder />
+      <HomeExploreSubjects />
     </>
   );
 }
