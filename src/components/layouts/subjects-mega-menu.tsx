@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { AnimatePresence, motion } from "framer-motion";
 import {
   Atom,
   BookOpen,
@@ -491,19 +490,13 @@ export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: stri
         </span>
       </button>
 
-      <AnimatePresence>
-        {open ? (
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 8 }}
-            transition={{ duration: 0.16 }}
-            className="fixed left-1/2 top-16 z-50 w-[min(64rem,calc(100vw-2rem))] -translate-x-1/2 pt-2 lg:top-[4.5rem] xl:w-[68rem]"
-          >
-            <MegaPanel menu={menu} isLoading={isLoading} onNavigate={() => setOpen(false)} />
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
+      {open && (
+        <div
+          className="fixed left-1/2 top-16 z-50 w-[min(64rem,calc(100vw-2rem))] -translate-x-1/2 pt-2 lg:top-[4.5rem] xl:w-[68rem]"
+        >
+          <MegaPanel menu={menu} isLoading={isLoading} onNavigate={() => setOpen(false)} />
+        </div>
+      )}
     </div>
   );
 }

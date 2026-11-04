@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   ArrowRight,
   BookOpen,
@@ -89,32 +88,12 @@ const MOCK_QUESTIONS: MockQuestion[] = [
   },
 ];
 
-const slideVariants = {
-  enter: (direction: number) => ({
-    x: direction > 0 ? 28 : -28,
-    opacity: 0,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-    transition: { duration: 0.28, ease: "easeOut" as const },
-  },
-  exit: (direction: number) => ({
-    x: direction < 0 ? 28 : -28,
-    opacity: 0,
-    transition: { duration: 0.2, ease: "easeIn" as const },
-  }),
-};
-
 export function HomeHero() {
-  const prefersReducedMotion = useReducedMotion();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [direction, setDirection] = useState(1);
   const [isPaused, setIsPaused] = useState(false);
 
   const paginate = useCallback(
     (newDirection: number) => {
-      setDirection(newDirection);
       setCurrentIndex((prev) => {
         const next = prev + newDirection;
         if (next < 0) return MOCK_QUESTIONS.length - 1;
@@ -126,7 +105,6 @@ export function HomeHero() {
   );
 
   const goToSlide = (index: number) => {
-    setDirection(index > currentIndex ? 1 : -1);
     setCurrentIndex(index);
   };
 
@@ -141,14 +119,6 @@ export function HomeHero() {
 
   const activeQuestion = MOCK_QUESTIONS[currentIndex];
 
-  const motionProps = prefersReducedMotion
-    ? {}
-    : {
-        initial: { opacity: 0, y: 16 },
-        animate: { opacity: 1, y: 0 },
-        transition: { duration: 0.45, ease: "easeOut" as const },
-      };
-
   return (
     <section className="relative w-full border-b border-slate-200 bg-[#F8FAFC]">
       <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20 xl:py-24">
@@ -156,7 +126,7 @@ export function HomeHero() {
         <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12 xl:gap-16">
           
           {/* Left Column: Text & CTAs */}
-          <motion.div {...motionProps} className="max-w-2xl text-left">
+          <div className="max-w-2xl text-left">
             {/* Small Badge on top: Trusted by SSC & HSC Students */}
             <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3.5 py-1.5 text-xs font-semibold text-[#1D4ED8] sm:text-sm">
               <span className="h-2 w-2 rounded-full bg-[#1D4ED8]" aria-hidden />
@@ -210,17 +180,10 @@ export function HomeHero() {
                 Instant mark schemes
               </span>
             </div>
-          </motion.div>
+          </div>
 
           {/* Right Column: Premium CSS/HTML Mockup Card with Sliding Questions */}
-          <motion.div
-            {...(prefersReducedMotion
-              ? {}
-              : {
-                  initial: { opacity: 0, scale: 0.98 },
-                  animate: { opacity: 1, scale: 1 },
-                  transition: { duration: 0.5, delay: 0.1, ease: "easeOut" as const },
-                })}
+          <div
             className="relative mx-auto w-full max-w-xl lg:max-w-none"
             onMouseEnter={() => setIsPaused(true)}
             onMouseLeave={() => setIsPaused(false)}
@@ -291,17 +254,8 @@ export function HomeHero() {
 
               {/* Mockup Card Sliding Body */}
               <div className="relative mt-4 min-h-[300px]">
-                <AnimatePresence mode="wait" custom={direction}>
-                  <motion.div
-                    key={activeQuestion.id}
-                    custom={direction}
-                    variants={slideVariants}
-                    initial="enter"
-                    animate="center"
-                    exit="exit"
-                    className="space-y-4"
-                  >
-                    {/* Subject & Chapter Title with Difficulty and Action Badges */}
+                <div key={activeQuestion.id} className="space-y-4">
+                  {/* Subject & Chapter Title with Difficulty and Action Badges */}
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-2">
@@ -394,9 +348,8 @@ export function HomeHero() {
                         <span>({activeQuestion.solvedCount})</span>
                       </div>
                     </div>
-                  </motion.div>
-                </AnimatePresence>
-              </div>
+                  </div>
+                </div>
 
               {/* Slide Indicator Dots at bottom of card */}
               <div className="mt-4 flex items-center justify-center gap-1.5 border-t border-slate-100 pt-3">
@@ -416,7 +369,7 @@ export function HomeHero() {
               </div>
 
             </div>
-          </motion.div>
+          </div>
 
         </div>
       </div>

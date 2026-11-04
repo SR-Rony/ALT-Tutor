@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
 import {
   CheckCircle2,
   Clock,
@@ -39,21 +38,11 @@ const initialForm: FormState = {
 };
 
 export function ContactPage() {
-  const prefersReducedMotion = useReducedMotion();
   const content = contactPageContent;
   const [form, setForm] = useState<FormState>(initialForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-
-  const fadeIn = prefersReducedMotion
-    ? {}
-    : {
-        initial: { opacity: 0, y: 24 },
-        whileInView: { opacity: 1, y: 0 },
-        viewport: { once: true, amount: 0.2 },
-        transition: { duration: 0.5 },
-      };
 
   function updateField<K extends keyof FormState>(key: K, value: FormState[K]) {
     setForm((current) => ({ ...current, [key]: value }));
@@ -114,18 +103,16 @@ export function ContactPage() {
       <section className="bg-[#f7f9fc] py-10 sm:py-12">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid gap-4 sm:grid-cols-3">
-            {content.cards.map((card, index) => (
-              <motion.a
+            {content.cards.map((card) => (
+              <a
                 key={card.id}
                 href={card.href}
-                {...fadeIn}
-                transition={{ duration: 0.45, delay: index * 0.06 }}
-                className="group rounded-2xl border border-[#e8edf5] bg-white p-6 shadow-[0_8px_30px_-16px_rgba(26,43,94,0.12)] transition hover:-translate-y-0.5 hover:border-[#dce4f0] hover:shadow-[0_16px_40px_-20px_rgba(26,43,94,0.18)]"
+                className="group rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:border-[#1D4ED8]"
               >
-                <p className="text-xs font-semibold uppercase tracking-wider text-[#58688b]">{card.title}</p>
-                <p className="mt-2 text-lg font-bold text-[#1a2b5e] transition group-hover:text-[#1877f2]">{card.value}</p>
-                <p className="mt-1 text-sm text-[#8b95a8]">{card.hint}</p>
-              </motion.a>
+                <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{card.title}</p>
+                <p className="mt-2 text-lg font-bold text-slate-900 transition group-hover:text-[#1D4ED8]">{card.value}</p>
+                <p className="mt-1 text-sm text-slate-500">{card.hint}</p>
+              </a>
             ))}
           </div>
         </div>
@@ -136,7 +123,7 @@ export function ContactPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,0.85fr)] lg:gap-12 xl:gap-16">
             {/* Form */}
-            <motion.div {...fadeIn}>
+            <div>
               <h2 className="text-2xl font-extrabold text-[#1a2b5e] sm:text-3xl">{content.form.title}</h2>
               <p className="mt-3 text-sm text-[#58688b] sm:text-base">{content.form.subtitle}</p>
 
@@ -249,10 +236,10 @@ export function ContactPage() {
                   </Button>
                 </form>
               )}
-            </motion.div>
+            </div>
 
             {/* Info panel */}
-            <motion.aside {...fadeIn} transition={{ duration: 0.5, delay: 0.08 }}>
+            <aside>
               <div className="rounded-2xl border border-[#e8edf5] bg-gradient-to-br from-[#f8faff] to-white p-7 shadow-[0_12px_40px_-20px_rgba(26,43,94,0.15)] sm:p-8">
                 <h3 className="text-xl font-extrabold text-[#1a2b5e]">Get in touch</h3>
                 <p className="mt-3 text-sm leading-relaxed text-[#58688b]">
@@ -340,7 +327,7 @@ export function ContactPage() {
                   </div>
                 </div>
               </div>
-            </motion.aside>
+            </aside>
           </div>
         </div>
       </section>

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { Menu, X } from "lucide-react";
 import { ROUTES } from "@/constants";
 import { Logo } from "@/components/shared";
@@ -30,7 +29,6 @@ function PublicHeaderInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const search = searchParams?.toString() ?? "";
-  const prefersReducedMotion = useReducedMotion();
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const closeMobileMenu = () => setMobileOpen(false);
@@ -119,70 +117,60 @@ function PublicHeaderInner() {
       </div>
 
       {/* Mobile Drawer */}
-      <AnimatePresence>
-        {mobileOpen ? (
-          <>
-            <motion.button
-              type="button"
-              aria-label="Close menu overlay"
-              className="fixed inset-0 top-16 z-40 bg-slate-900/20 lg:hidden"
-              initial={prefersReducedMotion ? false : { opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={prefersReducedMotion ? undefined : { opacity: 0 }}
-              transition={{ duration: 0.15 }}
-              onClick={closeMobileMenu}
-            />
+      {mobileOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close menu overlay"
+            className="fixed inset-0 top-16 z-40 bg-slate-900/20 lg:hidden"
+            onClick={closeMobileMenu}
+          />
 
-            <motion.div
-              id="mobile-navigation"
-              role="dialog"
-              aria-modal="true"
-              aria-label="Mobile navigation"
-              className="fixed inset-x-0 top-16 z-50 flex max-h-[calc(100dvh-4rem)] flex-col border-b border-slate-200 bg-white shadow-xl lg:hidden"
-              initial={prefersReducedMotion ? false : { opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={prefersReducedMotion ? undefined : { opacity: 0, y: -8 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            >
-              <nav aria-label="Mobile navigation" className="mx-auto w-full max-w-7xl space-y-1.5 p-4">
-                {NAV_ITEMS.map((item) => {
-                  if (item.title === "Subjects") {
-                    return (
-                      <SubjectsMobileMenu
-                        key={item.title}
-                        pathname={pathname}
-                        search={search}
-                        onNavigate={closeMobileMenu}
-                      />
-                    );
-                  }
-
-                  const active = isLinkActive(pathname, item.href);
+          <div
+            id="mobile-navigation"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Mobile navigation"
+            className="fixed inset-x-0 top-16 z-50 flex max-h-[calc(100dvh-4rem)] flex-col border-b border-slate-200 bg-white shadow-xl lg:hidden"
+          >
+            <nav aria-label="Mobile navigation" className="mx-auto w-full max-w-7xl space-y-1.5 p-4">
+              {NAV_ITEMS.map((item) => {
+                if (item.title === "Subjects") {
                   return (
-                    <Link
+                    <SubjectsMobileMenu
                       key={item.title}
-                      href={item.href}
-                      onClick={closeMobileMenu}
-                      className={cn(
-                        "flex items-center rounded-xl px-4 py-3 text-sm font-semibold transition-colors duration-200",
-                        active
-                          ? "bg-blue-50 text-[#1D4ED8]"
-                          : "text-slate-700 hover:bg-slate-50 hover:text-[#1D4ED8]"
-                      )}
-                    >
-                      {item.title}
-                    </Link>
+                      pathname={pathname}
+                      search={search}
+                      onNavigate={closeMobileMenu}
+                    />
                   );
-                })}
-              </nav>
+                }
 
-              <div className="border-t border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                <PublicAuthActions mobile onNavigate={closeMobileMenu} />
-              </div>
-            </motion.div>
-          </>
-        ) : null}
-      </AnimatePresence>
+                const active = isLinkActive(pathname, item.href);
+                return (
+                  <Link
+                    key={item.title}
+                    href={item.href}
+                    onClick={closeMobileMenu}
+                    className={cn(
+                      "flex items-center rounded-xl px-4 py-3 text-sm font-semibold transition-colors duration-200",
+                      active
+                        ? "bg-blue-50 text-[#1D4ED8]"
+                        : "text-slate-700 hover:bg-slate-50 hover:text-[#1D4ED8]"
+                    )}
+                  >
+                    {item.title}
+                  </Link>
+                );
+              })}
+            </nav>
+
+            <div className="border-t border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              <PublicAuthActions mobile onNavigate={closeMobileMenu} />
+            </div>
+          </div>
+        </>
+      )}
     </header>
   );
 }

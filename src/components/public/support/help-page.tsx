@@ -3,7 +3,6 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
 import {
   BookOpen,
   ChevronDown,
@@ -64,7 +63,6 @@ function FaqItem({
 }
 
 export function HelpPage() {
-  const prefersReducedMotion = useReducedMotion();
   const content = helpPageContent;
   const [query, setQuery] = useState("");
   const [openId, setOpenId] = useState<string | null>(content.faqCategories[0]?.items[0]?.id ?? null);
@@ -82,15 +80,6 @@ export function HelpPage() {
       }))
       .filter((category) => category.items.length > 0);
   }, [content.faqCategories, query]);
-
-  const fadeIn = prefersReducedMotion
-    ? {}
-    : {
-        initial: { opacity: 0, y: 24 },
-        whileInView: { opacity: 1, y: 0 },
-        viewport: { once: true, amount: 0.2 },
-        transition: { duration: 0.5 },
-      };
 
   return (
     <>
@@ -116,16 +105,16 @@ export function HelpPage() {
       {/* Quick links */}
       <section className="bg-[#f7f9fc] py-14 sm:py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <motion.div {...fadeIn} className="mx-auto max-w-3xl text-center">
+          <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-2xl font-extrabold tracking-tight text-[#1a2b5e] sm:text-3xl">Quick help topics</h2>
             <p className="mt-3 text-sm text-[#58688b] sm:text-base">Jump straight to the area you need help with.</p>
-          </motion.div>
+          </div>
 
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4 lg:gap-5">
-            {content.quickLinks.map((link, index) => {
+            {content.quickLinks.map((link) => {
               const Icon = quickLinkIcons[link.id as keyof typeof quickLinkIcons] ?? BookOpen;
               return (
-                <motion.div key={link.id} {...fadeIn} transition={{ duration: 0.45, delay: index * 0.05 }}>
+                <div key={link.id}>
                   <Link
                     href={link.href}
                     className="group flex h-full flex-col rounded-2xl border border-[#e8edf5] bg-white p-6 shadow-[0_8px_30px_-16px_rgba(26,43,94,0.12)] transition hover:-translate-y-0.5 hover:border-[#dce4f0] hover:shadow-[0_16px_40px_-20px_rgba(26,43,94,0.18)]"
@@ -142,7 +131,7 @@ export function HelpPage() {
                       Learn more →
                     </span>
                   </Link>
-                </motion.div>
+                </div>
               );
             })}
           </div>
@@ -152,7 +141,7 @@ export function HelpPage() {
       {/* FAQ */}
       <section className="bg-white py-14 sm:py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <motion.div {...fadeIn} className="mx-auto max-w-3xl text-center">
+          <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-2xl font-extrabold tracking-tight text-[#1a2b5e] sm:text-3xl lg:text-4xl">
               Frequently asked questions
             </h2>
@@ -161,7 +150,7 @@ export function HelpPage() {
                 ? `Showing results for “${query.trim()}”`
                 : "Everything you need to know about using Alt Tutor."}
             </p>
-          </motion.div>
+          </div>
 
           <div className="mx-auto mt-10 max-w-3xl space-y-10">
             {filteredCategories.length === 0 ? (
@@ -173,7 +162,7 @@ export function HelpPage() {
               </div>
             ) : (
               filteredCategories.map((category) => (
-                <motion.div key={category.id} {...fadeIn} id={`faq-${category.id}`} className="scroll-mt-28">
+                <div key={category.id} id={`faq-${category.id}`} className="scroll-mt-28">
                   <h3 className="mb-4 text-lg font-bold text-[#1a2b5e] sm:text-xl">{category.title}</h3>
                   <div className="space-y-3">
                     {category.items.map((item) => (
@@ -186,7 +175,7 @@ export function HelpPage() {
                       />
                     ))}
                   </div>
-                </motion.div>
+                </div>
               ))
             )}
           </div>
@@ -202,7 +191,7 @@ export function HelpPage() {
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid items-center gap-8 lg:grid-cols-[1.1fr_0.9fr] lg:gap-12">
-            <motion.div {...fadeIn}>
+            <div>
               <h2 className="text-2xl font-extrabold text-white sm:text-3xl">{content.cta.title}</h2>
               <p className="mt-4 max-w-lg text-sm leading-relaxed text-white/80 sm:text-base">{content.cta.description}</p>
 
@@ -231,9 +220,9 @@ export function HelpPage() {
               </div>
 
               <p className="mt-4 text-xs text-white/60">{content.support.call.hours} · {content.support.call.note}</p>
-            </motion.div>
+            </div>
 
-            <motion.div {...fadeIn} transition={{ duration: 0.5, delay: 0.08 }} className="relative mx-auto w-full max-w-sm lg:mx-0 lg:ml-auto">
+            <div className="relative mx-auto w-full max-w-sm lg:mx-0 lg:ml-auto">
               <div className="overflow-hidden rounded-2xl bg-[#fdf4e3] shadow-[0_20px_50px_-24px_rgba(0,0,0,0.45)]">
                 <div className="relative h-56 sm:h-64">
                   <Image
@@ -245,7 +234,7 @@ export function HelpPage() {
                   />
                 </div>
               </div>
-            </motion.div>
+            </div>
           </div>
         </div>
       </section>

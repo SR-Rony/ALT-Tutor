@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { motion, useReducedMotion } from "framer-motion";
 import {
   BookOpen,
   GraduationCap,
@@ -27,21 +26,11 @@ const valueIcons = {
 } as const;
 
 export function AboutPage() {
-  const prefersReducedMotion = useReducedMotion();
   const [videoModalOpen, setVideoModalOpen] = useState(false);
   const content = aboutPageContent;
 
   const openVideo = useCallback(() => setVideoModalOpen(true), []);
   const closeVideo = useCallback(() => setVideoModalOpen(false), []);
-
-  const fadeIn = prefersReducedMotion
-    ? {}
-    : {
-        initial: { opacity: 0, y: 24 },
-        whileInView: { opacity: 1, y: 0 },
-        viewport: { once: true, amount: 0.2 },
-        transition: { duration: 0.5 },
-      };
 
   return (
     <>
@@ -67,7 +56,7 @@ export function AboutPage() {
             <span className="font-medium text-white/90">About</span>
           </nav>
 
-          <motion.div {...fadeIn} className="mx-auto max-w-4xl text-center">
+          <div className="mx-auto max-w-4xl text-center">
             <span className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider text-white sm:text-sm">
               <Sparkles className="h-3.5 w-3.5 text-[#ff6b35]" aria-hidden />
               {content.hero.eyebrow}
@@ -102,11 +91,9 @@ export function AboutPage() {
                 <Link href={ROUTES.courses}>{content.cta.primary}</Link>
               </Button>
             </div>
-          </motion.div>
+          </div>
 
-          <motion.div
-            {...fadeIn}
-            transition={{ duration: 0.5, delay: 0.1 }}
+          <div
             className="mx-auto mt-12 max-w-4xl overflow-hidden rounded-2xl border border-white/15 bg-white/[0.07] shadow-[0_24px_60px_-24px_rgba(0,0,0,0.55)] backdrop-blur-md sm:mt-14"
           >
             <div className="grid grid-cols-2 divide-x divide-y divide-white/10 sm:grid-cols-4 sm:divide-y-0">
@@ -119,7 +106,7 @@ export function AboutPage() {
                 </article>
               ))}
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -131,25 +118,23 @@ export function AboutPage() {
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
-          <motion.div {...fadeIn} className="mx-auto max-w-3xl text-center">
+          <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-2xl font-extrabold tracking-tight text-[#1a2b5e] sm:text-3xl lg:text-4xl">
               {content.story.title}
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-[#58688b] sm:text-base lg:text-lg">
               {content.story.subtitle}
             </p>
-          </motion.div>
+          </div>
 
-          <motion.div
-            {...fadeIn}
-            transition={{ duration: 0.5, delay: 0.08 }}
+          <div
             className="mx-auto mt-10 max-w-4xl"
           >
             <div className="overflow-hidden rounded-2xl shadow-[0_24px_60px_-24px_rgba(26,43,94,0.35)] ring-1 ring-[#dce4f0]">
               <SecureVideoPlayer title={aboutDemoVideo.title} directUrl={aboutDemoVideo.url} rounded={false} />
             </div>
             <p className="mt-4 text-center text-sm text-[#58688b] sm:text-base">{aboutDemoVideo.caption}</p>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -158,10 +143,8 @@ export function AboutPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid gap-6 lg:grid-cols-2 lg:gap-8">
             {[content.mission, content.vision].map((block, index) => (
-              <motion.article
+              <article
                 key={block.title}
-                {...fadeIn}
-                transition={{ duration: 0.5, delay: index * 0.08 }}
                 className="relative overflow-hidden rounded-2xl border border-[#e8edf5] bg-gradient-to-br from-white to-[#f8faff] p-7 shadow-[0_12px_40px_-20px_rgba(26,43,94,0.15)] sm:p-8"
               >
                 <div
@@ -185,7 +168,7 @@ export function AboutPage() {
                     <p className="mt-3 text-sm leading-relaxed text-[#58688b] sm:text-base">{block.body}</p>
                   </div>
                 </div>
-              </motion.article>
+              </article>
             ))}
           </div>
         </div>
@@ -199,23 +182,21 @@ export function AboutPage() {
         </div>
 
         <div className="relative mx-auto max-w-7xl px-4 sm:px-6">
-          <motion.div {...fadeIn} className="mx-auto max-w-3xl text-center">
+          <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-2xl font-extrabold tracking-tight text-white sm:text-3xl lg:text-4xl">
               What we stand for
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-[#b8c7e0] sm:text-base">
               Four principles guide everything we build at {siteConfig.name}.
             </p>
-          </motion.div>
+          </div>
 
           <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:mt-12 lg:gap-6">
-            {content.values.map((value, index) => {
+            {content.values.map((value) => {
               const Icon = valueIcons[value.id as keyof typeof valueIcons] ?? Sparkles;
               return (
-                <motion.article
+                <article
                   key={value.id}
-                  {...fadeIn}
-                  transition={{ duration: 0.45, delay: index * 0.06 }}
                   className="group rounded-2xl border border-white/10 bg-white/[0.06] p-6 backdrop-blur-sm transition hover:border-white/20 hover:bg-white/[0.09] sm:p-7"
                 >
                   <span
@@ -226,7 +207,7 @@ export function AboutPage() {
                   </span>
                   <h3 className="mt-4 text-lg font-bold text-white sm:text-xl">{value.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-[#b8c7e0]">{value.description}</p>
-                </motion.article>
+                </article>
               );
             })}
           </div>
@@ -236,21 +217,19 @@ export function AboutPage() {
       {/* Journey / pillars */}
       <section className="bg-[#f7f9fc] py-14 sm:py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <motion.div {...fadeIn} className="mx-auto max-w-3xl text-center">
+          <div className="mx-auto max-w-3xl text-center">
             <h2 className="text-2xl font-extrabold tracking-tight text-[#1a2b5e] sm:text-3xl lg:text-4xl">
               The Alt Tutor way
             </h2>
             <p className="mt-4 text-sm leading-relaxed text-[#58688b] sm:text-base">
               A simple path from confusion to confidence — designed for how Bangladeshi students actually study.
             </p>
-          </motion.div>
+          </div>
 
           <div className="mt-10 space-y-4 lg:mt-12">
-            {content.pillars.map((pillar, index) => (
-              <motion.article
+            {content.pillars.map((pillar) => (
+              <article
                 key={pillar.step}
-                {...fadeIn}
-                transition={{ duration: 0.45, delay: index * 0.05 }}
                 className="flex flex-col gap-4 rounded-2xl border border-[#e8edf5] bg-white p-6 shadow-[0_8px_30px_-16px_rgba(26,43,94,0.12)] sm:flex-row sm:items-center sm:gap-6 sm:p-7"
               >
                 <span className="inline-flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#3b8dee] via-[#ff6b35] to-[#ef3239] text-lg font-extrabold text-white shadow-md">
@@ -260,7 +239,7 @@ export function AboutPage() {
                   <h3 className="text-lg font-bold text-[#1a2b5e] sm:text-xl">{pillar.title}</h3>
                   <p className="mt-2 text-sm leading-relaxed text-[#58688b] sm:text-base">{pillar.description}</p>
                 </div>
-              </motion.article>
+              </article>
             ))}
           </div>
         </div>
@@ -269,8 +248,7 @@ export function AboutPage() {
       {/* CTA */}
       <section className="bg-white py-14 sm:py-16 lg:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <motion.div
-            {...fadeIn}
+          <div
             className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239] px-6 py-12 text-center text-white shadow-[0_24px_60px_-20px_rgba(239,50,57,0.45)] sm:px-10 sm:py-14"
           >
             <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.15),transparent_45%)]" />
@@ -291,7 +269,7 @@ export function AboutPage() {
                 </Button>
               </div>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
     </>
