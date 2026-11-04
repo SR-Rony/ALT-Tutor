@@ -442,46 +442,44 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
         ) : null}
       </CourseVideoModal>
 
-      {/* Dark hero — 10 Minute School style */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-[#0b1220] via-[#162033] to-[#1e1b4b] text-white [&_h1]:text-white [&_h2]:text-white [&_h3]:text-white">
-        <div aria-hidden className="pointer-events-none absolute inset-0 opacity-40">
-          <div className="absolute -left-24 top-0 h-80 w-80 rounded-full bg-[#12b76a]/30 blur-3xl" />
-          <div className="absolute -right-20 bottom-0 h-72 w-72 rounded-full bg-[#6366f1]/25 blur-3xl" />
-        </div>
+      {/* Clean Light Hero Banner */}
+      <section className="border-b border-slate-200 bg-[#F8FAFC]">
         <div className="relative mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-10 lg:py-12">
-          <nav className="mb-5 text-sm text-white/60">
-            <Link href={ROUTES.home} className="hover:text-white">
+          <nav className="mb-4 text-xs font-medium text-slate-500">
+            <Link href={ROUTES.home} className="hover:text-[#1D4ED8] transition-colors">
               Home
             </Link>
-            <span className="mx-2">/</span>
-            <Link href={ROUTES.courses} className="hover:text-white">
+            <span className="mx-2 text-slate-400">/</span>
+            <Link href={ROUTES.courses} className="hover:text-[#1D4ED8] transition-colors">
               Courses
             </Link>
-            <span className="mx-2">/</span>
-            <span className="text-white/90">{course.title}</span>
+            <span className="mx-2 text-slate-400">/</span>
+            <span className="text-slate-800 font-semibold">{course.title}</span>
           </nav>
           <div className="max-w-4xl">
             {course.category ? (
-              <span className="inline-flex rounded-md bg-white/10 px-2.5 py-1 text-xs font-bold uppercase tracking-wide text-[#6ee7b7]">
+              <span className="inline-flex rounded-full bg-blue-100 px-3 py-1 text-xs font-bold uppercase tracking-wider text-[#1D4ED8]">
                 {course.category.name}
               </span>
             ) : null}
-            <h1 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-white drop-shadow-[0_2px_14px_rgba(0,0,0,0.45)] sm:text-4xl lg:text-[2.75rem]">
+            <h1 className="mt-3 text-3xl font-bold leading-tight tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
               {course.title}
             </h1>
             {(course.summary?.trim() || course.description?.trim()) ? (
-              <p className="mt-4 max-w-3xl text-base leading-relaxed text-white/80 sm:text-lg">
+              <p className="mt-4 max-w-3xl text-base leading-relaxed text-slate-600 sm:text-lg">
                 {course.summary?.trim() || richTextExcerpt(course.description, 260)}
               </p>
             ) : null}
-            <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-white/70">
-              <span className="inline-flex items-center gap-1.5">
+            <div className="mt-6 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm text-slate-600">
+              <span className="inline-flex items-center gap-1.5 font-medium">
                 <RatingStars rating={avgRating} />
-                {course.reviews.length > 0 ? `${avgRating.toFixed(1)} (${course.reviews.length})` : "No reviews yet"}
+                {course.reviews.length > 0 ? `${avgRating.toFixed(1)} (${course.reviews.length} reviews)` : "No reviews yet"}
               </span>
-              <span>{course.teacher.name}</span>
-              <span>{lessonCount} lessons</span>
-              <span>{course.studentsCount} enrolled</span>
+              <span className="font-medium text-slate-700">Instructor: {course.teacher.name}</span>
+              <span>•</span>
+              <span className="font-medium">{lessonCount} lessons</span>
+              <span>•</span>
+              <span className="font-medium">{course.studentsCount} students enrolled</span>
             </div>
           </div>
         </div>
@@ -502,7 +500,7 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
               {course.chapters.length === 0 ? (
                 <p className="mt-4 text-sm text-[#64748b]">Curriculum will be available soon.</p>
               ) : (
-                <div className="mt-5 space-y-3 rounded-2xl border border-[#e5e7eb] bg-white p-3 sm:p-4">
+                <div className="mt-5 space-y-3 rounded-2xl border border-slate-200 bg-white p-3 sm:p-4">
                   {course.chapters.map((chapter, index) => (
                     <ChapterAccordion
                       key={chapter.id}
@@ -528,18 +526,18 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                 title="How this course is organized"
                 subtitle="Everything included to help you learn step by step"
               />
-              <div className="mt-5 overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f172a] to-[#1e293b] p-4 sm:p-6">
+              <div className="mt-5 rounded-2xl border border-slate-200 bg-[#F8FAFC] p-4 sm:p-6">
                 <div className="grid gap-4 sm:grid-cols-2">
                   {featureHighlights.map(({ title, description, icon: Icon }) => (
                     <div
                       key={title}
-                      className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-sm"
+                      className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm"
                     >
-                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-[#12b76a]/20 text-[#6ee7b7]">
+                      <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-[#1D4ED8]">
                         <Icon className="h-5 w-5" aria-hidden />
                       </span>
-                      <h3 className="mt-3 text-base font-bold text-white">{title}</h3>
-                      <p className="mt-2 text-sm leading-relaxed text-white/70">{description}</p>
+                      <h3 className="mt-3 text-base font-bold text-slate-900">{title}</h3>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-600">{description}</p>
                     </div>
                   ))}
                 </div>
@@ -695,16 +693,15 @@ export function CourseDetailView({ slug }: CourseDetailViewProps) {
                   <FaqAccordion key={faq.id} question={faq.question} answer={faq.answer} />
                 ))}
               </div>
-              <div className="mt-6 rounded-2xl border border-[#d1fae5] bg-[#ecfdf5] p-6 text-center">
-                <p className="font-semibold text-[#065f46]">Have more questions?</p>
-                <p className="mt-1 text-sm text-[#047857]">Our team is ready to help you choose the right course.</p>
-                <a
-                  href={`tel:${siteConfig.phone}`}
-                  className="mt-4 inline-flex items-center gap-2 rounded-full border-2 border-[#12b76a] px-5 py-2.5 text-sm font-bold text-[#12b76a] transition hover:bg-[#12b76a] hover:text-white"
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm">
+                <p className="font-bold text-slate-900">Have more questions about this course?</p>
+                <p className="mt-1 text-sm text-slate-500">Our mentors and counselors are ready to help you choose the right curriculum.</p>
+                <Link
+                  href={ROUTES.contact}
+                  className="mt-4 inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800"
                 >
-                  <Phone className="h-4 w-4" aria-hidden />
-                  Call {siteConfig.phone}
-                </a>
+                  Contact Academic Support →
+                </Link>
               </div>
             </section>
           </div>
@@ -754,12 +751,12 @@ function SectionNav({
         <div className="grid lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]">
           <nav
             aria-label="Course sections"
-            className="min-w-0 rounded-xl border border-border bg-card shadow-sm backdrop-blur-md"
+            className="min-w-0 rounded-xl border border-slate-200 bg-white shadow-sm"
           >
             <div
               id="course-section-nav"
               role="tablist"
-              className="flex w-full max-w-full justify-start gap-0.5 overflow-x-auto px-2 py-1.5 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="flex w-full max-w-full justify-start gap-1 overflow-x-auto px-2 py-1.5 sm:px-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {items.map((item) => {
                 const active = activeId === item.id;
@@ -775,19 +772,19 @@ function SectionNav({
                       event.stopPropagation();
                       onSelect(item.id);
                     }}
-                    className="group shrink-0 px-2 py-1 touch-manipulation sm:px-2.5"
+                    className="group shrink-0 px-3 py-1.5 touch-manipulation"
                   >
                     <span
                       className={cn(
-                        "relative inline-flex items-center whitespace-nowrap text-sm font-medium transition-colors duration-300",
-                        active ? "text-[#ef3239]" : "text-[#1a2b5e]/75 group-hover:text-[#ef3239]"
+                        "relative inline-flex items-center whitespace-nowrap text-sm font-semibold transition-colors duration-200",
+                        active ? "text-[#1D4ED8]" : "text-slate-600 hover:text-[#1D4ED8]"
                       )}
                     >
                       {item.label}
                       <span
                         aria-hidden
                         className={cn(
-                          "absolute inset-x-0 -bottom-1 h-0.5 origin-left rounded-full bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239] transition-transform duration-300 ease-out",
+                          "absolute inset-x-0 -bottom-1 h-0.5 rounded-full bg-[#1D4ED8] transition-transform duration-200 ease-out",
                           active ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
                         )}
                       />
@@ -909,7 +906,7 @@ function CollapsibleDescription({
         <button
           type="button"
           onClick={() => setExpanded((value) => !value)}
-          className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[#1877f2] hover:text-[#ef3239]"
+          className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-[#1D4ED8] hover:underline"
         >
           {expanded ? "Read less" : "Read more"}
           <ChevronDown
@@ -1132,16 +1129,16 @@ function CourseSidebarCard({
   const isStaff = Boolean(staffActions);
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[#e5e7eb] bg-white shadow-[0_8px_30px_rgba(15,23,42,0.08)]">
-      <div className="relative aspect-video bg-[#e8edf5]">
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <div className="relative aspect-video bg-slate-100">
         {course.thumbnail ? (
           <Image src={course.thumbnail} alt={course.title} fill sizes="380px" className="object-cover" />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#0f172a] to-[#1e293b]">
+          <div className="absolute inset-0 flex items-center justify-center bg-slate-900">
             <BookOpen className="h-14 w-14 text-white/70" aria-hidden />
           </div>
         )}
-        <div className="absolute inset-0 bg-black/25" />
+        <div className="absolute inset-0 bg-black/20" />
         {showVideoPreview ? (
           <button
             type="button"
@@ -1149,7 +1146,7 @@ function CourseSidebarCard({
             className="absolute inset-0 flex items-center justify-center"
             aria-label="Watch preview"
           >
-            <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-white/95 text-primary shadow-lg transition hover:scale-105">
+            <span className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-white text-[#1D4ED8] shadow-lg transition hover:scale-105">
               <Play className="ml-1 h-6 w-6 fill-current" aria-hidden />
             </span>
           </button>
@@ -1158,15 +1155,15 @@ function CourseSidebarCard({
 
       <div className="space-y-4 p-5">
         <div>
-          <p className="text-lg font-bold text-[#111827]">
+          <p className="text-lg font-bold text-slate-900">
             {course.summary?.trim() ? richTextExcerpt(course.summary, 60) : "Start learning today"}
           </p>
           <p className="mt-2 flex flex-wrap items-baseline gap-2">
-            <span className="text-2xl font-extrabold text-[#111827]">
+            <span className="text-3xl font-extrabold text-slate-900">
               {formatCoursePrice(course.price)}
             </span>
             {course.regularPrice && course.regularPrice > course.price ? (
-              <span className="text-sm text-[#94a3b8] line-through">
+              <span className="text-sm text-slate-400 line-through">
                 {formatCoursePrice(course.regularPrice)}
               </span>
             ) : null}
@@ -1175,23 +1172,23 @@ function CourseSidebarCard({
 
         {isEnrolled ? (
           <>
-            <div className="rounded-lg bg-primary-muted px-3 py-2 text-center text-sm font-semibold text-primary">
+            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-center text-sm font-semibold text-[#1D4ED8]">
               Already enrolled
               {enrolledAt ? (
-                <p className="mt-1 text-xs font-medium text-primary/80">
+                <p className="mt-1 text-xs font-medium text-blue-600">
                   Enrolled {formatShortDate(enrolledAt)} · Expires{" "}
                   {accessExpiresAt ? formatShortDate(accessExpiresAt) : "never (lifetime)"}
                 </p>
               ) : null}
             </div>
-            <Button asChild variant="default" size="lg" className="h-12 w-full">
+            <Button asChild variant="default" size="lg" className="h-12 w-full bg-[#1D4ED8] hover:bg-blue-800 text-white font-bold">
               <Link href={learnHref}>Continue learning</Link>
             </Button>
           </>
         ) : (
           <div className="space-y-2.5">
             {showVideoPreview ? (
-              <Button type="button" variant="default" size="lg" className="h-12 w-full" onClick={onPreview}>
+              <Button type="button" variant="outline" size="lg" className="h-12 w-full border-slate-300 font-semibold text-slate-700 hover:bg-slate-50" onClick={onPreview}>
                 {!isAuthenticated
                   ? "Log in to watch intro video"
                   : hasPromoVideo
@@ -1203,20 +1200,20 @@ function CourseSidebarCard({
               isFree ? (
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="default"
                   size="lg"
-                  className="h-12 w-full"
+                  className="h-12 w-full bg-[#1D4ED8] hover:bg-blue-800 text-white font-bold"
                   disabled={enrollPending}
                   onClick={onEnroll}
                 >
-                  {enrollPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enroll Now"}
+                  {enrollPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enroll Now — Free"}
                 </Button>
               ) : (
                 <Button
                   type="button"
-                  variant="secondary"
+                  variant="default"
                   size="lg"
-                  className="h-12 w-full"
+                  className="h-12 w-full bg-[#1D4ED8] hover:bg-blue-800 text-white font-bold"
                   disabled={checkoutPending}
                   onClick={onCheckout}
                 >
@@ -1226,7 +1223,7 @@ function CourseSidebarCard({
             ) : isStaff && staffActions ? (
               <StaffSidebarActions actions={staffActions} />
             ) : isAuthenticated ? (
-              <Button asChild variant="secondary" size="lg" className="h-12 w-full">
+              <Button asChild variant="default" size="lg" className="h-12 w-full bg-[#1D4ED8] hover:bg-blue-800 text-white font-bold">
                 <Link
                   href={
                     userRole && userRole in roleHomeRoutes
@@ -1238,8 +1235,8 @@ function CourseSidebarCard({
                 </Link>
               </Button>
             ) : (
-              <Button asChild variant="secondary" size="lg" className="h-12 w-full">
-                <Link href={loginNextHref}>{isFree ? "Enroll — Free" : "Log in to enroll"}</Link>
+              <Button asChild variant="default" size="lg" className="h-12 w-full bg-[#1D4ED8] hover:bg-blue-800 text-white font-bold">
+                <Link href={loginNextHref}>{isFree ? "Enroll — Free" : "Log In to Enroll"}</Link>
               </Button>
             )}
           </div>

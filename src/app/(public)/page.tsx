@@ -3,6 +3,7 @@ import {
   HomeCoreFeatures,
   HomeCustomExamBuilder,
   HomeExploreSubjects,
+  HomeFeaturedCourses,
   HomeFinalCta,
   HomeHero,
   HomeHowItWorks,
@@ -17,6 +18,7 @@ export default function HomePage() {
       <HomeHero />
       <HomeStatsSection />
       <HomeCoreFeatures />
+      <HomeFeaturedCourses />
       <HomeMarketplaceSection />
       <HomeCustomExamBuilder />
       <HomeExploreSubjects />
