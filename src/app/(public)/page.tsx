@@ -4,6 +4,7 @@ import {
   HomeCustomExamBuilder,
   HomeExploreSubjects,
   HomeHero,
+  HomeHowItWorks,
   HomeMarketplaceSection,
   HomeStatsSection,
 } from "@/components/public/home";
@@ -18,6 +19,7 @@ export default function HomePage() {
       <HomeCustomExamBuilder />
       <HomeExploreSubjects />
       <HomeAnimatedVideoLessons />
+      <HomeHowItWorks />
     </>
   );
 }
