@@ -1,206 +1,183 @@
-"use client";
-
 import Link from "next/link";
 import {
   Facebook,
   Instagram,
   Linkedin,
   Mail,
-  MapPin,
   Phone,
-  Twitter,
   Youtube,
-  type LucideIcon,
 } from "lucide-react";
 import { Logo } from "@/components/shared";
-import { publicFooterCompanyLinks, publicFooterProgramLinks, siteConfig } from "@/config";
-import { RichTextContent } from "@/components/ui/rich-text-content";
-import { roleHomeRoutes, ROUTES } from "@/constants";
-import { useAuthSessionReady } from "@/providers/auth-session-provider";
-import { useAppSelector } from "@/store";
+import { ROUTES } from "@/constants";
 
-const programLinks = publicFooterProgramLinks;
-const companyLinks = publicFooterCompanyLinks;
+const SOCIAL_LINKS = [
+  {
+    label: "Facebook",
+    href: "https://facebook.com",
+    icon: Facebook,
+  },
+  {
+    label: "YouTube",
+    href: "https://youtube.com",
+    icon: Youtube,
+  },
+  {
+    label: "Instagram",
+    href: "https://instagram.com",
+    icon: Instagram,
+  },
+  {
+    label: "LinkedIn",
+    href: "https://linkedin.com",
+    icon: Linkedin,
+  },
+] as const;
 
-const socialLinks: { label: string; href: string; icon: LucideIcon }[] = [
-  { label: "Facebook", href: "https://facebook.com", icon: Facebook },
-  { label: "Instagram", href: "https://instagram.com", icon: Instagram },
-  { label: "Twitter", href: "https://twitter.com", icon: Twitter },
-  { label: "YouTube", href: "https://youtube.com", icon: Youtube },
-  { label: "LinkedIn", href: "https://linkedin.com", icon: Linkedin },
-];
+const QUICK_LINKS = [
+  { label: "Home", href: ROUTES.home },
+  { label: "Question Bank", href: `${ROUTES.home}#question-bank` },
+  { label: "Past Papers", href: `${ROUTES.home}#past-papers` },
+  { label: "Practice Exams", href: `${ROUTES.home}#practice-exams` },
+  { label: "Key Concepts", href: `${ROUTES.home}#key-concepts` },
+] as const;
 
-function FooterLink({ href, label }: { href: string; label: string }) {
-  return (
-    <li>
-      <Link
-        href={href}
-        className="group relative inline-flex text-sm text-[#58688b] transition-colors duration-300 hover:text-[#ef3239]"
-      >
-        <span className="relative">
-          {label}
-          <span
-            aria-hidden
-            className="absolute inset-x-0 -bottom-0.5 h-px origin-left scale-x-0 bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239] transition-transform duration-300 ease-out group-hover:scale-x-100"
-          />
-        </span>
-      </Link>
-    </li>
-  );
-}
-
-function AccountLinks() {
-  const ready = useAuthSessionReady();
-  const user = useAppSelector((s) => s.auth.user);
-  const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
-
-  if (!ready) {
-    return (
-      <ul className="mt-4 space-y-3">
-        <li className="h-4 w-24 animate-pulse rounded bg-muted" />
-        <li className="h-4 w-20 animate-pulse rounded bg-muted" />
-      </ul>
-    );
-  }
-
-  if (isAuthenticated && user) {
-    return (
-      <ul className="mt-4 space-y-3">
-        <FooterLink href={roleHomeRoutes[user.role]} label="My Dashboard" />
-        <FooterLink
-          href={
-            user.role === "admin"
-              ? ROUTES.admin.settings
-              : user.role === "teacher"
-                ? ROUTES.teacher.settings
-                : ROUTES.student.settings
-          }
-          label="Settings"
-        />
-        <FooterLink href={ROUTES.courses} label="Browse Courses" />
-      </ul>
-    );
-  }
-
-  return (
-    <ul className="mt-4 space-y-3">
-      <FooterLink href={ROUTES.auth.login} label="Log In" />
-      <FooterLink href={ROUTES.auth.register} label="Sign Up" />
-      <FooterLink href={ROUTES.student.root} label="Student Portal" />
-      <FooterLink href={ROUTES.teacher.root} label="Teacher Portal" />
-    </ul>
-  );
-}
+const SUPPORT_LINKS = [
+  { label: "Contact Us", href: ROUTES.contact },
+  { label: "Help Center", href: ROUTES.help },
+  { label: "System Requirements", href: `${ROUTES.help}#requirements` },
+] as const;
 
 export function PublicFooter() {
-  const year = new Date().getFullYear();
-
   return (
-    <footer className="relative w-full overflow-x-clip border-t border-[#e8edf5] bg-[linear-gradient(180deg,#ffffff_0%,#f7f9fc_48%,#eef4fb_100%)] text-[#1a2b5e]">
-      <div
-        aria-hidden
-        className="h-1 w-full bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239]"
-      />
-
-      <div aria-hidden className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-16 top-10 h-48 w-48 rounded-full bg-[#1877f2]/8 blur-3xl" />
-        <div className="absolute -right-12 bottom-10 h-52 w-52 rounded-full bg-[#ef3239]/7 blur-3xl" />
-      </div>
-
-      <div className="relative mx-auto max-w-7xl px-4 pt-14 sm:px-6 sm:pt-16 lg:pt-18">
-        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.35fr_repeat(3,minmax(0,1fr))] lg:gap-8 xl:gap-12">
-          <div className="sm:col-span-2 lg:col-span-1">
+    <footer className="w-full border-t border-slate-200 bg-white">
+      <div className="mx-auto max-w-7xl px-4 pt-16 sm:px-6 sm:pt-20">
+        {/* 4-Column Grid on desktop, 2-column on tablet, stacked on mobile */}
+        <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4 lg:gap-8 pb-12 sm:pb-16">
+          
+          {/* Column 1: Brand */}
+          <div className="space-y-4">
             <Logo href={ROUTES.home} />
-            <RichTextContent
-              html={siteConfig.description}
-              className="mt-4 max-w-sm text-sm leading-relaxed text-[#58688b]"
-            />
+            <p className="text-sm leading-relaxed text-slate-500 max-w-xs">
+              Bangladesh&apos;s Trusted Digital School
+            </p>
 
-            <div className="mt-6 space-y-3">
-              <a
-                href={`tel:${siteConfig.phone}`}
-                className="flex items-center gap-2.5 text-sm text-[#58688b] transition-colors duration-300 hover:text-[#1a2b5e]"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#fff1ee] text-[#ef3239]">
-                  <Phone className="h-4 w-4" aria-hidden />
-                </span>
-                {siteConfig.phone}
-              </a>
-              <a
-                href="mailto:support@alttutor.com"
-                className="flex items-center gap-2.5 text-sm text-[#58688b] transition-colors duration-300 hover:text-[#1a2b5e]"
-              >
-                <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#e8f2fe] text-[#1877f2]">
-                  <Mail className="h-4 w-4" aria-hidden />
-                </span>
-                support@alttutor.com
-              </a>
-              <p className="flex items-start gap-2.5 text-sm text-[#58688b]">
-                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#ecfdf5] text-[#22c55e]">
-                  <MapPin className="h-4 w-4" aria-hidden />
-                </span>
-                Dhaka, Bangladesh
-              </p>
+            {/* Social Icons */}
+            <div className="flex items-center gap-2 pt-2">
+              {SOCIAL_LINKS.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    target="_blank"
+                    rel="noreferrer"
+                    aria-label={item.label}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-500 transition-colors hover:border-[#1D4ED8] hover:bg-blue-50 hover:text-[#1D4ED8]"
+                  >
+                    <Icon className="h-4 w-4" aria-hidden />
+                  </a>
+                );
+              })}
             </div>
           </div>
 
+          {/* Column 2: Quick Links */}
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1a2b5e]">Programs</h3>
-            <ul className="mt-4 space-y-3">
-              {programLinks.map((link) => (
-                <FooterLink key={link.label} href={link.href} label={link.label} />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+              Quick Links
+            </h3>
+            <ul className="mt-4 space-y-2.5">
+              {QUICK_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-slate-600 transition-colors hover:text-[#1D4ED8]"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
               ))}
             </ul>
           </div>
 
+          {/* Column 3: Support */}
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1a2b5e]">Company</h3>
-            <ul className="mt-4 space-y-3">
-              {companyLinks.map((link) => (
-                <FooterLink key={link.label} href={link.href} label={link.label} />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+              Support
+            </h3>
+            <ul className="mt-4 space-y-2.5">
+              {SUPPORT_LINKS.map((link) => (
+                <li key={link.label}>
+                  <Link
+                    href={link.href}
+                    className="text-sm text-slate-600 transition-colors hover:text-[#1D4ED8]"
+                  >
+                    {link.label}
+                  </Link>
+                </li>
               ))}
             </ul>
           </div>
 
+          {/* Column 4: Contact Info */}
           <div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-[#1a2b5e]">Account</h3>
-            <AccountLinks />
+            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-900">
+              Contact Info
+            </h3>
+            <ul className="mt-4 space-y-3.5 text-sm text-slate-600">
+              {/* Phone */}
+              <li className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#1D4ED8]">
+                  <Phone className="h-3.5 w-3.5" aria-hidden />
+                </span>
+                <div>
+                  <a
+                    href="tel:16780"
+                    className="font-semibold text-slate-900 transition-colors hover:text-[#1D4ED8]"
+                  >
+                    16780
+                  </a>
+                  <p className="text-xs text-slate-500">9:00 AM - 10:00 PM</p>
+                </div>
+              </li>
+
+              {/* Email */}
+              <li className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-50 text-[#1D4ED8]">
+                  <Mail className="h-3.5 w-3.5" aria-hidden />
+                </span>
+                <div>
+                  <a
+                    href="mailto:support@alttutor.org"
+                    className="font-medium text-slate-700 transition-colors hover:text-[#1D4ED8]"
+                  >
+                    support@alttutor.org
+                  </a>
+                </div>
+              </li>
+            </ul>
           </div>
+
         </div>
 
-        <div className="mt-12 border-t border-[#e2e8f4] py-6 sm:mt-14 sm:py-7">
-          <div className="flex flex-col items-center justify-between gap-5 sm:flex-row">
-            <div className="space-y-1 text-center sm:text-left">
-              <p className="text-xs text-[#64748b] sm:text-sm">
-                © {year} {siteConfig.name}. All rights reserved.
-              </p>
-              <p className="text-xs text-[#94a3b8] sm:text-[0.8125rem]">
-                Designed & developed by{" "}
-                <a
-                  href="https://codezyne.com.bd/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="font-semibold text-[#1a2b5e] transition-colors duration-300 hover:text-[#ef3239]"
-                >
-                  {siteConfig.company}
-                </a>
-              </p>
-            </div>
+        {/* Bottom Bar */}
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-slate-200 py-6 sm:flex-row text-sm text-slate-500">
+          <p>© 2025 Alt Tutor. All rights reserved.</p>
 
-            <div className="flex items-center gap-2.5">
-              {socialLinks.map(({ label, href, icon: Icon }) => (
-                <a
-                  key={label}
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={label}
-                  className="group inline-flex h-10 w-10 items-center justify-center rounded-full border border-[#e2e8f4] bg-white text-[#64748b] shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-transparent hover:bg-gradient-to-br hover:from-[#3b8dee] hover:via-[#ff6b35] hover:to-[#ef3239] hover:text-white hover:shadow-[0_10px_24px_-10px_rgba(239,50,57,0.45)]"
-                >
-                  <Icon className="h-4 w-4 transition-transform duration-300 group-hover:scale-110" aria-hidden />
-                </a>
-              ))}
-            </div>
+          <div className="flex items-center gap-4 text-xs sm:text-sm">
+            <Link
+              href={ROUTES.help}
+              className="transition-colors hover:text-[#1D4ED8]"
+            >
+              Privacy Policy
+            </Link>
+            <span className="text-slate-300">|</span>
+            <Link
+              href={ROUTES.help}
+              className="transition-colors hover:text-[#1D4ED8]"
+            >
+              Terms of Service
+            </Link>
           </div>
         </div>
       </div>

@@ -141,27 +141,20 @@ export function PublicAuthActions({ mobile = false, onNavigate }: PublicAuthActi
   }
 
   return (
-    <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-      <Button asChild variant="secondary" size="pill" className="hidden shrink-0 sm:inline-flex lg:px-5">
-        <Link href={dashboardHref}>
-          <LayoutDashboard className="h-4 w-4" />
-          <span>Dashboard</span>
-        </Link>
-      </Button>
-
+    <div className="flex shrink-0 items-center">
       <div ref={ref} className="relative shrink-0">
         <button
           type="button"
           onClick={() => setOpen((v) => !v)}
           className={cn(
-            "inline-flex shrink-0 items-center gap-2 rounded-full border border-border bg-card py-1 pl-1 pr-2.5 text-sm font-semibold text-foreground transition-colors",
-            "hover:border-primary/30 hover:bg-[#e8f2fe] hover:text-primary",
-            open && "border-primary/30 bg-[#e8f2fe] text-primary"
+            "inline-flex shrink-0 items-center gap-2 rounded-full border border-slate-200 bg-white py-1 pl-1 pr-2.5 text-sm font-semibold text-slate-800 transition-colors",
+            "hover:border-[#1D4ED8] hover:text-[#1D4ED8]",
+            open && "border-[#1D4ED8] text-[#1D4ED8]"
           )}
           aria-expanded={open}
           aria-haspopup="menu"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-blue-50 text-xs font-bold text-[#1D4ED8]">
             {getInitials(user.name)}
           </span>
           <span className="hidden max-w-[7rem] truncate md:inline">{user.name.split(" ")[0]}</span>
@@ -178,47 +171,47 @@ export function PublicAuthActions({ mobile = false, onNavigate }: PublicAuthActi
               className="absolute right-0 top-full z-[60] mt-2 w-56"
               role="menu"
             >
-              <div className="overflow-hidden rounded-xl border border-[#e8edf5] bg-white py-2 shadow-[0_16px_40px_-12px_rgba(24,119,242,0.18)]">
-                <div className="border-b border-border px-3 pb-2.5 pt-1.5">
-                  <p className="truncate text-sm font-semibold text-foreground">{user.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">
+              <div className="overflow-hidden rounded-xl border border-slate-200 bg-white py-2 shadow-lg shadow-slate-200/50">
+                <div className="border-b border-slate-100 px-3 pb-2.5 pt-1.5">
+                  <p className="truncate text-sm font-semibold text-slate-900">{user.name}</p>
+                  <p className="truncate text-xs text-slate-500">
                     {roleLabel} · {user.phone}
                   </p>
                 </div>
                 <Link
                   href={dashboardHref}
                   role="menuitem"
-                  className="mx-1.5 mt-1 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[#58688b] transition-colors hover:bg-[#e8f2fe] hover:text-primary"
+                  className="mx-1.5 mt-1.5 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-[#1D4ED8]"
                   onClick={() => setOpen(false)}
                 >
-                  <LayoutDashboard className="h-4 w-4" />
+                  <LayoutDashboard className="h-4 w-4 text-[#1D4ED8]" />
                   Dashboard
                 </Link>
                 <Link
                   href={settingsHref}
                   role="menuitem"
-                  className="mx-1.5 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[#58688b] transition-colors hover:bg-[#e8f2fe] hover:text-primary"
+                  className="mx-1.5 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-[#1D4ED8]"
                   onClick={() => setOpen(false)}
                 >
-                  <Settings className="h-4 w-4" />
+                  <Settings className="h-4 w-4 text-slate-500" />
                   Settings
                 </Link>
                 <Link
                   href={ROUTES.courses}
                   role="menuitem"
-                  className="mx-1.5 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm text-[#58688b] transition-colors hover:bg-[#e8f2fe] hover:text-primary sm:hidden"
+                  className="mx-1.5 flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-700 transition-colors hover:bg-blue-50 hover:text-[#1D4ED8] sm:hidden"
                   onClick={() => setOpen(false)}
                 >
-                  <UserRound className="h-4 w-4" />
+                  <UserRound className="h-4 w-4 text-slate-500" />
                   Browse courses
                 </Link>
                 <button
                   type="button"
                   role="menuitem"
-                  className="mx-1.5 mb-1 flex w-[calc(100%-0.75rem)] items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm text-[#58688b] transition-colors hover:bg-[#fef2f2] hover:text-[#ef3239]"
+                  className="mx-1.5 mb-1 flex w-[calc(100%-0.75rem)] items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-slate-700 transition-colors hover:bg-red-50 hover:text-red-600"
                   onClick={() => void handleLogout()}
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-4 w-4 text-red-500" />
                   Logout
                 </button>
               </div>

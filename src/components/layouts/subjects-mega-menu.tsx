@@ -84,12 +84,12 @@ function isMegaMenuResource(resource: SubjectMenuResource) {
 }
 
 const TONE_CLASSES = [
-  "bg-primary text-primary-foreground",
-  "bg-accent text-white",
-  "bg-accent-purple text-white",
-  "bg-accent-green text-white",
-  "bg-[#ff6b35] text-white",
-  "bg-primary-hover text-primary-foreground",
+  "bg-[#1D4ED8] text-white",
+  "bg-[#F59E0B] text-white",
+  "bg-indigo-600 text-white",
+  "bg-emerald-600 text-white",
+  "bg-blue-600 text-white",
+  "bg-slate-700 text-white",
 ];
 
 function categoryIcon(category: SubjectMenuCategory, index: number): LucideIcon {
@@ -472,8 +472,8 @@ export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: stri
       >
         <span
           className={cn(
-            "relative inline-flex items-center gap-1 text-sm font-medium transition-colors duration-300",
-            open || active ? "text-[#ef3239]" : "text-[#1a2b5e]/75 group-hover:text-[#ef3239]"
+            "relative inline-flex items-center gap-1 text-sm font-medium transition-colors duration-200",
+            open || active ? "font-semibold text-[#1D4ED8]" : "text-slate-600 hover:text-[#1D4ED8]"
           )}
         >
           Subjects
@@ -484,7 +484,7 @@ export function SubjectsMegaMenu({ pathname }: { pathname: string; search?: stri
           <span
             aria-hidden
             className={cn(
-              "absolute inset-x-0 -bottom-1 h-0.5 origin-left rounded-full bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239] transition-transform duration-300 ease-out",
+              "absolute inset-x-0 -bottom-1 h-0.5 origin-left rounded-full bg-[#1D4ED8] transition-transform duration-200 ease-out",
               open || active ? "scale-x-100" : "scale-x-0 group-hover:scale-x-100"
             )}
           />
@@ -544,8 +544,8 @@ export function SubjectsMobileMenu({
       <button
         type="button"
         className={cn(
-          "flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3.5 text-left text-base font-medium transition-colors duration-300",
-          active ? "text-[#ef3239]" : "text-foreground hover:text-[#ef3239]"
+          "flex w-full cursor-pointer items-center justify-between gap-3 px-4 py-3.5 text-left text-base font-medium transition-colors duration-200",
+          active ? "bg-blue-50 font-semibold text-[#1D4ED8]" : "text-slate-700 hover:bg-slate-50 hover:text-[#1D4ED8]"
         )}
         aria-expanded={expanded}
         onClick={() => setExpanded((value) => !value)}

@@ -4,11 +4,10 @@ import { ROUTES } from "@/constants";
 /** Static public navbar — Subjects mega menu loads IB subjects from /subjects/menu */
 export const publicNav: NavItem[] = [
   { title: "Home", href: ROUTES.home, iconName: "home" },
-  { title: "Question Bank", href: "/#question-bank", iconName: "book" },
-  { title: "Past Papers", href: "/#past-papers", iconName: "book" },
-  { title: "Practice Exams", href: "/#practice-exams", iconName: "book" },
-  { title: "Key Concepts", href: "/#key-concepts", iconName: "book" },
-  { title: "Courses", href: ROUTES.courses, iconName: "book" },
+  { title: "Subjects", href: ROUTES.courses, iconName: "book" },
+  { title: "About", href: ROUTES.about, iconName: "info" },
+  { title: "Help", href: ROUTES.help, iconName: "help" },
+  { title: "Contact", href: ROUTES.contact, iconName: "phone" },
 ];
 
 export const publicFooterProgramLinks = [

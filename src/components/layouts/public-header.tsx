@@ -4,28 +4,24 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Menu, Phone, X } from "lucide-react";
-import { siteConfig } from "@/config";
+import { Menu, X } from "lucide-react";
 import { ROUTES } from "@/constants";
 import { Logo } from "@/components/shared";
 import { PublicAuthActions } from "@/components/layouts/public-auth-actions";
+import { SubjectsMegaMenu, SubjectsMobileMenu } from "@/components/layouts/subjects-mega-menu";
 import { cn } from "@/utils";
 
-const NAV_LINKS = [
+const NAV_ITEMS = [
   { title: "Home", href: ROUTES.home },
-  { title: "Question Bank", href: `${ROUTES.home}#question-bank` },
-  { title: "Past Papers", href: `${ROUTES.home}#past-papers` },
-  { title: "Practice Exams", href: `${ROUTES.home}#practice-exams` },
-  { title: "Key Concepts", href: `${ROUTES.home}#key-concepts` },
-  { title: "Courses", href: ROUTES.courses },
+  { title: "Subjects", href: ROUTES.courses },
+  { title: "About", href: ROUTES.about },
+  { title: "Help", href: ROUTES.help },
+  { title: "Contact", href: ROUTES.contact },
 ] as const;
 
 function isLinkActive(pathname: string, href: string): boolean {
   if (href === ROUTES.home) {
     return pathname === ROUTES.home;
-  }
-  if (href.startsWith("/#")) {
-    return false;
   }
   return pathname === href || pathname.startsWith(`${href}/`);
 }
@@ -61,14 +57,25 @@ function PublicHeaderInner() {
   return (
     <header className="sticky top-0 z-50 w-full border-b border-slate-200 bg-white">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:h-[4.5rem]">
-        {/* Left: Brand Logo (clean white/transparent background) */}
+        
+        {/* Left: Brand Logo */}
         <div className="flex h-full shrink-0 items-center">
           <Logo className="shrink-0 bg-transparent" />
         </div>
 
-        {/* Center: Primary Navigation Links */}
+        {/* Center: Navigation Links with Subjects MegaMenu */}
         <nav aria-label="Main navigation" className="hidden items-center gap-1 lg:flex xl:gap-2">
-          {NAV_LINKS.map((item) => {
+          {NAV_ITEMS.map((item) => {
+            if (item.title === "Subjects") {
+              return (
+                <SubjectsMegaMenu
+                  key={item.title}
+                  pathname={pathname}
+                  search={search}
+                />
+              );
+            }
+
             const active = isLinkActive(pathname, item.href);
             return (
               <Link
@@ -93,17 +100,8 @@ function PublicHeaderInner() {
           })}
         </nav>
 
-        {/* Right side: Phone number, Log in, Get Started */}
-        <div className="flex shrink-0 items-center gap-3 sm:gap-5">
-          <a
-            href={`tel:${siteConfig.phone}`}
-            className="hidden items-center gap-2 text-sm font-semibold text-slate-700 transition-colors hover:text-[#1D4ED8] md:inline-flex"
-            aria-label={`Call support at ${siteConfig.phone}`}
-          >
-            <Phone className="h-4 w-4 text-[#1D4ED8]" aria-hidden />
-            <span>{siteConfig.phone}</span>
-          </a>
-
+        {/* Right side: Auth Actions (Dashboard is strictly inside dropdown) & Mobile Toggle */}
+        <div className="flex shrink-0 items-center gap-3">
           <PublicAuthActions />
 
           {/* Mobile hamburger toggle */}
@@ -146,8 +144,19 @@ function PublicHeaderInner() {
               exit={prefersReducedMotion ? undefined : { opacity: 0, y: -8 }}
               transition={{ duration: 0.2, ease: "easeOut" }}
             >
-              <nav aria-label="Mobile navigation" className="mx-auto w-full max-w-7xl space-y-1 p-4">
-                {NAV_LINKS.map((item) => {
+              <nav aria-label="Mobile navigation" className="mx-auto w-full max-w-7xl space-y-1.5 p-4">
+                {NAV_ITEMS.map((item) => {
+                  if (item.title === "Subjects") {
+                    return (
+                      <SubjectsMobileMenu
+                        key={item.title}
+                        pathname={pathname}
+                        search={search}
+                        onNavigate={closeMobileMenu}
+                      />
+                    );
+                  }
+
                   const active = isLinkActive(pathname, item.href);
                   return (
                     <Link
@@ -167,14 +176,7 @@ function PublicHeaderInner() {
                 })}
               </nav>
 
-              <div className="space-y-3 border-t border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-                <a
-                  href={`tel:${siteConfig.phone}`}
-                  className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 py-2.5 text-sm font-semibold text-slate-700 transition-colors hover:text-[#1D4ED8]"
-                >
-                  <Phone className="h-4 w-4 text-[#1D4ED8]" aria-hidden />
-                  Call {siteConfig.phone}
-                </a>
+              <div className="border-t border-slate-200 bg-white p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
                 <PublicAuthActions mobile onNavigate={closeMobileMenu} />
               </div>
             </motion.div>
