@@ -73,7 +73,7 @@ export function CourseCard({ course, className }: CourseCardProps) {
           </p>
         </div>
 
-        <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 text-xs font-semibold text-[#1D4ED8] transition-colors group-hover:bg-blue-50">
+        <div className="flex items-center justify-between rounded-lg bg-slate-50 px-3.5 py-2 text-xs font-semibold text-[#1D4ED8] transition-colors group-hover:bg-[#1D4ED8] group-hover:text-white">
           <span>Enroll / View Course</span>
           <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
         </div>

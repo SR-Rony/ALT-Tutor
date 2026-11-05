@@ -101,23 +101,17 @@ export function CoursesCatalogPage() {
   const hasFilters = Boolean(search || categoryId || level);
 
   return (
-    <div className="relative overflow-x-clip bg-[#f7f9fc]">
-      <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-[28rem]">
-        <div className="absolute inset-0 bg-[linear-gradient(180deg,#eef4fb_0%,#f7f9fc_70%,transparent_100%)]" />
-        <div className="absolute -left-20 top-10 h-72 w-72 rounded-full bg-[#fef3c7]/50 blur-3xl" />
-        <div className="absolute right-0 top-0 h-80 w-[40%] bg-[linear-gradient(135deg,rgba(24,119,242,0.08)_0%,transparent_60%)]" />
-      </div>
-
+    <div className="relative overflow-x-clip bg-[#F8FAFC]">
       <section className="relative mx-auto max-w-7xl px-4 pb-6 pt-10 sm:px-6 sm:pt-14 lg:pt-16">
         <div className="mx-auto max-w-3xl text-center">
-          <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#1877f2]">
-            Course catalog
-          </p>
-          <h1 className="mt-3 bg-gradient-to-r from-[#1a2b5e] via-[#ff6b35] to-[#ef3239] bg-clip-text text-3xl font-extrabold tracking-tight text-transparent sm:text-4xl lg:text-5xl">
-            Learn from expert mentors
+          <span className="inline-flex items-center rounded-full bg-blue-100 px-3.5 py-1 text-xs font-bold uppercase tracking-wider text-[#1D4ED8]">
+            Course Catalog
+          </span>
+          <h1 className="mt-4 text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">
+            Learn from Expert Mentors
           </h1>
-          <p className="mx-auto mt-4 max-w-2xl text-sm leading-relaxed text-[#64748b] sm:text-base lg:text-lg">
-            Browse published courses by category and level. Enroll free or paid programs and start
+          <p className="mx-auto mt-3 max-w-2xl text-base leading-relaxed text-slate-600 sm:text-lg">
+            Browse published courses by curriculum and level. Enroll in free or paid programs and start
             learning today.
           </p>
         </div>
@@ -126,14 +120,14 @@ export function CoursesCatalogPage() {
           <label className="relative block">
             <span className="sr-only">Search courses</span>
             <Search
-              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#94a3b8]"
+              className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
               aria-hidden
             />
             <input
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
               placeholder="Search by course title..."
-              className="h-12 w-full rounded-full border border-[#e8edf5] bg-white pl-11 pr-11 text-sm text-[#1a2b5e] shadow-[0_10px_30px_-16px_rgba(26,43,94,0.18)] outline-none transition focus:border-[#1877f2]/40 focus:ring-4 focus:ring-[#1877f2]/10 sm:h-14 sm:text-base"
+              className="h-12 w-full rounded-full border border-slate-200 bg-white pl-11 pr-11 text-sm text-slate-900 shadow-sm outline-none transition focus:border-[#1D4ED8] focus:ring-4 focus:ring-blue-100 sm:h-14 sm:text-base"
             />
             {searchInput ? (
               <button
@@ -144,7 +138,7 @@ export function CoursesCatalogPage() {
                   setSearch("");
                   syncUrl({ search: "", page: 1 });
                 }}
-                className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-[#94a3b8] hover:bg-[#f1f5f9] hover:text-[#1a2b5e]"
+                className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-slate-400 hover:bg-slate-100 hover:text-slate-800"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -155,14 +149,14 @@ export function CoursesCatalogPage() {
 
       <section className="relative mx-auto max-w-7xl px-4 pb-16 sm:px-6 lg:pb-20">
         <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:gap-8">
-          <aside className="w-full shrink-0 rounded-2xl border border-[#e8edf5]/80 bg-white p-5 shadow-[0_12px_36px_-18px_rgba(26,43,94,0.14)] lg:sticky lg:top-24 lg:w-64">
+          <aside className="w-full shrink-0 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm lg:sticky lg:top-24 lg:w-64">
             <div className="flex items-center justify-between gap-2">
-              <h2 className="text-sm font-bold text-[#1a2b5e]">Filters</h2>
+              <h2 className="text-sm font-bold text-slate-900">Filters</h2>
               {hasFilters ? (
                 <button
                   type="button"
                   onClick={clearFilters}
-                  className="text-xs font-semibold text-[#ef3239] hover:underline"
+                  className="text-xs font-semibold text-[#1D4ED8] hover:underline"
                 >
                   Reset
                 </button>
@@ -170,7 +164,7 @@ export function CoursesCatalogPage() {
             </div>
 
             <div className="mt-5">
-              <p className="text-xs font-bold uppercase tracking-wide text-[#94a3b8]">Curriculum</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Curriculum</p>
               <div className="mt-3 flex flex-wrap gap-2 lg:flex-col">
                 <FilterChip
                   active={!categoryId}
@@ -189,7 +183,7 @@ export function CoursesCatalogPage() {
             </div>
 
             <div className="mt-6">
-              <p className="text-xs font-bold uppercase tracking-wide text-[#94a3b8]">Level</p>
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Level</p>
               <div className="mt-3 flex flex-wrap gap-2 lg:flex-col">
                 {LEVELS.map((item) => (
                   <FilterChip
@@ -205,23 +199,23 @@ export function CoursesCatalogPage() {
 
           <div className="min-w-0 flex-1">
             <div className="mb-5 flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-medium text-[#64748b]">
+              <p className="text-sm font-medium text-slate-600">
                 {isLoading ? "Loading courses…" : `${total} course${total === 1 ? "" : "s"} found`}
                 {isFetching && !isLoading ? (
-                  <span className="ml-2 text-[#94a3b8]">Updating…</span>
+                  <span className="ml-2 text-slate-400">Updating…</span>
                 ) : null}
               </p>
               {level ? (
-                <p className="rounded-full bg-[#eff6ff] px-3 py-1 text-xs font-semibold text-[#1877f2]">
+                <p className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-[#1D4ED8]">
                   {formatCourseLevel(level)}
                 </p>
               ) : null}
             </div>
 
             {isError ? (
-              <div className="rounded-2xl border border-dashed border-[#fecaca] bg-[#fff1f2] px-6 py-14 text-center">
-                <p className="text-base font-semibold text-[#ef3239]">Could not load courses</p>
-                <p className="mt-2 text-sm text-[#64748b]">
+              <div className="rounded-2xl border border-dashed border-red-200 bg-red-50 px-6 py-14 text-center">
+                <p className="text-base font-semibold text-red-600">Could not load courses</p>
+                <p className="mt-2 text-sm text-slate-600">
                   Check that the backend API is running and try again.
                 </p>
               </div>
@@ -236,16 +230,16 @@ export function CoursesCatalogPage() {
             ) : null}
 
             {!isLoading && !isError && items.length === 0 ? (
-              <div className="rounded-2xl border border-dashed border-[#e8edf5] bg-white px-6 py-16 text-center">
-                <p className="text-lg font-bold text-[#1a2b5e]">No courses match your filters</p>
-                <p className="mt-2 text-sm text-[#64748b]">
+              <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-6 py-16 text-center">
+                <p className="text-lg font-bold text-slate-900">No courses match your filters</p>
+                <p className="mt-2 text-sm text-slate-500">
                   Try a different search term or clear the filters.
                 </p>
                 {hasFilters ? (
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="mt-5 text-sm font-semibold text-[#ef3239] hover:underline"
+                    className="mt-5 text-sm font-semibold text-[#1D4ED8] hover:underline"
                   >
                     Clear all filters
                   </button>
@@ -269,7 +263,7 @@ export function CoursesCatalogPage() {
                 >
                   Previous
                 </PaginationButton>
-                <span className="px-3 text-sm font-semibold text-[#475569]">
+                <span className="px-3 text-sm font-semibold text-slate-600">
                   Page {page} of {totalPages}
                 </span>
                 <PaginationButton
@@ -301,10 +295,10 @@ function FilterChip({
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-full px-3.5 py-2 text-left text-sm font-semibold transition-colors duration-200 lg:w-full",
+        "rounded-xl px-3.5 py-2 text-left text-sm font-semibold transition-colors duration-200 lg:w-full",
         active
-          ? "bg-gradient-to-r from-[#3b8dee] via-[#ff6b35] to-[#ef3239] text-white shadow-sm"
-          : "bg-[#f8fafc] text-[#475569] hover:bg-[#eff6ff] hover:text-[#1877f2]"
+          ? "bg-[#1D4ED8] text-white shadow-sm hover:bg-[#1E40AF]"
+          : "bg-slate-50 text-slate-700 hover:bg-blue-50 hover:text-[#1D4ED8]"
       )}
     >
       {label}
@@ -327,7 +321,7 @@ function PaginationButton({
       disabled={disabled}
       onClick={onClick}
       className={cn(
-        "rounded-full border border-[#e8edf5] bg-white px-4 py-2 text-sm font-semibold text-[#1a2b5e] transition hover:border-[#1877f2]/30 hover:text-[#1877f2]",
+        "rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-[#1D4ED8] hover:text-[#1D4ED8]",
         disabled && "pointer-events-none opacity-40"
       )}
     >
