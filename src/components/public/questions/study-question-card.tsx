@@ -6,7 +6,6 @@ import {
   BookOpen,
   Check,
   CheckCircle2,
-  Download,
   Eye,
   Expand,
   ExternalLink,
@@ -14,7 +13,6 @@ import {
   PlayCircle,
   ThumbsDown,
   ThumbsUp,
-  Trash2,
   XCircle,
 } from "lucide-react";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
@@ -113,36 +111,13 @@ export function StudyQuestionCard({
   const [modal, setModal] = useState<"scheme" | "video" | "notes" | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [localCompleted, setLocalCompleted] = useState(false);
-  const [showNotesPdf, setShowNotesPdf] = useState(false);
-  const [studentNote, setStudentNote] = useState(() => {
-    if (typeof window === "undefined") return "";
-    try {
-      return localStorage.getItem(`alt_qb_note_${question.id}`) ?? "";
-    } catch {
-      return "";
-    }
-  });
-  const [noteSaved, setNoteSaved] = useState(false);
+  const [showNotesPdf, setShowNotesPdf] = useState(true);
 
   const { text: notesText, pdfUrl: notesPdfUrl } = useMemo(
     () => extractNotesParts(question.notes),
     [question.notes]
   );
-
-  const handleSaveNote = (text: string) => {
-    setStudentNote(text);
-    setNoteSaved(true);
-    try {
-      if (text.trim()) {
-        localStorage.setItem(`alt_qb_note_${question.id}`, text);
-      } else {
-        localStorage.removeItem(`alt_qb_note_${question.id}`);
-      }
-    } catch {
-      // ignore
-    }
-    setTimeout(() => setNoteSaved(false), 2000);
-  };
+  const hasNotes = !isRichTextEmpty(notesText) || Boolean(notesPdfUrl);
 
   const isCompleted = completed ?? localCompleted;
   const toggleComplete =
@@ -404,7 +379,7 @@ export function StudyQuestionCard({
           >
             <BookOpen className="h-4 w-4 shrink-0" />
             Notes
-            {question.notes || studentNote.trim() ? (
+            {hasNotes ? (
               <span className="ml-auto flex h-2 w-2 rounded-full bg-primary" title="Notes available" />
             ) : null}
           </button>
@@ -529,39 +504,17 @@ export function StudyQuestionCard({
       <AdminModal
         open={modal === "notes"}
         title="Question Notes"
-        description={`${qLabel} · Study notes, attached PDF & key reminders`}
+        description={`${qLabel} · Official revision & solution guidance`}
         onClose={() => setModal(null)}
         className={notesPdfUrl && showNotesPdf ? "sm:max-w-4xl" : "sm:max-w-2xl"}
         footer={
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              {noteSaved ? (
-                <span className="flex items-center gap-1 font-semibold text-accent-green">
-                  <Check className="h-3.5 w-3.5" /> Auto-saved
-                </span>
-              ) : studentNote.trim() ? (
-                <span>Auto-saved to your study session</span>
-              ) : (
-                <span>Type your personal reminders or formulas</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {studentNote.trim() ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="text-xs text-muted-foreground hover:text-accent"
-                  onClick={() => handleSaveNote("")}
-                >
-                  <Trash2 className="mr-1 h-3.5 w-3.5" />
-                  Clear Note
-                </Button>
-              ) : null}
-              <Button type="button" variant="outline" onClick={() => setModal(null)}>
-                Done
-              </Button>
-            </div>
+          <div className="flex w-full items-center justify-between gap-2">
+            <span className="text-xs text-muted-foreground">
+              Official notes provided for this question
+            </span>
+            <Button type="button" variant="outline" onClick={() => setModal(null)}>
+              Close
+            </Button>
           </div>
         }
       >
@@ -576,7 +529,7 @@ export function StudyQuestionCard({
                   </div>
                   <div>
                     <div className="text-sm font-semibold text-foreground">
-                      Revision & Solution Notes (PDF)
+                      Revision &amp; Solution Notes (PDF)
                     </div>
                     <div className="text-xs text-muted-foreground">
                       Official document attached to this question
@@ -618,33 +571,23 @@ export function StudyQuestionCard({
           ) : null}
 
           {/* Written Theory & Revision Notes */}
-          {notesText ? (
+          {!isRichTextEmpty(notesText) ? (
             <div className="space-y-2 rounded-xl border border-primary/20 bg-primary-muted/20 p-4">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
                 <BookOpen className="h-3.5 w-3.5" />
-                Revision & Solution Notes
+                Revision &amp; Solution Notes
               </div>
-              <div className="text-sm leading-relaxed text-foreground">
+              <div className="text-sm leading-relaxed text-foreground qb-question-font">
                 <RichTextContent html={notesText} />
               </div>
             </div>
           ) : null}
 
-          <div className="space-y-2">
-            <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {notesPdfUrl || notesText ? "My Personal Notes" : "Personal Study Notes"}
-            </label>
-            <textarea
-              rows={notesPdfUrl || notesText ? 4 : 8}
-              value={studentNote}
-              onChange={(e) => handleSaveNote(e.target.value)}
-              placeholder="Write your notes, important points, common mistakes to avoid, or formulas for this question here..."
-              className="w-full rounded-xl border border-border bg-background p-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground/60 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Notes are automatically saved for your profile on this device.
-            </p>
-          </div>
+          {!notesPdfUrl && isRichTextEmpty(notesText) ? (
+            <div className="rounded-xl border border-border bg-muted/30 p-6 text-center text-sm text-muted-foreground">
+              No notes or attached PDF document provided for this question.
+            </div>
+          ) : null}
         </div>
       </AdminModal>
     </section>

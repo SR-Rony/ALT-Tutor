@@ -254,6 +254,7 @@ function PastPaperViewCard({
         options: question.options ?? [],
         markScheme: question.markScheme,
         videoUrl: question.videoUrl,
+        notes: question.notes,
         correctAnswer: question.correctAnswer,
         isCorrect:
           selected && question.correctAnswer

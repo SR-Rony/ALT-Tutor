@@ -475,6 +475,7 @@ function PastPaperQuestionCard({
         options: question.options ?? [],
         markScheme: question.markScheme,
         videoUrl: question.videoUrl,
+        notes: question.notes,
         correctAnswer: question.correctAnswer,
         isCorrect: question.isCorrect,
         paperMarkSchemeUrl,

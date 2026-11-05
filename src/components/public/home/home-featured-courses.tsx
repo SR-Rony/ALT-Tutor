@@ -12,7 +12,7 @@ export function HomeFeaturedCourses() {
   const rawItems = data?.items && data.items.length > 0 ? data.items : mockCourses.slice(0, 6);
 
   return (
-    <section className="w-full border-t border-slate-200 bg-white py-16 sm:py-20 lg:py-24">
+    <section id="courses" className="w-full border-t border-slate-200 bg-white py-16 sm:py-20 lg:py-24">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="flex flex-col items-center justify-between gap-6 md:flex-row md:items-end">

@@ -98,6 +98,7 @@ export type PracticeExamAttemptQuestion = {
   correctAnswer?: string;
   markScheme?: string | null;
   videoUrl?: string | null;
+  notes?: string | null;
   studentAnswer?: string | null;
   isCorrect?: boolean | null;
 };

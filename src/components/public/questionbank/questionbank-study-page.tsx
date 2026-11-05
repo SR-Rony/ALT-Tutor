@@ -196,6 +196,7 @@ function QuestionCard({
         options: mcq ? question.options ?? [] : [],
         markScheme: feedback?.markScheme ?? question.markScheme,
         videoUrl: feedback?.videoUrl ?? question.videoUrl,
+        notes: question.notes,
         correctAnswer: feedback?.correctAnswer ?? question.correctAnswer,
         isCorrect: feedback ? feedback.isCorrect : null,
         questionType: question.questionType,

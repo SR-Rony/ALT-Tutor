@@ -8,10 +8,14 @@ import {
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
+  CreditCard,
   Lock,
   Play,
+  RotateCcw,
   Sparkles,
   Star,
+  Volume2,
+  X,
 } from "lucide-react";
 import { ROUTES } from "@/constants";
 
@@ -27,6 +31,7 @@ interface MockQuestion {
   duration: string;
   solvedCount: string;
   rating: string;
+  markScheme: string[];
 }
 
 const MOCK_QUESTIONS: MockQuestion[] = [
@@ -43,6 +48,12 @@ const MOCK_QUESTIONS: MockQuestion[] = [
     duration: "4m 12s",
     solvedCount: "14.8k solved",
     rating: "4.9/5",
+    markScheme: [
+      "[M1] Condition for real definition: x - 3 ≠ 0 ⇒ Domain = ℝ \\ {3}",
+      "[M1] Let y = (2x + 1)/(x - 3) ⇒ xy - 3y = 2x + 1 ⇒ x(y - 2) = 3y + 1",
+      "[A1] Express x: f⁻¹(x) = (3x + 1)/(x - 2)",
+      "[A1] Evaluate: f⁻¹(5) = (3(5) + 1)/(5 - 2) = 16/3 ≈ 5.33",
+    ],
   },
   {
     id: "physics",
@@ -57,6 +68,12 @@ const MOCK_QUESTIONS: MockQuestion[] = [
     duration: "3m 48s",
     solvedCount: "18.2k solved",
     rating: "4.8/5",
+    markScheme: [
+      "[M1] Apply v² = u² + 2as ⇒ 0 = (20)² + 2·a·(40)",
+      "[A1] Calculate a: 80a = -400 ⇒ a = -5 m/s² (deceleration = 5 m/s²)",
+      "[M1] Apply Newton's 2nd Law: F = m · a = 1200 kg · 5 m/s²",
+      "[A1] State final braking force: F = 6,000 N",
+    ],
   },
   {
     id: "chem",
@@ -71,6 +88,12 @@ const MOCK_QUESTIONS: MockQuestion[] = [
     duration: "5m 05s",
     solvedCount: "11.5k solved",
     rating: "4.9/5",
+    markScheme: [
+      "[M1] Moles difference: Δn = 2 - (1 + 3) = -2",
+      "[A1] Equilibrium relation: Kp = Kc · (RT)^(-2) = Kc / (RT)²",
+      "[M1] Le Chatelier: High pressure shifts equilibrium to fewer gaseous moles",
+      "[A1] Forward reaction favored: NH₃ yield increases",
+    ],
   },
   {
     id: "bio",
@@ -85,15 +108,25 @@ const MOCK_QUESTIONS: MockQuestion[] = [
     duration: "3m 30s",
     solvedCount: "16.4k solved",
     rating: "4.9/5",
+    markScheme: [
+      "[B1] Centromeres divide, splitting sister chromatids into daughter chromosomes",
+      "[B1] Traction spindle fibers contract towards opposite centrosomes",
+      "[B1] Chromosomes assume characteristic shapes: V, L, J, and I according to centromere position",
+      "[B1] Both poles receive an identical diploid (2n) complement of genetic material",
+    ],
   },
 ];
 
 export function HomeHero() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [showMarkScheme, setShowMarkScheme] = useState(false);
+  const [showVideoModal, setShowVideoModal] = useState(false);
+  const [showBuyModal, setShowBuyModal] = useState(false);
 
   const paginate = useCallback(
     (newDirection: number) => {
+      setShowMarkScheme(false);
       setCurrentIndex((prev) => {
         const next = prev + newDirection;
         if (next < 0) return MOCK_QUESTIONS.length - 1;
@@ -105,6 +138,7 @@ export function HomeHero() {
   );
 
   const goToSlide = (index: number) => {
+    setShowMarkScheme(false);
     setCurrentIndex(index);
   };
 
@@ -120,7 +154,7 @@ export function HomeHero() {
   const activeQuestion = MOCK_QUESTIONS[currentIndex];
 
   return (
-    <section className="relative w-full border-b border-slate-200 bg-[#F8FAFC]">
+    <section id="hero" className="relative w-full border-b border-slate-200 bg-[#F8FAFC]">
       <div className="relative mx-auto max-w-7xl px-4 py-12 sm:px-6 sm:py-16 lg:py-20 xl:py-24">
         {/* Two-Column Grid: Left Text, Right Visual Interactive Mockup */}
         <div className="grid items-center gap-10 lg:grid-cols-[1.1fr_1fr] lg:gap-12 xl:gap-16">
@@ -281,11 +315,15 @@ export function HomeHero() {
                             Medium
                           </span>
                         )}
-                        {/* Buy Question Badge using Secondary Accent Warm Amber #F59E0B */}
-                        <span className="inline-flex items-center gap-1 rounded-md bg-[#F59E0B] px-2.5 py-0.5 text-xs font-bold text-white shadow-sm">
+                        {/* Interactive Buy Question Badge using Secondary Accent Warm Amber #F59E0B */}
+                        <button
+                          type="button"
+                          onClick={() => setShowBuyModal(true)}
+                          className="inline-flex items-center gap-1 rounded-md bg-[#F59E0B] px-2.5 py-0.5 text-xs font-bold text-slate-900 shadow-sm transition-colors hover:bg-amber-400"
+                        >
                           <Lock className="h-3 w-3" aria-hidden />
-                          Buy Question
-                        </span>
+                          <span>Buy Question</span>
+                        </button>
                       </div>
                     </div>
 
@@ -316,12 +354,35 @@ export function HomeHero() {
                       </div>
                     </div>
 
+                    {/* Interactive Mark Scheme Reveal */}
+                    {showMarkScheme && (
+                      <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-4 text-xs">
+                        <div className="flex items-center justify-between pb-2 border-b border-blue-100">
+                          <span className="font-bold text-[#1D4ED8]">
+                            Official Mark Scheme & Steps (4 Marks)
+                          </span>
+                          <span className="rounded bg-white px-2 py-0.5 font-mono text-[10px] text-slate-500 border border-blue-100">
+                            Board Verified
+                          </span>
+                        </div>
+                        <ul className="mt-2.5 space-y-1.5 font-mono text-slate-700">
+                          {activeQuestion.markScheme.map((step, sIdx) => (
+                            <li key={sIdx} className="flex items-start gap-2">
+                              <span className="text-[#1D4ED8] font-bold">✓</span>
+                              <span>{step}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
                     {/* Video Solution Play Button & Solutions Row */}
                     <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
                       <div className="flex items-center gap-2">
                         {/* Play button for video solutions (Solid Blue #1D4ED8) */}
                         <button
                           type="button"
+                          onClick={() => setShowVideoModal(true)}
                           className="inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-3.5 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#1E40AF]"
                         >
                           <Play className="h-3.5 w-3.5 fill-current" aria-hidden />
@@ -330,10 +391,15 @@ export function HomeHero() {
 
                         <button
                           type="button"
-                          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 hover:text-slate-900"
+                          onClick={() => setShowMarkScheme(!showMarkScheme)}
+                          className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                            showMarkScheme
+                              ? "border-[#1D4ED8] bg-blue-50 text-[#1D4ED8]"
+                              : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900"
+                          }`}
                         >
                           <Sparkles className="h-3.5 w-3.5 text-[#F59E0B]" aria-hidden />
-                          <span>Mark Scheme</span>
+                          <span>{showMarkScheme ? "Hide Scheme" : "Mark Scheme"}</span>
                         </button>
                       </div>
 
@@ -373,6 +439,161 @@ export function HomeHero() {
 
         </div>
       </div>
+
+      {/* Video Solution Modal */}
+      {showVideoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="relative w-full max-w-2xl rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-[#1D4ED8]">
+                  {activeQuestion.subjectCode} • Video Masterclass
+                </span>
+                <h3 className="text-base font-bold text-slate-900">
+                  {activeQuestion.chapterTitle}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVideoModal(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                aria-label="Close modal"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Simulated Video Player */}
+            <div className="relative aspect-video w-full bg-slate-950 flex flex-col justify-between p-4">
+              <div className="flex items-center justify-between text-xs text-slate-300">
+                <span className="font-medium text-slate-200">
+                  {activeQuestion.questionNumber} — Step-by-Step Breakdown
+                </span>
+                <span className="rounded bg-slate-800 px-2 py-0.5 text-[11px] font-mono text-blue-400">
+                  1080p HD
+                </span>
+              </div>
+
+              {/* Center animated visual */}
+              <div className="flex flex-col items-center justify-center text-center">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#1D4ED8] text-white shadow-lg">
+                  <Play className="h-8 w-8 fill-current pl-1" />
+                </div>
+                <p className="mt-3 text-sm font-semibold text-white">
+                  Full Video Solution Playing
+                </p>
+                <p className="text-xs text-slate-400">
+                  Explained by Expert Mentor • {activeQuestion.duration}
+                </p>
+              </div>
+
+              {/* Progress & Controls */}
+              <div className="space-y-2">
+                <div className="relative h-1.5 w-full rounded-full bg-slate-800">
+                  <div className="absolute left-0 top-0 h-full w-[45%] rounded-full bg-[#1D4ED8]" />
+                  <div className="absolute left-[45%] top-1/2 h-3 w-3 -translate-y-1/2 -translate-x-1/2 rounded-full bg-white shadow-sm" />
+                </div>
+                <div className="flex items-center justify-between text-xs text-slate-300">
+                  <div className="flex items-center gap-3">
+                    <Play className="h-3.5 w-3.5 fill-current text-white" />
+                    <RotateCcw className="h-3.5 w-3.5 cursor-pointer hover:text-white" />
+                    <Volume2 className="h-3.5 w-3.5 cursor-pointer hover:text-white" />
+                    <span className="font-mono text-[11px] text-slate-400">
+                      01:42 / {activeQuestion.duration}
+                    </span>
+                  </div>
+                  <span className="rounded bg-slate-800 px-1.5 py-0.5 font-mono text-[10px] text-slate-300">
+                    Speed 1.0x
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-slate-200 px-5 py-3.5 bg-slate-50 rounded-b-2xl">
+              <span className="text-xs text-slate-500">
+                Over 14,000+ students used this solution to prepare for board exams.
+              </span>
+              <div className="flex items-center gap-2">
+                <Link
+                  href={ROUTES.courses}
+                  className="rounded-lg bg-[#1D4ED8] px-4 py-2 text-xs font-semibold text-white hover:bg-[#1E40AF]"
+                  onClick={() => setShowVideoModal(false)}
+                >
+                  Explore All Video Courses
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Buy Question Instant Purchase Modal */}
+      {showBuyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 p-4">
+          <div className="relative w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-50 text-[#F59E0B]">
+                  <CreditCard className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">
+                    Unlock Premium Question
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Instant access to complete written solution & video
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowBuyModal(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <p className="text-xs font-bold uppercase text-[#1D4ED8]">
+                {activeQuestion.subjectCode}
+              </p>
+              <p className="mt-1 text-sm font-semibold text-slate-800">
+                {activeQuestion.chapterTitle}
+              </p>
+              <p className="mt-2 text-xs text-slate-600 line-clamp-2">
+                {activeQuestion.prompt}
+              </p>
+
+              <div className="mt-3 flex items-center justify-between border-t border-slate-200 pt-2 text-xs">
+                <span className="text-slate-500">Price per solution:</span>
+                <span className="font-bold text-[#F59E0B]">5 Credits (৳5)</span>
+              </div>
+            </div>
+
+            <div className="mt-5 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  alert(`Successfully unlocked question: ${activeQuestion.chapterTitle}!`);
+                  setShowBuyModal(false);
+                }}
+                className="flex-1 rounded-xl bg-[#1D4ED8] py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#1E40AF]"
+              >
+                Confirm Unlock (5 Credits)
+              </button>
+              <Link
+                href={ROUTES.auth.register}
+                className="rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+              >
+                Get Free Account
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

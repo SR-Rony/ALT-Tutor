@@ -84,6 +84,7 @@ export type PastPaperViewQuestion = {
   correctAnswer?: string;
   markScheme?: string | null;
   videoUrl?: string | null;
+  notes?: string | null;
 };
 
 export type PastPaperDetail = {
@@ -178,6 +179,7 @@ export type PastPaperAttemptQuestion = {
   correctAnswer?: string;
   markScheme?: string | null;
   videoUrl?: string | null;
+  notes?: string | null;
 };
 
 export type PastPaperHistoryItem = {

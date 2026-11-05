@@ -18,6 +18,21 @@ export function extractNotesParts(rawNotes: string | null | undefined): ParsedNo
 
   const trimmed = rawNotes.trim();
 
+  // 0. JSON format check (if stored as JSON string)
+  if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && (typeof parsed.text === "string" || typeof parsed.pdfUrl === "string")) {
+        return {
+          text: typeof parsed.text === "string" ? parsed.text : "",
+          pdfUrl: typeof parsed.pdfUrl === "string" && parsed.pdfUrl ? parsed.pdfUrl : null,
+        };
+      }
+    } catch {
+      // not valid JSON, proceed with HTML/regex parsing
+    }
+  }
+
   // 1. Explicit data attribute: data-notes-pdf="..." or data-pdf-url="..."
   const dataMatch = trimmed.match(/data-(?:notes-)?pdf(?:-url)?=["']([^"']+)["']/i);
   if (dataMatch?.[1]) {
@@ -31,8 +46,8 @@ export function extractNotesParts(rawNotes: string | null | undefined): ParsedNo
     return { text: cleanedText, pdfUrl };
   }
 
-  // 2. Bare PDF URL (e.g. user or script saved only a PDF URL)
-  if (/^https?:\/\/[^\s<>"']+\.pdf(?:\?[^\s<>"']*)?$/i.test(trimmed)) {
+  // 2. Bare PDF URL (absolute or relative)
+  if (/^(?:https?:\/\/|\/)[^\s<>"']+\.pdf(?:\?[^\s<>"']*)?$/i.test(trimmed)) {
     return { text: "", pdfUrl: trimmed };
   }
 
@@ -72,4 +87,3 @@ export function combineNotesParts(text: string | null | undefined, pdfUrl: strin
 
   return cleanText || null;
 }
-
