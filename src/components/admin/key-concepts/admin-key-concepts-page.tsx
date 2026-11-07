@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Eye, EyeOff, Pencil, Plus, RefreshCw, Trash2, Upload } from "lucide-react";
+import { Eye, EyeOff, FileText, ImageIcon, Pencil, Plus, RefreshCw, Trash2, Upload, Video, X } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
@@ -31,7 +31,6 @@ import type {
 import type { QbAccessBadge } from "@/types/qb.types";
 import { cn, compareByOrderThenNaturalTitle } from "@/utils";
 
-const CONTENT_TYPES: KeyConceptContentType[] = ["ARTICLE", "VIDEO", "MIXED", "PDF"];
 const TIERS: QbAccessBadge[] = ["FREE", "GOLD"];
 
 export type CourseLinkedProgram = {
@@ -121,7 +120,6 @@ export function AdminKeyConceptsPage({
   const [summary, setSummary] = useState("");
   const [topicId, setTopicId] = useState("");
   const [subtopicId, setSubtopicId] = useState("");
-  const [contentType, setContentType] = useState<KeyConceptContentType>("ARTICLE");
   const [videoUrl, setVideoUrl] = useState("");
   const [pdfUrl, setPdfUrl] = useState("");
   const [thumbnailUrl, setThumbnailUrl] = useState("");
@@ -130,12 +128,15 @@ export function AdminKeyConceptsPage({
   const [accessTier, setAccessTier] = useState<QbAccessBadge>("FREE");
   const [isPublished, setIsPublished] = useState(false);
   const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [activeNoteTab, setActiveNoteTab] = useState<"text" | "pdf" | "image">("text");
 
   const busy =
     createLesson.isPending ||
     updateLesson.isPending ||
     deleteLesson.isPending ||
-    uploadingPdf;
+    uploadingPdf ||
+    uploadingImage;
 
   const selectedTopic = qbTopics.find((t) => t.id === topicId);
   const subtopics = selectedTopic?.subtopics ?? [];
@@ -153,7 +154,6 @@ export function AdminKeyConceptsPage({
     setSummary("");
     setTopicId(qbTopics[0]?.id ?? "");
     setSubtopicId("");
-    setContentType("ARTICLE");
     setVideoUrl("");
     setPdfUrl("");
     setThumbnailUrl("");
@@ -178,7 +178,6 @@ export function AdminKeyConceptsPage({
     setSummary(item.summary ?? "");
     setTopicId(item.topicId || item.topic?.id || "");
     setSubtopicId(item.subtopicId || item.subtopic?.id || "");
-    setContentType(item.contentType);
     setVideoUrl(item.videoUrl ?? "");
     setPdfUrl(item.pdfUrl ?? "");
     setThumbnailUrl(item.thumbnailUrl ?? "");
@@ -196,13 +195,23 @@ export function AdminKeyConceptsPage({
     try {
       const result = await uploadService.upload(file, "lessons");
       setPdfUrl(result.url);
-      if (contentType !== "PDF" && contentType !== "MIXED") {
-        setContentType("PDF");
-      }
     } catch (err) {
       setActionError((err as ApiError)?.message || "PDF upload failed");
     } finally {
       setUploadingPdf(false);
+    }
+  };
+
+  const onUploadImage = async (file: File) => {
+    setUploadingImage(true);
+    setActionError(null);
+    try {
+      const result = await uploadService.upload(file, "lessons");
+      setThumbnailUrl(result.url);
+    } catch (err) {
+      setActionError((err as ApiError)?.message || "Image upload failed");
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -219,10 +228,24 @@ export function AdminKeyConceptsPage({
       setActionError("Select a program first");
       return;
     }
-    if (contentType === "PDF" && !pdfUrl.trim()) {
-      setActionError("PDF URL or upload is required for PDF lessons");
-      return;
+
+    const hasVideo = Boolean(videoUrl.trim());
+    const hasPdf = Boolean(pdfUrl.trim());
+    const hasText = Boolean(bodyMarkdown.trim());
+    const hasImage = Boolean(thumbnailUrl.trim());
+    const hasNotes = hasPdf || hasText || hasImage;
+
+    let resolvedContentType: KeyConceptContentType = "ARTICLE";
+    if (hasVideo && hasNotes) {
+      resolvedContentType = "MIXED";
+    } else if (hasVideo && !hasNotes) {
+      resolvedContentType = "VIDEO";
+    } else if (hasPdf && !hasText && !hasImage) {
+      resolvedContentType = "PDF";
+    } else {
+      resolvedContentType = "ARTICLE";
     }
+
     setActionError(null);
     const duration = durationSec.trim() ? Number.parseInt(durationSec, 10) : undefined;
     try {
@@ -233,7 +256,7 @@ export function AdminKeyConceptsPage({
             title: title.trim(),
             slug: slug.trim(),
             topicId,
-            contentType,
+            contentType: resolvedContentType,
             accessTier,
             isPublished,
             subtopicId: subtopicId ? subtopicId : null,
@@ -254,7 +277,7 @@ export function AdminKeyConceptsPage({
           summary: summary.trim() || undefined,
           topicId,
           subtopicId: subtopicId || undefined,
-          contentType,
+          contentType: resolvedContentType,
           videoUrl: videoUrl.trim() || undefined,
           pdfUrl: pdfUrl.trim() || undefined,
           thumbnailUrl: thumbnailUrl.trim() || undefined,
@@ -605,20 +628,6 @@ export function AdminKeyConceptsPage({
               </select>
             </label>
             <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Content type</span>
-              <select
-                value={contentType}
-                onChange={(e) => setContentType(e.target.value as KeyConceptContentType)}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                {CONTENT_TYPES.map((t) => (
-                  <option key={t} value={t}>
-                    {contentLabel(t)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="block space-y-1.5">
               <span className="text-sm font-semibold">Duration (seconds)</span>
               <Input
                 type="number"
@@ -639,80 +648,205 @@ export function AdminKeyConceptsPage({
             />
           </label>
 
-          {(contentType === "VIDEO" || contentType === "MIXED") && (
-            <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Video URL</span>
-              <Input
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="https://…"
-              />
-            </label>
-          )}
-
-          {(contentType === "PDF" || contentType === "MIXED") && (
-            <div className="space-y-1.5 rounded-xl border border-border bg-muted/30 p-3">
-              <span className="text-sm font-semibold">PDF</span>
-              <Input
-                value={pdfUrl}
-                onChange={(e) => setPdfUrl(e.target.value)}
-                placeholder="Paste PDF URL or upload below"
-              />
-              <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted">
-                <Upload className="h-4 w-4" aria-hidden />
-                {uploadingPdf ? "Uploading…" : "Upload PDF"}
-                <input
-                  type="file"
-                  className="hidden"
-                  accept="application/pdf,.pdf"
-                  disabled={busy}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) void onUploadPdf(file);
-                    e.target.value = "";
-                  }}
-                />
-              </label>
-              {pdfUrl ? (
-                <p className="mt-2 truncate text-xs text-primary" title={pdfUrl}>
-                  {pdfUrl}
-                </p>
-              ) : null}
+          {/* Video Section */}
+          <div className="space-y-2 rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center gap-2">
+              <Video className="h-4 w-4 text-primary" />
+              <span className="text-sm font-bold text-foreground">Video Lesson (optional)</span>
             </div>
-          )}
-
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Thumbnail URL (optional)</span>
+            <p className="text-xs text-muted-foreground">
+              Provide a video link (YouTube, Vimeo, Cloudinary, or direct MP4 URL). Students watch this side-by-side with your Notes.
+            </p>
             <Input
-              value={thumbnailUrl}
-              onChange={(e) => setThumbnailUrl(e.target.value)}
-              placeholder="/images/…"
+              value={videoUrl}
+              onChange={(e) => setVideoUrl(e.target.value)}
+              placeholder="e.g. https://www.youtube.com/watch?v=... or https://res.cloudinary.com/..."
             />
-          </label>
+          </div>
 
-          {contentType !== "PDF" ? (
-            <div className="space-y-1.5">
-              <span className="text-sm font-semibold">Body</span>
-              <RichTextEditor
-                value={bodyMarkdown}
-                onChange={setBodyMarkdown}
-                placeholder="Write the lesson body…"
-                minHeight="200px"
-                uploadFolder="lessons"
-              />
+          {/* Notes Section (Text / PDF / Image) */}
+          <div className="space-y-3 rounded-2xl border border-border bg-card p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                <span className="text-sm font-bold text-foreground">Notes (Text / PDF / Image)</span>
+              </div>
+              <span className="text-xs text-muted-foreground">Appears alongside Video</span>
             </div>
-          ) : (
-            <div className="space-y-1.5">
-              <span className="text-sm font-semibold">Notes (optional)</span>
-              <RichTextEditor
-                value={bodyMarkdown}
-                onChange={setBodyMarkdown}
-                placeholder="Optional notes shown under the PDF…"
-                minHeight="120px"
-                uploadFolder="lessons"
-              />
+            <p className="text-xs text-muted-foreground">
+              Add comprehensive notes in any format: Text (Rich formatted explanation), PDF (Document / Handout), or Image (Infographic / Diagrams).
+            </p>
+
+            {/* Note Format Tab Bar */}
+            <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setActiveNoteTab("text")}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1.5",
+                  activeNoteTab === "text"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>Text Note</span>
+                {bodyMarkdown.trim() ? (
+                  <span className="h-2 w-2 rounded-full bg-[var(--accent-green)]" />
+                ) : null}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveNoteTab("pdf")}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1.5",
+                  activeNoteTab === "pdf"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Upload className="h-3.5 w-3.5" />
+                <span>PDF Note</span>
+                {pdfUrl.trim() ? (
+                  <span className="h-2 w-2 rounded-full bg-[var(--accent-green)]" />
+                ) : null}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveNoteTab("image")}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-2 text-xs sm:text-sm font-semibold transition flex items-center justify-center gap-1.5",
+                  activeNoteTab === "image"
+                    ? "bg-card text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <ImageIcon className="h-3.5 w-3.5" />
+                <span>Image Note</span>
+                {thumbnailUrl.trim() ? (
+                  <span className="h-2 w-2 rounded-full bg-[var(--accent-green)]" />
+                ) : null}
+              </button>
             </div>
-          )}
+
+            {/* Tab 1: Text Note (Rich Text Editor) */}
+            {activeNoteTab === "text" && (
+              <div className="space-y-1.5 pt-1">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Text Explanation / Formula Notes
+                </span>
+                <RichTextEditor
+                  value={bodyMarkdown}
+                  onChange={setBodyMarkdown}
+                  placeholder="Write clear explanation, revision points, or key formulas for this concept…"
+                  minHeight="220px"
+                  uploadFolder="lessons"
+                />
+              </div>
+            )}
+
+            {/* Tab 2: PDF Note */}
+            {activeNoteTab === "pdf" && (
+              <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4 pt-3">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  PDF Notes Document / Sheet
+                </span>
+                <Input
+                  value={pdfUrl}
+                  onChange={(e) => setPdfUrl(e.target.value)}
+                  placeholder="Paste direct PDF URL or click Upload below…"
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold hover:bg-muted transition">
+                    <Upload className="h-4 w-4" />
+                    {uploadingPdf ? "Uploading PDF…" : "Upload PDF file"}
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="application/pdf,.pdf"
+                      disabled={busy}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void onUploadPdf(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  {pdfUrl ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="text-accent hover:bg-accent/10"
+                      onClick={() => setPdfUrl("")}
+                    >
+                      <X className="mr-1 h-3.5 w-3.5" />
+                      Remove PDF
+                    </Button>
+                  ) : null}
+                </div>
+                {pdfUrl ? (
+                  <p className="truncate text-xs font-medium text-primary">
+                    Attached PDF: {pdfUrl}
+                  </p>
+                ) : null}
+              </div>
+            )}
+
+            {/* Tab 3: Image Note */}
+            {activeNoteTab === "image" && (
+              <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-4 pt-3">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Infographic / Diagram / Note Image
+                </span>
+                <Input
+                  value={thumbnailUrl}
+                  onChange={(e) => setThumbnailUrl(e.target.value)}
+                  placeholder="Paste image URL or click Upload below…"
+                />
+                <div className="flex flex-wrap items-center gap-3">
+                  <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-border bg-card px-4 py-2.5 text-xs font-semibold hover:bg-muted transition">
+                    <ImageIcon className="h-4 w-4" />
+                    {uploadingImage ? "Uploading Image…" : "Upload Image"}
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      disabled={busy}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) void onUploadImage(file);
+                        e.target.value = "";
+                      }}
+                    />
+                  </label>
+                  {thumbnailUrl ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      className="text-accent hover:bg-accent/10"
+                      onClick={() => setThumbnailUrl("")}
+                    >
+                      <X className="mr-1 h-3.5 w-3.5" />
+                      Remove Image
+                    </Button>
+                  ) : null}
+                </div>
+                {thumbnailUrl ? (
+                  <div className="relative mt-2 max-w-sm rounded-xl border border-border bg-card p-2">
+                    <img
+                      src={thumbnailUrl}
+                      alt="Note preview"
+                      className="max-h-48 rounded-lg object-contain"
+                    />
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
 
           <label className="flex items-center gap-2 text-sm font-semibold">
             <input

@@ -5,7 +5,7 @@ import { Clock, HelpCircle, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
 import { normalizeAccessBadge, tierBadgeClass, tierLabel } from "@/lib/access-tier";
-import type { PracticeExamTemplate } from "@/types/practice-exam.types";
+import { practiceExamTypeLabel, type PracticeExamTemplate } from "@/types/practice-exam.types";
 import { cn } from "@/utils";
 
 type Props = {
@@ -57,6 +57,9 @@ export function PracticeExamTemplateList({
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-lg font-bold text-foreground">{template.title}</h3>
+                <span className="rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-bold uppercase text-foreground">
+                  {practiceExamTypeLabel(template.type)}
+                </span>
                 <span
                   className={cn(
                     "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase",

@@ -41,10 +41,13 @@ import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
 import { richTextToPlain } from "@/lib/rich-text";
 import { slugify } from "@/lib/slugify";
 import type { ApiError } from "@/types";
-import type {
-  PracticeExamMode,
-  PracticeExamTemplate,
-  PracticeExamWrittenStyle,
+import {
+  PRACTICE_EXAM_CATEGORIES,
+  practiceExamTypeLabel,
+  type PracticeExamMode,
+  type PracticeExamTemplate,
+  type PracticeExamType,
+  type PracticeExamWrittenStyle,
 } from "@/types/practice-exam.types";
 import type { QbAccessBadge } from "@/types/qb.types";
 import { cn } from "@/utils";
@@ -214,11 +217,13 @@ export function AdminPracticeExamsPage({
   const templates = useMemo(() => data?.templates ?? [], [data?.templates]);
 
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | PracticeExamType>("ALL");
   const [modeFilter, setModeFilter] = useState<ListModeFilter>("ALL");
   const [statusFilter, setStatusFilter] = useState<ListStatusFilter>("ALL");
 
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [examType, setExamType] = useState<PracticeExamType>("TOPIC_QUIZ");
   const [mode, setMode] = useState<PracticeExamMode>("MCQ");
   const [writtenStyle, setWrittenStyle] = useState<PracticeExamWrittenStyle>("PACK");
   const [durationMin, setDurationMin] = useState("30");
@@ -424,6 +429,7 @@ export function AdminPracticeExamsPage({
     const q = search.trim().toLowerCase();
     return templates.filter((item) => {
       if (modeFilter !== "ALL" && (item.mode ?? "MCQ") !== modeFilter) return false;
+      if (typeFilter !== "ALL" && (item.type || "TOPIC_QUIZ") !== typeFilter) return false;
       if (statusFilter === "PUBLISHED" && !item.isPublished) return false;
       if (statusFilter === "DRAFT" && item.isPublished) return false;
       if (!q) return true;
@@ -433,7 +439,7 @@ export function AdminPracticeExamsPage({
         (item.description ?? "").toLowerCase().includes(q)
       );
     });
-  }, [templates, search, modeFilter, statusFilter]);
+  }, [templates, search, modeFilter, typeFilter, statusFilter]);
 
   const stats = useMemo(() => {
     const base = {
@@ -442,12 +448,18 @@ export function AdminPracticeExamsPage({
       draft: 0,
       mcq: 0,
       written: 0,
+      topical: 0,
+      chapter: 0,
+      mock: 0,
     };
     for (const t of templates) {
       if (t.isPublished) base.published += 1;
       else base.draft += 1;
       if (t.mode === "WRITTEN") base.written += 1;
       else base.mcq += 1;
+      if (t.type === "MOCK") base.mock += 1;
+      else if (t.type === "LADDER") base.chapter += 1;
+      else base.topical += 1;
     }
     return base;
   }, [templates]);
@@ -474,11 +486,12 @@ export function AdminPracticeExamsPage({
     setSubtopicId(subIds.length === 1 ? subIds[0] : "");
   };
 
-  const resetForm = (preset?: { mode?: PracticeExamMode }) => {
+  const resetForm = (preset?: { mode?: PracticeExamMode; type?: PracticeExamType }) => {
     setEditId(null);
     setTitle("");
     setDescription("");
     setEditSlug("");
+    setExamType(preset?.type ?? "TOPIC_QUIZ");
     setMode(preset?.mode ?? "MCQ");
     setWrittenStyle("PACK");
     setDurationMin(preset?.mode === "WRITTEN" ? "40" : "30");
@@ -492,7 +505,7 @@ export function AdminPracticeExamsPage({
     syncModalScope(effectiveProgramId);
   };
 
-  const openCreate = (preset?: { mode?: PracticeExamMode }) => {
+  const openCreate = (preset?: { mode?: PracticeExamMode; type?: PracticeExamType }) => {
     resetForm(preset);
     setModalOpen(true);
   };
@@ -502,6 +515,7 @@ export function AdminPracticeExamsPage({
     setTitle(item.title);
     setDescription(item.description ?? "");
     setEditSlug(item.slug);
+    setExamType(item.type ?? "TOPIC_QUIZ");
     setMode(item.mode === "WRITTEN" ? "WRITTEN" : "MCQ");
     setWrittenStyle(item.writtenStyle === "PER_QUESTION" ? "PER_QUESTION" : "PACK");
     setDurationMin(String(item.durationMin));
@@ -524,6 +538,7 @@ export function AdminPracticeExamsPage({
     setTitle(`${item.title} (Copy)`);
     setDescription(item.description ?? "");
     setEditSlug(slugify(`${item.slug}-copy`));
+    setExamType(item.type ?? "TOPIC_QUIZ");
     setMode(item.mode === "WRITTEN" ? "WRITTEN" : "MCQ");
     setWrittenStyle(item.writtenStyle === "PER_QUESTION" ? "PER_QUESTION" : "PACK");
     setDurationMin(String(item.durationMin));
@@ -579,7 +594,7 @@ export function AdminPracticeExamsPage({
       title: title.trim(),
       slug,
       description: description.trim(),
-      type: "TOPIC_QUIZ" as const,
+      type: examType,
       mode,
       writtenStyle: mode === "WRITTEN" ? writtenStyle : undefined,
       durationMin: Number.parseInt(durationMin, 10),
@@ -867,6 +882,29 @@ export function AdminPracticeExamsPage({
             <div className="flex flex-wrap gap-2">
               {(
                 [
+                  ["ALL", "All Types"],
+                  ["TOPIC_QUIZ", "Topical Tests"],
+                  ["LADDER", "Chapter-wise Tests"],
+                  ["MOCK", "Mock Tests"],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => setTypeFilter(id)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-xs font-semibold transition",
+                    typeFilter === id
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : "border-border bg-card text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+              <span className="mx-1 hidden h-6 w-px bg-border sm:block" aria-hidden />
+              {(
+                [
                   ["ALL", "All"],
                   ["MCQ", "MCQ"],
                   ["WRITTEN", "Written"],
@@ -963,6 +1001,9 @@ export function AdminPracticeExamsPage({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="font-semibold text-foreground">{item.title}</p>
+                        <span className="rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-bold uppercase text-foreground">
+                          {practiceExamTypeLabel(item.type)}
+                        </span>
                         <span
                           className={cn(
                             "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase",
@@ -1112,6 +1153,37 @@ export function AdminPracticeExamsPage({
               {actionError}
             </p>
           ) : null}
+
+          {/* Exam Category (Topical Tests / Chapter-wise Tests / Mock Tests) */}
+          <div className="space-y-1.5">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Exam Category / Test Type
+            </span>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {PRACTICE_EXAM_CATEGORIES.map((cat) => {
+                const active = examType === cat.id;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => setExamType(cat.id)}
+                    className={cn(
+                      "flex flex-col items-start rounded-xl border p-2.5 text-left transition",
+                      active
+                        ? "border-primary bg-primary/10 ring-2 ring-primary/20"
+                        : "border-border bg-card hover:border-primary/40"
+                    )}
+                  >
+                    <span className="text-sm font-semibold text-foreground">{cat.label}</span>
+                    <span className="mt-0.5 text-[11px] text-muted-foreground leading-tight">
+                      {cat.shortLabel}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
           <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
             {EXAM_MODES.map((m) => (

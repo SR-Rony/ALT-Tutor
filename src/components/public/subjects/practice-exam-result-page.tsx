@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { FileCheck2, Timer } from "lucide-react";
+import { Award, FileCheck2, Timer } from "lucide-react";
 import { ResultReviewQuestion } from "@/components/public/questions";
 import { PageLoader, ScriptFilePreview } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "@/constants";
-import { usePracticeExamAttempt } from "@/hooks";
+import { usePracticeExamAttempt, usePracticeExamHistory } from "@/hooks";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
 import { cn } from "@/utils";
@@ -21,6 +21,16 @@ type Props = {
   attemptId: string;
 };
 
+function computeExamGrade(percentage: number): { grade: string; color: string; badgeBg: string } {
+  if (percentage >= 90) return { grade: "A*", color: "text-[var(--accent-green)]", badgeBg: "bg-[#ecfdf3] text-[var(--accent-green)]" };
+  if (percentage >= 80) return { grade: "A", color: "text-[var(--accent-green)]", badgeBg: "bg-[#ecfdf3] text-[var(--accent-green)]" };
+  if (percentage >= 70) return { grade: "B", color: "text-primary", badgeBg: "bg-primary/10 text-primary" };
+  if (percentage >= 60) return { grade: "C", color: "text-amber-600", badgeBg: "bg-amber-50 text-amber-600" };
+  if (percentage >= 50) return { grade: "D", color: "text-amber-700", badgeBg: "bg-amber-50 text-amber-700" };
+  if (percentage >= 40) return { grade: "E", color: "text-orange-600", badgeBg: "bg-orange-50 text-orange-600" };
+  return { grade: "U", color: "text-accent", badgeBg: "bg-[#fff1ee] text-accent" };
+}
+
 export function PracticeExamResultPage({
   programSlug,
   templateSlug,
@@ -32,6 +42,22 @@ export function PracticeExamResultPage({
   const { data, isLoading, error } = usePracticeExamAttempt(
     isAuthenticated ? attemptId : undefined
   );
+  const { data: history = [] } = usePracticeExamHistory(programSlug);
+
+  const attempt = data?.attempt;
+  const template = data?.template;
+  const questions = data?.questions ?? [];
+
+  const gradeInfo = useMemo(() => computeExamGrade(attempt?.score ?? 0), [attempt?.score]);
+  const highestMarksPercent = useMemo(() => {
+    let max = attempt?.score ?? 0;
+    for (const h of history) {
+      if (template?.id && h.template.id === template.id && typeof h.score === "number") {
+        if (h.score > max) max = h.score;
+      }
+    }
+    return max;
+  }, [history, template?.id, attempt?.score]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -58,7 +84,7 @@ export function PracticeExamResultPage({
     return <PageLoader label="Loading result..." />;
   }
 
-  if (error || !data) {
+  if (error || !data || !attempt || !template) {
     return (
       <div className="mx-auto max-w-lg px-4 py-16 text-center">
         <p className="text-sm text-accent">
@@ -73,7 +99,6 @@ export function PracticeExamResultPage({
     );
   }
 
-  const { attempt, template, questions } = data;
   const isWritten = template.mode === "WRITTEN";
   const awaitingMarking = Boolean(attempt.awaitingMarking) || attempt.gradingStatus === "AWAITING";
   const gradePublished = !isWritten || attempt.status === "GRADED" || attempt.gradingStatus === "GRADED";
@@ -84,6 +109,13 @@ export function PracticeExamResultPage({
     : attempt.correctCount != null
       ? `${attempt.correctCount}/${attempt.totalQuestions}`
       : `${attempt.totalQuestions} Q`;
+
+  const fullMarks = attempt.totalMarks > 0 ? attempt.totalMarks : attempt.totalQuestions;
+  const earnedMarksDisplay = isWritten
+    ? gradePublished
+      ? `${attempt.earnedMarks}`
+      : "Pending Review"
+    : `${attempt.correctCount ?? 0}`;
 
   return (
     <div className="bg-background pb-16">
@@ -165,6 +197,65 @@ export function PracticeExamResultPage({
               ) : null}
             </>
           )}
+
+          {/* Exam Report Card */}
+          <div className="mx-auto mt-6 max-w-2xl rounded-2xl border border-border bg-card p-4 text-left shadow-sm sm:p-5">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div className="flex items-center gap-2">
+                <Award className="h-5 w-5 text-primary" />
+                <h3 className="text-base font-bold text-foreground">Exam Report</h3>
+              </div>
+              {!awaitingMarking ? (
+                <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-bold uppercase", gradeInfo.badgeBg)}>
+                  Grade: {gradeInfo.grade}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="mt-3.5 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+              <div className="rounded-xl border border-border/80 bg-muted/20 p-3 text-center">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Marks Obtained
+                </span>
+                <p className="mt-1 text-xl font-extrabold text-foreground sm:text-2xl">
+                  {earnedMarksDisplay}
+                </p>
+                <span className="text-[10px] text-muted-foreground">Out of {fullMarks}</span>
+              </div>
+
+              <div className="rounded-xl border border-border/80 bg-muted/20 p-3 text-center">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Full Marks
+                </span>
+                <p className="mt-1 text-xl font-extrabold text-foreground sm:text-2xl">
+                  {fullMarks}
+                </p>
+                <span className="text-[10px] text-muted-foreground">{attempt.totalQuestions} Questions</span>
+              </div>
+
+              <div className="rounded-xl border border-border/80 bg-muted/20 p-3 text-center">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Grade
+                </span>
+                <p className={cn("mt-1 text-xl font-extrabold sm:text-2xl", awaitingMarking ? "text-muted-foreground" : gradeInfo.color)}>
+                  {awaitingMarking ? "—" : gradeInfo.grade}
+                </p>
+                <span className="text-[10px] text-muted-foreground">
+                  {awaitingMarking ? "Pending" : `${attempt.score}% Score`}
+                </span>
+              </div>
+
+              <div className="rounded-xl border border-border/80 bg-muted/20 p-3 text-center">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Highest Marks
+                </span>
+                <p className="mt-1 text-xl font-extrabold text-primary sm:text-2xl">
+                  {highestMarksPercent}%
+                </p>
+                <span className="text-[10px] text-muted-foreground">Best Performance</span>
+              </div>
+            </div>
+          </div>
           <div className="mt-5 flex flex-wrap justify-center gap-2">
             {markedFiles.length ? (
               <Button asChild size="pill">

@@ -2,14 +2,20 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { FileText, ListChecks, Timer } from "lucide-react";
+import { BookOpen, ChevronRight, FileText, Layers, ListChecks, Sparkles, Timer } from "lucide-react";
 import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
 import { PageLoader } from "@/components/shared";
 import { ROUTES } from "@/constants";
 import { usePracticeExamHistory, usePracticeExamTemplates } from "@/hooks";
 import { useAppSelector } from "@/store";
 import type { ApiError } from "@/types";
-import type { PracticeExamMode, PracticeExamTemplate } from "@/types/practice-exam.types";
+import {
+  PRACTICE_EXAM_CATEGORIES,
+  practiceExamTypeLabel,
+  type PracticeExamMode,
+  type PracticeExamTemplate,
+  type PracticeExamType,
+} from "@/types/practice-exam.types";
 import { cn } from "@/utils";
 import { PracticeExamTemplateList } from "./practice-exam-template-list";
 import { ResourceGridSkeleton } from "./resource-grid-skeleton";
@@ -34,6 +40,7 @@ export function PracticeExamsPage({ programSlug }: Props) {
   const { data, isLoading, isFetching, error, refetch } = usePracticeExamTemplates(programSlug);
   const isAuthenticated = useAppSelector((s) => s.auth.isAuthenticated);
   const { data: history = [] } = usePracticeExamHistory(programSlug);
+  const [categoryFilter, setCategoryFilter] = useState<PracticeExamType>("TOPIC_QUIZ");
   const [formatFilter, setFormatFilter] = useState<PracticeExamMode | "ANY">("ANY");
   const [unlockOpen, setUnlockOpen] = useState(false);
   const [unlockTarget, setUnlockTarget] = useState<{
@@ -43,19 +50,42 @@ export function PracticeExamsPage({ programSlug }: Props) {
 
   const templates = useMemo(() => data?.templates ?? [], [data?.templates]);
 
+  // Counts per category
+  const categoryCounts = useMemo(() => {
+    const counts: Record<PracticeExamType, number> = {
+      TOPIC_QUIZ: 0,
+      LADDER: 0,
+      MOCK: 0,
+    };
+    for (const t of templates) {
+      const type = t.type || "TOPIC_QUIZ";
+      if (counts[type] !== undefined) {
+        counts[type] += 1;
+      } else {
+        counts.TOPIC_QUIZ += 1;
+      }
+    }
+    return counts;
+  }, [templates]);
+
   const filtered = useMemo(() => {
-    if (formatFilter === "ANY") return templates;
-    return templates.filter((t) => (t.mode ?? "MCQ") === formatFilter);
-  }, [templates, formatFilter]);
+    return templates.filter((t) => {
+      const type = t.type || "TOPIC_QUIZ";
+      if (type !== categoryFilter) return false;
+      if (formatFilter !== "ANY" && (t.mode ?? "MCQ") !== formatFilter) return false;
+      return true;
+    });
+  }, [templates, categoryFilter, formatFilter]);
 
   const formatCounts = useMemo(() => {
-    const base = { ANY: templates.length, MCQ: 0, WRITTEN: 0 };
-    for (const t of templates) {
+    const categoryTemplates = templates.filter((t) => (t.type || "TOPIC_QUIZ") === categoryFilter);
+    const base = { ANY: categoryTemplates.length, MCQ: 0, WRITTEN: 0 };
+    for (const t of categoryTemplates) {
       if (t.mode === "WRITTEN") base.WRITTEN += 1;
       else base.MCQ += 1;
     }
     return base;
-  }, [templates]);
+  }, [templates, categoryFilter]);
 
   const breadcrumbs = useSubjectBreadcrumbs({
     programSlug,
@@ -73,12 +103,13 @@ export function PracticeExamsPage({ programSlug }: Props) {
   };
 
   const emptyLabel = (() => {
-    if (filtered.length === 0 && templates.length === 0) {
-      return "No practice exams published yet for this program.";
+    const catLabel = practiceExamTypeLabel(categoryFilter);
+    if (filtered.length === 0 && formatCounts.ANY === 0) {
+      return `No ${catLabel} published yet for this program.`;
     }
-    if (formatFilter === "MCQ") return "No MCQ practice exams available right now.";
-    if (formatFilter === "WRITTEN") return "No Written practice exams available right now.";
-    return "No practice exams available right now.";
+    if (formatFilter === "MCQ") return `No MCQ ${catLabel} available right now.`;
+    if (formatFilter === "WRITTEN") return `No Written ${catLabel} available right now.`;
+    return `No ${catLabel} available right now.`;
   })();
 
   if (menuLoading && isLoading) {
@@ -90,18 +121,18 @@ export function PracticeExamsPage({ programSlug }: Props) {
       <ResourceHero
         programSlug={programSlug}
         title={`${programName} Practice Exams`}
-        description="Choose MCQ (auto-marked) or Written (download paper, upload answers)."
+        description="Choose Topical Tests, Chapter-wise Tests, or full Mock Tests in MCQ or Written format."
         icon={<Timer className="h-7 w-7 text-primary" aria-hidden />}
         breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
       />
 
       <div className="mx-auto max-w-7xl space-y-10 px-4 py-10 md:px-6 md:py-14">
-        <section>
+        <section className="space-y-6">
           <div className="flex flex-wrap items-end justify-between gap-3">
             <div>
-              <h2 className="text-xl font-bold text-foreground md:text-2xl">Choose an exam</h2>
+              <h2 className="text-xl font-bold text-foreground md:text-2xl">Practice Exam Categories</h2>
               <p className="mt-1 text-sm text-muted-foreground">
-                Two formats only — MCQ or Written. Locked exams open with a linked course.
+                Select an exam category below to view and start practice exams.
               </p>
             </div>
             {isFetching ? (
@@ -111,7 +142,72 @@ export function PracticeExamsPage({ programSlug }: Props) {
             ) : null}
           </div>
 
-          <div className="mt-6">
+          {/* 3 Categories Section (Topical Tests, Chapter-wise Tests, Mock Tests) */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {PRACTICE_EXAM_CATEGORIES.map((cat) => {
+              const isSelected = categoryFilter === cat.id;
+              const count = categoryCounts[cat.id] ?? 0;
+              const Icon = cat.id === "TOPIC_QUIZ" ? BookOpen : cat.id === "LADDER" ? Layers : Sparkles;
+
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setCategoryFilter(cat.id)}
+                  className={cn(
+                    "group flex flex-col items-start justify-between rounded-2xl border p-5 text-left transition-all",
+                    isSelected
+                      ? "border-primary bg-primary/5 shadow-sm ring-2 ring-primary"
+                      : "border-border bg-card hover:border-primary/40 hover:shadow-sm"
+                  )}
+                >
+                  <div className="w-full">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "flex h-9 w-9 items-center justify-center rounded-xl transition",
+                            isSelected
+                              ? "bg-primary text-white"
+                              : "bg-muted text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                          )}
+                        >
+                          <Icon className="h-4 w-4" />
+                        </span>
+                        <span className="text-base font-bold text-foreground sm:text-lg">{cat.label}</span>
+                      </div>
+                      <span
+                        className={cn(
+                          "rounded-full px-2.5 py-0.5 text-xs font-bold",
+                          isSelected
+                            ? "bg-primary text-white"
+                            : "bg-muted text-muted-foreground"
+                        )}
+                      >
+                        {count}
+                      </span>
+                    </div>
+                    <p className="mt-3 text-xs leading-relaxed text-muted-foreground">{cat.description}</p>
+                  </div>
+
+                  <div className="mt-4 flex w-full items-center justify-between border-t border-border/60 pt-3 text-xs font-semibold">
+                    <span className={isSelected ? "font-bold text-primary" : "text-muted-foreground group-hover:text-foreground"}>
+                      {isSelected ? "Active category" : "Click to view"}
+                    </span>
+                    <ChevronRight
+                      className={cn(
+                        "h-4 w-4 transition-transform",
+                        isSelected ? "translate-x-1 text-primary" : "text-muted-foreground group-hover:translate-x-0.5 group-hover:text-foreground"
+                      )}
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Sub-filters (Format: All / MCQ / Written) */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
             <div
               className="inline-flex flex-wrap rounded-2xl border border-border bg-muted/40 p-1"
               role="tablist"
@@ -148,8 +244,8 @@ export function PracticeExamsPage({ programSlug }: Props) {
                 );
               })}
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
-              {FORMAT_OPTIONS.find((o) => o.id === formatFilter)?.hint}
+            <p className="text-xs text-muted-foreground">
+              Showing <strong>{filtered.length}</strong> {practiceExamTypeLabel(categoryFilter)}
             </p>
           </div>
 
@@ -159,7 +255,7 @@ export function PracticeExamsPage({ programSlug }: Props) {
             </p>
           ) : null}
 
-          <div className="mt-6">
+          <div className="mt-4">
             {isLoading ? (
               <ResourceGridSkeleton count={3} columns="2" />
             ) : (

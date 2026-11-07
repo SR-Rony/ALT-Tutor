@@ -5,6 +5,38 @@ export type PracticeExamMode = "MCQ" | "WRITTEN";
 /** PACK = full paper upload; PER_QUESTION = one answer file per question. */
 export type PracticeExamWrittenStyle = "PACK" | "PER_QUESTION";
 
+export const PRACTICE_EXAM_CATEGORIES: Array<{
+  id: PracticeExamType;
+  label: string;
+  shortLabel: string;
+  description: string;
+}> = [
+  {
+    id: "TOPIC_QUIZ",
+    label: "Topical Tests",
+    shortLabel: "Topical",
+    description: "Focus on individual syllabus topics and granular concepts",
+  },
+  {
+    id: "LADDER",
+    label: "Chapter-wise Tests",
+    shortLabel: "Chapter-wise",
+    description: "Comprehensive assessments covering entire chapters or modules",
+  },
+  {
+    id: "MOCK",
+    label: "Mock Tests",
+    shortLabel: "Mock Tests",
+    description: "Full exam simulation matching official board standards & timing",
+  },
+];
+
+export function practiceExamTypeLabel(type?: string | null): string {
+  if (type === "MOCK") return "Mock Tests";
+  if (type === "LADDER") return "Chapter-wise Tests";
+  return "Topical Tests";
+}
+
 export type PracticeExamBlueprintRule = {
   topicId?: string;
   subtopicId?: string;
