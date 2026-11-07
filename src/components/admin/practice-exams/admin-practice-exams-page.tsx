@@ -330,21 +330,39 @@ export function AdminPracticeExamsPage({
   const newQuestionStudySets = useMemo(
     () =>
       qbTopics
-        .filter((t) => t.isActive)
         .flatMap((t) =>
-          t.subtopics
-            .filter((s) => s.isActive)
-            .map((s) => ({
-              id: s.id,
-              topicId: t.id,
-              label: `${richTextToPlain(t.title) || t.title} · ${richTextToPlain(s.title) || s.title}`,
-              paperConfig: resolvePaperConfig(s.paperCount, s.paperConfig),
-              paperTabs: resolvePaperTabs(s.paperCount, s.questions),
-            }))
+          (t.subtopics ?? []).map((s) => ({
+            id: s.id,
+            topicId: t.id,
+            label: `${richTextToPlain(t.title) || t.title} · ${richTextToPlain(s.title) || s.title}${
+              !t.isActive || !s.isActive ? " (Draft)" : ""
+            }`,
+            paperConfig: resolvePaperConfig(s.paperCount, s.paperConfig),
+            paperTabs: resolvePaperTabs(s.paperCount, s.questions),
+          }))
         ),
     [qbTopics]
   );
-  const newQuestionStudySet = newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId);
+
+  const effectiveNewQuestionSubtopicId =
+    newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId)?.id ??
+    newQuestionStudySets.find((s) => s.id === subtopicId)?.id ??
+    (topicId ? newQuestionStudySets.find((s) => s.topicId === topicId)?.id : undefined) ??
+    newQuestionStudySets[0]?.id ??
+    "";
+
+  const newQuestionStudySet = useMemo(() => {
+    return newQuestionStudySets.find((s) => s.id === effectiveNewQuestionSubtopicId);
+  }, [newQuestionStudySets, effectiveNewQuestionSubtopicId]);
+
+  useEffect(() => {
+    if (
+      effectiveNewQuestionSubtopicId &&
+      newQuestionSubtopicId !== effectiveNewQuestionSubtopicId
+    ) {
+      setNewQuestionSubtopicId(effectiveNewQuestionSubtopicId);
+    }
+  }, [effectiveNewQuestionSubtopicId, newQuestionSubtopicId]);
 
   useEffect(() => {
     if (!modalOpen) {
@@ -354,24 +372,16 @@ export function AdminPracticeExamsPage({
   }, [modalOpen]);
 
   const openNewQuestion = () => {
-    const preferred =
-      newQuestionStudySets.find((s) => s.id === subtopicId) ??
-      newQuestionStudySets.find((s) => topicId && s.topicId === topicId) ??
-      newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId) ??
-      newQuestionStudySets[0];
-    if (!preferred) return;
-    setNewQuestionSubtopicId(preferred.id);
+    if (effectiveNewQuestionSubtopicId) {
+      setNewQuestionSubtopicId(effectiveNewQuestionSubtopicId);
+    }
     setNewQuestionOpen(true);
   };
 
   const openPdfImport = () => {
-    const preferred =
-      newQuestionStudySets.find((s) => s.id === subtopicId) ??
-      newQuestionStudySets.find((s) => topicId && s.topicId === topicId) ??
-      newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId) ??
-      newQuestionStudySets[0];
-    if (!preferred) return;
-    setNewQuestionSubtopicId(preferred.id);
+    if (effectiveNewQuestionSubtopicId) {
+      setNewQuestionSubtopicId(effectiveNewQuestionSubtopicId);
+    }
     setPdfImportOpen(true);
   };
 
@@ -738,7 +748,7 @@ export function AdminPracticeExamsPage({
                 disabled={!effectiveProgramId}
                 onClick={() => {
                   openCreate({ mode: "MCQ" });
-                  setPdfImportOpen(true);
+                  openPdfImport();
                 }}
               >
                 <Upload className="h-4 w-4" />
@@ -977,7 +987,7 @@ export function AdminPracticeExamsPage({
                     variant="outline"
                     onClick={() => {
                       openCreate({ mode: "MCQ" });
-                      setPdfImportOpen(true);
+                      openPdfImport();
                     }}
                   >
                     <Upload className="mr-1.5 h-3.5 w-3.5" />
@@ -1645,7 +1655,7 @@ export function AdminPracticeExamsPage({
       <QbQuestionFormModal
         open={modalOpen && newQuestionOpen}
         onClose={() => setNewQuestionOpen(false)}
-        subtopicId={newQuestionStudySet?.id ?? ""}
+        subtopicId={effectiveNewQuestionSubtopicId}
         paperConfig={newQuestionStudySet?.paperConfig ?? {}}
         paperTabs={newQuestionStudySet?.paperTabs ?? []}
         lockedKind={mode}
@@ -1653,17 +1663,23 @@ export function AdminPracticeExamsPage({
         header={
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold">Save to study set</span>
-            <select
-              value={newQuestionSubtopicId}
-              onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
-              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-            >
-              {newQuestionStudySets.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+            {newQuestionStudySets.length === 0 ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+                No study sets exist in this program yet. Please create a topic and study set in Questionbank first.
+              </div>
+            ) : (
+              <select
+                value={effectiveNewQuestionSubtopicId}
+                onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {newQuestionStudySets.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            )}
           </label>
         }
         onSaved={(saved) => {
@@ -1676,7 +1692,7 @@ export function AdminPracticeExamsPage({
       <QbPdfImportModal
         open={modalOpen && pdfImportOpen}
         onClose={() => setPdfImportOpen(false)}
-        subtopicId={newQuestionStudySet?.id ?? ""}
+        subtopicId={effectiveNewQuestionSubtopicId}
         initialPaper={mode === "WRITTEN" ? "PAPER_2" : "PAPER_1"}
         paperTabs={newQuestionStudySet?.paperTabs ?? ["PAPER_1", "PAPER_2"]}
         paperConfig={newQuestionStudySet?.paperConfig ?? {}}
@@ -1684,17 +1700,23 @@ export function AdminPracticeExamsPage({
         header={
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold">Save questions to study set</span>
-            <select
-              value={newQuestionSubtopicId}
-              onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
-              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-            >
-              {newQuestionStudySets.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
+            {newQuestionStudySets.length === 0 ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
+                No study sets exist in this program yet. Please create a topic and study set in Questionbank first.
+              </div>
+            ) : (
+              <select
+                value={effectiveNewQuestionSubtopicId}
+                onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
+                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+              >
+                {newQuestionStudySets.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
+            )}
           </label>
         }
         onSuccess={(_count, createdIds) => {

@@ -707,7 +707,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
         initialPaper={activePaper}
         paperTabs={paperTabs}
         paperConfig={paperConfig}
-        onSuccess={(_count) => {
+        onSuccess={() => {
           setActivePaper(activePaper);
           void refetch();
         }}

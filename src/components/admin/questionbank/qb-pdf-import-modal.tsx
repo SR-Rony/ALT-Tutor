@@ -240,6 +240,10 @@ export function QbPdfImportModal({
 
   const handleImportAll = async () => {
     if (!extractedQuestions.length) return;
+    if (!subtopicId || !subtopicId.trim()) {
+      setError("Please select a valid study set before importing questions.");
+      return;
+    }
     setError(null);
     try {
       const dtos: Partial<CreateQbQuestionInput>[] = extractedQuestions.map(
@@ -374,7 +378,7 @@ export function QbPdfImportModal({
             {step === "upload" ? (
               <Button
                 type="button"
-                disabled={isBusy || !selectedFile}
+                disabled={isBusy || !selectedFile || !subtopicId || !subtopicId.trim()}
                 onClick={handleExtract}
               >
                 {parsePdf.isPending ? (
@@ -392,7 +396,7 @@ export function QbPdfImportModal({
             ) : (
               <Button
                 type="button"
-                disabled={isBusy || extractedQuestions.length === 0}
+                disabled={isBusy || extractedQuestions.length === 0 || !subtopicId || !subtopicId.trim()}
                 onClick={handleImportAll}
               >
                 {bulkCreate.isPending ? (
@@ -419,10 +423,17 @@ export function QbPdfImportModal({
         </div>
       ) : null}
 
+      {header ? <div className="mb-4">{header}</div> : null}
+
+      {!subtopicId || !subtopicId.trim() ? (
+        <div className="mb-4 flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-800">
+          <AlertCircle className="h-4 w-4 shrink-0 text-amber-600" />
+          <span>Please select a destination study set above before proceeding.</span>
+        </div>
+      ) : null}
+
       {step === "upload" ? (
         <div className="space-y-5">
-          {header}
-
           {/* Destination Paper Selection */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">

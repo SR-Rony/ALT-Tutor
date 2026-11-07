@@ -3,7 +3,6 @@ import type {
   CreateQbQuestionInput,
   CreateQbSubtopicInput,
   CreateQbTopicInput,
-  ParsedPdfQuestion,
   ParsePdfResult,
   QbImportResult,
 } from "./questionbank-admin.types";
