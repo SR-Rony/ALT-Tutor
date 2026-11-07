@@ -20,7 +20,12 @@ import type {
   QbQuestionType,
 } from "@/types/qb.types";
 import { DIFFICULTIES, kindForPaper, paperShortLabel, papersForKind } from "./qb-admin-shared";
-import { combineNotesParts, extractNotesParts } from "@/utils";
+import {
+  combineNotesParts,
+  extractNotesParts,
+  combineMarkSchemeParts,
+  extractMarkSchemeParts,
+} from "@/utils";
 
 const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
 const EMPTY_OPTIONS = ["", "", "", ""] as [string, string, string, string];
@@ -70,6 +75,7 @@ export function QbQuestionFormModal({
   const [difficulty, setDifficulty] = useState<QbDifficulty>("EASY");
   const [paper, setPaper] = useState<QbPaper>("PAPER_1");
   const [markScheme, setMarkScheme] = useState("");
+  const [markSchemePdfUrl, setMarkSchemePdfUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [notesPdfUrl, setNotesPdfUrl] = useState("");
   const [diagramUrl, setDiagramUrl] = useState("");
@@ -77,12 +83,13 @@ export function QbQuestionFormModal({
   const [marks, setMarks] = useState("1");
   const [yearHint, setYearHint] = useState("");
   const [sourceLabel, setSourceLabel] = useState("");
-  const [uploadingField, setUploadingField] = useState<"diagram" | "video" | "notesPdf" | null>(null);
+  const [uploadingField, setUploadingField] = useState<"diagram" | "video" | "notesPdf" | "markSchemePdf" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const diagramUploadRef = useRef<HTMLInputElement>(null);
   const videoUploadRef = useRef<HTMLInputElement>(null);
   const notesPdfUploadRef = useRef<HTMLInputElement>(null);
+  const markSchemePdfUploadRef = useRef<HTMLInputElement>(null);
 
   const editId = question?.id ?? null;
   const questionKind: QbPaperKind = lockedKind ?? kindForPaper(paper, paperConfig);
@@ -119,8 +126,10 @@ export function QbQuestionFormModal({
       setBodyText(question.body ?? "");
       setDifficulty((question.difficulty as QbDifficulty) || "EASY");
       const { text: initialNotesText, pdfUrl: initialNotesPdf } = extractNotesParts(question.notes);
+      const { text: initialSchemeText, pdfUrl: initialSchemePdf } = extractMarkSchemeParts(question.markScheme);
       setPaper(questionPaper);
-      setMarkScheme(question.markScheme ?? "");
+      setMarkScheme(initialSchemeText);
+      setMarkSchemePdfUrl(initialSchemePdf ?? "");
       setNotes(initialNotesText);
       setNotesPdfUrl(initialNotesPdf ?? "");
       setDiagramUrl(question.diagramUrl ?? "");
@@ -142,6 +151,7 @@ export function QbQuestionFormModal({
     setDifficulty("EASY");
     setPaper(startPaper);
     setMarkScheme("");
+    setMarkSchemePdfUrl("");
     setNotes("");
     setNotesPdfUrl("");
     setDiagramUrl("");
@@ -159,7 +169,10 @@ export function QbQuestionFormModal({
     if (!paperOptions.includes(paper)) setPaper(paperOptions[0]);
   }, [open, editId, paperOptions, paper]);
 
-  const onUploadMedia = async (field: "diagram" | "video" | "notesPdf", file: File | undefined) => {
+  const onUploadMedia = async (
+    field: "diagram" | "video" | "notesPdf" | "markSchemePdf",
+    file: File | undefined
+  ) => {
     if (!file) return;
     setError(null);
     setUploadingField(field);
@@ -167,7 +180,8 @@ export function QbQuestionFormModal({
       const result = await uploadService.upload(file, "questionbank");
       if (field === "diagram") setDiagramUrl(result.url);
       else if (field === "video") setVideoUrl(result.url);
-      else setNotesPdfUrl(result.url);
+      else if (field === "notesPdf") setNotesPdfUrl(result.url);
+      else setMarkSchemePdfUrl(result.url);
     } catch (err) {
       setError((err as ApiError)?.message || "Upload failed. You can still paste a URL.");
     } finally {
@@ -175,6 +189,7 @@ export function QbQuestionFormModal({
       if (field === "diagram" && diagramUploadRef.current) diagramUploadRef.current.value = "";
       if (field === "video" && videoUploadRef.current) videoUploadRef.current.value = "";
       if (field === "notesPdf" && notesPdfUploadRef.current) notesPdfUploadRef.current.value = "";
+      if (field === "markSchemePdf" && markSchemePdfUploadRef.current) markSchemePdfUploadRef.current.value = "";
     }
   };
 
@@ -225,6 +240,7 @@ export function QbQuestionFormModal({
     const parsedYear = yearHint.trim() ? Number.parseInt(yearHint.trim(), 10) : undefined;
     const questionType: QbQuestionType = isMcq ? "MULTIPLE_CHOICE" : "SHORT_ANSWER";
     const finalNotes = combineNotesParts(serializeRichText(notes), notesPdfUrl);
+    const finalMarkScheme = combineMarkSchemeParts(serializeRichText(markScheme), markSchemePdfUrl);
 
     // Cleared fields must be sent as null: undefined is dropped from the JSON body,
     // so the backend would keep the previously saved value.
@@ -242,7 +258,7 @@ export function QbQuestionFormModal({
       yearHint:
         parsedYear != null && Number.isFinite(parsedYear) && parsedYear >= 1900 ? parsedYear : null,
       sourceLabel: sourceLabel.trim() || null,
-      markScheme: serializeRichText(markScheme) || null,
+      markScheme: finalMarkScheme,
       notes: finalNotes,
       diagramUrl: diagramUrl.trim() || null,
       videoUrl: videoUrl.trim() || null,
@@ -527,15 +543,95 @@ export function QbQuestionFormModal({
           </div>
         </div>
 
-        <div className="block space-y-1.5">
-          <span className="text-sm font-semibold">Mark scheme</span>
-          <RichTextEditor
-            value={markScheme}
-            onChange={setMarkScheme}
-            placeholder="Worked solution / marking notes…"
-            minHeight="120px"
-            disabled={busy}
-          />
+        <div className="space-y-3 rounded-2xl border border-border/80 bg-muted/20 p-4">
+          <div className="flex items-center justify-between">
+            <span className="flex items-center gap-2 text-sm font-semibold">
+              <FileText className="h-4 w-4 text-primary" />
+              Mark Scheme / Solution
+            </span>
+            <span className="text-xs text-muted-foreground">
+              Visible to students via &quot;Mark Scheme&quot; button
+            </span>
+          </div>
+
+          {/* PDF Mark Scheme Upload Section */}
+          <div className="space-y-1.5 rounded-xl border border-dashed border-border bg-card/60 p-3">
+            <div className="flex items-center justify-between text-xs font-medium text-muted-foreground">
+              <span className="flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-primary" />
+                Attached Mark Scheme Document (PDF)
+              </span>
+              {markSchemePdfUrl ? (
+                <button
+                  type="button"
+                  onClick={() => setMarkSchemePdfUrl("")}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-destructive hover:underline"
+                >
+                  <X className="h-3 w-3" /> Remove PDF
+                </button>
+              ) : null}
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <Input
+                value={markSchemePdfUrl}
+                onChange={(e) => setMarkSchemePdfUrl(e.target.value)}
+                placeholder="https://... — or click Upload to select a PDF file"
+                className="min-w-[220px] flex-1"
+                disabled={busy}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => markSchemePdfUploadRef.current?.click()}
+                className="gap-1.5"
+              >
+                {uploadingField === "markSchemePdf" ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Uploading…</span>
+                  </>
+                ) : (
+                  <>
+                    <Upload className="h-3.5 w-3.5" />
+                    <span>Upload PDF</span>
+                  </>
+                )}
+              </Button>
+              {markSchemePdfUrl ? (
+                <a
+                  href={markSchemePdfUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3.5 w-3.5" /> View
+                </a>
+              ) : null}
+              <input
+                ref={markSchemePdfUploadRef}
+                type="file"
+                accept="application/pdf,.pdf"
+                className="hidden"
+                onChange={(e) => void onUploadMedia("markSchemePdf", e.target.files?.[0])}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <span className="text-xs font-medium text-muted-foreground">
+              Written Solution / Marking Notes (optional)
+            </span>
+            <RichTextEditor
+              value={markScheme}
+              onChange={setMarkScheme}
+              placeholder="Worked solution / marking notes…"
+              minHeight="120px"
+              disabled={busy}
+            />
+          </div>
         </div>
 
         <div className="space-y-3 rounded-2xl border border-border/80 bg-muted/20 p-4">

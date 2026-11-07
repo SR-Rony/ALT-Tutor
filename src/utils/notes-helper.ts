@@ -1,6 +1,6 @@
 /**
- * Helpers for managing Questionbank question notes, which can contain
- * rich text content, an attached PDF document (via upload or URL), or both.
+ * Helpers for managing Questionbank question notes and mark schemes,
+ * which can contain rich text content, an attached PDF document (via upload or URL), or both.
  */
 
 export type ParsedNotes = {
@@ -8,15 +8,21 @@ export type ParsedNotes = {
   pdfUrl: string | null;
 };
 
+export type ParsedMarkScheme = ParsedNotes;
+
 /**
- * Extracts any attached PDF URL and remaining text content from a question.notes string.
+ * Extracts any attached PDF URL and remaining text content from a raw HTML/text string
+ * (works for both question.notes and question.markScheme).
  */
-export function extractNotesParts(rawNotes: string | null | undefined): ParsedNotes {
-  if (!rawNotes || !rawNotes.trim()) {
+export function extractContentAndPdfParts(
+  rawContent: string | null | undefined,
+  pdfAttrNames: string[] = ["data-notes-pdf", "data-mark-scheme-pdf", "data-pdf-url"]
+): ParsedNotes {
+  if (!rawContent || !rawContent.trim()) {
     return { text: "", pdfUrl: null };
   }
 
-  const trimmed = rawNotes.trim();
+  const trimmed = rawContent.trim();
 
   // 0. JSON format check (if stored as JSON string)
   if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
@@ -33,14 +39,15 @@ export function extractNotesParts(rawNotes: string | null | undefined): ParsedNo
     }
   }
 
-  // 1. Explicit data attribute: data-notes-pdf="..." or data-pdf-url="..."
-  const dataMatch = trimmed.match(/data-(?:notes-)?pdf(?:-url)?=["']([^"']+)["']/i);
+  // 1. Explicit data attributes: data-notes-pdf, data-mark-scheme-pdf, data-pdf-url
+  const attrPattern = pdfAttrNames.join("|");
+  const dataMatch = trimmed.match(new RegExp(`(?:${attrPattern})=["']([^"']+)["']`, "i"));
   if (dataMatch?.[1]) {
     const pdfUrl = dataMatch[1].trim();
     const cleanedText = trimmed
-      .replace(/<div[^>]*data-(?:notes-)?pdf(?:-url)?=["'][^"']+["'][^>]*>[\s\S]*?<\/div>/gi, "")
-      .replace(/<p[^>]*><a[^>]*data-(?:notes-)?pdf(?:-url)?=["'][^"']+["'][^>]*>[\s\S]*?<\/a><\/p>/gi, "")
-      .replace(/<a[^>]*data-(?:notes-)?pdf(?:-url)?=["'][^"']+["'][^>]*>[\s\S]*?<\/a>/gi, "")
+      .replace(new RegExp(`<div[^>]*?(?:${attrPattern})=["'][^"']+["'][^>]*?>[\\s\\S]*?<\\/div>`, "gi"), "")
+      .replace(new RegExp(`<p[^>]*?><a[^>]*?(?:${attrPattern})=["'][^"']+["'][^>]*?>[\\s\\S]*?<\\/a><\\/p>`, "gi"), "")
+      .replace(new RegExp(`<a[^>]*?(?:${attrPattern})=["'][^"']+["'][^>]*?>[\\s\\S]*?<\\/a>`, "gi"), "")
       .replace(/^<p>\s*(?:<br\s*\/?>)?\s*<\/p>/i, "")
       .trim();
     return { text: cleanedText, pdfUrl };
@@ -63,7 +70,21 @@ export function extractNotesParts(rawNotes: string | null | undefined): ParsedNo
     return { text: cleanedText, pdfUrl };
   }
 
-  return { text: rawNotes, pdfUrl: null };
+  return { text: rawContent, pdfUrl: null };
+}
+
+/**
+ * Extracts attached PDF URL and remaining text content from question.notes.
+ */
+export function extractNotesParts(rawNotes: string | null | undefined): ParsedNotes {
+  return extractContentAndPdfParts(rawNotes, ["data-notes-pdf", "data-pdf-url"]);
+}
+
+/**
+ * Extracts attached PDF URL and remaining text content from question.markScheme.
+ */
+export function extractMarkSchemeParts(rawMarkScheme: string | null | undefined): ParsedMarkScheme {
+  return extractContentAndPdfParts(rawMarkScheme, ["data-mark-scheme-pdf", "data-notes-pdf", "data-pdf-url"]);
 }
 
 /**
@@ -83,6 +104,28 @@ export function combineNotesParts(text: string | null | undefined, pdfUrl: strin
 
   if (cleanPdf && cleanText) {
     return `<div data-notes-pdf="${cleanPdf}" class="notes-pdf-attachment"><p><a href="${cleanPdf}" target="_blank" rel="noopener noreferrer" data-notes-pdf="${cleanPdf}">📄 Attached Notes (PDF)</a></p></div>${cleanText}`;
+  }
+
+  return cleanText || null;
+}
+
+/**
+ * Combines rich text and an optional PDF URL into a unified question.markScheme string.
+ */
+export function combineMarkSchemeParts(text: string | null | undefined, pdfUrl: string | null | undefined): string | null {
+  const cleanPdf = pdfUrl?.trim() || null;
+  const cleanText = text?.trim() || "";
+
+  if (!cleanPdf && !cleanText) {
+    return null;
+  }
+
+  if (cleanPdf && !cleanText) {
+    return `<div data-mark-scheme-pdf="${cleanPdf}" class="mark-scheme-pdf-attachment"><p><a href="${cleanPdf}" target="_blank" rel="noopener noreferrer" data-mark-scheme-pdf="${cleanPdf}">📄 Attached Mark Scheme (PDF)</a></p></div>`;
+  }
+
+  if (cleanPdf && cleanText) {
+    return `<div data-mark-scheme-pdf="${cleanPdf}" class="mark-scheme-pdf-attachment"><p><a href="${cleanPdf}" target="_blank" rel="noopener noreferrer" data-mark-scheme-pdf="${cleanPdf}">📄 Attached Mark Scheme (PDF)</a></p></div>${cleanText}`;
   }
 
   return cleanText || null;

@@ -19,7 +19,7 @@ import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
 import { RichTextContent } from "@/components/ui/rich-text-content";
 import { isRichTextEmpty, richTextToPlain } from "@/lib/rich-text";
-import { cn, extractNotesParts } from "@/utils";
+import { cn, extractNotesParts, extractMarkSchemeParts } from "@/utils";
 import { getInlinePdfUrl } from "@/utils/pdf-viewer";
 import {
   DifficultyDots,
@@ -112,12 +112,18 @@ export function StudyQuestionCard({
   const [expanded, setExpanded] = useState(false);
   const [localCompleted, setLocalCompleted] = useState(false);
   const [showNotesPdf, setShowNotesPdf] = useState(true);
+  const [showSchemePdf, setShowSchemePdf] = useState(true);
 
   const { text: notesText, pdfUrl: notesPdfUrl } = useMemo(
     () => extractNotesParts(question.notes),
     [question.notes]
   );
   const hasNotes = !isRichTextEmpty(notesText) || Boolean(notesPdfUrl);
+
+  const { text: schemeText, pdfUrl: schemePdfUrl } = useMemo(
+    () => extractMarkSchemeParts(question.markScheme),
+    [question.markScheme]
+  );
 
   const isCompleted = completed ?? localCompleted;
   const toggleComplete =
@@ -133,9 +139,11 @@ export function StudyQuestionCard({
   const answered = selected !== null;
   const correctAnswer = (question.correctAnswer ?? "").toUpperCase();
   const correct = question.isCorrect === true;
-  const markScheme = question.markScheme;
   const videoUrl = question.videoUrl;
-  const hasScheme = Boolean(markScheme) || Boolean(question.paperMarkSchemeUrl);
+  const hasScheme =
+    !isRichTextEmpty(schemeText) ||
+    Boolean(schemePdfUrl) ||
+    Boolean(question.paperMarkSchemeUrl);
   const letters = mcqAnswerLetters(question.options.length, isMcq);
 
   const maxMarkMatch =
@@ -418,7 +426,7 @@ export function StudyQuestionCard({
         title="Mark Scheme"
         description={`${qLabel} · Official solution guidance`}
         onClose={() => setModal(null)}
-        className="sm:max-w-2xl"
+        className={schemePdfUrl && showSchemePdf ? "sm:max-w-4xl" : "sm:max-w-2xl"}
         footer={
           <div className="flex flex-wrap items-center justify-between gap-2">
             {question.paperMarkSchemeUrl ? (
@@ -428,10 +436,12 @@ export function StudyQuestionCard({
                 rel="noreferrer"
                 className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline"
               >
-                Open mark scheme PDF <ExternalLink className="h-3.5 w-3.5" />
+                Open paper mark scheme PDF <ExternalLink className="h-3.5 w-3.5" />
               </a>
             ) : (
-              <span />
+              <span className="text-xs text-muted-foreground">
+                Official mark scheme for this question
+              </span>
             )}
             <Button type="button" variant="outline" onClick={() => setModal(null)}>
               Close
@@ -440,23 +450,80 @@ export function StudyQuestionCard({
         }
       >
         <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 rounded-lg bg-primary-muted px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-primary">
-            <FileText className="h-3.5 w-3.5" />
-            Solution notes
-          </div>
-          {markScheme ? (
-            <div className="rounded-xl border border-border bg-muted/20 p-4 text-base leading-relaxed text-foreground">
-              {contentMode === "rich" ? (
-                <RichTextContent html={markScheme} />
-              ) : (
-                <p className="whitespace-pre-wrap">{markScheme}</p>
-              )}
+          {/* Attached PDF Mark Scheme Document */}
+          {schemePdfUrl ? (
+            <div className="space-y-3 rounded-2xl border border-primary/25 bg-primary/5 p-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">
+                      Mark Scheme &amp; Solution (PDF)
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Official mark scheme document attached to this question
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowSchemePdf((prev) => !prev)}
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-semibold text-foreground shadow-sm hover:bg-muted"
+                  >
+                    <Eye className="h-3.5 w-3.5 text-primary" />
+                    <span>{showSchemePdf ? "Hide Preview" : "Preview PDF"}</span>
+                  </button>
+                  <a
+                    href={getInlinePdfUrl(schemePdfUrl)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground shadow-sm hover:bg-primary/90"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                    <span>Open Fullscreen</span>
+                  </a>
+                </div>
+              </div>
+
+              {showSchemePdf ? (
+                <div className="overflow-hidden rounded-xl border border-border bg-background shadow-inner">
+                  <iframe
+                    src={`${getInlinePdfUrl(schemePdfUrl)}#view=FitH`}
+                    title="Mark Scheme PDF"
+                    className="h-[min(65vh,550px)] w-full border-0 bg-white"
+                  />
+                </div>
+              ) : null}
             </div>
-          ) : (
+          ) : null}
+
+          {/* Written Solution / Marking Notes text/images */}
+          {!isRichTextEmpty(schemeText) ? (
+            <div className="space-y-2 rounded-xl border border-border bg-muted/20 p-4 text-base leading-relaxed text-foreground">
+              <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-primary">
+                <FileText className="h-3.5 w-3.5" />
+                Worked Solution &amp; Marking Notes
+              </div>
+              <div className="qb-question-font">
+                {contentMode === "rich" ? (
+                  <RichTextContent html={schemeText} />
+                ) : (
+                  <p className="whitespace-pre-wrap">{schemeText}</p>
+                )}
+              </div>
+            </div>
+          ) : null}
+
+          {!schemePdfUrl && isRichTextEmpty(schemeText) ? (
             <p className="text-sm text-muted-foreground">
-              No per-question mark scheme text. Use the paper mark scheme file if available.
+              No per-question mark scheme text or PDF. Use the paper mark scheme file if available.
             </p>
-          )}
+          ) : null}
+
           {correctAnswer ? (
             <p className="text-xs text-muted-foreground">
               Correct answer:{" "}

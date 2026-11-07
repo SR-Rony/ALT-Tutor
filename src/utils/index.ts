@@ -1,5 +1,12 @@
 export { cn } from "./cn";
-export { extractNotesParts, combineNotesParts, type ParsedNotes } from "./notes-helper";
+export {
+  extractNotesParts,
+  combineNotesParts,
+  extractMarkSchemeParts,
+  combineMarkSchemeParts,
+  type ParsedNotes,
+  type ParsedMarkScheme,
+} from "./notes-helper";
 export {
   compareByOrderThenNaturalTitle,
   compareNaturalTitle,
