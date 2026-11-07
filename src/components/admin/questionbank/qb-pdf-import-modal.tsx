@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   AlertCircle,
   ArrowLeft,
@@ -8,10 +8,8 @@ import {
   CheckCircle2,
   ExternalLink,
   FileText,
-  HelpCircle,
   ImageIcon,
   Loader2,
-  Plus,
   Sparkles,
   Trash2,
   Upload,
@@ -33,8 +31,7 @@ import type {
 } from "@/services/questionbank-admin.types";
 import type { QbDifficulty, QbPaper, QbPaperConfig, QbPaperKind } from "@/types/qb.types";
 import { cn, combineNotesParts, extractNotesParts } from "@/utils";
-import { kindForPaper, paperShortLabel } from "./qb-admin-shared";
-import { looksLikeHtml, normalizeRichTextContent } from "@/lib/rich-text";
+import { kindForPaper, papersForKind, paperShortLabel } from "./qb-admin-shared";
 
 const OPTION_LETTERS = ["A", "B", "C", "D"] as const;
 
@@ -42,19 +39,23 @@ type Props = {
   open: boolean;
   onClose: () => void;
   subtopicId: string;
-  initialPaper: QbPaper;
-  paperTabs: QbPaper[];
-  paperConfig: QbPaperConfig;
-  onSuccess: (count: number) => void;
+  initialPaper?: QbPaper;
+  paperTabs?: QbPaper[];
+  paperConfig?: QbPaperConfig;
+  lockedKind?: QbPaperKind;
+  header?: ReactNode;
+  onSuccess: (count: number, createdIds?: string[]) => void;
 };
 
 export function QbPdfImportModal({
   open,
   onClose,
   subtopicId,
-  initialPaper,
-  paperTabs,
-  paperConfig,
+  initialPaper = "PAPER_1",
+  paperTabs = ["PAPER_1", "PAPER_2"],
+  paperConfig = {},
+  lockedKind,
+  header,
   onSuccess,
 }: Props) {
   const parsePdf = useParseQbPdf();
@@ -73,15 +74,32 @@ export function QbPdfImportModal({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const effectivePaperTabs = useMemo(() => {
+    if (!lockedKind) return paperTabs;
+    const filtered = papersForKind(lockedKind, paperTabs, paperConfig);
+    return filtered.length > 0 ? filtered : paperTabs;
+  }, [lockedKind, paperTabs, paperConfig]);
+
   // Sync destination paper when modal opens
   useEffect(() => {
     if (open) {
-      setTargetPaper(initialPaper);
-      const paperKind = kindForPaper(initialPaper, paperConfig);
-      // Default to AUTO so mixed questions work out of the box
-      setParseMode("AUTO");
+      const defaultPaper =
+        (lockedKind
+          ? effectivePaperTabs.find((p) => kindForPaper(p, paperConfig) === lockedKind)
+          : null) ??
+        initialPaper ??
+        effectivePaperTabs[0] ??
+        "PAPER_1";
+      setTargetPaper(defaultPaper);
+      if (lockedKind === "MCQ") {
+        setParseMode("MCQ");
+      } else if (lockedKind === "WRITTEN") {
+        setParseMode("WRITTEN");
+      } else {
+        setParseMode("AUTO");
+      }
     }
-  }, [open, initialPaper, paperConfig]);
+  }, [open, initialPaper, paperConfig, lockedKind, effectivePaperTabs]);
 
   const onPaperChange = (paper: QbPaper) => {
     setTargetPaper(paper);
@@ -281,7 +299,8 @@ export function QbPdfImportModal({
         paper: targetPaper,
       });
 
-      onSuccess(res.imported);
+      const createdIds = res.questions?.map((q) => q.id) ?? [];
+      onSuccess(res.imported, createdIds);
       handleClose();
     } catch (err) {
       setError((err as ApiError)?.message || "Failed to import questions.");
@@ -402,13 +421,15 @@ export function QbPdfImportModal({
 
       {step === "upload" ? (
         <div className="space-y-5">
+          {header}
+
           {/* Destination Paper Selection */}
           <div className="space-y-1.5">
             <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
               Destination Paper
             </label>
             <div className="flex flex-wrap gap-2">
-              {paperTabs.map((p) => (
+              {effectivePaperTabs.map((p) => (
                 <button
                   key={p}
                   type="button"

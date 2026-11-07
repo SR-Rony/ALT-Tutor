@@ -12,11 +12,13 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { type CourseLinkedProgram } from "@/components/admin/key-concepts/admin-key-concepts-page";
+import { QbPdfImportModal } from "@/components/admin/questionbank/qb-pdf-import-modal";
 import { QbQuestionFormModal } from "@/components/admin/questionbank/qb-question-form-modal";
 import {
   resolvePaperConfig,
@@ -196,7 +198,7 @@ export function AdminPracticeExamsPage({
   const scopeLocked = Boolean(editId);
 
   const qbProgramId = modalOpen ? effectiveModalProgramId : effectiveProgramId;
-  const { data: qbTopics = [] } = useAdminQuestionbank(qbProgramId || undefined);
+  const { data: qbTopics = [], refetch: refetchQbTopics } = useAdminQuestionbank(qbProgramId || undefined);
   const { data: usedQuestionsData } = useCourseUsedQuestions(
     courseId ?? "",
     editId ?? undefined
@@ -225,6 +227,7 @@ export function AdminPracticeExamsPage({
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [pickerTab, setPickerTab] = useState<QuestionPickerTab>("available");
   const [newQuestionOpen, setNewQuestionOpen] = useState(false);
+  const [pdfImportOpen, setPdfImportOpen] = useState(false);
   const [newQuestionSubtopicId, setNewQuestionSubtopicId] = useState("");
   const [accessTier, setAccessTier] = useState<QbAccessBadge>("FREE");
   const [isPublished, setIsPublished] = useState(true);
@@ -339,7 +342,10 @@ export function AdminPracticeExamsPage({
   const newQuestionStudySet = newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId);
 
   useEffect(() => {
-    if (!modalOpen) setNewQuestionOpen(false);
+    if (!modalOpen) {
+      setNewQuestionOpen(false);
+      setPdfImportOpen(false);
+    }
   }, [modalOpen]);
 
   const openNewQuestion = () => {
@@ -351,6 +357,17 @@ export function AdminPracticeExamsPage({
     if (!preferred) return;
     setNewQuestionSubtopicId(preferred.id);
     setNewQuestionOpen(true);
+  };
+
+  const openPdfImport = () => {
+    const preferred =
+      newQuestionStudySets.find((s) => s.id === subtopicId) ??
+      newQuestionStudySets.find((s) => topicId && s.topicId === topicId) ??
+      newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId) ??
+      newQuestionStudySets[0];
+    if (!preferred) return;
+    setNewQuestionSubtopicId(preferred.id);
+    setPdfImportOpen(true);
   };
 
   const addQuestion = (id: string) => {
@@ -702,6 +719,19 @@ export function AdminPracticeExamsPage({
               <Button
                 type="button"
                 size="sm"
+                variant="outline"
+                disabled={!effectiveProgramId}
+                onClick={() => {
+                  openCreate({ mode: "MCQ" });
+                  setPdfImportOpen(true);
+                }}
+              >
+                <Upload className="h-4 w-4" />
+                Import PDF Exam
+              </Button>
+              <Button
+                type="button"
+                size="sm"
                 disabled={!effectiveProgramId}
                 onClick={() => openCreate({ mode: "MCQ" })}
               >
@@ -902,6 +932,18 @@ export function AdminPracticeExamsPage({
                   >
                     <Plus className="h-4 w-4" />
                     Create Written exam
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      openCreate({ mode: "MCQ" });
+                      setPdfImportOpen(true);
+                    }}
+                  >
+                    <Upload className="mr-1.5 h-3.5 w-3.5" />
+                    Import from PDF
                   </Button>
                 </div>
               ) : null}
@@ -1334,17 +1376,29 @@ export function AdminPracticeExamsPage({
               <p className="text-xs text-muted-foreground">
                 {newQuestionStudySets.length === 0
                   ? "Add a Questionbank study set to this program to create new questions here."
-                  : "Need a question that isn’t in the Questionbank? Create it here — it’s saved to a study set and added to this exam."}
+                  : "Need questions from a PDF or not in Questionbank? Import PDF or create directly here — questions are saved to the study set and added to this exam."}
               </p>
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy || newQuestionStudySets.length === 0}
-                onClick={openNewQuestion}
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                New {mode === "WRITTEN" ? "written" : "MCQ"} question
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || newQuestionStudySets.length === 0}
+                  onClick={openPdfImport}
+                >
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  Import PDF
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy || newQuestionStudySets.length === 0}
+                  onClick={openNewQuestion}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  New {mode === "WRITTEN" ? "written" : "MCQ"} question
+                </Button>
+              </div>
             </div>
             <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
               <button
@@ -1543,6 +1597,41 @@ export function AdminPracticeExamsPage({
         onSaved={(saved) => {
           addQuestion(saved.id);
           setPickerTab("selected");
+          void refetchQbTopics();
+        }}
+      />
+
+      <QbPdfImportModal
+        open={modalOpen && pdfImportOpen}
+        onClose={() => setPdfImportOpen(false)}
+        subtopicId={newQuestionStudySet?.id ?? ""}
+        initialPaper={mode === "WRITTEN" ? "PAPER_2" : "PAPER_1"}
+        paperTabs={newQuestionStudySet?.paperTabs ?? ["PAPER_1", "PAPER_2"]}
+        paperConfig={newQuestionStudySet?.paperConfig ?? {}}
+        lockedKind={mode}
+        header={
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold">Save questions to study set</span>
+            <select
+              value={newQuestionSubtopicId}
+              onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
+              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+            >
+              {newQuestionStudySets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
+        onSuccess={(_count, createdIds) => {
+          setPdfImportOpen(false);
+          if (createdIds && createdIds.length > 0) {
+            setSelectedQuestionIds((prev) => [...new Set([...prev, ...createdIds])]);
+            setPickerTab("selected");
+          }
+          void refetchQbTopics();
         }}
       />
 
