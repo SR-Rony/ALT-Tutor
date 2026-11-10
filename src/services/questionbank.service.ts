@@ -64,8 +64,11 @@ export const questionbankService = {
     return response.data;
   },
 
-  async adminList(programId?: string): Promise<QbTopic[]> {
-    const q = programId ? `?programId=${encodeURIComponent(programId)}` : "";
+  async adminList(programId?: string, examId?: string): Promise<QbTopic[]> {
+    const params = new URLSearchParams();
+    if (programId) params.append("programId", programId);
+    if (examId) params.append("examId", examId);
+    const q = params.toString() ? `?${params.toString()}` : "";
     const response = await apiClient.get<QbTopic[]>(`/questionbank/admin${q}`);
     return response.data ?? [];
   },
@@ -134,12 +137,13 @@ export const questionbankService = {
   bulkCreateQuestions(
     subtopicId: string,
     questions: Partial<CreateQbQuestionInput>[],
-    paper?: string
+    paper?: string,
+    practiceExamId?: string | null
   ): Promise<{ imported: number; questions: QbQuestion[] }> {
     return apiClient
       .post<{ imported: number; questions: QbQuestion[] }>(
         `/questionbank/subtopics/${subtopicId}/bulk-questions`,
-        { questions, paper }
+        { questions, paper, practiceExamId }
       )
       .then((r) => r.data);
   },

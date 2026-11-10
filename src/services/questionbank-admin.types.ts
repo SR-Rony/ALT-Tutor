@@ -44,6 +44,7 @@ export type CreateQbQuestionInput = {
   markScheme?: string | null;
   videoUrl?: string | null;
   notes?: string | null;
+  practiceExamId?: string | null;
   order?: number;
   isActive?: boolean;
 };

@@ -230,6 +230,7 @@ export type SavePracticeExamAnswerFilesResult =
   | { expired: true; result: PracticeExamAttemptPayload };
 
 export type CreatePracticeExamTemplateInput = {
+  id?: string;
   programId: string;
   courseId?: string;
   title: string;

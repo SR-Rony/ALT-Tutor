@@ -2,17 +2,22 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  BookOpen,
   Copy,
   Download,
   Eye,
   EyeOff,
   ExternalLink,
+  FileText,
+  Image as ImageIcon,
   Pencil,
   Plus,
   RefreshCw,
   Search,
+  Sparkles,
   Trash2,
   Upload,
+  Video,
 } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
@@ -35,6 +40,7 @@ import {
   useCourseUsedQuestions,
   useCreatePracticeExamTemplate,
   useDeletePracticeExamTemplate,
+  useDeleteQbQuestion,
   useUpdatePracticeExamTemplate,
 } from "@/hooks";
 import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
@@ -49,7 +55,7 @@ import {
   type PracticeExamType,
   type PracticeExamWrittenStyle,
 } from "@/types/practice-exam.types";
-import type { QbAccessBadge } from "@/types/qb.types";
+import type { QbAccessBadge, QbPaper, QbPaperConfig, QbQuestion } from "@/types/qb.types";
 import { cn } from "@/utils";
 import { downloadQuestionPaperPdf } from "@/utils/qb-pdf-export";
 import Link from "next/link";
@@ -71,8 +77,18 @@ type PickerQuestionRow = {
   difficulty: string;
   paper: string;
   questionType: string;
+  marks: number;
+  options: string[];
+  correctAnswer?: string;
+  markScheme?: string | null;
+  videoUrl?: string | null;
+  notes?: string | null;
   topicTitle: string;
   subtopicTitle: string;
+  subtopicId: string;
+  paperConfig: QbPaperConfig;
+  paperTabs: QbPaper[];
+  raw: QbQuestion;
 };
 
 function modeLabel(mode: PracticeExamMode | string | undefined) {
@@ -180,8 +196,11 @@ export function AdminPracticeExamsPage({
 
   const [modalOpen, setModalOpen] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [draftExamId, setDraftExamId] = useState<string>(() => crypto.randomUUID());
+  const activeExamId = editId || draftExamId;
   const [actionError, setActionError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PracticeExamTemplate | null>(null);
+  const [questionToDelete, setQuestionToDelete] = useState<PickerQuestionRow | null>(null);
 
   const [modalCategoryId, setModalCategoryId] = useState("");
   const [modalSubjectId, setModalSubjectId] = useState("");
@@ -201,7 +220,11 @@ export function AdminPracticeExamsPage({
   const scopeLocked = Boolean(editId);
 
   const qbProgramId = modalOpen ? effectiveModalProgramId : effectiveProgramId;
-  const { data: qbTopics = [], refetch: refetchQbTopics } = useAdminQuestionbank(qbProgramId || undefined);
+  const { data: qbTopics = [], refetch: refetchQbTopics } = useAdminQuestionbank(
+    qbProgramId || undefined,
+    modalOpen ? activeExamId : undefined
+  );
+  const deleteQbQuestion = useDeleteQbQuestion();
   const { data: usedQuestionsData } = useCourseUsedQuestions(
     courseId ?? "",
     editId ?? undefined
@@ -232,6 +255,7 @@ export function AdminPracticeExamsPage({
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [pickerTab, setPickerTab] = useState<QuestionPickerTab>("available");
   const [newQuestionOpen, setNewQuestionOpen] = useState(false);
+  const [editingQuestionRow, setEditingQuestionRow] = useState<PickerQuestionRow | null>(null);
   const [pdfImportOpen, setPdfImportOpen] = useState(false);
   const [newQuestionSubtopicId, setNewQuestionSubtopicId] = useState("");
   const [accessTier, setAccessTier] = useState<QbAccessBadge>("FREE");
@@ -279,10 +303,13 @@ export function AdminPracticeExamsPage({
   const allModeQuestions = useMemo(() => {
     const types = allowedQuestionTypes(mode);
     const rows: PickerQuestionRow[] = [];
+    const selectedSet = new Set(selectedQuestionIds);
     for (const topic of qbTopics) {
       for (const sub of topic.subtopics) {
+        const subPaperConfig = resolvePaperConfig(sub.paperCount, sub.paperConfig);
+        const subPaperTabs = resolvePaperTabs(sub.paperCount, sub.questions);
         for (const q of sub.questions ?? []) {
-          if (!q.isActive) continue;
+          if (!q.isActive && !selectedSet.has(q.id)) continue;
           if (!types.includes(String(q.questionType))) continue;
           rows.push({
             id: q.id,
@@ -293,14 +320,24 @@ export function AdminPracticeExamsPage({
             difficulty: String(q.difficulty),
             paper: String(q.paper),
             questionType: String(q.questionType),
+            marks: q.marks ?? 1,
+            options: q.options ?? [],
+            correctAnswer: q.correctAnswer,
+            markScheme: q.markScheme,
+            videoUrl: q.videoUrl,
+            notes: q.notes,
             topicTitle: topic.title,
             subtopicTitle: sub.title,
+            subtopicId: sub.id,
+            paperConfig: subPaperConfig,
+            paperTabs: subPaperTabs,
+            raw: q,
           });
         }
       }
     }
     return rows;
-  }, [qbTopics, mode]);
+  }, [qbTopics, mode, selectedQuestionIds]);
 
   const filteredAvailableQuestions = useMemo(() => {
     const selected = new Set(selectedQuestionIds);
@@ -310,6 +347,7 @@ export function AdminPracticeExamsPage({
       for (const sub of topic.subtopics) {
         if (subtopicId && sub.id !== subtopicId) continue;
         for (const q of sub.questions ?? []) {
+          if (q.practiceExamId) continue;
           if (!selected.has(q.id) && !usedQuestionIds.has(q.id)) allowedIds.add(q.id);
         }
       }
@@ -367,6 +405,7 @@ export function AdminPracticeExamsPage({
   useEffect(() => {
     if (!modalOpen) {
       setNewQuestionOpen(false);
+      setEditingQuestionRow(null);
       setPdfImportOpen(false);
     }
   }, [modalOpen]);
@@ -517,11 +556,13 @@ export function AdminPracticeExamsPage({
 
   const openCreate = (preset?: { mode?: PracticeExamMode; type?: PracticeExamType }) => {
     resetForm(preset);
+    setDraftExamId(crypto.randomUUID());
     setModalOpen(true);
   };
 
   const openEdit = (item: PracticeExamTemplate) => {
     setEditId(item.id);
+    setDraftExamId(item.id);
     setTitle(item.title);
     setDescription(item.description ?? "");
     setEditSlug(item.slug);
@@ -545,6 +586,7 @@ export function AdminPracticeExamsPage({
 
   const openDuplicate = (item: PracticeExamTemplate) => {
     setEditId(null);
+    setDraftExamId(crypto.randomUUID());
     setTitle(`${item.title} (Copy)`);
     setDescription(item.description ?? "");
     setEditSlug(slugify(`${item.slug}-copy`));
@@ -629,6 +671,7 @@ export function AdminPracticeExamsPage({
         });
       } else {
         await createTemplate.mutateAsync({
+          id: activeExamId,
           programId: effectiveModalProgramId,
           ...(courseId ? { courseId } : {}),
           ...payload,
@@ -1545,35 +1588,152 @@ export function AdminPracticeExamsPage({
                     No questions selected yet. Add some from Available, or create a new one above.
                   </p>
                 ) : (
-                  <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
-                    {selectedQuestions.map((q, index) => (
-                      <div
-                        key={q.id}
-                        className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
-                      >
-                        <span className="mt-0.5 w-5 shrink-0 text-xs font-semibold text-muted-foreground">
-                          {index + 1}.
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="font-medium text-foreground line-clamp-2">
-                            #{q.number} {richTextToPlain(q.prompt)}
-                          </span>
-                          <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {q.topicTitle} · {q.subtopicTitle} · {q.difficulty}
-                          </span>
-                        </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="ghost"
-                          className="shrink-0 text-accent hover:bg-[#fff1ee] hover:text-accent"
-                          disabled={busy}
-                          onClick={() => removeQuestion(q.id)}
+                  <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-border p-2">
+                    {selectedQuestions.map((q, index) => {
+                      const hasMarkScheme = Boolean(q.markScheme && q.markScheme.trim());
+                      const hasVideo = Boolean(q.videoUrl && q.videoUrl.trim());
+                      const hasNotes = Boolean(q.notes && q.notes.trim());
+                      const hasDiagram = Boolean(q.diagramUrl && q.diagramUrl.trim());
+
+                      return (
+                        <div
+                          key={q.id}
+                          className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3 shadow-sm transition hover:border-primary/40 sm:flex-row sm:items-start sm:justify-between"
                         >
-                          Remove
-                        </Button>
-                      </div>
-                    ))}
+                          <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                            <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-xs font-bold text-primary">
+                              {index + 1}
+                            </span>
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-xs font-semibold text-foreground">
+                                  #{q.number}
+                                </span>
+                                <span
+                                  className={cn(
+                                    "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                                    q.questionType === "MULTIPLE_CHOICE"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-purple-100 text-purple-700"
+                                  )}
+                                >
+                                  {q.questionType === "MULTIPLE_CHOICE" ? "MCQ" : "Written"}
+                                </span>
+                                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                                  {q.marks || 1} {q.marks === 1 ? "mark" : "marks"}
+                                </span>
+                                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  {q.difficulty}
+                                </span>
+                              </div>
+
+                              <p className="line-clamp-2 text-xs font-medium text-foreground leading-relaxed">
+                                {richTextToPlain(q.prompt) || "No prompt text"}
+                              </p>
+
+                              <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+                                <span>{q.topicTitle}</span>
+                                <span>·</span>
+                                <span>{q.subtopicTitle}</span>
+                              </div>
+
+                              {/* Questionbank Features Status Badges */}
+                              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                                    hasMarkScheme
+                                      ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                                      : "border border-slate-200 bg-slate-100 text-slate-500"
+                                  )}
+                                  title={hasMarkScheme ? "Mark scheme attached" : "No mark scheme yet"}
+                                >
+                                  <FileText className="h-3 w-3" />
+                                  <span>{hasMarkScheme ? "Mark Scheme ✓" : "No Mark Scheme"}</span>
+                                </span>
+
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                                    hasVideo
+                                      ? "border border-indigo-200 bg-indigo-50 text-indigo-700"
+                                      : "border border-slate-200 bg-slate-100 text-slate-500"
+                                  )}
+                                  title={hasVideo ? "Video solution attached" : "No video solution yet"}
+                                >
+                                  <Video className="h-3 w-3" />
+                                  <span>{hasVideo ? "Video Solution ✓" : "No Video"}</span>
+                                </span>
+
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                                    hasNotes
+                                      ? "border border-amber-200 bg-amber-50 text-amber-800"
+                                      : "border border-slate-200 bg-slate-100 text-slate-500"
+                                  )}
+                                  title={hasNotes ? "Question notes attached" : "No notes yet"}
+                                >
+                                  <BookOpen className="h-3 w-3" />
+                                  <span>{hasNotes ? "Notes ✓" : "No Notes"}</span>
+                                </span>
+
+                                {q.raw.practiceExamId ? (
+                                  <span className="inline-flex items-center gap-1 rounded-md border border-purple-200 bg-purple-50 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
+                                    <Sparkles className="h-3 w-3" />
+                                    <span>Exam Exclusive</span>
+                                  </span>
+                                ) : null}
+
+                                {hasDiagram ? (
+                                  <span className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                                    <ImageIcon className="h-3 w-3" />
+                                    <span>Diagram ✓</span>
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-center">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() => setEditingQuestionRow(q)}
+                              className="text-xs"
+                            >
+                              <Pencil className="mr-1 h-3.5 w-3.5" />
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="text-xs text-destructive hover:bg-destructive/10 hover:text-destructive border-destructive/30"
+                              disabled={busy}
+                              onClick={() => setQuestionToDelete(q)}
+                              title="Delete question permanently from database"
+                            >
+                              <Trash2 className="mr-1 h-3.5 w-3.5" />
+                              Delete
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="ghost"
+                              className="text-xs text-muted-foreground hover:bg-muted"
+                              disabled={busy}
+                              onClick={() => removeQuestion(q.id)}
+                              title="Unselect question from this exam"
+                            >
+                              Remove
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -1606,32 +1766,130 @@ export function AdminPracticeExamsPage({
                         : "No questions match this topic/subtopic filter."}
                   </p>
                 ) : (
-                  <div className="max-h-56 space-y-1 overflow-y-auto rounded-xl border border-border p-2">
-                    {filteredAvailableQuestions.map((q) => (
-                      <div
-                        key={q.id}
-                        className="flex items-start gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-muted/60"
-                      >
-                        <span className="min-w-0 flex-1">
-                          <span className="font-medium text-foreground line-clamp-2">
-                            #{q.number} {richTextToPlain(q.prompt)}
-                          </span>
-                          <span className="mt-0.5 block text-xs text-muted-foreground">
-                            {q.topicTitle} · {q.subtopicTitle} · {q.difficulty}
-                          </span>
-                        </span>
-                        <Button
-                          type="button"
-                          size="sm"
-                          variant="outline"
-                          className="shrink-0"
-                          disabled={busy}
-                          onClick={() => addQuestion(q.id)}
+                  <div className="max-h-72 space-y-2 overflow-y-auto rounded-xl border border-border p-2">
+                    {filteredAvailableQuestions.map((q) => {
+                      const hasMarkScheme = Boolean(q.markScheme && q.markScheme.trim());
+                      const hasVideo = Boolean(q.videoUrl && q.videoUrl.trim());
+                      const hasNotes = Boolean(q.notes && q.notes.trim());
+                      const hasDiagram = Boolean(q.diagramUrl && q.diagramUrl.trim());
+
+                      return (
+                        <div
+                          key={q.id}
+                          className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3 shadow-sm transition hover:border-primary/40 sm:flex-row sm:items-start sm:justify-between"
                         >
-                          Add
-                        </Button>
-                      </div>
-                    ))}
+                          <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                            <div className="min-w-0 flex-1 space-y-1.5">
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-xs font-semibold text-foreground">
+                                  #{q.number}
+                                </span>
+                                <span
+                                  className={cn(
+                                    "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                                    q.questionType === "MULTIPLE_CHOICE"
+                                      ? "bg-blue-100 text-blue-700"
+                                      : "bg-purple-100 text-purple-700"
+                                  )}
+                                >
+                                  {q.questionType === "MULTIPLE_CHOICE" ? "MCQ" : "Written"}
+                                </span>
+                                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-foreground">
+                                  {q.marks || 1} {q.marks === 1 ? "mark" : "marks"}
+                                </span>
+                                <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+                                  {q.difficulty}
+                                </span>
+                              </div>
+
+                              <p className="line-clamp-2 text-xs font-medium text-foreground leading-relaxed">
+                                {richTextToPlain(q.prompt) || "No prompt text"}
+                              </p>
+
+                              <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground">
+                                <span>{q.topicTitle}</span>
+                                <span>·</span>
+                                <span>{q.subtopicTitle}</span>
+                              </div>
+
+                              {/* Questionbank Features Status Badges */}
+                              <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                                    hasMarkScheme
+                                      ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                                      : "border border-slate-200 bg-slate-100 text-slate-500"
+                                  )}
+                                  title={hasMarkScheme ? "Mark scheme attached" : "No mark scheme yet"}
+                                >
+                                  <FileText className="h-3 w-3" />
+                                  <span>{hasMarkScheme ? "Mark Scheme ✓" : "No Mark Scheme"}</span>
+                                </span>
+
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                                    hasVideo
+                                      ? "border border-indigo-200 bg-indigo-50 text-indigo-700"
+                                      : "border border-slate-200 bg-slate-100 text-slate-500"
+                                  )}
+                                  title={hasVideo ? "Video solution attached" : "No video solution yet"}
+                                >
+                                  <Video className="h-3 w-3" />
+                                  <span>{hasVideo ? "Video Solution ✓" : "No Video"}</span>
+                                </span>
+
+                                <span
+                                  className={cn(
+                                    "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold",
+                                    hasNotes
+                                      ? "border border-amber-200 bg-amber-50 text-amber-800"
+                                      : "border border-slate-200 bg-slate-100 text-slate-500"
+                                  )}
+                                  title={hasNotes ? "Question notes attached" : "No notes yet"}
+                                >
+                                  <BookOpen className="h-3 w-3" />
+                                  <span>{hasNotes ? "Notes ✓" : "No Notes"}</span>
+                                </span>
+
+                                {hasDiagram ? (
+                                  <span className="inline-flex items-center gap-1 rounded-md border border-sky-200 bg-sky-50 px-2 py-0.5 text-[10px] font-semibold text-sky-700">
+                                    <ImageIcon className="h-3 w-3" />
+                                    <span>Diagram ✓</span>
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex shrink-0 items-center gap-1.5 self-end sm:self-center">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={busy}
+                              onClick={() => setEditingQuestionRow(q)}
+                              className="text-xs"
+                            >
+                              <Pencil className="mr-1 h-3.5 w-3.5" />
+                              Edit
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="text-xs"
+                              disabled={busy}
+                              onClick={() => addQuestion(q.id)}
+                            >
+                              <Plus className="mr-1 h-3.5 w-3.5" />
+                              Add
+                            </Button>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </>
@@ -1652,35 +1910,39 @@ export function AdminPracticeExamsPage({
         </div>
       </AdminModal>
 
+      {/* Edit existing question in Questionbank & Exam */}
+      <QbQuestionFormModal
+        open={Boolean(editingQuestionRow)}
+        onClose={() => setEditingQuestionRow(null)}
+        question={editingQuestionRow?.raw ?? null}
+        subtopicId={editingQuestionRow?.subtopicId ?? effectiveNewQuestionSubtopicId}
+        paperConfig={editingQuestionRow?.paperConfig ?? newQuestionStudySet?.paperConfig ?? {}}
+        paperTabs={editingQuestionRow?.paperTabs ?? newQuestionStudySet?.paperTabs ?? []}
+        lockedKind={mode}
+        description="Edit this question. All Questionbank features (Prompt, Marks, Options, Mark Scheme, Video Solution, Notes, Diagram) are saved to Questionbank and updated in this exam."
+        onSaved={() => {
+          setEditingQuestionRow(null);
+          void refetchQbTopics();
+        }}
+      />
+
+      {/* Create brand new question in Questionbank & Exam */}
       <QbQuestionFormModal
         open={modalOpen && newQuestionOpen}
         onClose={() => setNewQuestionOpen(false)}
         subtopicId={effectiveNewQuestionSubtopicId}
+        practiceExamId={activeExamId}
         paperConfig={newQuestionStudySet?.paperConfig ?? {}}
         paperTabs={newQuestionStudySet?.paperTabs ?? []}
         lockedKind={mode}
-        description="Saved to the chosen Questionbank study set and added to this exam."
+        description="Saved exclusively for this practice exam. Will not appear in Questionbank."
         header={
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Save to study set</span>
-            {newQuestionStudySets.length === 0 ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
-                No study sets exist in this program yet. Please create a topic and study set in Questionbank first.
-              </div>
-            ) : (
-              <select
-                value={effectiveNewQuestionSubtopicId}
-                onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                {newQuestionStudySets.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            )}
-          </label>
+          <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-3 text-xs text-purple-900">
+            <span className="font-semibold">Practice Exam Exclusive Question</span>
+            <p className="mt-0.5 text-[11px] text-purple-700">
+              This question will be saved only for this exam and will not show up in the Questionbank.
+            </p>
+          </div>
         }
         onSaved={(saved) => {
           addQuestion(saved.id);
@@ -1693,31 +1955,18 @@ export function AdminPracticeExamsPage({
         open={modalOpen && pdfImportOpen}
         onClose={() => setPdfImportOpen(false)}
         subtopicId={effectiveNewQuestionSubtopicId}
+        practiceExamId={activeExamId}
         initialPaper={mode === "WRITTEN" ? "PAPER_2" : "PAPER_1"}
         paperTabs={newQuestionStudySet?.paperTabs ?? ["PAPER_1", "PAPER_2"]}
         paperConfig={newQuestionStudySet?.paperConfig ?? {}}
         lockedKind={mode}
         header={
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Save questions to study set</span>
-            {newQuestionStudySets.length === 0 ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-2.5 text-xs text-amber-800">
-                No study sets exist in this program yet. Please create a topic and study set in Questionbank first.
-              </div>
-            ) : (
-              <select
-                value={effectiveNewQuestionSubtopicId}
-                onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                {newQuestionStudySets.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            )}
-          </label>
+          <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-3 text-xs text-purple-900">
+            <span className="font-semibold">Practice Exam Exclusive Questions</span>
+            <p className="mt-0.5 text-[11px] text-purple-700">
+              Questions imported here will belong exclusively to this practice exam and will NOT appear in Questionbank or any other exam.
+            </p>
+          </div>
         }
         onSuccess={(_count, createdIds) => {
           setPdfImportOpen(false);
@@ -1728,6 +1977,52 @@ export function AdminPracticeExamsPage({
           void refetchQbTopics();
         }}
       />
+
+      <AdminModal
+        open={Boolean(questionToDelete)}
+        title="Delete question permanently?"
+        description={`Are you sure you want to delete Question #${questionToDelete?.number}? This will permanently remove it from this practice exam and from the database.`}
+        onClose={() => !deleteQbQuestion.isPending && setQuestionToDelete(null)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleteQbQuestion.isPending}
+              onClick={() => setQuestionToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-red-600 text-white hover:bg-red-700"
+              disabled={deleteQbQuestion.isPending}
+              onClick={async () => {
+                if (!questionToDelete) return;
+                try {
+                  await deleteQbQuestion.mutateAsync(questionToDelete.id);
+                  removeQuestion(questionToDelete.id);
+                  setQuestionToDelete(null);
+                  void refetchQbTopics();
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+            >
+              {deleteQbQuestion.isPending ? "Deleting…" : "Delete permanently"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-2 text-sm text-foreground">
+          <p className="font-medium line-clamp-3">
+            {richTextToPlain(questionToDelete?.prompt ?? "")}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            This cannot be undone. This question will be completely removed.
+          </p>
+        </div>
+      </AdminModal>
 
       <AdminModal
         open={Boolean(deleteTarget)}

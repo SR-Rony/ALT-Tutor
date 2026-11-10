@@ -67,10 +67,10 @@ export function useQbQuestions(
   });
 }
 
-export function useAdminQuestionbank(programId?: string) {
+export function useAdminQuestionbank(programId?: string, examId?: string) {
   return useQuery({
-    queryKey: queryKeys.questionbank.admin(programId),
-    queryFn: () => questionbankService.adminList(programId),
+    queryKey: [...queryKeys.questionbank.admin(programId), examId ?? ""],
+    queryFn: () => questionbankService.adminList(programId, examId),
     enabled: Boolean(programId),
   });
 }
@@ -217,11 +217,13 @@ export function useBulkCreateQbQuestions() {
       subtopicId,
       questions,
       paper,
+      practiceExamId,
     }: {
       subtopicId: string;
       questions: Partial<CreateQbQuestionInput>[];
       paper?: string;
-    }) => questionbankService.bulkCreateQuestions(subtopicId, questions, paper),
+      practiceExamId?: string | null;
+    }) => questionbankService.bulkCreateQuestions(subtopicId, questions, paper, practiceExamId),
     onSuccess: invalidate,
   });
 }

@@ -44,6 +44,7 @@ type Props = {
   paperConfig?: QbPaperConfig;
   lockedKind?: QbPaperKind;
   header?: ReactNode;
+  practiceExamId?: string | null;
   onSuccess: (count: number, createdIds?: string[]) => void;
 };
 
@@ -56,6 +57,7 @@ export function QbPdfImportModal({
   paperConfig = {},
   lockedKind,
   header,
+  practiceExamId,
   onSuccess,
 }: Props) {
   const parsePdf = useParseQbPdf();
@@ -268,6 +270,7 @@ export function QbPdfImportModal({
               correctAnswer: q.markScheme?.trim() || "SEE_MARK_SCHEME",
               markScheme: q.markScheme ?? null,
               notes: q.notes ?? null,
+              practiceExamId: practiceExamId ?? null,
               order: idx,
               isActive: true,
             };
@@ -291,6 +294,7 @@ export function QbPdfImportModal({
             correctAnswer: (q.correctAnswer || "A").toUpperCase(),
             markScheme: q.markScheme ?? null,
             notes: q.notes ?? null,
+            practiceExamId: practiceExamId ?? null,
             order: idx,
             isActive: true,
           };
@@ -301,6 +305,7 @@ export function QbPdfImportModal({
         subtopicId,
         questions: dtos,
         paper: targetPaper,
+        practiceExamId,
       });
 
       const createdIds = res.questions?.map((q) => q.id) ?? [];
