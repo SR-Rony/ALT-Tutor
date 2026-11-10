@@ -1,4 +1,4 @@
-import type { QbAccessBadge, QbDifficulty } from "@/types/qb.types";
+import type { QbAccessBadge, QbDifficulty, QbPaperConfig, QbQuestion } from "@/types/qb.types";
 
 export type PracticeExamType = "TOPIC_QUIZ" | "MOCK" | "LADDER";
 export type PracticeExamMode = "MCQ" | "WRITTEN";
@@ -66,6 +66,18 @@ export type PracticeExamTemplate = {
   order: number;
   isActive: boolean;
   locked?: boolean;
+  questions?: (QbQuestion & {
+    subtopic?: {
+      id: string;
+      title: string;
+      paperCount?: number;
+      paperConfig?: QbPaperConfig | null;
+      topic?: {
+        id: string;
+        title: string;
+      };
+    };
+  })[];
 };
 
 export type AdminPracticeExamList = {

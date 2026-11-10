@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   BookOpen,
+  ChevronDown,
   Copy,
   Download,
   Eye,
@@ -10,6 +11,7 @@ import {
   ExternalLink,
   FileText,
   Image as ImageIcon,
+  MinusCircle,
   Pencil,
   Plus,
   RefreshCw,
@@ -90,6 +92,43 @@ type PickerQuestionRow = {
   paperTabs: QbPaper[];
   raw: QbQuestion;
 };
+
+function toPickerRow(
+  q: QbQuestion & {
+    subtopic?: {
+      id?: string;
+      title?: string;
+      paperCount?: number;
+      paperConfig?: QbPaperConfig | null;
+      topic?: { id?: string; title?: string };
+    };
+  },
+  defaultSubtopicId?: string
+): PickerQuestionRow {
+  const sub = q.subtopic;
+  return {
+    id: q.id,
+    number: q.number ?? 1,
+    prompt: q.prompt ?? "",
+    body: q.body,
+    diagramUrl: q.diagramUrl,
+    difficulty: String(q.difficulty ?? "MEDIUM"),
+    paper: String(q.paper ?? "PAPER_1"),
+    questionType: String(q.questionType ?? "MULTIPLE_CHOICE"),
+    marks: q.marks ?? 1,
+    options: q.options ?? [],
+    correctAnswer: q.correctAnswer,
+    markScheme: q.markScheme,
+    videoUrl: q.videoUrl,
+    notes: q.notes,
+    topicTitle: sub?.topic?.title ? richTextToPlain(sub.topic.title) || sub.topic.title : "Topic",
+    subtopicTitle: sub?.title ? richTextToPlain(sub.title) || sub.title : "Subtopic",
+    subtopicId: q.subtopicId || defaultSubtopicId || "",
+    paperConfig: resolvePaperConfig(sub?.paperCount, sub?.paperConfig),
+    paperTabs: resolvePaperTabs(sub?.paperCount, []),
+    raw: q,
+  };
+}
 
 function modeLabel(mode: PracticeExamMode | string | undefined) {
   return mode === "WRITTEN" ? "Written" : "MCQ";
@@ -261,6 +300,48 @@ export function AdminPracticeExamsPage({
   const [accessTier, setAccessTier] = useState<QbAccessBadge>("FREE");
   const [isPublished, setIsPublished] = useState(true);
   const [editSlug, setEditSlug] = useState("");
+  const [expandedExamIds, setExpandedExamIds] = useState<Set<string>>(new Set());
+  const [dropdownActionExam, setDropdownActionExam] = useState<PracticeExamTemplate | null>(null);
+
+  const toggleExpandExam = (id: string) => {
+    setExpandedExamIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleRemoveQuestionFromExam = async (
+    exam: PracticeExamTemplate,
+    questionId: string
+  ) => {
+    const currentBlueprint = exam.blueprint?.length
+      ? exam.blueprint
+      : [{ count: 0, questionIds: [] }];
+    const updatedBlueprint = currentBlueprint.map((rule) => {
+      const nextIds = (rule.questionIds ?? []).filter((id) => id !== questionId);
+      return {
+        ...rule,
+        questionIds: nextIds,
+        count: nextIds.length,
+      };
+    });
+    const total = [...new Set(updatedBlueprint.flatMap((r) => r.questionIds ?? []))].length;
+    try {
+      await updateTemplate.mutateAsync({
+        id: exam.id,
+        payload: {
+          blueprint: updatedBlueprint,
+          totalQuestions: total,
+        },
+      });
+      void refetch();
+    } catch (err) {
+      console.error(err);
+      setActionError((err as ApiError)?.message || "Failed to remove question from exam");
+    }
+  };
 
   const busy =
     createTemplate.isPending || updateTemplate.isPending || deleteTemplate.isPending;
@@ -1041,127 +1122,397 @@ export function AdminPracticeExamsPage({
             </div>
           ) : (
             <div className="space-y-3">
-              {filteredTemplates.map((item) => (
-                <div
-                  key={item.id}
-                  className={cn(
-                    "rounded-xl border border-border px-4 py-3 transition",
-                    !item.isActive && "border-dashed opacity-70",
-                    !item.isPublished && "bg-muted/20"
-                  )}
-                >
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="font-semibold text-foreground">{item.title}</p>
-                        <span className="rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-bold uppercase text-foreground">
-                          {practiceExamTypeLabel(item.type)}
-                        </span>
-                        <span
-                          className={cn(
-                            "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase",
-                            item.mode === "WRITTEN"
-                              ? "bg-[#eff6ff] text-[#1d4ed8]"
-                              : "bg-primary-muted text-primary"
-                          )}
-                        >
-                          {modeLabel(item.mode)}
-                        </span>
-                        {item.mode === "WRITTEN" ? (
+              {filteredTemplates.map((item) => {
+                const itemQuestions = item.questions ?? [];
+                const isExpanded = expandedExamIds.has(item.id);
+
+                return (
+                  <div
+                    key={item.id}
+                    className={cn(
+                      "rounded-xl border border-border px-4 py-3 transition",
+                      !item.isActive && "border-dashed opacity-70",
+                      !item.isPublished && "bg-muted/20"
+                    )}
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <p className="font-semibold text-foreground">{item.title}</p>
+                          <span className="rounded-md border border-border bg-muted/60 px-1.5 py-0.5 text-[10px] font-bold uppercase text-foreground">
+                            {practiceExamTypeLabel(item.type)}
+                          </span>
+                          <span
+                            className={cn(
+                              "rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                              item.mode === "WRITTEN"
+                                ? "bg-[#eff6ff] text-[#1d4ed8]"
+                                : "bg-primary-muted text-primary"
+                            )}
+                          >
+                            {modeLabel(item.mode)}
+                          </span>
+                          {item.mode === "WRITTEN" ? (
+                            <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
+                              {writtenStyleLabel(item.writtenStyle)}
+                            </span>
+                          ) : null}
                           <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-                            {writtenStyleLabel(item.writtenStyle)}
+                            {tierLabel(item.accessTier)}
                           </span>
-                        ) : null}
-                        <span className="rounded-md bg-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-muted-foreground">
-                          {tierLabel(item.accessTier)}
-                        </span>
-                        {item.isPublished ? (
-                          <span className="rounded-md bg-[#ecfdf3] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--accent-green)]">
-                            Published
+                          {item.isPublished ? (
+                            <span className="rounded-md bg-[#ecfdf3] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--accent-green)]">
+                              Published
+                            </span>
+                          ) : (
+                            <span className="rounded-md bg-[#fff8ef] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#9a3412]">
+                              Draft
+                            </span>
+                          )}
+                        </div>
+                        <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                          <span>
+                            {item.totalQuestions}Q · {item.durationMin} min · {scopeLabel(item, qbTopics)}
                           </span>
-                        ) : (
-                          <span className="rounded-md bg-[#fff8ef] px-1.5 py-0.5 text-[10px] font-bold uppercase text-[#9a3412]">
-                            Draft
-                          </span>
-                        )}
+                          <button
+                            type="button"
+                            onClick={() => toggleExpandExam(item.id)}
+                            className={cn(
+                              "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-0.5 text-xs font-semibold transition cursor-pointer select-none",
+                              isExpanded
+                                ? "border-primary bg-primary text-white shadow-sm"
+                                : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-sm"
+                            )}
+                          >
+                            <ChevronDown
+                              className={cn(
+                                "h-3.5 w-3.5 transition-transform duration-200",
+                                isExpanded && "rotate-180"
+                              )}
+                            />
+                            <span>
+                              {isExpanded ? "Hide Questions" : "Questions"} ({itemQuestions.length})
+                            </span>
+                          </button>
+                        </div>
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {item.totalQuestions}Q · {item.durationMin} min · {scopeLabel(item, qbTopics)}
-                      </p>
+
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => openEdit(item)}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() => openDuplicate(item)}
+                          title="Duplicate"
+                        >
+                          <Copy className="h-3.5 w-3.5" />
+                          Copy
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          disabled={busy}
+                          onClick={() =>
+                            void updateTemplate.mutateAsync({
+                              id: item.id,
+                              payload: { isPublished: !item.isPublished },
+                            })
+                          }
+                        >
+                          {item.isPublished ? (
+                            <>
+                              <EyeOff className="h-3.5 w-3.5" />
+                              Unpublish
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="h-3.5 w-3.5" />
+                              Publish
+                            </>
+                          )}
+                        </Button>
+                        {selectedProgram && item.isPublished ? (
+                          <Button type="button" size="sm" variant="ghost" asChild>
+                            <Link
+                              href={ROUTES.subjectPracticeExamTake(selectedProgram.slug, item.slug)}
+                              target="_blank"
+                            >
+                              <ExternalLink className="h-3.5 w-3.5" />
+                              View
+                            </Link>
+                          </Button>
+                        ) : null}
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="ghost"
+                          className="text-accent hover:bg-[#fff1ee] hover:text-accent"
+                          disabled={busy}
+                          onClick={() => setDeleteTarget(item)}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Delete
+                        </Button>
+                      </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => openEdit(item)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                        Edit
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => openDuplicate(item)}
-                        title="Duplicate"
-                      >
-                        <Copy className="h-3.5 w-3.5" />
-                        Copy
-                      </Button>
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() =>
-                          void updateTemplate.mutateAsync({
-                            id: item.id,
-                            payload: { isPublished: !item.isPublished },
-                          })
-                        }
-                      >
-                        {item.isPublished ? (
-                          <>
-                            <EyeOff className="h-3.5 w-3.5" />
-                            Unpublish
-                          </>
+                    {/* Expandable Dropdown: Questions list for this exam */}
+                    {isExpanded && (
+                      <div className="mt-3.5 border-t border-slate-200 pt-3.5 space-y-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-bold text-slate-800">
+                              Questions in this Exam ({itemQuestions.length})
+                            </span>
+                            <span className="rounded bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                              Total Marks: {itemQuestions.reduce((sum, q) => sum + (q.marks ?? 1), 0)}
+                            </span>
+                            <span className="rounded bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                              {itemQuestions.filter((q) => q.questionType === "MULTIPLE_CHOICE").length} MCQ
+                            </span>
+                            <span className="rounded bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">
+                              {itemQuestions.filter((q) => q.questionType !== "MULTIPLE_CHOICE").length} Written
+                            </span>
+                          </div>
+
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              className="h-8 text-xs font-semibold"
+                              onClick={() => {
+                                setDropdownActionExam(item);
+                                setPdfImportOpen(true);
+                              }}
+                            >
+                              <Upload className="h-3.5 w-3.5" />
+                              Import PDF
+                            </Button>
+                            <Button
+                              type="button"
+                              size="sm"
+                              className="h-8 text-xs font-semibold"
+                              onClick={() => {
+                                setDropdownActionExam(item);
+                                setNewQuestionOpen(true);
+                              }}
+                            >
+                              <Plus className="h-3.5 w-3.5" />
+                              Add Question
+                            </Button>
+                          </div>
+                        </div>
+
+                        {itemQuestions.length === 0 ? (
+                          <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
+                            <p className="text-xs text-slate-500">No questions in this practice exam yet.</p>
+                            <div className="mt-3 flex justify-center gap-2">
+                              <Button
+                                type="button"
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setDropdownActionExam(item);
+                                  setPdfImportOpen(true);
+                                }}
+                              >
+                                <Upload className="h-3.5 w-3.5" />
+                                Import from PDF
+                              </Button>
+                              <Button
+                                type="button"
+                                size="sm"
+                                onClick={() => {
+                                  setDropdownActionExam(item);
+                                  setNewQuestionOpen(true);
+                                }}
+                              >
+                                <Plus className="h-3.5 w-3.5" />
+                                Add Question
+                              </Button>
+                            </div>
+                          </div>
                         ) : (
-                          <>
-                            <Eye className="h-3.5 w-3.5" />
-                            Publish
-                          </>
+                          <div className="space-y-2.5">
+                            {itemQuestions.map((q, qIndex) => {
+                              const isExclusive = Boolean(q.practiceExamId);
+                              const hasMarkScheme = Boolean(q.markScheme && q.markScheme.trim().length > 0);
+                              const hasVideo = Boolean(q.videoUrl && q.videoUrl.trim().length > 0);
+                              const hasNotes = Boolean(q.notes && q.notes.trim().length > 0);
+                              const isMcq = q.questionType === "MULTIPLE_CHOICE";
+
+                              return (
+                                <div
+                                  key={q.id}
+                                  className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:border-slate-300"
+                                >
+                                  <div className="flex flex-wrap items-start justify-between gap-3">
+                                    <div className="min-w-0 flex-1 space-y-1.5">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="flex h-5 items-center justify-center rounded bg-slate-800 px-1.5 text-[11px] font-bold text-white">
+                                          Q{qIndex + 1}
+                                        </span>
+                                        <span
+                                          className={cn(
+                                            "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                                            isMcq
+                                              ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                              : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                          )}
+                                        >
+                                          {isMcq ? "MCQ" : "Written"}
+                                        </span>
+                                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                                          {q.marks ?? 1} {q.marks === 1 ? "mark" : "marks"}
+                                        </span>
+                                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                                          {q.difficulty}
+                                        </span>
+                                        {isExclusive && (
+                                          <span className="rounded border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-bold text-purple-700">
+                                            Exam Exclusive
+                                          </span>
+                                        )}
+                                      </div>
+
+                                      <p className="line-clamp-2 text-xs font-medium text-slate-800 leading-relaxed">
+                                        {richTextToPlain(q.prompt) || "No prompt text"}
+                                      </p>
+
+                                      {q.diagramUrl && (
+                                        <div className="flex items-center gap-2 pt-0.5">
+                                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
+                                            <ImageIcon className="h-3.5 w-3.5" /> Diagram attached
+                                          </span>
+                                        </div>
+                                      )}
+
+                                      {isMcq && q.options && q.options.length > 0 && (
+                                        <div className="flex flex-wrap gap-1.5 pt-1">
+                                          {q.options.map((opt, optIdx) => {
+                                            const letter = String.fromCharCode(65 + optIdx);
+                                            const isCorrect = q.correctAnswer === letter;
+                                            return (
+                                              <span
+                                                key={optIdx}
+                                                className={cn(
+                                                  "rounded px-2 py-0.5 text-[11px] border",
+                                                  isCorrect
+                                                    ? "bg-emerald-50 border-emerald-300 text-emerald-800 font-bold"
+                                                    : "bg-slate-50 border-slate-200 text-slate-600 font-normal"
+                                                )}
+                                              >
+                                                <span className="font-semibold">{letter}:</span> {richTextToPlain(opt)}
+                                              </span>
+                                            );
+                                          })}
+                                        </div>
+                                      )}
+
+                                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                        <span
+                                          className={cn(
+                                            "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold",
+                                            hasMarkScheme
+                                              ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                                              : "border border-slate-200 bg-slate-100 text-slate-400"
+                                          )}
+                                        >
+                                          <FileText className="h-3 w-3" />
+                                          <span>{hasMarkScheme ? "Mark Scheme ✓" : "No Mark Scheme"}</span>
+                                        </span>
+
+                                        <span
+                                          className={cn(
+                                            "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold",
+                                            hasVideo
+                                              ? "border border-indigo-200 bg-indigo-50 text-indigo-700"
+                                              : "border border-slate-200 bg-slate-100 text-slate-400"
+                                          )}
+                                        >
+                                          <Video className="h-3 w-3" />
+                                          <span>{hasVideo ? "Video Solution ✓" : "No Video"}</span>
+                                        </span>
+
+                                        <span
+                                          className={cn(
+                                            "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold",
+                                            hasNotes
+                                              ? "border border-amber-200 bg-amber-50 text-amber-800"
+                                              : "border border-slate-200 bg-slate-100 text-slate-400"
+                                          )}
+                                        >
+                                          <BookOpen className="h-3 w-3" />
+                                          <span>{hasNotes ? "Notes / Key Concepts ✓" : "No Notes"}</span>
+                                        </span>
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-1">
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 px-2.5 text-xs font-semibold"
+                                        onClick={() => {
+                                          const row = toPickerRow(q, effectiveNewQuestionSubtopicId);
+                                          setEditingQuestionRow(row);
+                                        }}
+                                        title="Edit question prompt, options, mark scheme, notes, and video"
+                                      >
+                                        <Pencil className="h-3.5 w-3.5 text-slate-600" />
+                                        <span>Edit</span>
+                                      </Button>
+
+                                      <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        className="h-8 px-2.5 text-xs text-slate-600 hover:text-slate-900"
+                                        onClick={() => handleRemoveQuestionFromExam(item, q.id)}
+                                        title="Remove from this exam"
+                                      >
+                                        <MinusCircle className="h-3.5 w-3.5 text-slate-500" />
+                                        <span>Remove</span>
+                                      </Button>
+
+                                      {isExclusive && (
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          className="h-8 px-2 text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
+                                          onClick={() => setQuestionToDelete(toPickerRow(q, effectiveNewQuestionSubtopicId))}
+                                          title="Permanently delete this exclusive question"
+                                        >
+                                          <Trash2 className="h-3.5 w-3.5" />
+                                        </Button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
-                      </Button>
-                      {selectedProgram && item.isPublished ? (
-                        <Button type="button" size="sm" variant="ghost" asChild>
-                          <Link
-                            href={ROUTES.subjectPracticeExamTake(selectedProgram.slug, item.slug)}
-                            target="_blank"
-                          >
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            View
-                          </Link>
-                        </Button>
-                      ) : null}
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className="text-accent hover:bg-[#fff1ee] hover:text-accent"
-                        disabled={busy}
-                        onClick={() => setDeleteTarget(item)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Delete
-                      </Button>
-                    </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -1918,23 +2269,27 @@ export function AdminPracticeExamsPage({
         subtopicId={editingQuestionRow?.subtopicId ?? effectiveNewQuestionSubtopicId}
         paperConfig={editingQuestionRow?.paperConfig ?? newQuestionStudySet?.paperConfig ?? {}}
         paperTabs={editingQuestionRow?.paperTabs ?? newQuestionStudySet?.paperTabs ?? []}
-        lockedKind={mode}
+        lockedKind={editingQuestionRow?.raw?.questionType === "MULTIPLE_CHOICE" ? "MCQ" : "WRITTEN"}
         description="Edit this question. All Questionbank features (Prompt, Marks, Options, Mark Scheme, Video Solution, Notes, Diagram) are saved to Questionbank and updated in this exam."
         onSaved={() => {
           setEditingQuestionRow(null);
           void refetchQbTopics();
+          void refetch();
         }}
       />
 
       {/* Create brand new question in Questionbank & Exam */}
       <QbQuestionFormModal
-        open={modalOpen && newQuestionOpen}
-        onClose={() => setNewQuestionOpen(false)}
+        open={newQuestionOpen}
+        onClose={() => {
+          setNewQuestionOpen(false);
+          setDropdownActionExam(null);
+        }}
         subtopicId={effectiveNewQuestionSubtopicId}
-        practiceExamId={activeExamId}
+        practiceExamId={dropdownActionExam ? dropdownActionExam.id : activeExamId}
         paperConfig={newQuestionStudySet?.paperConfig ?? {}}
         paperTabs={newQuestionStudySet?.paperTabs ?? []}
-        lockedKind={mode}
+        lockedKind={dropdownActionExam?.mode ?? mode}
         description="Saved exclusively for this practice exam. Will not appear in Questionbank."
         header={
           <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-3 text-xs text-purple-900">
@@ -1944,22 +2299,53 @@ export function AdminPracticeExamsPage({
             </p>
           </div>
         }
-        onSaved={(saved) => {
-          addQuestion(saved.id);
-          setPickerTab("selected");
+        onSaved={async (saved) => {
+          setNewQuestionOpen(false);
+          if (dropdownActionExam) {
+            const curBp = dropdownActionExam.blueprint?.length
+              ? dropdownActionExam.blueprint
+              : [{ count: 0, questionIds: [] }];
+            const updatedBp = curBp.map((r, idx) => {
+              if (idx === 0) {
+                const nextIds = [...(r.questionIds ?? []), saved.id];
+                return { ...r, questionIds: nextIds, count: nextIds.length };
+              }
+              return r;
+            });
+            const total = [...new Set(updatedBp.flatMap((r) => r.questionIds ?? []))].length;
+            try {
+              await updateTemplate.mutateAsync({
+                id: dropdownActionExam.id,
+                payload: {
+                  blueprint: updatedBp,
+                  totalQuestions: total,
+                },
+              });
+            } catch (err) {
+              console.error(err);
+            }
+            setDropdownActionExam(null);
+          } else {
+            addQuestion(saved.id);
+            setPickerTab("selected");
+          }
           void refetchQbTopics();
+          void refetch();
         }}
       />
 
       <QbPdfImportModal
-        open={modalOpen && pdfImportOpen}
-        onClose={() => setPdfImportOpen(false)}
+        open={pdfImportOpen}
+        onClose={() => {
+          setPdfImportOpen(false);
+          setDropdownActionExam(null);
+        }}
         subtopicId={effectiveNewQuestionSubtopicId}
-        practiceExamId={activeExamId}
-        initialPaper={mode === "WRITTEN" ? "PAPER_2" : "PAPER_1"}
+        practiceExamId={dropdownActionExam ? dropdownActionExam.id : activeExamId}
+        initialPaper={(dropdownActionExam?.mode ?? mode) === "WRITTEN" ? "PAPER_2" : "PAPER_1"}
         paperTabs={newQuestionStudySet?.paperTabs ?? ["PAPER_1", "PAPER_2"]}
         paperConfig={newQuestionStudySet?.paperConfig ?? {}}
-        lockedKind={mode}
+        lockedKind={dropdownActionExam?.mode ?? mode}
         header={
           <div className="rounded-xl border border-purple-200 bg-purple-50/70 p-3 text-xs text-purple-900">
             <span className="font-semibold">Practice Exam Exclusive Questions</span>
@@ -1968,13 +2354,38 @@ export function AdminPracticeExamsPage({
             </p>
           </div>
         }
-        onSuccess={(_count, createdIds) => {
+        onSuccess={async (_count, createdIds) => {
           setPdfImportOpen(false);
-          if (createdIds && createdIds.length > 0) {
+          if (dropdownActionExam && createdIds && createdIds.length > 0) {
+            const curBp = dropdownActionExam.blueprint?.length
+              ? dropdownActionExam.blueprint
+              : [{ count: 0, questionIds: [] }];
+            const updatedBp = curBp.map((r, idx) => {
+              if (idx === 0) {
+                const nextIds = [...(r.questionIds ?? []), ...createdIds];
+                return { ...r, questionIds: nextIds, count: nextIds.length };
+              }
+              return r;
+            });
+            const total = [...new Set(updatedBp.flatMap((r) => r.questionIds ?? []))].length;
+            try {
+              await updateTemplate.mutateAsync({
+                id: dropdownActionExam.id,
+                payload: {
+                  blueprint: updatedBp,
+                  totalQuestions: total,
+                },
+              });
+            } catch (err) {
+              console.error(err);
+            }
+            setDropdownActionExam(null);
+          } else if (createdIds && createdIds.length > 0) {
             setSelectedQuestionIds((prev) => [...new Set([...prev, ...createdIds])]);
             setPickerTab("selected");
           }
           void refetchQbTopics();
+          void refetch();
         }}
       />
 
@@ -2004,6 +2415,7 @@ export function AdminPracticeExamsPage({
                   removeQuestion(questionToDelete.id);
                   setQuestionToDelete(null);
                   void refetchQbTopics();
+                  void refetch();
                 } catch (err) {
                   console.error(err);
                 }
