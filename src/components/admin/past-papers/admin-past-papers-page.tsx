@@ -12,6 +12,7 @@ import {
   RefreshCw,
   Search,
   Trash2,
+  Upload,
 } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
@@ -25,6 +26,7 @@ import {
   resolvePaperTabs,
 } from "@/components/admin/questionbank/qb-admin-shared";
 import { QbQuestionFormModal } from "@/components/admin/questionbank/qb-question-form-modal";
+import { QbPdfImportModal } from "@/components/admin/questionbank/qb-pdf-import-modal";
 import { type CourseLinkedProgram } from "@/components/admin/key-concepts/admin-key-concepts-page";
 import { PageHeader, PageLoader } from "@/components/shared";
 import { Button } from "@/components/ui/button";
@@ -356,6 +358,7 @@ export function AdminPastPapersPage({
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
   const [pickerTab, setPickerTab] = useState<QuestionPickerTab>("available");
   const [newQuestionOpen, setNewQuestionOpen] = useState(false);
+  const [pdfImportOpen, setPdfImportOpen] = useState(false);
   const [newQuestionSubtopicId, setNewQuestionSubtopicId] = useState("");
   const [isPublished, setIsPublished] = useState(true);
 
@@ -594,6 +597,8 @@ export function AdminPastPapersPage({
     setSubtopicId("");
     setSelectedQuestionIds([]);
     setPickerTab("available");
+    setNewQuestionOpen(false);
+    setPdfImportOpen(false);
     setIsPublished(true);
     setActionError(null);
     syncModalScope(effectiveProgramId);
@@ -1518,18 +1523,30 @@ export function AdminPastPapersPage({
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-border px-3 py-2.5">
               <p className="text-xs text-muted-foreground">
                 {newQuestionStudySets.length === 0
-                  ? "Add a Questionbank study set to this program to create new questions here."
-                  : "Need a question that isn’t in the Questionbank? Create it here — it’s saved to a study set and added to this paper."}
+                  ? "Add a Questionbank study set to this program to create or import questions here."
+                  : "Need questions that aren’t in Questionbank? Create directly or import from Word, PDF, or Text."}
               </p>
-              <Button
-                type="button"
-                size="sm"
-                disabled={busy || newQuestionStudySets.length === 0}
-                onClick={openNewQuestion}
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                New {questionMode === "WRITTEN" ? "written" : "MCQ"} question
-              </Button>
+              <div className="flex flex-wrap items-center gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  disabled={busy || newQuestionStudySets.length === 0}
+                  onClick={() => setPdfImportOpen(true)}
+                >
+                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                  Import (Word / PDF / Text)
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  disabled={busy || newQuestionStudySets.length === 0}
+                  onClick={openNewQuestion}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  New {questionMode === "WRITTEN" ? "written" : "MCQ"} question
+                </Button>
+              </div>
             </div>
             <div className="inline-flex w-full rounded-xl border border-border bg-muted/40 p-1">
               <button
@@ -1695,6 +1712,41 @@ export function AdminPastPapersPage({
         onSaved={(saved) => {
           addQuestion(saved.id);
           setPickerTab("selected");
+        }}
+      />
+
+      <QbPdfImportModal
+        open={modalOpen && pdfImportOpen}
+        onClose={() => setPdfImportOpen(false)}
+        subtopicId={newQuestionStudySet?.id ?? ""}
+        initialPaper={paperKey(parsePaperNumber(paperCode))}
+        paperTabs={newQuestionStudySet?.paperTabs ?? ["PAPER_1", "PAPER_2"]}
+        paperConfig={newQuestionStudySet?.paperConfig ?? {}}
+        lockedKind={questionMode}
+        header={
+          <label className="block space-y-1.5">
+            <span className="text-sm font-semibold">Save questions to study set</span>
+            <select
+              value={newQuestionSubtopicId}
+              onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
+              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
+            >
+              {newQuestionStudySets.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        }
+        onSuccess={(_count, createdIds) => {
+          setPdfImportOpen(false);
+          if (createdIds && createdIds.length > 0) {
+            for (const id of createdIds) {
+              addQuestion(id);
+            }
+            setPickerTab("selected");
+          }
         }}
       />
 

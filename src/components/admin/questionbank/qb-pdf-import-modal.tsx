@@ -64,6 +64,8 @@ export function QbPdfImportModal({
   const bulkCreate = useBulkCreateQbQuestions();
 
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [inputSource, setInputSource] = useState<"file" | "text">("file");
+  const [pastedText, setPastedText] = useState("");
   const [targetPaper, setTargetPaper] = useState<QbPaper>(initialPaper);
   const [parseMode, setParseMode] = useState<"AUTO" | "MCQ" | "WRITTEN">("AUTO");
   const [answerKeyInput, setAnswerKeyInput] = useState("");
@@ -109,6 +111,8 @@ export function QbPdfImportModal({
 
   const resetForm = () => {
     setSelectedFile(null);
+    setPastedText("");
+    setInputSource("file");
     setAnswerKeyInput("");
     setExtractedQuestions([]);
     setStep("upload");
@@ -125,8 +129,10 @@ export function QbPdfImportModal({
 
   const onSelectFile = (file: File | undefined) => {
     if (!file) return;
-    if (!file.name.toLowerCase().endsWith(".pdf")) {
-      setError("Please select a valid PDF file.");
+    const lower = file.name.toLowerCase();
+    const valid = [".pdf", ".docx", ".doc", ".txt"].some((ext) => lower.endsWith(ext));
+    if (!valid) {
+      setError("Please select a valid Word (.docx), PDF (.pdf), or Text (.txt) file.");
       return;
     }
     setError(null);
@@ -134,28 +140,35 @@ export function QbPdfImportModal({
   };
 
   const handleExtract = async () => {
-    if (!selectedFile) {
-      setError("Please select a PDF file first.");
+    let fileToExtract = selectedFile;
+    if (inputSource === "text") {
+      if (!pastedText.trim()) {
+        setError("Please enter or paste your questions text first.");
+        return;
+      }
+      fileToExtract = new File([pastedText.trim()], "questions.txt", { type: "text/plain" });
+    } else if (!fileToExtract) {
+      setError("Please select a file (Word, PDF, or Text) first.");
       return;
     }
     setError(null);
     try {
       const result = await parsePdf.mutateAsync({
-        file: selectedFile,
+        file: fileToExtract,
         paper: targetPaper,
         answerKey: answerKeyInput.trim() || undefined,
         kind: parseMode,
       });
 
       if (!result.questions?.length) {
-        setError("No questions could be extracted. Please check the PDF formatting.");
+        setError("No questions could be extracted. Please check the document formatting.");
         return;
       }
 
       setExtractedQuestions(result.questions);
       setStep("review");
     } catch (err) {
-      setError((err as ApiError)?.message || "Failed to extract questions from PDF.");
+      setError((err as ApiError)?.message || "Failed to extract questions from document.");
     }
   };
 
@@ -341,15 +354,15 @@ export function QbPdfImportModal({
       onClose={handleClose}
       title={
         step === "upload"
-          ? "Create Questions from PDF (MCQ & Written)"
+          ? "Import Questions (Word / PDF / Text)"
           : `Review & Customize (${counts.total} Questions)`
       }
       description={
         step === "upload"
-          ? `Upload any examination or practice PDF to extract questions into ${paperShortLabel(
+          ? `Upload Word (.docx), PDF (.pdf), Text (.txt), or paste question text directly into ${paperShortLabel(
               targetPaper,
               paperConfig
-            )}. Supports pure MCQ, pure Written, and mixed papers.`
+            )}.`
           : "Review the extracted questions, upload or adjust diagrams, add video solution links or mark schemes, and click Import to save."
       }
       className={step === "review" ? "sm:max-w-5xl" : "sm:max-w-2xl"}
@@ -364,7 +377,7 @@ export function QbPdfImportModal({
               onClick={() => setStep("upload")}
             >
               <ArrowLeft className="mr-1.5 h-4 w-4" />
-              Upload different PDF
+              Upload or edit source
             </Button>
           ) : (
             <div />
@@ -383,7 +396,12 @@ export function QbPdfImportModal({
             {step === "upload" ? (
               <Button
                 type="button"
-                disabled={isBusy || !selectedFile || !subtopicId || !subtopicId.trim()}
+                disabled={
+                  isBusy ||
+                  (inputSource === "file" ? !selectedFile : !pastedText.trim()) ||
+                  !subtopicId ||
+                  !subtopicId.trim()
+                }
                 onClick={handleExtract}
               >
                 {parsePdf.isPending ? (
@@ -526,40 +544,84 @@ export function QbPdfImportModal({
             </div>
           </div>
 
-          {/* PDF Drag & Drop / File Input */}
-          <div
-            onClick={() => fileInputRef.current?.click()}
-            className={cn(
-              "flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border px-6 py-9 text-center transition hover:border-primary/60 hover:bg-muted/30",
-              selectedFile && "border-primary bg-primary/5"
-            )}
-          >
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,application/pdf"
-              className="hidden"
-              onChange={(e) => onSelectFile(e.target.files?.[0])}
-            />
-
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <FileText className="h-7 w-7" />
+          {/* Source Tabs: Upload File vs Paste Text */}
+          <div className="space-y-2">
+            <div className="flex rounded-xl border border-border bg-muted/40 p-1">
+              <button
+                type="button"
+                onClick={() => setInputSource("file")}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                  inputSource === "file"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Upload File (Word / PDF / Text)
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputSource("text")}
+                className={cn(
+                  "flex-1 rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                  inputSource === "text"
+                    ? "bg-card text-foreground shadow-xs"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Paste Text Directly
+              </button>
             </div>
 
-            {selectedFile ? (
-              <div className="space-y-1">
-                <p className="font-semibold text-foreground">{selectedFile.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {(selectedFile.size / 1024 / 1024).toFixed(2)} MB · Click to change file
-                </p>
+            {inputSource === "file" ? (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className={cn(
+                  "flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-border px-6 py-9 text-center transition hover:border-primary/60 hover:bg-muted/30",
+                  selectedFile && "border-primary bg-primary/5"
+                )}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.docx,.doc,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                  className="hidden"
+                  onChange={(e) => onSelectFile(e.target.files?.[0])}
+                />
+
+                <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                  <FileText className="h-7 w-7" />
+                </div>
+
+                {selectedFile ? (
+                  <div className="space-y-1">
+                    <p className="font-semibold text-foreground">{selectedFile.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(selectedFile.size / 1024 / 1024).toFixed(2)} MB · Click to change file
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground">
+                      Click to select or drag &amp; drop Word (.docx), PDF (.pdf), or Text (.txt) file
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Supports Cambridge, Edexcel, textbook questions, or custom question papers
+                    </p>
+                  </div>
+                )}
               </div>
             ) : (
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-foreground">
-                  Click to select or drag & drop your PDF question paper
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Supports Cambridge, Edexcel, NCTB, and standardized test papers
+              <div className="space-y-1.5">
+                <textarea
+                  value={pastedText}
+                  onChange={(e) => setPastedText(e.target.value)}
+                  rows={8}
+                  placeholder={`Paste your questions text here, e.g.:\n\n1. What is the SI unit of velocity? [1 mark]\nA. m/s\nB. m/s^2\nC. kg\nD. N\nAnswer: A\n\n2. Describe the relationship between force and acceleration. [3 marks]`}
+                  className="w-full rounded-2xl border border-border bg-card p-4 font-mono text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Numbered questions with options A-D or question marks will be automatically recognized.
                 </p>
               </div>
             )}

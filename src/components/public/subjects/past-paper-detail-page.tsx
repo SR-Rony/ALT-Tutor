@@ -27,6 +27,24 @@ function sourceLabel(type: string) {
   return "Interactive";
 }
 
+function formatPaperSubtitle(programName: string, paper: { session?: string; year?: number; paperCode?: string; title?: string; slug?: string; description?: string | null }) {
+  const prog = (programName || "").trim().toUpperCase();
+  const rawSession = (paper.session || "").trim().toUpperCase();
+  const year = paper.year ? String(paper.year) : "";
+  const sessionYear = rawSession.includes(year)
+    ? rawSession
+    : `${rawSession} ${year}`.trim();
+
+  const pCode = (paper.paperCode || "").trim().toUpperCase();
+
+  const combined = `${paper.title || ""} ${paper.session || ""} ${paper.slug || ""} ${paper.description || ""}`;
+  const vMatch = combined.match(/variant[-_\s]*(\d+)/i);
+  const variant = vMatch ? `VARIANT ${vMatch[1]}` : "";
+
+  const parts = [prog, sessionYear, pCode, variant].filter(Boolean);
+  return parts.join(" . ");
+}
+
 export function PastPaperDetailPage({ programSlug, paperSlug }: Props) {
   const { programName, isLoading: menuLoading } = useProgramContext(programSlug);
   const { data, isLoading, error, refetch } = usePastPaperDetail(programSlug, paperSlug);
@@ -42,7 +60,6 @@ export function PastPaperDetailPage({ programSlug, paperSlug }: Props) {
     resourceSlug: "past-papers",
     resourceLabel: "Past Papers",
     resourceHref: ROUTES.subjectResource(programSlug, "past-papers"),
-    topicLabel: paper?.title ?? "Paper",
   });
 
   if ((menuLoading && isLoading) || (isLoading && !paper)) {
@@ -64,18 +81,19 @@ export function PastPaperDetailPage({ programSlug, paperSlug }: Props) {
     );
   }
 
+  const subtitleText = formatPaperSubtitle(programName, paper);
+
   return (
     <div className="bg-background pb-16">
       <ResourceHero
         programSlug={programSlug}
         title={paper.title}
-        subtitle={`${programName} · ${paper.year} ${paper.session} · ${paper.paperCode}`}
+        subtitle={subtitleText}
         description={
           paper.description ||
           "Fixed past paper question set — browse and study at your own pace."
         }
-        icon={<FileText className="h-7 w-7 text-primary" aria-hidden />}
-        breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} />}
+        breadcrumbs={<SubjectBreadcrumbNav items={breadcrumbs} separator="." />}
       >
         <div className="flex flex-wrap items-center gap-2">
           <span
@@ -97,13 +115,6 @@ export function PastPaperDetailPage({ programSlug, paperSlug }: Props) {
           {!locked ? (
             <Button asChild variant="outline" size="sm" className="rounded-full">
               <Link href={ROUTES.subjectResource(programSlug, "past-papers")}>All past papers</Link>
-            </Button>
-          ) : null}
-          {paper.pdfUrl && !locked ? (
-            <Button asChild variant="outline" size="sm" className="rounded-full">
-              <a href={paper.pdfUrl} target="_blank" rel="noreferrer">
-                Open PDF
-              </a>
             </Button>
           ) : null}
         </div>

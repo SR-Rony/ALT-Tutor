@@ -16,9 +16,10 @@ export type BreadcrumbItem = {
 type Props = {
   items: BreadcrumbItem[];
   className?: string;
+  separator?: string;
 };
 
-export function SubjectBreadcrumbNav({ items, className }: Props) {
+export function SubjectBreadcrumbNav({ items, className, separator = "›" }: Props) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -52,8 +53,8 @@ export function SubjectBreadcrumbNav({ items, className }: Props) {
 
       {items.map((item, index) => (
         <div key={`${item.label}-${index}`} className="relative flex items-center">
-          <span className="mx-0.5 text-border" aria-hidden>
-            ›
+          <span className="mx-1 font-bold text-muted-foreground/60" aria-hidden>
+            {separator}
           </span>
           {item.menu && item.menu.length > 0 ? (
             <>

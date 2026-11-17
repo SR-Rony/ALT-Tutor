@@ -285,26 +285,15 @@ export function PastPaperTakePage({ programSlug, paperSlug }: Props) {
               </Button>
             </div>
           </div>
-          {paperMarkSchemeUrl || paper.pdfUrl ? (
+          {paperMarkSchemeUrl ? (
             <div className="flex flex-wrap gap-2">
-              {paperMarkSchemeUrl ? (
-                <Button asChild variant="outline" size="sm">
-                  <a href={paperMarkSchemeUrl} target="_blank" rel="noreferrer">
-                    <FileText className="mr-1.5 h-4 w-4" />
-                    Paper mark scheme PDF
-                    <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-                  </a>
-                </Button>
-              ) : null}
-              {paper.pdfUrl ? (
-                <Button asChild variant="outline" size="sm">
-                  <a href={paper.pdfUrl} target="_blank" rel="noreferrer">
-                    <FileText className="mr-1.5 h-4 w-4" />
-                    Question paper PDF
-                    <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
-                  </a>
-                </Button>
-              ) : null}
+              <Button asChild variant="outline" size="sm">
+                <a href={paperMarkSchemeUrl} target="_blank" rel="noreferrer">
+                  <FileText className="mr-1.5 h-4 w-4" />
+                  Paper mark scheme PDF
+                  <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                </a>
+              </Button>
             </div>
           ) : null}
         </div>
