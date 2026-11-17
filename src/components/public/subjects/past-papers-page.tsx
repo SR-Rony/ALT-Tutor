@@ -168,7 +168,7 @@ export function PastPapersPage({ programSlug }: Props) {
                   id="past-paper-year-select"
                   value={activeYear ?? ""}
                   onChange={(e) => setSelectedYear(Number(e.target.value))}
-                  className="h-10 cursor-pointer rounded-xl border-2 border-primary/20 bg-background px-4 py-1.5 pr-10 text-base font-bold text-primary transition hover:border-primary/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  className="h-10 cursor-pointer appearance-none rounded-xl border-2 border-primary/20 bg-background px-4 py-1.5 pr-10 text-base font-bold text-primary transition hover:border-primary/50 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
                 >
                   {years.map((block) => (
                     <option key={block.year} value={block.year} className="font-semibold text-foreground">

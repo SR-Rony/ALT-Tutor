@@ -214,3 +214,30 @@ export function useAttachWrittenPracticeAnswerFiles() {
     },
   });
 }
+
+export function useConvertScriptPages() {
+  return useMutation({
+    mutationFn: (url: string) => practiceExamsService.convertScriptPages(url),
+  });
+}
+
+export function useSaveMarkedScript() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      attemptId,
+      payload,
+    }: {
+      attemptId: string;
+      payload: {
+        pages: string[];
+        grade?: number;
+        feedback?: string;
+        publish?: boolean;
+      };
+    }) => practiceExamsService.saveMarkedScript(attemptId, payload),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.practiceExams.all });
+    },
+  });
+}

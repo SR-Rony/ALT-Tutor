@@ -176,4 +176,32 @@ export const practiceExamsService = {
     );
     return response.data;
   },
+
+  async convertScriptPages(url: string): Promise<{ pages: string[] }> {
+    const response = await apiClient.post<{ pages: string[] }>(
+      "/practice-exams/admin/written-attempts/convert-script-pages",
+      { url }
+    );
+    return response.data;
+  },
+
+  async saveMarkedScript(
+    attemptId: string,
+    payload: {
+      pages: string[];
+      grade?: number;
+      feedback?: string;
+      publish?: boolean;
+    }
+  ): Promise<{ success: boolean; markedFileUrl: string; attempt: WrittenPracticeSubmission }> {
+    const response = await apiClient.post<{
+      success: boolean;
+      markedFileUrl: string;
+      attempt: WrittenPracticeSubmission;
+    }>(
+      `/practice-exams/admin/written-attempts/${encodeURIComponent(attemptId)}/save-marked-script`,
+      payload
+    );
+    return response.data;
+  },
 };

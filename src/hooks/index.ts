@@ -133,6 +133,8 @@ export {
   useAdminWrittenPracticeAttempt,
   useGradeWrittenPracticeAttempt,
   useAttachWrittenPracticeAnswerFiles,
+  useConvertScriptPages,
+  useSaveMarkedScript,
 } from "./use-practice-exams";
 export {
   useKeyConceptLessons,

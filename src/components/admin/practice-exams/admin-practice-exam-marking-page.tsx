@@ -6,11 +6,13 @@ import {
   ExternalLink,
   FileCheck2,
   Loader2,
+  PenLine,
   RefreshCw,
   Trash2,
   Upload,
 } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
+import { OnlineScriptMarkerModal } from "./online-script-marker-modal";
 import { PageHeader, PageLoader, ScriptFilePreview } from "@/components/shared";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -75,6 +77,10 @@ function GradePanel({
   );
   const [feedback, setFeedback] = useState(item.feedback ?? "");
   const [actionError, setActionError] = useState<string | null>(null);
+  const [markerTarget, setMarkerTarget] = useState<{
+    url: string;
+    label?: string;
+  } | null>(null);
 
   const isPublished = item.status === "GRADED";
   const markedDirty = !sameFiles(markedFiles, savedMarkedFiles);
@@ -184,6 +190,7 @@ function GradePanel({
           .map((q) => ({ questionId: q.id, fileUrl: q.studentAnswer!.trim() }))
       : [];
   const canAttach = !isPublished && item.writtenStyle !== "PER_QUESTION";
+  const primaryAnswerUrl = files[0] || perQuestionFiles[0]?.fileUrl || null;
 
   return (
     <div className="mt-4 space-y-4 rounded-xl border border-border bg-muted/20 p-4">
@@ -223,7 +230,22 @@ function GradePanel({
                       {richTextToPlain(q.prompt)}
                     </p>
                   ) : null}
-                  <ScriptFilePreview url={file.fileUrl} label={label} />
+                  <ScriptFilePreview
+                    url={file.fileUrl}
+                    label={label}
+                    actions={
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        className="h-7 gap-1 border-emerald-600/40 text-xs font-semibold text-emerald-700 hover:bg-emerald-600 hover:text-white"
+                        onClick={() => setMarkerTarget({ url: file.fileUrl, label })}
+                      >
+                        <PenLine className="h-3.5 w-3.5" />
+                        Mark Online
+                      </Button>
+                    }
+                  />
                 </div>
               );
             })}
@@ -235,7 +257,25 @@ function GradePanel({
         ) : (
           <div className="space-y-3">
             {files.map((url, index) => (
-              <ScriptFilePreview key={url} url={url} label={`Answer file ${index + 1}`} />
+              <ScriptFilePreview
+                key={url}
+                url={url}
+                label={`Answer file ${index + 1}`}
+                actions={
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="h-7 gap-1 border-emerald-600/40 text-xs font-semibold text-emerald-700 hover:bg-emerald-600 hover:text-white"
+                    onClick={() =>
+                      setMarkerTarget({ url, label: `Answer file ${index + 1}` })
+                    }
+                  >
+                    <PenLine className="h-3.5 w-3.5" />
+                    Mark Online
+                  </Button>
+                }
+              />
             ))}
           </div>
         )}
@@ -307,28 +347,46 @@ function GradePanel({
               Checked script for the student
             </p>
             <p className="mt-1 max-w-xl text-xs leading-relaxed text-muted-foreground">
-              Mark the student&apos;s script — tick/cross each answer, circle mistakes and write
-              corrections — then upload it as PDF or photos. The student sees it next to their
-              marks so they know exactly where they lost marks.
+              Mark the student&apos;s script directly in the browser with red pen, ticks (✔), crosses (✘), and score
+              without downloading, or upload an already checked file from your computer.
             </p>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            disabled={busy || markedFiles.length >= MAX_MARKED_FILES}
-            onClick={() => markedInputRef.current?.click()}
-          >
-            {markedUpload ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <Upload className="h-4 w-4" />
-            )}
-            {markedUpload
-              ? `Uploading ${markedUpload.done + 1}/${markedUpload.total}…`
-              : markedFiles.length
-                ? "Add more files"
-                : "Upload checked script"}
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {primaryAnswerUrl ? (
+              <Button
+                type="button"
+                size="sm"
+                className="bg-emerald-600 hover:bg-emerald-700 text-white font-medium shadow-sm gap-1.5"
+                onClick={() =>
+                  setMarkerTarget({
+                    url: primaryAnswerUrl,
+                    label: "Student Submission",
+                  })
+                }
+              >
+                <PenLine className="h-4 w-4" />
+                Mark Online (No download needed)
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              disabled={busy || markedFiles.length >= MAX_MARKED_FILES}
+              onClick={() => markedInputRef.current?.click()}
+            >
+              {markedUpload ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="h-4 w-4" />
+              )}
+              {markedUpload
+                ? `Uploading ${markedUpload.done + 1}/${markedUpload.total}…`
+                : markedFiles.length
+                  ? "Upload more files"
+                  : "Upload from PC"}
+            </Button>
+          </div>
           <input
             ref={markedInputRef}
             type="file"
@@ -346,20 +404,49 @@ function GradePanel({
         ) : null}
 
         {markedFiles.length === 0 ? (
-          <button
-            type="button"
-            disabled={busy}
-            onClick={() => markedInputRef.current?.click()}
-            className="flex w-full flex-col items-center gap-1 rounded-xl border border-dashed border-[#a4bcfd] bg-white/70 px-4 py-6 text-center transition hover:border-primary hover:bg-white disabled:opacity-60"
-          >
-            <Upload className="h-5 w-5 text-primary" aria-hidden />
-            <span className="text-sm font-semibold text-foreground">
-              No checked script yet
-            </span>
-            <span className="text-xs text-muted-foreground">
-              PDF, JPG or PNG · up to {MAX_MARKED_FILES} files (e.g. one photo per page)
-            </span>
-          </button>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {primaryAnswerUrl ? (
+              <button
+                type="button"
+                onClick={() =>
+                  setMarkerTarget({
+                    url: primaryAnswerUrl,
+                    label: "Student Submission",
+                  })
+                }
+                className="flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-emerald-500/60 bg-emerald-50/70 p-6 text-center transition hover:border-emerald-600 hover:bg-emerald-100/70 group"
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-full bg-emerald-600 text-white shadow-sm transition-transform group-hover:scale-110">
+                  <PenLine className="h-5 w-5" />
+                </div>
+                <div>
+                  <span className="block text-sm font-bold text-emerald-950">
+                    Mark Script Online (No download needed)
+                  </span>
+                  <span className="mt-0.5 block text-xs text-emerald-800">
+                    Draw with red pen, stamps (✔/✘), feedback &amp; submit directly
+                  </span>
+                </div>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => markedInputRef.current?.click()}
+              className={cn(
+                "flex flex-col items-center justify-center gap-1 rounded-xl border border-dashed border-[#a4bcfd] bg-white/70 px-4 py-6 text-center transition hover:border-primary hover:bg-white disabled:opacity-60",
+                !primaryAnswerUrl && "sm:col-span-2"
+              )}
+            >
+              <Upload className="h-5 w-5 text-primary" aria-hidden />
+              <span className="text-sm font-semibold text-foreground">
+                Upload checked script from PC
+              </span>
+              <span className="text-xs text-muted-foreground">
+                PDF, JPG or PNG (if already checked externally)
+              </span>
+            </button>
+          </div>
         ) : (
           <div className="space-y-3">
             {markedFiles.map((url, index) => (
@@ -436,6 +523,25 @@ function GradePanel({
           </p>
         ) : null}
       </div>
+
+      {markerTarget ? (
+        <OnlineScriptMarkerModal
+          open={Boolean(markerTarget)}
+          onClose={() => setMarkerTarget(null)}
+          scriptUrl={markerTarget.url}
+          scriptLabel={markerTarget.label}
+          studentName={item.student.name}
+          attemptId={item.id}
+          initialScore={grade ? Number(grade) : item.score}
+          initialFeedback={feedback || item.feedback}
+          isPublished={isPublished}
+          onSaved={(markedUrl) => {
+            setMarkedFiles((prev) => uniqueFiles([...prev, markedUrl]));
+            setMarkerTarget(null);
+            onDone(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }
