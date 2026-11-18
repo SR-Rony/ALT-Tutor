@@ -4,15 +4,22 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
+  BookOpen,
+  ChevronDown,
+  Copy,
   Eye,
   EyeOff,
   ExternalLink,
+  FileText,
+  Image as ImageIcon,
+  MinusCircle,
   Pencil,
   Plus,
   RefreshCw,
   Search,
   Trash2,
   Upload,
+  Video,
 } from "lucide-react";
 import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
@@ -40,6 +47,7 @@ import {
   useCourseUsedQuestions,
   useCreatePastPaper,
   useDeletePastPaper,
+  useDeleteQbQuestion,
   useUpdatePastPaper,
 } from "@/hooks";
 import { normalizeAccessBadge, tierLabel } from "@/lib/access-tier";
@@ -47,8 +55,8 @@ import { questionTitle } from "@/lib/question-title";
 import { richTextToPlain } from "@/lib/rich-text";
 import { slugify } from "@/lib/slugify";
 import type { ApiError } from "@/types";
-import type { PastPaper, PastPaperSourceType } from "@/types/past-paper.types";
-import type { QbAccessBadge, QbPaperConfig, QbTopic } from "@/types/qb.types";
+import type { PastPaper, PastPaperSectionInput, PastPaperSourceType } from "@/types/past-paper.types";
+import type { QbAccessBadge, QbPaper, QbPaperConfig, QbQuestion, QbTopic } from "@/types/qb.types";
 import { cn } from "@/utils";
 
 type QuestionPickerTab = "selected" | "available";
@@ -60,12 +68,61 @@ type PickerQuestionRow = {
   id: string;
   number: number;
   prompt: string;
+  body?: string | null;
+  diagramUrl?: string | null;
   difficulty: string;
-  marks: number;
+  paper: string;
   questionType: string;
+  marks: number;
+  options: string[];
+  correctAnswer?: string;
+  markScheme?: string | null;
+  videoUrl?: string | null;
+  notes?: string | null;
   topicTitle: string;
   subtopicTitle: string;
+  subtopicId: string;
+  paperConfig: QbPaperConfig;
+  paperTabs: QbPaper[];
+  raw: QbQuestion;
 };
+
+function toPickerRow(
+  q: QbQuestion & {
+    subtopic?: {
+      id?: string;
+      title?: string;
+      paperCount?: number;
+      paperConfig?: QbPaperConfig | null;
+      topic?: { id?: string; title?: string };
+    };
+  },
+  defaultSubtopicId?: string
+): PickerQuestionRow {
+  const sub = q.subtopic;
+  return {
+    id: q.id,
+    number: q.number ?? 1,
+    prompt: q.prompt ?? "",
+    body: q.body,
+    diagramUrl: q.diagramUrl,
+    difficulty: String(q.difficulty ?? "MEDIUM"),
+    paper: String(q.paper ?? "PAPER_1"),
+    questionType: String(q.questionType ?? "MULTIPLE_CHOICE"),
+    marks: q.marks ?? 1,
+    options: q.options ?? [],
+    correctAnswer: q.correctAnswer,
+    markScheme: q.markScheme,
+    videoUrl: q.videoUrl,
+    notes: q.notes,
+    topicTitle: sub?.topic?.title ? richTextToPlain(sub.topic.title) || sub.topic.title : "Topic",
+    subtopicTitle: sub?.title ? richTextToPlain(sub.title) || sub.title : "Subtopic",
+    subtopicId: q.subtopicId || defaultSubtopicId || "",
+    paperConfig: resolvePaperConfig(sub?.paperCount, sub?.paperConfig),
+    paperTabs: resolvePaperTabs(sub?.paperCount, []),
+    raw: q,
+  };
+}
 
 const SOURCE_TYPES: PastPaperSourceType[] = ["INTERACTIVE", "PDF", "HYBRID"];
 const TIERS: QbAccessBadge[] = ["FREE", "GOLD"];
@@ -322,7 +379,9 @@ export function AdminPastPapersPage({
   const scopeLocked = Boolean(editId);
 
   const qbProgramId = modalOpen ? effectiveModalProgramId : effectiveProgramId;
-  const { data: qbTopics = [] } = useAdminQuestionbank(qbProgramId || undefined);
+  const { data: qbTopics = [], refetch: refetchQbTopics } = useAdminQuestionbank(
+    qbProgramId || undefined
+  );
   const { data: usedQuestionsData } = useCourseUsedQuestions(
     courseId ?? "",
     editId ?? undefined
@@ -361,6 +420,55 @@ export function AdminPastPapersPage({
   const [pdfImportOpen, setPdfImportOpen] = useState(false);
   const [newQuestionSubtopicId, setNewQuestionSubtopicId] = useState("");
   const [isPublished, setIsPublished] = useState(true);
+  const [expandedPaperIds, setExpandedPaperIds] = useState<Set<string>>(new Set());
+  const [dropdownActionPaper, setDropdownActionPaper] = useState<PastPaper | null>(null);
+  const [editingQuestionRow, setEditingQuestionRow] = useState<PickerQuestionRow | null>(null);
+  const [questionToDelete, setQuestionToDelete] = useState<PickerQuestionRow | null>(null);
+
+  const deleteQbQuestion = useDeleteQbQuestion();
+
+  const toggleExpandPaper = (id: string) => {
+    setExpandedPaperIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const handleRemoveQuestionFromPaper = async (
+    paper: PastPaper,
+    questionId: string
+  ) => {
+    const currentSections = paper.sections?.length
+      ? paper.sections
+      : [{ title: "Section A", order: 0, items: [] }];
+    const updatedSections: PastPaperSectionInput[] = currentSections.map((sec) => ({
+      title: sec.title,
+      code: sec.code || undefined,
+      instructions: sec.instructions || undefined,
+      order: sec.order,
+      items: (sec.items ?? [])
+        .filter((item) => item.questionId !== questionId)
+        .map((item, idx) => ({
+          questionId: item.questionId,
+          order: idx,
+          marks: item.marks ?? undefined,
+        })),
+    }));
+    try {
+      await updatePaper.mutateAsync({
+        id: paper.id,
+        payload: {
+          sections: updatedSections,
+        },
+      });
+      void refetch();
+    } catch (err) {
+      console.error(err);
+      setActionError((err as ApiError)?.message || "Failed to remove question from past paper");
+    }
+  };
 
   const busy = createPaper.isPending || updatePaper.isPending || deletePaper.isPending;
   const questionsChanged =
@@ -407,16 +515,21 @@ export function AdminPastPapersPage({
         for (const q of sub.questions ?? []) {
           if (!q.isActive) continue;
           if (!isAllowedForMode(questionMode, q.questionType)) continue;
-          rows.push({
-            id: q.id,
-            number: q.number,
-            prompt: q.prompt,
-            difficulty: String(q.difficulty),
-            marks: q.marks ?? 1,
-            questionType: normalizeQuestionType(q.questionType),
-            topicTitle: topic.title,
-            subtopicTitle: sub.title,
-          });
+          rows.push(
+            toPickerRow(
+              {
+                ...q,
+                subtopic: {
+                  id: sub.id,
+                  title: sub.title,
+                  paperCount: sub.paperCount,
+                  paperConfig: sub.paperConfig,
+                  topic: { id: topic.id, title: topic.title },
+                },
+              },
+              sub.id
+            )
+          );
         }
       }
     }
@@ -560,11 +673,21 @@ export function AdminPastPapersPage({
         ),
     [qbTopics]
   );
-  const newQuestionStudySet = newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId);
+  const effectiveNewQuestionSubtopicId =
+    newQuestionSubtopicId ||
+    newQuestionStudySets.find((s) => s.id === subtopicId)?.id ||
+    newQuestionStudySets[0]?.id ||
+    "";
+  const newQuestionStudySet =
+    newQuestionStudySets.find((s) => s.id === effectiveNewQuestionSubtopicId) ??
+    newQuestionStudySets[0];
 
   useEffect(() => {
-    if (!modalOpen) setNewQuestionOpen(false);
-  }, [modalOpen]);
+    if (!modalOpen && !dropdownActionPaper) {
+      setNewQuestionOpen(false);
+      setPdfImportOpen(false);
+    }
+  }, [modalOpen, dropdownActionPaper]);
 
   const openNewQuestion = () => {
     const preferred =
@@ -1046,7 +1169,18 @@ export function AdminPastPapersPage({
                     {yr}
                   </h3>
                   <div className="space-y-3">
-                    {yearPapers.map((item) => (
+                    {yearPapers.map((item) => {
+                      const itemQuestions: PickerQuestionRow[] =
+                        item.questions && item.questions.length > 0
+                          ? item.questions.map((q) =>
+                              toPickerRow(q as any, effectiveNewQuestionSubtopicId)
+                            )
+                          : (item.sections ?? [])
+                              .flatMap((s) => (s.items ?? []).map((i) => i.question).filter(Boolean))
+                              .map((q) => toPickerRow(q as any, effectiveNewQuestionSubtopicId));
+                      const isExpanded = expandedPaperIds.has(item.id);
+
+                      return (
                       <div
                         key={item.id}
                         className={cn(
@@ -1092,12 +1226,34 @@ export function AdminPastPapersPage({
                                 </span>
                               )}
                             </div>
-                            <p className="mt-1 text-xs text-muted-foreground">
-                              {item.session} · {item.totalQuestions}Q · {item.durationMin} min
-                              {(item.attemptCount ?? 0) > 0
-                                ? ` · ${item.attemptCount} attempt(s)`
-                                : ""}
-                            </p>
+                            <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              <span>
+                                {item.session} · {item.totalQuestions}Q · {item.durationMin} min
+                                {(item.attemptCount ?? 0) > 0
+                                  ? ` · ${item.attemptCount} attempt(s)`
+                                  : ""}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => toggleExpandPaper(item.id)}
+                                className={cn(
+                                  "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-0.5 text-xs font-semibold transition cursor-pointer select-none",
+                                  isExpanded
+                                    ? "border-primary bg-primary text-white shadow-sm"
+                                    : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50 hover:text-slate-900 shadow-sm"
+                                )}
+                              >
+                                <ChevronDown
+                                  className={cn(
+                                    "h-3.5 w-3.5 transition-transform duration-200",
+                                    isExpanded && "rotate-180"
+                                  )}
+                                />
+                                <span>
+                                  {isExpanded ? "Hide Questions" : "Questions"} ({itemQuestions.length})
+                                </span>
+                              </button>
+                            </div>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-1.5">
@@ -1162,8 +1318,241 @@ export function AdminPastPapersPage({
                             </Button>
                           </div>
                         </div>
+
+                        {/* Expandable Dropdown: Questions list for this past paper */}
+                        {isExpanded && (
+                          <div className="mt-3.5 border-t border-slate-200 pt-3.5 space-y-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-2.5">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-bold text-slate-800">
+                                  Questions in this Past Paper ({itemQuestions.length})
+                                </span>
+                                <span className="rounded bg-slate-200 px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                                  Total Marks: {itemQuestions.reduce((sum, q) => sum + (q.marks ?? 1), 0)}
+                                </span>
+                                <span className="rounded bg-blue-100 px-2 py-0.5 text-[11px] font-semibold text-blue-800">
+                                  {itemQuestions.filter((q) => q.questionType === "MULTIPLE_CHOICE").length} MCQ
+                                </span>
+                                <span className="rounded bg-indigo-100 px-2 py-0.5 text-[11px] font-semibold text-indigo-800">
+                                  {itemQuestions.filter((q) => q.questionType !== "MULTIPLE_CHOICE").length} Written
+                                </span>
+                              </div>
+
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-8 text-xs font-semibold"
+                                  onClick={() => {
+                                    setDropdownActionPaper(item);
+                                    setPdfImportOpen(true);
+                                  }}
+                                >
+                                  <Upload className="h-3.5 w-3.5" />
+                                  Import PDF
+                                </Button>
+                                <Button
+                                  type="button"
+                                  size="sm"
+                                  className="h-8 text-xs font-semibold"
+                                  onClick={() => {
+                                    setDropdownActionPaper(item);
+                                    setNewQuestionOpen(true);
+                                  }}
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                  Add Question
+                                </Button>
+                              </div>
+                            </div>
+
+                            {itemQuestions.length === 0 ? (
+                              <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-center">
+                                <p className="text-xs text-slate-500">No questions in this past paper yet.</p>
+                                <div className="mt-3 flex justify-center gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setDropdownActionPaper(item);
+                                      setPdfImportOpen(true);
+                                    }}
+                                  >
+                                    <Upload className="h-3.5 w-3.5" />
+                                    Import from PDF
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    onClick={() => {
+                                      setDropdownActionPaper(item);
+                                      setNewQuestionOpen(true);
+                                    }}
+                                  >
+                                    <Plus className="h-3.5 w-3.5" />
+                                    Add Question
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="space-y-2.5">
+                                {itemQuestions.map((q, qIndex) => {
+                                  const hasMarkScheme = Boolean(q.markScheme && q.markScheme.trim().length > 0);
+                                  const hasVideo = Boolean(q.videoUrl && q.videoUrl.trim().length > 0);
+                                  const hasNotes = Boolean(q.notes && q.notes.trim().length > 0);
+                                  const isMcq = q.questionType === "MULTIPLE_CHOICE";
+
+                                  return (
+                                    <div
+                                      key={q.id}
+                                      className="rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm transition hover:border-slate-300"
+                                    >
+                                      <div className="flex flex-wrap items-start justify-between gap-3">
+                                        <div className="min-w-0 flex-1 space-y-1.5">
+                                          <div className="flex flex-wrap items-center gap-1.5">
+                                            <span className="flex h-5 items-center justify-center rounded bg-slate-800 px-1.5 text-[11px] font-bold text-white">
+                                              Q{qIndex + 1}
+                                            </span>
+                                            <span
+                                              className={cn(
+                                                "rounded px-1.5 py-0.5 text-[10px] font-bold uppercase",
+                                                isMcq
+                                                  ? "bg-blue-50 text-blue-700 border border-blue-200"
+                                                  : "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                                              )}
+                                            >
+                                              {isMcq ? "MCQ" : "Written"}
+                                            </span>
+                                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-700">
+                                              {q.marks ?? 1} {q.marks === 1 ? "mark" : "marks"}
+                                            </span>
+                                            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+                                              {q.difficulty}
+                                            </span>
+                                          </div>
+
+                                          <p className="line-clamp-2 text-xs font-medium text-slate-800 leading-relaxed">
+                                            {richTextToPlain(q.prompt) || "No prompt text"}
+                                          </p>
+
+                                          {q.diagramUrl && (
+                                            <div className="flex items-center gap-2 pt-0.5">
+                                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500">
+                                                <ImageIcon className="h-3.5 w-3.5" /> Diagram attached
+                                              </span>
+                                            </div>
+                                          )}
+
+                                          {isMcq && q.options && q.options.length > 0 && (
+                                            <div className="flex flex-wrap gap-1.5 pt-1">
+                                              {q.options.map((opt, optIdx) => {
+                                                const letter = String.fromCharCode(65 + optIdx);
+                                                const isCorrect = q.correctAnswer === letter;
+                                                return (
+                                                  <span
+                                                    key={optIdx}
+                                                    className={cn(
+                                                      "rounded px-2 py-0.5 text-[11px] border",
+                                                      isCorrect
+                                                        ? "bg-emerald-50 border-emerald-300 text-emerald-800 font-bold"
+                                                        : "bg-slate-50 border-slate-200 text-slate-600 font-normal"
+                                                    )}
+                                                  >
+                                                    <span className="font-semibold">{letter}:</span> {richTextToPlain(opt)}
+                                                  </span>
+                                                );
+                                              })}
+                                            </div>
+                                          )}
+
+                                          <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                            <span
+                                              className={cn(
+                                                "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold",
+                                                hasMarkScheme
+                                                  ? "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                                                  : "border border-slate-200 bg-slate-100 text-slate-400"
+                                              )}
+                                            >
+                                              <FileText className="h-3 w-3" />
+                                              <span>{hasMarkScheme ? "Mark Scheme ✓" : "No Mark Scheme"}</span>
+                                            </span>
+
+                                            <span
+                                              className={cn(
+                                                "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold",
+                                                hasVideo
+                                                  ? "border border-indigo-200 bg-indigo-50 text-indigo-700"
+                                                  : "border border-slate-200 bg-slate-100 text-slate-400"
+                                              )}
+                                            >
+                                              <Video className="h-3 w-3" />
+                                              <span>{hasVideo ? "Video Solution ✓" : "No Video"}</span>
+                                            </span>
+
+                                            <span
+                                              className={cn(
+                                                "inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold",
+                                                hasNotes
+                                                  ? "border border-amber-200 bg-amber-50 text-amber-800"
+                                                  : "border border-slate-200 bg-slate-100 text-slate-400"
+                                              )}
+                                            >
+                                              <BookOpen className="h-3 w-3" />
+                                              <span>{hasNotes ? "Notes / Key Concepts ✓" : "No Notes"}</span>
+                                            </span>
+                                          </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-1">
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 px-2.5 text-xs font-semibold"
+                                            onClick={() => setEditingQuestionRow(q)}
+                                            title="Edit question prompt, options, mark scheme, notes, and video"
+                                          >
+                                            <Pencil className="h-3.5 w-3.5 text-slate-600" />
+                                            <span>Edit</span>
+                                          </Button>
+
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="outline"
+                                            className="h-8 px-2.5 text-xs text-slate-600 hover:text-slate-900"
+                                            onClick={() => handleRemoveQuestionFromPaper(item, q.id)}
+                                            title="Remove from this past paper"
+                                          >
+                                            <MinusCircle className="h-3.5 w-3.5 text-slate-500" />
+                                            <span>Remove</span>
+                                          </Button>
+
+                                          <Button
+                                            type="button"
+                                            size="sm"
+                                            variant="ghost"
+                                            className="h-8 px-2 text-xs text-red-600 hover:bg-red-50 hover:text-red-700"
+                                            onClick={() => setQuestionToDelete(q)}
+                                            title="Permanently delete this question"
+                                          >
+                                            <Trash2 className="h-3.5 w-3.5" />
+                                          </Button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    );
+                  })}
                   </div>
                 </div>
               ))}
@@ -1685,13 +2074,20 @@ export function AdminPastPapersPage({
       </AdminModal>
 
       <QbQuestionFormModal
-        open={modalOpen && newQuestionOpen}
-        onClose={() => setNewQuestionOpen(false)}
-        subtopicId={newQuestionStudySet?.id ?? ""}
+        open={(modalOpen || Boolean(dropdownActionPaper)) && newQuestionOpen}
+        onClose={() => {
+          setNewQuestionOpen(false);
+          setDropdownActionPaper(null);
+        }}
+        subtopicId={effectiveNewQuestionSubtopicId}
         paperConfig={newQuestionStudySet?.paperConfig ?? {}}
         paperTabs={newQuestionStudySet?.paperTabs ?? []}
-        initialPaper={paperKey(parsePaperNumber(paperCode))}
-        lockedKind={questionMode}
+        initialPaper={
+          dropdownActionPaper
+            ? paperKey(parsePaperNumber(dropdownActionPaper.paperCode))
+            : paperKey(parsePaperNumber(paperCode))
+        }
+        lockedKind={dropdownActionPaper ? (dropdownActionPaper.questionMode === "WRITTEN" ? "WRITTEN" : "MCQ") : questionMode}
         description="Saved to the chosen Questionbank study set and added to this past paper."
         header={
           <label className="block space-y-1.5">
@@ -1709,20 +2105,74 @@ export function AdminPastPapersPage({
             </select>
           </label>
         }
-        onSaved={(saved) => {
-          addQuestion(saved.id);
-          setPickerTab("selected");
+        onSaved={async (saved) => {
+          setNewQuestionOpen(false);
+          if (dropdownActionPaper) {
+            const currentSections = dropdownActionPaper.sections?.length
+              ? dropdownActionPaper.sections
+              : [{ title: "Section A", order: 0, items: [] }];
+            const updatedSections: PastPaperSectionInput[] = currentSections.map((sec, idx) => {
+              const existingItems = (sec.items ?? []).map((it, i) => ({
+                questionId: it.questionId,
+                order: i,
+                marks: it.marks ?? undefined,
+              }));
+              if (idx === 0) {
+                return {
+                  title: sec.title,
+                  code: sec.code || undefined,
+                  instructions: sec.instructions || undefined,
+                  order: sec.order,
+                  items: [
+                    ...existingItems,
+                    {
+                      questionId: saved.id,
+                      order: existingItems.length,
+                    },
+                  ],
+                };
+              }
+              return {
+                title: sec.title,
+                code: sec.code || undefined,
+                instructions: sec.instructions || undefined,
+                order: sec.order,
+                items: existingItems,
+              };
+            });
+            try {
+              await updatePaper.mutateAsync({
+                id: dropdownActionPaper.id,
+                payload: { sections: updatedSections },
+              });
+              void refetch();
+            } catch (err) {
+              console.error(err);
+            }
+            setDropdownActionPaper(null);
+          } else {
+            addQuestion(saved.id);
+            setPickerTab("selected");
+          }
+          void refetchQbTopics();
         }}
       />
 
       <QbPdfImportModal
-        open={modalOpen && pdfImportOpen}
-        onClose={() => setPdfImportOpen(false)}
-        subtopicId={newQuestionStudySet?.id ?? ""}
-        initialPaper={paperKey(parsePaperNumber(paperCode))}
+        open={(modalOpen || Boolean(dropdownActionPaper)) && pdfImportOpen}
+        onClose={() => {
+          setPdfImportOpen(false);
+          setDropdownActionPaper(null);
+        }}
+        subtopicId={effectiveNewQuestionSubtopicId}
+        initialPaper={
+          dropdownActionPaper
+            ? paperKey(parsePaperNumber(dropdownActionPaper.paperCode))
+            : paperKey(parsePaperNumber(paperCode))
+        }
         paperTabs={newQuestionStudySet?.paperTabs ?? ["PAPER_1", "PAPER_2"]}
         paperConfig={newQuestionStudySet?.paperConfig ?? {}}
-        lockedKind={questionMode}
+        lockedKind={dropdownActionPaper ? (dropdownActionPaper.questionMode === "WRITTEN" ? "WRITTEN" : "MCQ") : questionMode}
         header={
           <label className="block space-y-1.5">
             <span className="text-sm font-semibold">Save questions to study set</span>
@@ -1739,16 +2189,125 @@ export function AdminPastPapersPage({
             </select>
           </label>
         }
-        onSuccess={(_count, createdIds) => {
+        onSuccess={async (_count, createdIds) => {
           setPdfImportOpen(false);
-          if (createdIds && createdIds.length > 0) {
+          if (dropdownActionPaper && createdIds && createdIds.length > 0) {
+            const currentSections = dropdownActionPaper.sections?.length
+              ? dropdownActionPaper.sections
+              : [{ title: "Section A", order: 0, items: [] }];
+            const updatedSections: PastPaperSectionInput[] = currentSections.map((sec, idx) => {
+              const existingItems = (sec.items ?? []).map((it, i) => ({
+                questionId: it.questionId,
+                order: i,
+                marks: it.marks ?? undefined,
+              }));
+              if (idx === 0) {
+                const newItems = [
+                  ...existingItems,
+                  ...createdIds.map((id, i) => ({
+                    questionId: id,
+                    order: existingItems.length + i,
+                  })),
+                ];
+                return {
+                  title: sec.title,
+                  code: sec.code || undefined,
+                  instructions: sec.instructions || undefined,
+                  order: sec.order,
+                  items: newItems,
+                };
+              }
+              return {
+                title: sec.title,
+                code: sec.code || undefined,
+                instructions: sec.instructions || undefined,
+                order: sec.order,
+                items: existingItems,
+              };
+            });
+            try {
+              await updatePaper.mutateAsync({
+                id: dropdownActionPaper.id,
+                payload: { sections: updatedSections },
+              });
+              void refetch();
+            } catch (err) {
+              console.error(err);
+            }
+            setDropdownActionPaper(null);
+          } else if (createdIds && createdIds.length > 0) {
             for (const id of createdIds) {
               addQuestion(id);
             }
             setPickerTab("selected");
           }
+          void refetchQbTopics();
         }}
       />
+
+      {/* Edit existing question in Questionbank & Past Paper */}
+      <QbQuestionFormModal
+        open={Boolean(editingQuestionRow)}
+        onClose={() => setEditingQuestionRow(null)}
+        question={editingQuestionRow?.raw ?? null}
+        subtopicId={editingQuestionRow?.subtopicId ?? effectiveNewQuestionSubtopicId}
+        paperConfig={editingQuestionRow?.paperConfig ?? newQuestionStudySet?.paperConfig ?? {}}
+        paperTabs={editingQuestionRow?.paperTabs ?? newQuestionStudySet?.paperTabs ?? []}
+        lockedKind={editingQuestionRow?.raw?.questionType === "MULTIPLE_CHOICE" ? "MCQ" : "WRITTEN"}
+        description="Edit this question. All Questionbank features (Prompt, Marks, Options, Mark Scheme, Video Solution, Notes, Diagram) are saved to Questionbank and updated in this past paper."
+        onSaved={() => {
+          setEditingQuestionRow(null);
+          void refetchQbTopics();
+          void refetch();
+        }}
+      />
+
+      {/* Permanently delete question */}
+      <AdminModal
+        open={Boolean(questionToDelete)}
+        title="Delete question permanently?"
+        description={`Are you sure you want to delete Question #${questionToDelete?.number}? This will permanently remove it from this past paper and from the database.`}
+        onClose={() => !deleteQbQuestion.isPending && setQuestionToDelete(null)}
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={deleteQbQuestion.isPending}
+              onClick={() => setQuestionToDelete(null)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              className="bg-red-600 text-white hover:bg-red-700"
+              disabled={deleteQbQuestion.isPending}
+              onClick={async () => {
+                if (!questionToDelete) return;
+                try {
+                  await deleteQbQuestion.mutateAsync(questionToDelete.id);
+                  setQuestionToDelete(null);
+                  void refetchQbTopics();
+                  void refetch();
+                } catch (err) {
+                  console.error(err);
+                }
+              }}
+            >
+              {deleteQbQuestion.isPending ? "Deleting…" : "Delete permanently"}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-2 text-sm text-foreground">
+          <p className="font-medium line-clamp-3">
+            {richTextToPlain(questionToDelete?.prompt ?? "")}
+          </p>
+          <p className="text-xs text-muted-foreground">
+            This cannot be undone. This question will be completely removed.
+          </p>
+        </div>
+      </AdminModal>
 
       <AdminModal
         open={Boolean(deleteTarget)}

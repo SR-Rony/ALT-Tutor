@@ -1,4 +1,4 @@
-import type { QbAccessBadge } from "@/types/qb.types";
+import type { QbAccessBadge, QbPaperConfig, QbQuestion } from "@/types/qb.types";
 
 export type PastPaperSourceType = "INTERACTIVE" | "PDF" | "HYBRID";
 
@@ -54,6 +54,17 @@ export type PastPaper = {
   /** Admin list helper: MCQ vs Written based on linked Questionbank items. */
   questionMode?: "MCQ" | "WRITTEN" | string;
   sections?: PastPaperSection[];
+  questions?: Array<
+    QbQuestion & {
+      subtopic?: {
+        id?: string;
+        title?: string;
+        paperCount?: number;
+        paperConfig?: QbPaperConfig | null;
+        topic?: { id?: string; title?: string };
+      };
+    }
+  >;
 };
 
 export type PastPaperArchiveYear = {
@@ -90,7 +101,7 @@ export type PastPaperViewQuestion = {
 export type PastPaperDetail = {
   program: { id: string; name: string; slug: string };
   userTier?: QbAccessBadge | string;
-  paper: PastPaper & {
+  paper: Omit<PastPaper, "questions"> & {
     sections: Array<{
       id: string;
       title: string;
