@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { FileText, HelpCircle, Lock } from "lucide-react";
+import { HelpCircle, Lock } from "lucide-react";
 import { GoldUnlockModal } from "@/components/public/questionbank/gold-unlock-modal";
 import { StudyQuestionCard } from "@/components/public/questions";
 import { PageLoader } from "@/components/shared";

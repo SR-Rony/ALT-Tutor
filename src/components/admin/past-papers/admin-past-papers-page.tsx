@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   BookOpen,
   ChevronDown,
-  Copy,
   Eye,
   EyeOff,
   ExternalLink,
@@ -87,16 +86,32 @@ type PickerQuestionRow = {
   raw: QbQuestion;
 };
 
+type QuestionRowSource = Partial<QbQuestion> & {
+  id: string;
+  number?: number;
+  prompt?: string;
+  body?: string | null;
+  diagramUrl?: string | null;
+  difficulty?: string | null;
+  paper?: string | null;
+  questionType?: string;
+  marks?: number | null;
+  options?: string[];
+  correctAnswer?: string;
+  markScheme?: string | null;
+  videoUrl?: string | null;
+  notes?: string | null;
+  subtopic?: {
+    id?: string;
+    title?: string;
+    paperCount?: number;
+    paperConfig?: QbPaperConfig | null;
+    topic?: { id?: string; title?: string };
+  };
+};
+
 function toPickerRow(
-  q: QbQuestion & {
-    subtopic?: {
-      id?: string;
-      title?: string;
-      paperCount?: number;
-      paperConfig?: QbPaperConfig | null;
-      topic?: { id?: string; title?: string };
-    };
-  },
+  q: QuestionRowSource,
   defaultSubtopicId?: string
 ): PickerQuestionRow {
   const sub = q.subtopic;
@@ -120,7 +135,7 @@ function toPickerRow(
     subtopicId: q.subtopicId || defaultSubtopicId || "",
     paperConfig: resolvePaperConfig(sub?.paperCount, sub?.paperConfig),
     paperTabs: resolvePaperTabs(sub?.paperCount, []),
-    raw: q,
+    raw: q as QbQuestion,
   };
 }
 
@@ -1173,11 +1188,16 @@ export function AdminPastPapersPage({
                       const itemQuestions: PickerQuestionRow[] =
                         item.questions && item.questions.length > 0
                           ? item.questions.map((q) =>
-                              toPickerRow(q as any, effectiveNewQuestionSubtopicId)
+                              toPickerRow(q, effectiveNewQuestionSubtopicId)
                             )
                           : (item.sections ?? [])
                               .flatMap((s) => (s.items ?? []).map((i) => i.question).filter(Boolean))
-                              .map((q) => toPickerRow(q as any, effectiveNewQuestionSubtopicId));
+                              .map((q) =>
+                                toPickerRow(
+                                  q as unknown as QuestionRowSource,
+                                  effectiveNewQuestionSubtopicId
+                                )
+                              );
                       const isExpanded = expandedPaperIds.has(item.id);
 
                       return (

@@ -10,12 +10,9 @@ import {
   Eraser,
   Highlighter,
   Loader2,
-  Maximize2,
-  Minimize2,
   Pen,
   Redo2,
   RotateCcw,
-  Sparkles,
   Type,
   Undo2,
   X,
@@ -121,7 +118,6 @@ export function OnlineScriptMarkerModal({
   const [color, setColor] = useState("#e11d48"); // Default Red teacher pen
   const [size, setSize] = useState(3);
   const [zoom, setZoom] = useState(1);
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Text insertion state
   const [textInput, setTextInput] = useState<{ x: number; y: number } | null>(null);
@@ -169,7 +165,7 @@ export function OnlineScriptMarkerModal({
       .finally(() => {
         setLoadingPages(false);
       });
-  }, [open, scriptUrl]);
+  }, [open, scriptUrl, convertMutation]);
 
   // Current page data
   const page = pages[currentPage];

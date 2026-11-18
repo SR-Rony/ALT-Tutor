@@ -113,7 +113,7 @@ export function AdminQbStudySetPage({ subtopicId }: Props) {
     return null;
   }, [subjectsTree, programId]);
 
-  const questions = located?.sub.questions ?? [];
+  const questions = useMemo(() => located?.sub.questions ?? [], [located?.sub.questions]);
   const paperConfig = useMemo(
     () => resolvePaperConfig(located?.sub.paperCount, located?.sub.paperConfig),
     [located?.sub.paperCount, located?.sub.paperConfig]
