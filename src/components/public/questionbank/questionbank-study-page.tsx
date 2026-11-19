@@ -7,8 +7,6 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
-  Download,
-  FileText,
   HelpCircle,
   Info,
   ListOrdered,
@@ -43,7 +41,6 @@ import type {
   QbQuestionType,
 } from "@/types/qb.types";
 import { cn } from "@/utils";
-import { downloadQuestionPaperPdf } from "@/utils/qb-pdf-export";
 import { richTextToPlain } from "@/lib/rich-text";
 import {
   isMcqPaper as isMcqPaperWithConfig,
@@ -628,17 +625,6 @@ export function QuestionbankStudyPage({
 
   const typeLabel = filterSelectionLabel(filters.type, TYPE_OPTIONS);
 
-  const handleDownloadQuestions = () => {
-    const pack = theoryPackQuestions.length > 0 ? theoryPackQuestions : visibleQuestions;
-    downloadQuestionPaperPdf({
-      title: `${program?.name ?? "Questionbank"} — ${subtopicPlainTitle ?? "Questions"}`,
-      subtitle: `${topicPlainTitle ?? ""} · ${pack.length} questions`,
-      includeAnswerSpace: theoryPackQuestions.length > 0,
-      paperConfig,
-      questions: pack,
-    });
-  };
-
   const toggleComplete = (id: string) => {
     setCompletedIds((prev) => {
       const next = new Set(prev);
@@ -1007,40 +993,6 @@ export function QuestionbankStudyPage({
           </p>
         ) : null}
 
-        {showTheoryPaperTools ? (
-          <div className="rounded-xl border border-[#c5d9ef] bg-[#e8f0fa] px-4 py-4">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm font-semibold text-foreground">
-                  Paper 2 / Paper 3 exam pack
-                </p>
-                <p className="mt-0.5 text-xs text-muted-foreground">
-                  Showing {theoryPackQuestions.length} question
-                  {theoryPackQuestions.length === 1 ? "" : "s"}
-                  {filteredQuestions.filter((q) => isTheoryQuestion(q, paperConfig)).length >
-                  theoryPackQuestions.length
-                    ? ` of ${filteredQuestions.filter((q) => isTheoryQuestion(q, paperConfig)).length} matched`
-                    : ""}
-                  . Download the set to practise offline.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="border-primary/30 bg-card"
-                  disabled={theoryPackQuestions.length === 0}
-                  onClick={handleDownloadQuestions}
-                >
-                  <Download className="mr-1.5 h-4 w-4" />
-                  Download questions
-                </Button>
-              </div>
-            </div>
-          </div>
-        ) : null}
-
         {examMode ? (
           <div
             className={cn(
@@ -1090,23 +1042,6 @@ export function QuestionbankStudyPage({
                     {formatTimer(remainingSeconds)}
                   </span>
                 ) : null}
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="border-primary/30"
-                  onClick={() =>
-                    downloadQuestionPaperPdf({
-                      title: `${program?.name ?? "Exam"} — ${subtopicPlainTitle ?? data.subtopic.title}`,
-                      subtitle: topicPlainTitle ?? topic?.title,
-                      paperConfig,
-                      questions: visibleQuestions,
-                    })
-                  }
-                >
-                  <FileText className="mr-1.5 h-4 w-4" />
-                  Download full question paper (PDF)
-                </Button>
               </div>
             )}
           </div>
