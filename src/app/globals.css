@@ -398,6 +398,26 @@
   font-family: KaTeX_Main, "Latin Modern Roman", "CMU Serif", "Times New Roman", serif;
 }
 
+/* Prevent question text copying */
+.no-copy-question,
+.no-copy-question *,
+.qb-question-font,
+.qb-question-font * {
+  -webkit-user-select: none !important;
+  -moz-user-select: none !important;
+  -ms-user-select: none !important;
+  user-select: none !important;
+}
+
+/* Ensure admin rich text editor remains editable and selectable */
+.qb-question-editors .rich-text-editor__content,
+.qb-question-editors .rich-text-editor__content * {
+  -webkit-user-select: text !important;
+  -moz-user-select: text !important;
+  -ms-user-select: text !important;
+  user-select: text !important;
+}
+
 /* Fixed-width question text test — keep commented out for standard responsive layout.
 .qb-question-editors .rich-text-editor__content,
 .qb-question-font .rich-text-content {

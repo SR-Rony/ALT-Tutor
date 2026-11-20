@@ -35,6 +35,13 @@ type Props = {
   written?: boolean;
 };
 
+function stripMaximumMark(text?: string | null): string {
+  if (!text) return "";
+  return text
+    .replace(/<p[^>]*>\s*(?:<[^>]+>)*\s*\[\s*Maximum mark:\s*\d+\s*\]\s*(?:<\/[^>]+>)*\s*<\/p>/gi, "")
+    .replace(/\[\s*Maximum mark:\s*\d+\s*\]/gi, "");
+}
+
 export function ResultReviewQuestion({ question, index, written = false }: Props) {
   const [showVideo, setShowVideo] = useState(false);
 
@@ -50,7 +57,12 @@ export function ResultReviewQuestion({ question, index, written = false }: Props
   const videoUrl = question.videoUrl?.trim() || null;
 
   return (
-    <article className="rounded-2xl border border-border bg-card p-4 sm:p-5">
+    <article
+      className="rounded-2xl border border-border bg-card p-4 sm:p-5 select-none no-copy-question qb-question-font"
+      onCopy={(e) => e.preventDefault()}
+      onCut={(e) => e.preventDefault()}
+      onContextMenu={(e) => e.preventDefault()}
+    >
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="rounded-md bg-primary-muted px-2 py-0.5 text-[10px] font-bold uppercase text-primary">
           {label}
@@ -74,12 +86,12 @@ export function ResultReviewQuestion({ question, index, written = false }: Props
       </div>
 
       <RichTextContent
-        html={question.prompt}
+        html={stripMaximumMark(question.prompt)}
         className="w-full max-w-none text-[15px] leading-relaxed text-foreground"
       />
       {question.body ? (
         <RichTextContent
-          html={question.body}
+          html={stripMaximumMark(question.body)}
           className="mt-2 w-full max-w-none text-[15px] leading-relaxed text-foreground"
         />
       ) : null}

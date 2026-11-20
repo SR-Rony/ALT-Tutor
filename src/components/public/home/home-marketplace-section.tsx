@@ -319,14 +319,11 @@ export function HomeMarketplaceSection() {
                   </div>
 
                   {/* Question Content */}
-                  <div className="mt-5 space-y-6">
+                  <div className="mt-5 space-y-6 select-none">
                     <div>
                       <h3 className="text-base font-semibold text-slate-900 sm:text-lg">
                         Question 1
                       </h3>
-                      <div className="mt-2 text-xs font-semibold text-slate-500">
-                        [Maximum mark: 10]
-                      </div>
                     </div>
 
                     {/* Part (a) */}

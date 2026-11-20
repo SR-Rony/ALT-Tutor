@@ -18,7 +18,7 @@ import {
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import { Button } from "@/components/ui/button";
 import { RichTextContent } from "@/components/ui/rich-text-content";
-import { isRichTextEmpty, richTextToPlain } from "@/lib/rich-text";
+import { isRichTextEmpty } from "@/lib/rich-text";
 import { cn, extractNotesParts, extractMarkSchemeParts } from "@/utils";
 import { getInlinePdfUrl } from "@/utils/pdf-viewer";
 import {
@@ -77,6 +77,13 @@ const SIDE_ACTION_CLASS =
 
 const SIDE_LINK_CLASS =
   "flex items-center justify-between gap-2 rounded-md px-3 py-2 text-sm text-muted-foreground transition hover:bg-muted hover:text-primary";
+
+function stripMaximumMark(text?: string | null): string {
+  if (!text) return "";
+  return text
+    .replace(/<p[^>]*>\s*(?:<[^>]+>)*\s*\[\s*Maximum mark:\s*\d+\s*\]\s*(?:<\/[^>]+>)*\s*<\/p>/gi, "")
+    .replace(/\[\s*Maximum mark:\s*\d+\s*\]/gi, "");
+}
 
 function ContentBlock({
   htmlOrText,
@@ -146,29 +153,23 @@ export function StudyQuestionCard({
     Boolean(question.paperMarkSchemeUrl);
   const letters = mcqAnswerLetters(question.options.length, isMcq);
 
-  const maxMarkMatch =
-    contentMode === "rich"
-      ? richTextToPlain(question.body ?? "").match(/\[Maximum mark:\s*(\d+)\]/i)
-      : String(question.body ?? "").match(/\[Maximum mark:\s*(\d+)\]/i);
-  const maxMarks = question.marks ?? (maxMarkMatch ? Number(maxMarkMatch[1]) : null);
   const hasAnswerBar = isMcq && Boolean(onSelectAnswer);
   const badgeClass =
     "rounded bg-primary-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary";
 
+  const cleanPrompt = stripMaximumMark(question.prompt);
+  const cleanBody = question.body ? stripMaximumMark(question.body) : null;
+
   const questionContent = (
     <>
-      {!isMcq && maxMarks != null && maxMarks > 0 ? (
-        <p className="mb-3 text-base text-foreground">[Maximum mark: {maxMarks}]</p>
-      ) : null}
-
       <ContentBlock
-        htmlOrText={question.prompt}
+        htmlOrText={cleanPrompt}
         contentMode={contentMode}
         className="w-full max-w-none text-base leading-relaxed text-foreground"
       />
-      {question.body ? (
+      {cleanBody ? (
         <ContentBlock
-          htmlOrText={question.body}
+          htmlOrText={cleanBody}
           contentMode={contentMode}
           className="mt-2 w-full max-w-none text-base leading-relaxed text-foreground"
         />
@@ -237,7 +238,12 @@ export function StudyQuestionCard({
       {/* Text column = 1232px (max-w-7xl − px-6) − 2px border − 13rem aside − 2×24px padding = 974px.
           The admin question editor is sized to the same width; keep them in sync. */}
       <div className="grid grid-cols-[minmax(0,1fr)] overflow-hidden rounded-xl border border-border/70 bg-card shadow-[0_8px_30px_-14px_rgba(15,23,42,0.16)] lg:grid-cols-[minmax(0,1fr)_13rem]">
-        <article className="flex min-w-0 flex-col">
+        <article
+          className="flex min-w-0 flex-col select-none no-copy-question"
+          onCopy={(e) => e.preventDefault()}
+          onCut={(e) => e.preventDefault()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
           <header className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 border-b border-border/70 px-4 py-2.5 sm:px-6">
             <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               {question.calculatorAllowed === true ? (
@@ -272,7 +278,14 @@ export function StudyQuestionCard({
             </button>
           </header>
 
-          <div className="qb-question-font flex-1 px-4 py-5 sm:px-6 sm:py-6">{questionContent}</div>
+          <div
+            className="qb-question-font flex-1 select-none no-copy-question px-4 py-5 sm:px-6 sm:py-6"
+            onCopy={(e) => e.preventDefault()}
+            onCut={(e) => e.preventDefault()}
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            {questionContent}
+          </div>
 
           {hasAnswerBar ? (
             <div className="flex flex-col gap-3 border-t border-border/70 px-4 py-4 sm:flex-row sm:items-center sm:gap-5 sm:px-6">
@@ -418,7 +431,14 @@ export function StudyQuestionCard({
         onClose={() => setExpanded(false)}
         className="sm:max-w-5xl"
       >
-        <div className="qb-question-font">{questionContent}</div>
+        <div
+          className="qb-question-font select-none no-copy-question"
+          onCopy={(e) => e.preventDefault()}
+          onCut={(e) => e.preventDefault()}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          {questionContent}
+        </div>
       </AdminModal>
 
       <AdminModal
