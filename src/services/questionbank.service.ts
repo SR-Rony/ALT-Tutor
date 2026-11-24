@@ -138,12 +138,13 @@ export const questionbankService = {
     subtopicId: string,
     questions: Partial<CreateQbQuestionInput>[],
     paper?: string,
-    practiceExamId?: string | null
+    practiceExamId?: string | null,
+    pastPaperId?: string | null
   ): Promise<{ imported: number; questions: QbQuestion[] }> {
     return apiClient
       .post<{ imported: number; questions: QbQuestion[] }>(
         `/questionbank/subtopics/${subtopicId}/bulk-questions`,
-        { questions, paper, practiceExamId }
+        { questions, paper, practiceExamId, pastPaperId }
       )
       .then((r) => r.data);
   },

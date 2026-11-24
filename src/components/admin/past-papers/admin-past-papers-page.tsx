@@ -24,10 +24,8 @@ import { AdminIconAction } from "@/components/admin/shared/admin-icon-action";
 import { AdminAddUserButton } from "@/components/admin/shared/admin-add-user-modal";
 import { AdminModal } from "@/components/admin/shared/admin-modal";
 import {
-  isMcqPaper,
   parsePaperNumber,
   paperKey,
-  paperShortLabel,
   resolvePaperConfig,
   resolvePaperTabs,
 } from "@/components/admin/questionbank/qb-admin-shared";
@@ -55,7 +53,7 @@ import { richTextToPlain } from "@/lib/rich-text";
 import { slugify } from "@/lib/slugify";
 import type { ApiError } from "@/types";
 import type { PastPaper, PastPaperSectionInput, PastPaperSourceType } from "@/types/past-paper.types";
-import type { QbAccessBadge, QbPaper, QbPaperConfig, QbQuestion, QbTopic } from "@/types/qb.types";
+import type { QbAccessBadge, QbPaper, QbPaperConfig, QbQuestion } from "@/types/qb.types";
 import { cn } from "@/utils";
 
 type QuestionPickerTab = "selected" | "available";
@@ -142,14 +140,6 @@ function toPickerRow(
 const SOURCE_TYPES: PastPaperSourceType[] = ["INTERACTIVE", "PDF", "HYBRID"];
 const TIERS: QbAccessBadge[] = ["FREE", "GOLD"];
 
-type QbPaperOption = {
-  /** Stored past-paper code, e.g. P1 — matches Questionbank Paper 1 */
-  value: string;
-  number: number;
-  label: string;
-  kind: "MCQ" | "WRITTEN";
-};
-
 /** Rows are h-20; the list shows 5 of them (plus space-y-1 gaps, p-2, border) then scrolls. */
 const PICKER_LIST_CLASS =
   "max-h-[calc(5*5rem+4*0.25rem+1rem+2px)] space-y-1 overflow-y-auto overscroll-contain rounded-xl border border-border p-2";
@@ -216,48 +206,6 @@ function paperCodeFromNumber(n: number) {
 /** Normalize legacy values (P1, PAPER_1, "1", "Paper 1") → Pn */
 function normalizePastPaperCode(raw: string | null | undefined): string {
   return paperCodeFromNumber(parsePaperNumber(raw));
-}
-
-/**
- * Build paper options from Questionbank study-set paperCount / paperConfig / questions,
- * so Past Papers shows the same numbers and names as Questionbank.
- */
-function buildQbPaperOptions(topics: QbTopic[]): QbPaperOption[] {
-  let maxN = 0;
-  const mergedConfig: QbPaperConfig = {};
-
-  for (const topic of topics) {
-    for (const sub of topic.subtopics ?? []) {
-      const count = Math.max(1, sub.paperCount ?? 0);
-      maxN = Math.max(maxN, count);
-      const resolved = resolvePaperConfig(sub.paperCount, sub.paperConfig);
-      for (const [key, entry] of Object.entries(resolved)) {
-        const n = parsePaperNumber(key);
-        maxN = Math.max(maxN, n);
-        const pk = paperKey(n);
-        if (!mergedConfig[pk] || (entry.label?.trim() && entry.label !== `Paper ${n}`)) {
-          mergedConfig[pk] = entry;
-        }
-      }
-      for (const q of sub.questions ?? []) {
-        maxN = Math.max(maxN, parsePaperNumber(String(q.paper)));
-      }
-    }
-  }
-
-  if (maxN < 1) maxN = 3;
-  const config = resolvePaperConfig(maxN, mergedConfig);
-  const options: QbPaperOption[] = [];
-  for (let n = 1; n <= maxN; n += 1) {
-    const key = paperKey(n);
-    options.push({
-      value: paperCodeFromNumber(n),
-      number: n,
-      label: paperShortLabel(key, config),
-      kind: isMcqPaper(key, config) ? "MCQ" : "WRITTEN",
-    });
-  }
-  return options;
 }
 
 function sourceLabel(type: PastPaperSourceType) {
@@ -492,24 +440,6 @@ export function AdminPastPapersPage({
       selectedQuestionIds.some((id, i) => id !== initialQuestionIds[i]));
 
   const selectedTopic = qbTopics.find((t) => t.id === topicId);
-  const qbPaperOptions = useMemo(() => buildQbPaperOptions(qbTopics), [qbTopics]);
-  const paperOptionsForMode = useMemo(() => {
-    const matched = qbPaperOptions.filter((p) =>
-      questionMode === "MCQ" ? p.kind === "MCQ" : p.kind === "WRITTEN"
-    );
-    return matched.length > 0 ? matched : qbPaperOptions;
-  }, [qbPaperOptions, questionMode]);
-
-  useEffect(() => {
-    if (!modalOpen || paperOptionsForMode.length === 0) return;
-    const normalized = normalizePastPaperCode(paperCode);
-    const stillValid = paperOptionsForMode.some((p) => p.value === normalized);
-    if (!stillValid) {
-      setPaperCode(paperOptionsForMode[0]!.value);
-      return;
-    }
-    if (paperCode !== normalized) setPaperCode(normalized);
-  }, [modalOpen, paperOptionsForMode, paperCode]);
 
   const subtopicOptions = useMemo(() => {
     if (topicId && selectedTopic) {
@@ -719,12 +649,16 @@ export function AdminPastPapersPage({
     setEditId(null);
     setEditMeta({ isPublished: false, attemptCount: 0 });
     setInitialQuestionIds([]);
-    setQuestionMode(preset?.mode ?? "MCQ");
-    setYear(String(new Date().getFullYear() - 1));
-    setSession("Annual");
-    setPaperCode("");
-    setTitle("");
-    setSlug("");
+    const initialMode = preset?.mode ?? "MCQ";
+    setQuestionMode(initialMode);
+    const curYear = String(new Date().getFullYear());
+    setYear(curYear);
+    setSession("May/June");
+    const initialCode = initialMode === "WRITTEN" ? "Paper 2" : "Paper 1";
+    setPaperCode(initialCode);
+    const initialTitle = `May/June ${curYear} ${initialCode}`;
+    setTitle(initialTitle);
+    setSlug(slugify(initialTitle));
     setDescription("");
     setDurationMin("60");
     setSourceType("INTERACTIVE");
@@ -795,23 +729,10 @@ export function AdminPastPapersPage({
     }
     if (!effectiveModalProgramId) return "Select a curriculum, subject, and program";
     if (selectedQuestionIds.length < 1) {
-      return `Select at least one ${modeLabel(questionMode)} question from the Questionbank`;
+      return "Select or upload at least one question for this past paper";
     }
     if (selectedQuestions.length !== selectedQuestionIds.length) {
       return `Only ${modeLabel(questionMode)} questions can be used on this paper. Remove mismatched questions.`;
-    }
-    const yearNum = Number.parseInt(year, 10);
-    const sessionKey = session.trim().toLowerCase();
-    const codeKey = normalizePastPaperCode(paperCode).toLowerCase();
-    const duplicate = papers.some(
-      (p) =>
-        p.id !== editId &&
-        p.year === yearNum &&
-        p.session.trim().toLowerCase() === sessionKey &&
-        normalizePastPaperCode(p.paperCode).toLowerCase() === codeKey
-    );
-    if (duplicate) {
-      return "A past paper already exists for this Year + Session + Paper code. Pick another paper or change year/session.";
     }
     return null;
   };
@@ -851,7 +772,7 @@ export function AdminPastPapersPage({
     const payload = {
       year: Number.parseInt(year, 10),
       session: session.trim(),
-      paperCode: normalizePastPaperCode(paperCode),
+      paperCode: paperCode.trim(),
       title: title.trim(),
       slug: slug.trim(),
       description: description.trim(),
@@ -1214,11 +1135,7 @@ export function AdminPastPapersPage({
                             <div className="flex flex-wrap items-center gap-2">
                               <p className="font-semibold text-foreground">{item.title}</p>
                               <span className="rounded-md bg-primary-muted px-1.5 py-0.5 text-[10px] font-bold uppercase text-primary">
-                                {(() => {
-                                  const code = normalizePastPaperCode(item.paperCode);
-                                  const opt = qbPaperOptions.find((o) => o.value === code);
-                                  return opt ? `${opt.number}. ${opt.label}` : item.paperCode;
-                                })()}
+                                {item.paperCode}
                               </span>
                               <span
                                 className={cn(
@@ -1588,11 +1505,7 @@ export function AdminPastPapersPage({
             ? `Edit ${modeLabel(questionMode)} past paper`
             : `Create ${modeLabel(questionMode)} past paper`
         }
-        description={
-          questionMode === "WRITTEN"
-            ? "Pick SHORT ANSWER / DATA questions from Questionbank. Students will view them in Past Papers."
-            : "Pick MCQ questions from Questionbank. Students will view them in Past Papers."
-        }
+        description="Add and organize questions for this past paper. Uploaded questions are exclusive to Past Papers."
         onClose={() => !busy && setModalOpen(false)}
         className="sm:max-w-4xl"
         footer={
@@ -1668,7 +1581,7 @@ export function AdminPastPapersPage({
 
           <div className="space-y-3 rounded-xl border border-border bg-muted/20 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Questionbank scope
+              Scope
             </p>
             {useLinkedOnly ? (
               <label className="block max-w-md space-y-1.5">
@@ -1821,25 +1734,32 @@ export function AdminPastPapersPage({
               />
             </label>
             <label className="block space-y-1.5">
-              <span className="text-sm font-semibold">Paper code</span>
-              <select
-                value={normalizePastPaperCode(paperCode)}
+              <span className="text-sm font-semibold">Paper code / Variant</span>
+              <Input
+                value={paperCode}
                 onChange={(e) => setPaperCode(e.target.value)}
-                className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-              >
-                {paperOptionsForMode.length === 0 ? (
-                  <option value="">No papers in Questionbank</option>
-                ) : (
-                  paperOptionsForMode.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.number}. {opt.label}
-                      {opt.kind === "MCQ" ? " (MCQ)" : " (Written)"}
-                    </option>
-                  ))
-                )}
-              </select>
+                placeholder="e.g. Paper 1, Paper 2, Variant 12, P22"
+                list="past-paper-code-presets"
+              />
+              <datalist id="past-paper-code-presets">
+                <option value="Paper 1" />
+                <option value="Paper 2" />
+                <option value="Paper 3" />
+                <option value="Paper 4" />
+                <option value="Paper 5" />
+                <option value="Paper 6" />
+                <option value="Variant 11" />
+                <option value="Variant 12" />
+                <option value="Variant 21" />
+                <option value="Variant 22" />
+                <option value="Variant 23" />
+                <option value="Paper 1 Variant 11" />
+                <option value="Paper 1 Variant 12" />
+                <option value="Paper 2 Variant 21" />
+                <option value="Paper 2 Variant 22" />
+              </datalist>
               <p className="text-xs text-muted-foreground">
-                Same paper numbers and names as Questionbank for this program.
+                Enter paper code or variant (e.g. Paper 1, Paper 2 Variant 12, P22).
               </p>
             </label>
             <label className="block space-y-1.5">
@@ -2108,22 +2028,15 @@ export function AdminPastPapersPage({
             : paperKey(parsePaperNumber(paperCode))
         }
         lockedKind={dropdownActionPaper ? (dropdownActionPaper.questionMode === "WRITTEN" ? "WRITTEN" : "MCQ") : questionMode}
-        description="Saved to the chosen Questionbank study set and added to this past paper."
+        pastPaperId={dropdownActionPaper ? dropdownActionPaper.id : (editId || "past-paper")}
+        description="Saved exclusively for this past paper. Will not appear in Questionbank."
         header={
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Save to study set</span>
-            <select
-              value={newQuestionSubtopicId}
-              onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
-              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-            >
-              {newQuestionStudySets.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-900">
+            <span className="font-semibold">Past Paper Exclusive Question</span>
+            <p className="mt-0.5 text-[11px] text-blue-700">
+              This question will be saved only for this past paper and will not show up in the Questionbank.
+            </p>
+          </div>
         }
         onSaved={async (saved) => {
           setNewQuestionOpen(false);
@@ -2193,21 +2106,14 @@ export function AdminPastPapersPage({
         paperTabs={newQuestionStudySet?.paperTabs ?? ["PAPER_1", "PAPER_2"]}
         paperConfig={newQuestionStudySet?.paperConfig ?? {}}
         lockedKind={dropdownActionPaper ? (dropdownActionPaper.questionMode === "WRITTEN" ? "WRITTEN" : "MCQ") : questionMode}
+        pastPaperId={dropdownActionPaper ? dropdownActionPaper.id : (editId || "past-paper")}
         header={
-          <label className="block space-y-1.5">
-            <span className="text-sm font-semibold">Save questions to study set</span>
-            <select
-              value={newQuestionSubtopicId}
-              onChange={(e) => setNewQuestionSubtopicId(e.target.value)}
-              className="flex h-10 w-full rounded-xl border border-border bg-card px-3 text-sm"
-            >
-              {newQuestionStudySets.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </label>
+          <div className="rounded-xl border border-blue-200 bg-blue-50/70 p-3 text-xs text-blue-900">
+            <span className="font-semibold">Past Paper Exclusive Questions</span>
+            <p className="mt-0.5 text-[11px] text-blue-700">
+              Questions imported here will belong exclusively to this past paper and will NOT appear in Questionbank.
+            </p>
+          </div>
         }
         onSuccess={async (_count, createdIds) => {
           setPdfImportOpen(false);
@@ -2274,7 +2180,8 @@ export function AdminPastPapersPage({
         paperConfig={editingQuestionRow?.paperConfig ?? newQuestionStudySet?.paperConfig ?? {}}
         paperTabs={editingQuestionRow?.paperTabs ?? newQuestionStudySet?.paperTabs ?? []}
         lockedKind={editingQuestionRow?.raw?.questionType === "MULTIPLE_CHOICE" ? "MCQ" : "WRITTEN"}
-        description="Edit this question. All Questionbank features (Prompt, Marks, Options, Mark Scheme, Video Solution, Notes, Diagram) are saved to Questionbank and updated in this past paper."
+        pastPaperId={editingQuestionRow?.raw?.pastPaperId ?? (dropdownActionPaper ? dropdownActionPaper.id : "past-paper")}
+        description="Edit this question for this past paper."
         onSaved={() => {
           setEditingQuestionRow(null);
           void refetchQbTopics();

@@ -45,6 +45,7 @@ export type CreateQbQuestionInput = {
   videoUrl?: string | null;
   notes?: string | null;
   practiceExamId?: string | null;
+  pastPaperId?: string | null;
   order?: number;
   isActive?: boolean;
 };

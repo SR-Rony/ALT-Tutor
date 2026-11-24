@@ -218,12 +218,14 @@ export function useBulkCreateQbQuestions() {
       questions,
       paper,
       practiceExamId,
+      pastPaperId,
     }: {
       subtopicId: string;
       questions: Partial<CreateQbQuestionInput>[];
       paper?: string;
       practiceExamId?: string | null;
-    }) => questionbankService.bulkCreateQuestions(subtopicId, questions, paper, practiceExamId),
+      pastPaperId?: string | null;
+    }) => questionbankService.bulkCreateQuestions(subtopicId, questions, paper, practiceExamId, pastPaperId),
     onSuccess: invalidate,
   });
 }

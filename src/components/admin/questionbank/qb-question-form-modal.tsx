@@ -49,6 +49,7 @@ type Props = {
   /** Rendered above the fields, e.g. a study set picker. */
   header?: ReactNode;
   practiceExamId?: string | null;
+  pastPaperId?: string | null;
   onSaved?: (saved: QbSavedQuestion) => void;
 };
 
@@ -64,6 +65,7 @@ export function QbQuestionFormModal({
   description = "Questions appear on the student study page for this paper.",
   header,
   practiceExamId,
+  pastPaperId,
   onSaved,
 }: Props) {
   const createQuestion = useCreateQbQuestion();
@@ -265,6 +267,7 @@ export function QbQuestionFormModal({
       diagramUrl: diagramUrl.trim() || null,
       videoUrl: videoUrl.trim() || null,
       practiceExamId: practiceExamId !== undefined ? practiceExamId : question?.practiceExamId ?? null,
+      pastPaperId: pastPaperId !== undefined ? pastPaperId : question?.pastPaperId ?? null,
     };
 
     try {

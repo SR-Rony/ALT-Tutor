@@ -25,6 +25,7 @@ export interface QbQuestion {
   videoUrl?: string | null;
   notes?: string | null;
   practiceExamId?: string | null;
+  pastPaperId?: string | null;
   order: number;
   isActive: boolean;
   subtopicId: string;
