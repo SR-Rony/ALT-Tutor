@@ -43,6 +43,8 @@ import {
   useAdminSubjectsTree,
   useCourseUsedQuestions,
   useCreatePastPaper,
+  useCreateQbSubtopic,
+  useCreateQbTopic,
   useDeletePastPaper,
   useDeleteQbQuestion,
   useUpdatePastPaper,
@@ -356,6 +358,8 @@ export function AdminPastPapersPage({
   const createPaper = useCreatePastPaper();
   const updatePaper = useUpdatePastPaper();
   const deletePaper = useDeletePastPaper();
+  const createQbTopicMutation = useCreateQbTopic();
+  const createQbSubtopicMutation = useCreateQbSubtopic();
 
   const papers = useMemo(() => data?.papers ?? [], [data?.papers]);
 
@@ -387,6 +391,7 @@ export function AdminPastPapersPage({
   const [dropdownActionPaper, setDropdownActionPaper] = useState<PastPaper | null>(null);
   const [editingQuestionRow, setEditingQuestionRow] = useState<PickerQuestionRow | null>(null);
   const [questionToDelete, setQuestionToDelete] = useState<PickerQuestionRow | null>(null);
+  const [extraQuestions, setExtraQuestions] = useState<Map<string, PickerQuestionRow>>(new Map());
 
   const deleteQbQuestion = useDeleteQbQuestion();
 
@@ -505,12 +510,84 @@ export function AdminPastPapersPage({
     usedQuestionIds,
   ]);
 
+  // Past papers only accept questions from active study sets, so new questions only go into those.
+  const newQuestionStudySets = useMemo(
+    () =>
+      qbTopics
+        .filter((t) => t.isActive)
+        .flatMap((t) =>
+          t.subtopics
+            .filter((s) => s.isActive)
+            .map((s) => ({
+              id: s.id,
+              topicId: t.id,
+              label: `${richTextToPlain(t.title) || t.title} · ${richTextToPlain(s.title) || s.title}`,
+              paperConfig: resolvePaperConfig(s.paperCount, s.paperConfig),
+              paperTabs: resolvePaperTabs(s.paperCount, s.questions),
+            }))
+        ),
+    [qbTopics]
+  );
+  const effectiveNewQuestionSubtopicId =
+    newQuestionSubtopicId ||
+    newQuestionStudySets.find((s) => s.id === subtopicId)?.id ||
+    newQuestionStudySets[0]?.id ||
+    "";
+  const newQuestionStudySet =
+    newQuestionStudySets.find((s) => s.id === effectiveNewQuestionSubtopicId) ??
+    newQuestionStudySets[0];
+
   const selectedQuestions = useMemo(() => {
     const byId = new Map(allModeQuestions.map((q) => [q.id, q]));
-    return selectedQuestionIds
-      .map((id) => byId.get(id))
-      .filter((q): q is PickerQuestionRow => Boolean(q));
-  }, [allModeQuestions, selectedQuestionIds]);
+    for (const [id, q] of extraQuestions.entries()) {
+      if (!byId.has(id)) byId.set(id, q);
+    }
+    // Also scan all papers in memory as fallback
+    for (const p of papers) {
+      for (const s of p.sections ?? []) {
+        for (const it of s.items ?? []) {
+          if (it.question && !byId.has(it.questionId)) {
+            byId.set(
+              it.questionId,
+              toPickerRow(it.question as unknown as QuestionRowSource, effectiveNewQuestionSubtopicId)
+            );
+          }
+        }
+      }
+    }
+    return selectedQuestionIds.map((id, idx) => {
+      const found = byId.get(id);
+      if (found) return found;
+      // Synthetic fallback so question object is preserved and visible in Selected list
+      return {
+        id,
+        number: idx + 1,
+        prompt: `Question ${idx + 1}`,
+        difficulty: "MEDIUM",
+        paper: questionMode === "WRITTEN" ? "PAPER_2" : "PAPER_1",
+        questionType: questionMode === "WRITTEN" ? "SHORT_ANSWER" : "MULTIPLE_CHOICE",
+        marks: 1,
+        options: [],
+        topicTitle: "Past Paper",
+        subtopicTitle: "Exclusive Question",
+        subtopicId: effectiveNewQuestionSubtopicId,
+        paperConfig: {},
+        paperTabs: [],
+        raw: {
+          id,
+          number: idx + 1,
+          prompt: `Question ${idx + 1}`,
+          questionType: questionMode === "WRITTEN" ? "SHORT_ANSWER" : "MULTIPLE_CHOICE",
+          difficulty: "MEDIUM",
+          paper: questionMode === "WRITTEN" ? "PAPER_2" : "PAPER_1",
+          marks: 1,
+          options: [],
+          isActive: true,
+          subtopicId: effectiveNewQuestionSubtopicId,
+        } as unknown as QbQuestion,
+      };
+    });
+  }, [allModeQuestions, selectedQuestionIds, extraQuestions, papers, questionMode, effectiveNewQuestionSubtopicId]);
 
   const filteredPapers = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -600,33 +677,6 @@ export function AdminPastPapersPage({
     setPickerTab("available");
   };
 
-  // Past papers only accept questions from active study sets, so new questions only go into those.
-  const newQuestionStudySets = useMemo(
-    () =>
-      qbTopics
-        .filter((t) => t.isActive)
-        .flatMap((t) =>
-          t.subtopics
-            .filter((s) => s.isActive)
-            .map((s) => ({
-              id: s.id,
-              topicId: t.id,
-              label: `${richTextToPlain(t.title) || t.title} · ${richTextToPlain(s.title) || s.title}`,
-              paperConfig: resolvePaperConfig(s.paperCount, s.paperConfig),
-              paperTabs: resolvePaperTabs(s.paperCount, s.questions),
-            }))
-        ),
-    [qbTopics]
-  );
-  const effectiveNewQuestionSubtopicId =
-    newQuestionSubtopicId ||
-    newQuestionStudySets.find((s) => s.id === subtopicId)?.id ||
-    newQuestionStudySets[0]?.id ||
-    "";
-  const newQuestionStudySet =
-    newQuestionStudySets.find((s) => s.id === effectiveNewQuestionSubtopicId) ??
-    newQuestionStudySets[0];
-
   useEffect(() => {
     if (!modalOpen && !dropdownActionPaper) {
       setNewQuestionOpen(false);
@@ -634,15 +684,95 @@ export function AdminPastPapersPage({
     }
   }, [modalOpen, dropdownActionPaper]);
 
-  const openNewQuestion = () => {
-    const preferred =
-      newQuestionStudySets.find((s) => s.id === subtopicId) ??
-      newQuestionStudySets.find((s) => topicId && s.topicId === topicId) ??
-      newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId) ??
-      newQuestionStudySets[0];
-    if (!preferred) return;
-    setNewQuestionSubtopicId(preferred.id);
+  const [isProvisioningStudySet, setIsProvisioningStudySet] = useState(false);
+
+  const ensureStudySetForProgram = async (targetProgramId: string): Promise<string> => {
+    // If a study set already exists in loaded qbTopics for this program, use it
+    const existing = newQuestionStudySets[0]?.id;
+    if (existing) return existing;
+
+    setIsProvisioningStudySet(true);
+    try {
+      // Find or create topic
+      let activeTopicId = qbTopics.find((t) => t.programId === targetProgramId && t.isActive)?.id;
+      if (!activeTopicId) {
+        const createdTopic = (await createQbTopicMutation.mutateAsync({
+          programId: targetProgramId,
+          title: "Past Papers Repository",
+          slug: `past-papers-repo-${Date.now().toString().slice(-4)}`,
+          description: "Default topic for past paper questions",
+          isActive: true,
+        })) as { id: string };
+        activeTopicId = createdTopic?.id;
+      }
+
+      if (!activeTopicId) {
+        throw new Error("Failed to find or create parent topic for study set");
+      }
+
+      // Create subtopic
+      const newSub = (await createQbSubtopicMutation.mutateAsync({
+        topicId: activeTopicId,
+        title: "Paper Questions",
+        slug: `paper-questions-${Date.now().toString().slice(-4)}`,
+        paperCount: 3,
+      })) as { id: string };
+
+      await refetchQbTopics();
+      setNewQuestionSubtopicId(newSub.id);
+      return newSub.id;
+    } catch (err) {
+      console.error("Failed to provision default study set for past paper:", err);
+      return "";
+    } finally {
+      setIsProvisioningStudySet(false);
+    }
+  };
+
+  const openNewQuestion = async () => {
+    let subId =
+      newQuestionStudySets.find((s) => s.id === subtopicId)?.id ??
+      newQuestionStudySets.find((s) => topicId && s.topicId === topicId)?.id ??
+      newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId)?.id ??
+      newQuestionStudySets[0]?.id;
+
+    if (!subId) {
+      const progId = dropdownActionPaper?.programId || effectiveModalProgramId || effectiveProgramId;
+      if (progId) {
+        subId = await ensureStudySetForProgram(progId);
+      }
+    }
+
+    if (!subId) {
+      setActionError("Could not initialize a study set for questions. Please try again.");
+      return;
+    }
+
+    setNewQuestionSubtopicId(subId);
     setNewQuestionOpen(true);
+  };
+
+  const openPdfImport = async () => {
+    let subId =
+      newQuestionStudySets.find((s) => s.id === subtopicId)?.id ??
+      newQuestionStudySets.find((s) => topicId && s.topicId === topicId)?.id ??
+      newQuestionStudySets.find((s) => s.id === newQuestionSubtopicId)?.id ??
+      newQuestionStudySets[0]?.id;
+
+    if (!subId) {
+      const progId = dropdownActionPaper?.programId || effectiveModalProgramId || effectiveProgramId;
+      if (progId) {
+        subId = await ensureStudySetForProgram(progId);
+      }
+    }
+
+    if (!subId) {
+      setActionError("Could not initialize a study set for questions. Please try again.");
+      return;
+    }
+
+    setNewQuestionSubtopicId(subId);
+    setPdfImportOpen(true);
   };
 
   const resetForm = (preset?: { mode?: PastPaperQuestionMode }) => {
@@ -698,6 +828,21 @@ export function AdminPastPapersPage({
       attemptCount: item.attemptCount ?? 0,
     });
     setInitialQuestionIds(orderedIds);
+    // Index existing questions from this paper into extraQuestions map so they resolve immediately
+    setExtraQuestions((prev) => {
+      const next = new Map(prev);
+      for (const section of item.sections ?? []) {
+        for (const it of section.items ?? []) {
+          if (it.question) {
+            next.set(
+              it.questionId,
+              toPickerRow(it.question as unknown as QuestionRowSource, effectiveNewQuestionSubtopicId)
+            );
+          }
+        }
+      }
+      return next;
+    });
     setQuestionMode(item.questionMode === "WRITTEN" ? "WRITTEN" : "MCQ");
     setYear(String(item.year));
     setSession(item.session);
@@ -731,7 +876,10 @@ export function AdminPastPapersPage({
     if (selectedQuestionIds.length < 1) {
       return "Select or upload at least one question for this past paper";
     }
-    if (selectedQuestions.length !== selectedQuestionIds.length) {
+    const mismatched = selectedQuestions.some(
+      (q) => !isAllowedForMode(questionMode, q.questionType)
+    );
+    if (mismatched) {
       return `Only ${modeLabel(questionMode)} questions can be used on this paper. Remove mismatched questions.`;
     }
     return null;
@@ -1851,17 +1999,15 @@ export function AdminPastPapersPage({
             ) : null}
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed border-border px-3 py-2.5">
               <p className="text-xs text-muted-foreground">
-                {newQuestionStudySets.length === 0
-                  ? "Add a Questionbank study set to this program to create or import questions here."
-                  : "Need questions that aren’t in Questionbank? Create directly or import from Word, PDF, or Text."}
+                Need questions that aren’t in Questionbank? Create directly or import from Word, PDF, or Text.
               </p>
               <div className="flex flex-wrap items-center gap-2">
                 <Button
                   type="button"
                   size="sm"
                   variant="outline"
-                  disabled={busy || newQuestionStudySets.length === 0}
-                  onClick={() => setPdfImportOpen(true)}
+                  disabled={busy || isProvisioningStudySet}
+                  onClick={openPdfImport}
                 >
                   <Upload className="mr-1.5 h-3.5 w-3.5" />
                   Import (Word / PDF / Text)
@@ -1869,7 +2015,7 @@ export function AdminPastPapersPage({
                 <Button
                   type="button"
                   size="sm"
-                  disabled={busy || newQuestionStudySets.length === 0}
+                  disabled={busy || isProvisioningStudySet}
                   onClick={openNewQuestion}
                 >
                   <Plus className="mr-1.5 h-3.5 w-3.5" />
@@ -2084,6 +2230,11 @@ export function AdminPastPapersPage({
             }
             setDropdownActionPaper(null);
           } else {
+            setExtraQuestions((prev) => {
+              const next = new Map(prev);
+              next.set(saved.id, toPickerRow(saved as unknown as QuestionRowSource, effectiveNewQuestionSubtopicId));
+              return next;
+            });
             addQuestion(saved.id);
             setPickerTab("selected");
           }
